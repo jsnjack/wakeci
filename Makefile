@@ -1,0 +1,25 @@
+BINARY:=npci
+PWD:=$(shell pwd)
+VERSION=0.0.0
+MONOVA:=$(shell which monova dot 2> /dev/null)
+
+version:
+ifdef MONOVA
+override VERSION="$(shell monova)"
+else
+	$(info "Install monova (https://github.com/jsnjack/monova) to calculate version")
+endif
+
+.ONESHELL:
+src/backend/npci: version src/backend/*.go
+	cd src/backend
+	dep ensure
+	go build -ldflags="-X main.Version=${VERSION}" -o ${BINARY}
+
+run_frontend:
+	cd src/frontend && npm run serve
+
+run_backend: src/backend/npci
+	./src/backend/npci
+
+.PHONY: run_backend run_frontend version
