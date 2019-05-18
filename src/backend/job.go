@@ -9,7 +9,14 @@ import (
 
 // Job represents Job
 type Job struct {
-	Name string `yaml:"name" json:"name"`
+	Name  string  `yaml:"name" json:"name"`
+	Tasks []*Task `yaml:"tasks"`
+}
+
+// Task ...
+type Task struct {
+	Name    string `yaml:"name"`
+	Command string `yaml:"command"`
 }
 
 // ReadJob reads job from a file

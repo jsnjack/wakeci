@@ -7,5 +7,11 @@ import (
 )
 
 func handleJobRun(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	Logger.Println(ps)
+	job, err := ReadJob(WorkingDir + "/" + ps.ByName("name") + ".yaml")
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	exec := CreateExecutor(job)
+	go exec.Start()
 }

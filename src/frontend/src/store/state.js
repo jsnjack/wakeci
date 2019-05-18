@@ -6,6 +6,7 @@ const state = {
         reconnectTimeout: 1000, // ms
     },
     jobs: [],
+    feed: [],
     api: {
         baseURL: process.env.API_ENDPOINT || "http://localhost:8080/api",
     },

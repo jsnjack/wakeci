@@ -1,15 +1,32 @@
 <template>
 <div>
-    <h1>Feed</h1>
-    <ul>
-        <li>Empty</li>
-    </ul>
+    <table>
+        <thead>
+            <td>Name</td>
+            <td>ID</td>
+            <td>Tasks</td>
+            <td>Status</td>
+        </thead>
+        <FeedUpdateComp v-for="item in feed"
+            :key="item.id"
+            :feed="item">
+        </FeedUpdateComp>
+    </table>
+    <p v-show="feed.length === 0">Empty</p>
 </div>
 </template>
 
 <script>
+import vuex from "vuex";
+import FeedUpdateComp from "@/components/FeedUpdateComp.vue";
+
 export default {
-    name: "FeedComp",
+    components: {FeedUpdateComp},
+    computed: {
+        ...vuex.mapState([
+            "feed",
+        ]),
+    },
 };
 </script>
 

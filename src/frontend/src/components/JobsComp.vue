@@ -1,6 +1,5 @@
 <template>
 <div>
-    <h1>Jobs</h1>
     <table>
         <thead>
             <td>Name</td>
@@ -11,7 +10,6 @@
             :job="item">
         </JobComp>
     </table>
-
     <p v-show="jobs.length === 0">Empty</p>
 </div>
 </template>
