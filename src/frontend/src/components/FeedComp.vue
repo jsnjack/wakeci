@@ -9,7 +9,7 @@
 
 <script>
 export default {
-  name: 'FeedComp',
+    name: "FeedComp",
 };
 </script>
 

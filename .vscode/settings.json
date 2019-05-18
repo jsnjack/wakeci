@@ -1,0 +1,9 @@
+{
+    "eslint.autoFixOnSave": true,
+    "eslint.validate": [
+        "javascriptreact",
+        { "language": "vue", "autoFix": true },
+        { "language": "javascript", "autoFix": true }
+    ],
+    "editor.detectIndentation": false
+}

@@ -24,9 +24,18 @@ func init() {
 }
 
 func main() {
-	Logger.Printf("Listening on port %s...\n", *PortFlag)
-	err := http.ListenAndServe(":"+*PortFlag, nil)
-	if err != nil {
-		Logger.Fatal(err)
-	}
+	go func() {
+		// Websocket section
+		http.HandleFunc("/ws", handleWSConnection)
+
+		go BroadcastMessages()
+
+		Logger.Println("Starting ws server on port " + *PortFlag)
+		err := http.ListenAndServe(":"+*PortFlag, nil)
+		if err != nil {
+			log.Fatal("ListenAndServe: ", err)
+		}
+	}()
+
+	select {}
 }
