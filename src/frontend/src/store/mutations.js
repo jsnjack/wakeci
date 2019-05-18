@@ -6,6 +6,9 @@ const mutations = {
     WS_DISCONNECTED(state) {
         state.ws.connected = false;
     },
+    WS_MSG_JOBS_LIST(state, data) {
+        state.jobs = data;
+    },
 };
 
 export default mutations;

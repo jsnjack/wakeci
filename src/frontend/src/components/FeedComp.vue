@@ -2,7 +2,7 @@
 <div>
     <h1>Feed</h1>
     <ul>
-        <li>List of recent events</li>
+        <li>Empty</li>
     </ul>
 </div>
 </template>

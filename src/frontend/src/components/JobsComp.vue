@@ -1,15 +1,32 @@
 <template>
 <div>
     <h1>Jobs</h1>
-    <ul>
-        <li>List of jobs</li>
-    </ul>
+    <table>
+        <thead>
+            <td>Name</td>
+            <td>Actions</td>
+        </thead>
+        <JobComp v-for="item in jobs"
+            :key="item.name"
+            :job="item">
+        </JobComp>
+    </table>
+
+    <p v-show="jobs.length === 0">Empty</p>
 </div>
 </template>
 
 <script>
+import vuex from "vuex";
+import JobComp from "@/components/JobComp";
+
 export default {
-    name: "JobsComp",
+    components: {JobComp},
+    computed: {
+        ...vuex.mapState([
+            "jobs",
+        ]),
+    },
 };
 </script>
 

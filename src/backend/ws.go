@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
+	"github.com/julienschmidt/httprouter"
 )
 
 // List of connected clients
@@ -31,7 +32,7 @@ func BroadcastMessages() {
 	}
 }
 
-func handleWSConnection(w http.ResponseWriter, r *http.Request) {
+func handleWSConnection(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	// Upgrade initial GET request to a websocket
 	Logger.Println("New ws connection")
 	ws, err := upgrader.Upgrade(w, r, nil)
@@ -46,6 +47,8 @@ func handleWSConnection(w http.ResponseWriter, r *http.Request) {
 		ws.Close()
 		removeConnection(ws)
 	}()
+
+	ws.WriteMessage(websocket.TextMessage, *GenerateWelcomeMessage())
 
 	for {
 		var msg interface{}

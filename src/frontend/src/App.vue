@@ -10,6 +10,7 @@
 
 <script>
 import vuex from "vuex";
+import wsMessageHandler from "./store/communication";
 
 export default {
     mounted() {

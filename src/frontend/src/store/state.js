@@ -5,6 +5,10 @@ const state = {
         connected: false,
         reconnectTimeout: 1000, // ms
     },
+    jobs: [],
+    api: {
+        baseURL: process.env.API_ENDPOINT || "http://localhost:8080/api",
+    },
 };
 
 export default state;
