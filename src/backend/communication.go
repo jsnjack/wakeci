@@ -2,13 +2,19 @@ package main
 
 import (
 	"encoding/json"
-	"path/filepath"
+
+	bolt "github.com/boltdb/bolt"
 )
 
 // MsgJobsList ...
 type MsgJobsList struct {
-	Type string `json:"type"`
-	Data []*Job `json:"data"`
+	Type string          `json:"type"`
+	Data []*JobsListData `json:"data"`
+}
+
+// JobsListData ...
+type JobsListData struct {
+	Name string `json:"name"`
 }
 
 // MsgFeedUpdate ...
@@ -26,17 +32,20 @@ type FeedUpdateData struct {
 	DoneTasks  int            `json:"done_tasks"`
 }
 
-// GenerateWelcomeMessage returns the message with the list of available jobs
-func GenerateWelcomeMessage() *[]byte {
+// GetAllJobsMessage returns the message with the list of available jobs
+func GetAllJobsMessage() *[]byte {
 	msg := MsgJobsList{Type: "jobs:list"}
-	files, _ := filepath.Glob(WorkingDir + "*.yaml")
-	for _, f := range files {
-		job, err := ReadJob(f)
-		if err != nil {
-			Logger.Println(err)
-		} else {
-			msg.Data = append(msg.Data, job)
+	err := DB.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(JobsBucket))
+		c := b.Cursor()
+		for k, _ := c.First(); k != nil; k, _ = c.Next() {
+			job := JobsListData{Name: string(k)}
+			msg.Data = append(msg.Data, &job)
 		}
+		return nil
+	})
+	if err != nil {
+		Logger.Println(err)
 	}
 	msgB, _ := json.Marshal(msg)
 	return &msgB

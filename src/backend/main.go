@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 
+	bolt "github.com/boltdb/bolt"
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -21,6 +22,9 @@ var Version string
 // WorkingDir is a working directory which contains all jobs
 const WorkingDir = "/home/jsn/workspace/npci/test_wd/"
 
+// DB is the Bolt db
+var DB *bolt.DB
+
 func init() {
 	PortFlag = flag.String("port", "8081", "Port to start the server on")
 	flag.Parse()
@@ -29,6 +33,28 @@ func init() {
 }
 
 func main() {
+	var err error
+	DB, err = bolt.Open(WorkingDir+"npci.db", 0644, nil)
+	if err != nil {
+		Logger.Fatal(err)
+	}
+	defer DB.Close()
+
+	// Bootstrap DB
+	err = DB.Update(func(tx *bolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists(JobsBucket)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	if err != nil {
+		Logger.Fatal(err)
+	}
+
+	ScanAllJobs()
+
 	go func() {
 		// Websocket section
 		router := httprouter.New()

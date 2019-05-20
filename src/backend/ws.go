@@ -48,7 +48,8 @@ func handleWSConnection(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 		removeConnection(ws)
 	}()
 
-	ws.WriteMessage(websocket.TextMessage, *GenerateWelcomeMessage())
+	// Send information about all available jobs
+	ws.WriteMessage(websocket.TextMessage, *GetAllJobsMessage())
 
 	for {
 		var msg interface{}

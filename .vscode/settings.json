@@ -5,5 +5,7 @@
         { "language": "vue", "autoFix": true },
         { "language": "javascript", "autoFix": true }
     ],
-    "editor.detectIndentation": false
+    "editor.detectIndentation": false,
+    "go.autocompleteUnimportedPackages": true,
+    "go.gopath": "~/workspace/npci/",
 }

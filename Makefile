@@ -16,10 +16,10 @@ src/backend/npci: version src/backend/*.go
 	dep ensure
 	go build -ldflags="-X main.Version=${VERSION}" -o ${BINARY}
 
-run_frontend:
+runf:
 	cd src/frontend && npm run serve
 
-run_backend: src/backend/npci
+runb: src/backend/npci
 	./src/backend/npci
 
-.PHONY: run_backend run_frontend version
+.PHONY: runb runf version
