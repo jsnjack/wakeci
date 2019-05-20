@@ -3,6 +3,7 @@
     <table>
         <thead>
             <td>Name</td>
+            <td>Total executions</td>
             <td>Actions</td>
         </thead>
         <JobComp v-for="item in jobs"

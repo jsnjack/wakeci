@@ -1,8 +1,7 @@
 <template>
     <tr>
-        <td>
-            {{ job.name }}
-        </td>
+        <td>{{ job.name }}</td>
+        <td>{{ job.count }}</td>
         <td>
             <a :href="getRunURL" @click.prevent="run">Run</a>
         </td>

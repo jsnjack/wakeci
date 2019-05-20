@@ -14,7 +14,8 @@ type MsgJobsList struct {
 
 // JobsListData ...
 type JobsListData struct {
-	Name string `json:"name"`
+	Name  string `json:"name"`
+	Count int    `json:"count"`
 }
 
 // MsgFeedUpdate ...
@@ -38,8 +39,13 @@ func GetAllJobsMessage() *[]byte {
 	err := DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(JobsBucket))
 		c := b.Cursor()
-		for k, _ := c.First(); k != nil; k, _ = c.Next() {
-			job := JobsListData{Name: string(k)}
+		for key, _ := c.First(); key != nil; key, _ = c.Next() {
+			bucket := b.Bucket(key)
+			job := JobsListData{
+				Name:  string(key),
+				Count: btoi(bucket.Get([]byte("count"))),
+			}
+
 			msg.Data = append(msg.Data, &job)
 		}
 		return nil
