@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 
-	bolt "github.com/boltdb/bolt"
+	bolt "github.com/etcd-io/bbolt"
 )
 
 // MsgJobsList ...

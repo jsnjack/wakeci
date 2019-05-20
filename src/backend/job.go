@@ -4,7 +4,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	bolt "github.com/boltdb/bolt"
+	bolt "github.com/etcd-io/bbolt"
 	yaml "gopkg.in/yaml.v2"
 )
 

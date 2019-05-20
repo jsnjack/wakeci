@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 
-	bolt "github.com/boltdb/bolt"
+	bolt "github.com/etcd-io/bbolt"
 	"github.com/julienschmidt/httprouter"
 )
 
