@@ -4,6 +4,9 @@ const wsMessageHandler = function(app, data) {
     case "jobs:list":
         app.$store.commit("WS_MSG_JOBS_LIST", msg.data);
         break;
+    case "job:update":
+        app.$store.commit("WS_MSG_JOB_UPDATE", msg.data);
+        break;
     case "feed:update":
         app.$store.commit("WS_MSG_FEED_UPDATE", msg.data);
         break;

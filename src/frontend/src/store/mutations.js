@@ -12,6 +12,12 @@ const mutations = {
     WS_MSG_FEED_UPDATE(state, data) {
         state.feed.push(data);
     },
+    WS_MSG_JOB_UPDATE(state, data) {
+        state.jobs = [
+            ...state.jobs.filter((el) => el.name !== data.name),
+            data,
+        ];
+    },
 };
 
 export default mutations;

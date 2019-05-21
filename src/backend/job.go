@@ -61,7 +61,7 @@ func ScanAllJobs() error {
 
 			count := itemBucket.Get([]byte("count"))
 			if count == nil {
-				err = itemBucket.Put([]byte("count"), itob(0))
+				err = itemBucket.Put([]byte("count"), []byte("0"))
 				if err != nil {
 					return err
 				}

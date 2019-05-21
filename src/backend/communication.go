@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"strconv"
 
 	bolt "github.com/etcd-io/bbolt"
 )
@@ -12,6 +13,12 @@ type MsgJobsList struct {
 	Data []*JobsListData `json:"data"`
 }
 
+// MsgJobUpdate ...
+type MsgJobUpdate struct {
+	Type string        `json:"type"`
+	Data *JobsListData `json:"data"`
+}
+
 // JobsListData ...
 type JobsListData struct {
 	Name  string `json:"name"`
@@ -20,13 +27,13 @@ type JobsListData struct {
 
 // MsgFeedUpdate ...
 type MsgFeedUpdate struct {
-	Type string         `json:"type"`
-	Data FeedUpdateData `json:"data"`
+	Type string          `json:"type"`
+	Data *FeedUpdateData `json:"data"`
 }
 
 // FeedUpdateData ...
 type FeedUpdateData struct {
-	ID         string         `json:"id"`
+	ID         int            `json:"id"`
 	Name       string         `json:"name"`
 	Status     ExecutorStatus `json:"status"`
 	TotalTasks int            `json:"total_tasks"`
@@ -41,12 +48,17 @@ func GetAllJobsMessage() *[]byte {
 		c := b.Cursor()
 		for key, _ := c.First(); key != nil; key, _ = c.Next() {
 			bucket := b.Bucket(key)
-			job := JobsListData{
-				Name:  string(key),
-				Count: btoi(bucket.Get([]byte("count"))),
+			countS := string(bucket.Get([]byte("count")))
+			count, err := strconv.Atoi(countS)
+			if err == nil {
+				job := JobsListData{
+					Name:  string(key),
+					Count: count,
+				}
+				msg.Data = append(msg.Data, &job)
+			} else {
+				Logger.Println(err)
 			}
-
-			msg.Data = append(msg.Data, &job)
 		}
 		return nil
 	})

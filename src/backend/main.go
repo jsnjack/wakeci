@@ -59,7 +59,7 @@ func main() {
 		// Websocket section
 		router := httprouter.New()
 		router.GET("/ws", handleWSConnection)
-		router.POST("/api/job/:name/run", LogMi(CORSMi(handleJobRun)))
+		router.POST("/api/job/:name/run", LogMi(CORSMi(HandleRunJob)))
 
 		go BroadcastMessages()
 
