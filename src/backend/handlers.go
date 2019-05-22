@@ -19,8 +19,9 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	Logger.Printf("New job queued: %s %d\n", exec.Job.Name, exec.ID)
+	Logger.Printf("New job queued: %s %d\n", exec.Job.Name, exec.Count)
 	FeedQueue = append(FeedQueue, exec)
+	TakeFromQueue()
 	exec.BroadcastUpdate()
 	w.Write([]byte("{}"))
 }

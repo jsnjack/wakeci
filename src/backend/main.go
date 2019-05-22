@@ -22,6 +22,9 @@ var Version string
 // WorkingDir is a working directory which contains all jobs
 const WorkingDir = "/home/jsn/workspace/npci/test_wd/"
 
+// WorkspaceDir is a directory that contains all workspaces
+const WorkspaceDir = WorkingDir + "workspace/"
+
 // DB is the Bolt db
 var DB *bolt.DB
 

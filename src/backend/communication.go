@@ -33,7 +33,8 @@ type MsgFeedUpdate struct {
 
 // FeedUpdateData ...
 type FeedUpdateData struct {
-	ID         int            `json:"id"`
+	ID         string         `json:"id"`
+	Count      int            `json:"count"`
 	Name       string         `json:"name"`
 	Status     ExecutorStatus `json:"status"`
 	TotalTasks int            `json:"total_tasks"`

@@ -3,7 +3,7 @@
     <table>
         <thead>
             <td>Name</td>
-            <td>ID</td>
+            <td>Build #</td>
             <td>Tasks</td>
             <td>Status</td>
         </thead>

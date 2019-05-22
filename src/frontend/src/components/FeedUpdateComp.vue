@@ -4,7 +4,7 @@
             {{ feed.name }}
         </td>
         <td>
-            {{ feed.id }}
+            {{ feed.count }}
         </td>
         <td>
             {{ feed.done_tasks }} / {{ feed.total_tasks }}

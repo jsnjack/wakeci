@@ -10,7 +10,10 @@ const mutations = {
         state.jobs = data;
     },
     WS_MSG_FEED_UPDATE(state, data) {
-        state.feed.push(data);
+        state.feed = [
+            ...state.feed.filter((el) => el.id !== data.id),
+            data,
+        ];
     },
     WS_MSG_JOB_UPDATE(state, data) {
         state.jobs = [
