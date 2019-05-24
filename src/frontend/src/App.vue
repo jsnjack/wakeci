@@ -1,9 +1,11 @@
 <template>
   <div id="app">
-    <div id="nav">
-      <router-link to="/">Feed</router-link> |
-      <router-link to="/tasks">Tasks</router-link>
-    </div>
+    <header class="navbar-center">
+        <section class="navbar-section">
+            <router-link to="/" class="btn btn-link">Feed</router-link>
+            <router-link to="/tasks" class="btn btn-link">Tasks</router-link>
+        </section>
+    </header>
     <router-view/>
   </div>
 </template>
@@ -52,6 +54,8 @@ export default {
 </script>
 
 <style lang="scss">
+@import "@/assets/npci.scss";
+
 #app {
   font-family: 'Avenir', Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -59,19 +63,9 @@ export default {
   text-align: center;
   color: #2c3e50;
 }
-#nav {
-  padding: 30px;
-  a {
-    font-weight: bold;
-    color: #2c3e50;
-    &.router-link-exact-active {
-      color: #42b983;
-    }
-  }
-}
+
 .container {
     display: flex;
-    align-items: center;
-    justify-content: center;
+    justify-content: space-evenly;
 }
 </style>

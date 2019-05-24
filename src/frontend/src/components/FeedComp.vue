@@ -1,18 +1,25 @@
 <template>
 <div>
-    <table>
+    <table class="table table-striped">
         <thead>
-            <td>Name</td>
-            <td>Build #</td>
-            <td>Tasks</td>
-            <td>Status</td>
+            <th>Name</th>
+            <th>Build #</th>
+            <th>Tasks</th>
+            <th>Status</th>
         </thead>
-        <FeedUpdateComp v-for="item in feed"
-            :key="item.id"
-            :feed="item">
-        </FeedUpdateComp>
+        <tbody>
+            <FeedUpdateComp v-for="item in feed"
+                :key="item.id"
+                :feed="item">
+            </FeedUpdateComp>
+        </tbody>
     </table>
-    <p v-show="feed.length === 0">Empty</p>
+    <div class="empty" v-show="feed.length === 0">
+    <div class="empty-icon">
+        <i class="icon icon-arrow-right"></i>
+    </div>
+    <p class="empty-title h5">Empty</p>
+    </div>
 </div>
 </template>
 
@@ -32,5 +39,4 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="scss">
-
 </style>

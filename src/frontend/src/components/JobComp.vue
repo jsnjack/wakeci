@@ -3,7 +3,7 @@
         <td>{{ job.name }}</td>
         <td>{{ job.count }}</td>
         <td>
-            <a :href="getRunURL" @click.prevent="run">Run</a>
+            <a :href="getRunURL" @click.prevent="run" class="btn btn-primary">Run</a>
         </td>
     </tr>
 </template>

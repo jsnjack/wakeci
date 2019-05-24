@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "axios": "^0.18.0",
+    "spectre.css": "^0.5.8",
     "vue": "^2.6.10",
     "vue-router": "^3.0.3",
     "vuex": "^3.0.1"

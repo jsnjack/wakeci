@@ -1,17 +1,25 @@
 <template>
 <div>
-    <table>
+    <table class="table table-striped">
         <thead>
-            <td>Name</td>
-            <td>Total executions</td>
-            <td>Actions</td>
+            <th>Name</th>
+            <th>Total executions</th>
+            <th>Actions</th>
         </thead>
-        <JobComp v-for="item in jobs"
-            :key="item.name"
-            :job="item">
-        </JobComp>
+        <tbody>
+            <JobComp v-for="item in jobs"
+                :key="item.name"
+                :job="item">
+            </JobComp>
+        </tbody>
     </table>
-    <p v-show="jobs.length === 0">Empty</p>
+
+    <div class="empty" v-show="jobs.length === 0">
+    <div class="empty-icon">
+        <i class="icon icon-arrow-right"></i>
+    </div>
+    <p class="empty-title h5">Empty</p>
+    </div>
 </div>
 </template>
 
