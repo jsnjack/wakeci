@@ -2,7 +2,7 @@
 <div>
     <table class="table table-striped">
         <thead>
-            <th>Name</th>
+            <th>Job name</th>
             <th>Build #</th>
             <th>Tasks</th>
             <th>Status</th>

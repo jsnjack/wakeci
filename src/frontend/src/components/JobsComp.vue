@@ -20,6 +20,10 @@
     </div>
     <p class="empty-title h5">Empty</p>
     </div>
+
+    <div>
+        <button class="btn btn-success">Create</button>
+    </div>
 </div>
 </template>
 

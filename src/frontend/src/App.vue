@@ -3,7 +3,9 @@
     <header class="navbar-center">
         <section class="navbar-section">
             <router-link to="/" class="btn btn-link">Feed</router-link>
-            <router-link to="/tasks" class="btn btn-link">Tasks</router-link>
+            <router-link to="/jobs" class="btn btn-link">History</router-link>
+            <router-link to="/jobs" class="btn btn-link">Jobs</router-link>
+            <router-link to="/jobs" class="btn btn-link">Settings</router-link>
         </section>
     </header>
     <router-view/>
