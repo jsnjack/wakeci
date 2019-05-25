@@ -64,7 +64,7 @@ func main() {
 		router.GET("/ws", handleWSConnection)
 		router.POST("/api/job/:name/run", LogMi(CORSMi(HandleRunJob)))
 
-		go BroadcastMessages()
+		go BroadcastMessage()
 
 		Logger.Println("Starting ws server on port " + *PortFlag)
 		err := http.ListenAndServe(":"+*PortFlag, router)

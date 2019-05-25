@@ -7,28 +7,42 @@ import (
 	bolt "github.com/etcd-io/bbolt"
 )
 
-// MsgJobsList ...
-type MsgJobsList struct {
-	Type string          `json:"type"`
-	Data []*JobsListData `json:"data"`
+// MsgType ...
+type MsgType string
+
+// MsgTypeBuildUpdate ...
+const MsgTypeBuildUpdate = "build:update"
+
+// MsgTypeJobUpdate ...
+const MsgTypeJobUpdate = "job:update"
+
+// MsgTypeInSubscribe ...
+const MsgTypeInSubscribe = "in:subscribe"
+
+// MsgTypeInUnsubscribe ...
+const MsgTypeInUnsubscribe = "in:unsubscribe"
+
+// MsgBroadcast ...
+type MsgBroadcast struct {
+	Type MsgType     `json:"type"`
+	Data interface{} `json:"data"`
 }
 
-// MsgJobUpdate ...
-type MsgJobUpdate struct {
-	Type string        `json:"type"`
-	Data *JobsListData `json:"data"`
+// MsgIncoming ...
+type MsgIncoming struct {
+	Type MsgType         `json:"type"`
+	Data json.RawMessage `json:"data"`
+}
+
+// InSubscribeData ...
+type InSubscribeData struct {
+	To string `json:"to"`
 }
 
 // JobsListData ...
 type JobsListData struct {
 	Name  string `json:"name"`
 	Count int    `json:"count"`
-}
-
-// MsgBuildUpdate ...
-type MsgBuildUpdate struct {
-	Type string           `json:"type"`
-	Data *BuildUpdateData `json:"data"`
 }
 
 // BuildUpdateData ...
@@ -43,7 +57,8 @@ type BuildUpdateData struct {
 
 // GetAllJobsMessage returns the message with the list of available jobs
 func GetAllJobsMessage() *[]byte {
-	msg := MsgJobsList{Type: "jobs:list"}
+	msg := MsgBroadcast{Type: "jobs:list"}
+	var data []*JobsListData
 	err := DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(JobsBucket))
 		c := b.Cursor()
@@ -56,7 +71,7 @@ func GetAllJobsMessage() *[]byte {
 					Name:  string(key),
 					Count: count,
 				}
-				msg.Data = append(msg.Data, &job)
+				data = append(data, &job)
 			} else {
 				Logger.Println(err)
 			}
@@ -66,6 +81,7 @@ func GetAllJobsMessage() *[]byte {
 	if err != nil {
 		Logger.Println(err)
 	}
+	msg.Data = data
 	msgB, _ := json.Marshal(msg)
 	return &msgB
 }

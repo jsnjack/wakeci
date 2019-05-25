@@ -2,6 +2,7 @@ import Vue from "vue";
 import Router from "vue-router";
 import FeedView from "./views/FeedView.vue";
 
+
 Vue.use(Router);
 
 export default new Router({
@@ -20,6 +21,14 @@ export default new Router({
             component() {
                 return import(/* webpackChunkName: "jobs" */ "./views/JobsView.vue");
             },
+        },
+        {
+            path: "/:job_name/build/:count",
+            name: "build",
+            component() {
+                return import(/* webpackChunkName: "build" */ "./views/BuildView.vue");
+            },
+            props: true,
         },
     ],
 });

@@ -1,5 +1,6 @@
 const wsMessageHandler = function(app, data) {
     const msg = JSON.parse(data);
+    console.info("WS msg", msg);
     switch (msg.type) {
     case "jobs:list":
         app.$store.commit("WS_MSG_JOBS_LIST", msg.data);

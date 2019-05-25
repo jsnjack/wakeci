@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -9,6 +8,7 @@ import (
 	"strconv"
 
 	bolt "github.com/etcd-io/bbolt"
+	"github.com/gorilla/websocket"
 )
 
 // NumberOfConcurrentBuilds maximum amount of tasks that are being executed at the same time
@@ -37,12 +37,13 @@ const BuildPending = "pending"
 
 // Build ...
 type Build struct {
-	ID        string // job.Name + Count
-	Job       *Job
-	Count     int
-	Status    BuildStatus
-	DoneTasks int // to report progress
-	Logger    *log.Logger
+	ID          string // job.Name + Count
+	Job         *Job
+	Count       int
+	Status      BuildStatus
+	DoneTasks   int // to report progress
+	Logger      *log.Logger
+	Subscribers []*websocket.Conn
 }
 
 // Start starts execution of tasks in job
@@ -100,8 +101,8 @@ func (b *Build) Cleanup() {
 
 // BroadcastUpdate ...
 func (b *Build) BroadcastUpdate() {
-	msg := MsgBuildUpdate{
-		Type: "build:update",
+	msg := MsgBroadcast{
+		Type: MsgTypeBuildUpdate,
 		Data: &BuildUpdateData{
 			ID:         b.ID,
 			Count:      b.Count,
@@ -111,12 +112,7 @@ func (b *Build) BroadcastUpdate() {
 			DoneTasks:  b.DoneTasks,
 		},
 	}
-	msgB, err := json.Marshal(msg)
-	if err != nil {
-		Logger.Println(err)
-		return
-	}
-	BroadcastChannel <- msgB
+	BroadcastChannel <- &msg
 }
 
 // CreateBuild ..
@@ -146,18 +142,14 @@ func CreateBuild(job *Job) (*Build, error) {
 	}
 
 	// Broadcast job count update
-	msg := MsgJobUpdate{
-		Type: "job:update",
+	msg := MsgBroadcast{
+		Type: MsgTypeJobUpdate,
 		Data: &JobsListData{
 			Name:  job.Name,
 			Count: id,
 		},
 	}
-	msgB, err := json.Marshal(msg)
-	if err != nil {
-		Logger.Println(err)
-	}
-	BroadcastChannel <- msgB
+	BroadcastChannel <- &msg
 
 	build := Build{
 		Job:    job,
