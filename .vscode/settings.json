@@ -7,5 +7,5 @@
     ],
     "editor.detectIndentation": false,
     "go.autocompleteUnimportedPackages": true,
-    "go.gopath": "~/workspace/npci/",
+    "go.gopath": "~/workspace/wakeci/",
 }

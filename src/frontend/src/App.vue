@@ -56,7 +56,7 @@ export default {
 </script>
 
 <style lang="scss">
-@import "@/assets/npci.scss";
+@import "@/assets/wakeci.scss";
 
 #app {
   font-family: 'Avenir', Helvetica, Arial, sans-serif;

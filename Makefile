@@ -1,4 +1,4 @@
-BINARY:=npci
+BINARY:=wakeci
 PWD:=$(shell pwd)
 VERSION=0.0.0
 MONOVA:=$(shell which monova dot 2> /dev/null)
@@ -11,7 +11,7 @@ else
 endif
 
 .ONESHELL:
-src/backend/npci: version src/backend/*.go
+src/backend/wakeci: version src/backend/*.go
 	cd src/backend
 	dep ensure
 	go build -ldflags="-X main.Version=${VERSION}" -o ${BINARY}
@@ -19,7 +19,7 @@ src/backend/npci: version src/backend/*.go
 runf:
 	cd src/frontend && npm run serve
 
-runb: src/backend/npci
-	./src/backend/npci
+runb: src/backend/wakeci
+	./src/backend/wakeci
 
 .PHONY: runb runf version

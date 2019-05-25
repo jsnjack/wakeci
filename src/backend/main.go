@@ -20,7 +20,7 @@ var PortFlag *string
 var Version string
 
 // WorkingDir is a working directory which contains all jobs
-const WorkingDir = "/home/jsn/workspace/npci/test_wd/"
+const WorkingDir = "/home/jsn/workspace/wakeci/test_wd/"
 
 // WorkspaceDir is a directory that contains all workspaces
 const WorkspaceDir = WorkingDir + "workspace/"
@@ -37,7 +37,7 @@ func init() {
 
 func main() {
 	var err error
-	DB, err = bolt.Open(WorkingDir+"npci.db", 0644, nil)
+	DB, err = bolt.Open(WorkingDir+"wakeci.db", 0644, nil)
 	if err != nil {
 		Logger.Fatal(err)
 	}
