@@ -7,8 +7,8 @@ const wsMessageHandler = function(app, data) {
     case "job:update":
         app.$store.commit("WS_MSG_JOB_UPDATE", msg.data);
         break;
-    case "feed:update":
-        app.$store.commit("WS_MSG_FEED_UPDATE", msg.data);
+    case "build:update":
+        app.$store.commit("WS_MSG_BUILD_UPDATE", msg.data);
         break;
     default:
         console.warn("Unhandled message", msg);

@@ -13,14 +13,14 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	exec, err := CreateExecutor(job)
+	exec, err := CreateBuild(job)
 	if err != nil {
 		Logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	Logger.Printf("New job queued: %s %d\n", exec.Job.Name, exec.Count)
-	FeedQueue = append(FeedQueue, exec)
+	BuildQueue = append(BuildQueue, exec)
 	TakeFromQueue()
 	exec.BroadcastUpdate()
 	w.Write([]byte("{}"))

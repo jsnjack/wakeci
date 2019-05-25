@@ -11,12 +11,12 @@ const mutations = {
     WS_MSG_JOBS_LIST(state, data) {
         state.jobs = data;
     },
-    WS_MSG_FEED_UPDATE(state, data) {
-        const r = findInContainer(state.feed, "id", data.id);
+    WS_MSG_BUILD_UPDATE(state, data) {
+        const r = findInContainer(state.builds, "id", data.id);
         if (r[0]) {
-            Vue.set(state.feed, r[1], Object.assign({}, state.feed[r[1]], data));
+            Vue.set(state.builds, r[1], Object.assign({}, state.builds[r[1]], data));
         } else {
-            state.feed.unshift(data);
+            state.builds.unshift(data);
         }
     },
     WS_MSG_JOB_UPDATE(state, data) {

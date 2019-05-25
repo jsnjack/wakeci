@@ -1,20 +1,20 @@
 <template>
     <tr>
         <td>
-            {{ feed.name }}
+            {{ build.name }}
         </td>
         <td>
-            {{ feed.count }}
+            {{ build.count }}
         </td>
         <td class="tooltip tooltip-right" :data-tooltip="getProgressTooltip">
             <progress
                 class="progress"
-                :value="feed.done_tasks"
-                :max="feed.total_tasks">
+                :value="build.done_tasks"
+                :max="build.total_tasks">
             </progress>
         </td>
         <td>
-            <span class="label label-rounded" :class="getStatusClass">{{ feed.status }}</span>
+            <span class="label label-rounded" :class="getStatusClass">{{ build.status }}</span>
         </td>
     </tr>
 </template>
@@ -24,7 +24,7 @@
 
 export default {
     props: {
-        feed: {
+        build: {
             type: Object,
             required: true,
         },
@@ -33,10 +33,10 @@ export default {
     },
     computed: {
         getProgressTooltip() {
-            return `${this.feed.done_tasks} of ${this.feed.total_tasks}`;
+            return `${this.build.done_tasks} of ${this.build.total_tasks}`;
         },
         getStatusClass() {
-            switch (this.feed.status) {
+            switch (this.build.status) {
             case "running":
                 return "label-warning";
             case "failed":

@@ -25,20 +25,20 @@ type JobsListData struct {
 	Count int    `json:"count"`
 }
 
-// MsgFeedUpdate ...
-type MsgFeedUpdate struct {
-	Type string          `json:"type"`
-	Data *FeedUpdateData `json:"data"`
+// MsgBuildUpdate ...
+type MsgBuildUpdate struct {
+	Type string           `json:"type"`
+	Data *BuildUpdateData `json:"data"`
 }
 
-// FeedUpdateData ...
-type FeedUpdateData struct {
-	ID         string         `json:"id"`
-	Count      int            `json:"count"`
-	Name       string         `json:"name"`
-	Status     ExecutorStatus `json:"status"`
-	TotalTasks int            `json:"total_tasks"`
-	DoneTasks  int            `json:"done_tasks"`
+// BuildUpdateData ...
+type BuildUpdateData struct {
+	ID         string      `json:"id"`
+	Count      int         `json:"count"`
+	Name       string      `json:"name"`
+	Status     BuildStatus `json:"status"`
+	TotalTasks int         `json:"total_tasks"`
+	DoneTasks  int         `json:"done_tasks"`
 }
 
 // GetAllJobsMessage returns the message with the list of available jobs

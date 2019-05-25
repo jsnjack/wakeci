@@ -8,13 +8,13 @@
             <th>Status</th>
         </thead>
         <tbody>
-            <FeedUpdateComp v-for="item in feed"
+            <BuildUpdateComp v-for="item in builds"
                 :key="item.id"
-                :feed="item">
-            </FeedUpdateComp>
+                :build="item">
+            </BuildUpdateComp>
         </tbody>
     </table>
-    <div class="empty" v-show="feed.length === 0">
+    <div class="empty" v-show="builds.length === 0">
     <div class="empty-icon">
         <i class="icon icon-arrow-right"></i>
     </div>
@@ -25,13 +25,13 @@
 
 <script>
 import vuex from "vuex";
-import FeedUpdateComp from "@/components/FeedUpdateComp.vue";
+import BuildUpdateComp from "@/components/BuildUpdateComp.vue";
 
 export default {
-    components: {FeedUpdateComp},
+    components: {BuildUpdateComp},
     computed: {
         ...vuex.mapState([
-            "feed",
+            "builds",
         ]),
     },
 };
