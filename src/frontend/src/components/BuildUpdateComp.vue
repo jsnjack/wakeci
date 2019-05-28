@@ -5,8 +5,6 @@
         </td>
         <td>
             <router-link :to="{ name: 'build', params: { count: build.count, job_name: build.name }}">{{ build.count }}</router-link>
-            <!-- <router-link to="/build" class="btn btn-link">Feed</router-link> -->
-            <!-- {{ build.count }} -->
         </td>
         <td class="tooltip tooltip-right" :data-tooltip="getProgressTooltip">
             <progress

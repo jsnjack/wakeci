@@ -12,6 +12,10 @@ const wsMessageHandler = function(app, data) {
         app.$store.commit("WS_MSG_BUILD_UPDATE", msg.data);
         break;
     default:
+        if (msg.type.indexOf("build:log:") === 0) {
+            app.$store.commit("WS_MSG_BUILD_LOG", msg);
+            return;
+        }
         console.warn("Unhandled message", msg);
     }
 };

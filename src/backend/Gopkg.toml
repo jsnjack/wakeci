@@ -44,3 +44,7 @@
 [[constraint]]
   name = "github.com/etcd-io/bbolt"
   version = "1.3.2"
+
+[[constraint]]
+  name = "github.com/go-cmd/cmd"
+  version = "1.0.4"

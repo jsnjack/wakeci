@@ -10,6 +10,14 @@
   version = "v1.3.2"
 
 [[projects]]
+  digest = "1:c3957c9c9dc7beb125fdc93c920957d0305fe66dc48712a600f8790ce9354254"
+  name = "github.com/go-cmd/cmd"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "db1a8287640cedff487674c2f4439805b58f42aa"
+  version = "v1.0.4"
+
+[[projects]]
   digest = "1:7b5c6e2eeaa9ae5907c391a91c132abfd5c9e8a784a341b5625e750c67e6825d"
   name = "github.com/gorilla/websocket"
   packages = ["."]
@@ -46,6 +54,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/etcd-io/bbolt",
+    "github.com/go-cmd/cmd",
     "github.com/gorilla/websocket",
     "github.com/julienschmidt/httprouter",
     "gopkg.in/yaml.v2",

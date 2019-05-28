@@ -27,6 +27,20 @@ const mutations = {
             state.jobs.push(data);
         }
     },
+    WS_MSG_BUILD_LOG(state, msg) {
+        if (state.activeSubscription === msg.type) {
+            state.logs.push(msg.data);
+        } else {
+            console.log("Ignore", msg);
+        }
+    },
+
+    ACTIVE_SUBSCRIPTION(state, name) {
+        state.activeSubscription = name;
+        if (name === "") {
+            state.logs = [];
+        }
+    },
 };
 
 function findInContainer(container, key, value) {

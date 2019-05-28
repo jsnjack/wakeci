@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"strconv"
+	"time"
 
 	bolt "github.com/etcd-io/bbolt"
+	"github.com/go-cmd/cmd"
 	"github.com/gorilla/websocket"
 )
 
@@ -57,15 +58,43 @@ func (b *Build) Start() {
 		b.Failed()
 	}
 	for _, task := range b.Job.Tasks {
-		args := append([]string{"-c", task.Command})
-		cmd := exec.Command("sh", args...)
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			b.Logger.Println(err)
+		// Disable output buffering, enable streaming
+		cmdOptions := cmd.Options{
+			Buffered:  false,
+			Streaming: true,
+		}
+
+		// Create Cmd with options
+		envCmd := cmd.NewCmdOptions(cmdOptions, "bash", "-c", task.Command)
+
+		// Print STDOUT and STDERR lines streaming from Cmd
+		go func() {
+			x := 0
+			for {
+				select {
+				case line := <-envCmd.Stdout:
+					b.PublishCommandLogs(0, x, line)
+					x++
+				case line := <-envCmd.Stderr:
+					b.PublishCommandLogs(0, x, line)
+					x++
+				}
+			}
+		}()
+
+		// Run and wait for Cmd to return, discard Status
+		status := <-envCmd.Start()
+		fmt.Println(status)
+
+		// Cmd has finished but wait for goroutine to print all lines
+		for len(envCmd.Stdout) > 0 || len(envCmd.Stderr) > 0 {
+			time.Sleep(10 * time.Millisecond)
+		}
+
+		if status.Exit != 0 {
 			b.Failed()
 			return
 		}
-		b.Logger.Println(string(out))
 		b.DoneTasks++
 		b.BroadcastUpdate()
 	}
@@ -110,6 +139,19 @@ func (b *Build) BroadcastUpdate() {
 			Status:     b.Status,
 			TotalTasks: len(b.Job.Tasks),
 			DoneTasks:  b.DoneTasks,
+		},
+	}
+	BroadcastChannel <- &msg
+}
+
+// PublishCommandLogs ...
+func (b *Build) PublishCommandLogs(taskID int, id int, data string) {
+	msg := MsgBroadcast{
+		Type: MsgType("build:log:" + b.ID),
+		Data: &CommandLogData{
+			TaskID: taskID,
+			ID:     id,
+			Data:   data,
 		},
 	}
 	BroadcastChannel <- &msg

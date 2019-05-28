@@ -55,6 +55,13 @@ type BuildUpdateData struct {
 	DoneTasks  int         `json:"done_tasks"`
 }
 
+// CommandLogData ...
+type CommandLogData struct {
+	TaskID int    `json:"task_id"`
+	ID     int    `json:"id"`
+	Data   string `json:"data"`
+}
+
 // GetAllJobsMessage returns the message with the list of available jobs
 func GetAllJobsMessage() *[]byte {
 	msg := MsgBroadcast{Type: "jobs:list"}
