@@ -19,6 +19,7 @@ type Job struct {
 
 // Task ...
 type Task struct {
+	ID      int
 	Name    string `yaml:"name"`
 	Command string `yaml:"command"`
 }
@@ -33,6 +34,11 @@ func ReadJob(path string) (*Job, error) {
 	err = yaml.Unmarshal(data, &job)
 	if err != nil {
 		return nil, err
+	}
+
+	// Assign tasks ids
+	for i, t := range job.Tasks {
+		t.ID = i
 	}
 
 	_, nameExt := filepath.Split(path)

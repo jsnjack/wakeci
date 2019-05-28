@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"os"
@@ -52,7 +53,7 @@ func (b *Build) Start() {
 	b.Logger.Println("Started...")
 	b.Status = BuildRunning
 	b.BroadcastUpdate()
-	err := os.MkdirAll(WorkspaceDir+b.ID+"/", os.ModePerm)
+	err := os.MkdirAll(b.GetWorkspace(), os.ModePerm)
 	if err != nil {
 		b.Logger.Println(err)
 		b.Failed()
@@ -67,29 +68,55 @@ func (b *Build) Start() {
 		// Create Cmd with options
 		envCmd := cmd.NewCmdOptions(cmdOptions, "bash", "-c", task.Command)
 
-		// Print STDOUT and STDERR lines streaming from Cmd
+		fwChannel := make(chan bool)
+
+		// Print STDOUT and STDERR lines streaming from CmdLogger
 		go func() {
+			file, err := os.Create(b.GetWorkspace() + fmt.Sprintf("task_%d.log", task.ID))
+			bw := bufio.NewWriter(file)
+			defer func() {
+				bw.Flush()
+				file.Close()
+			}()
+			if err != nil {
+				// Allow command to start
+				time.Sleep(10 * time.Millisecond)
+				b.Logger.Println(err)
+				envCmd.Stop()
+				return
+			}
 			x := 0
 			for {
 				select {
 				case line := <-envCmd.Stdout:
-					b.PublishCommandLogs(0, x, line)
+					_, err := bw.WriteString(line + "\n")
+					if err != nil {
+						b.Logger.Println(err)
+					}
+					b.PublishCommandLogs(task.ID, x, line)
 					x++
 				case line := <-envCmd.Stderr:
-					b.PublishCommandLogs(0, x, line)
+					_, err := bw.WriteString(line + "\n")
+					if err != nil {
+						b.Logger.Println(err)
+					}
+					b.PublishCommandLogs(task.ID, x, line)
 					x++
+				case <-fwChannel:
+					return
 				}
 			}
 		}()
 
 		// Run and wait for Cmd to return, discard Status
 		status := <-envCmd.Start()
-		fmt.Println(status)
 
 		// Cmd has finished but wait for goroutine to print all lines
 		for len(envCmd.Stdout) > 0 || len(envCmd.Stderr) > 0 {
 			time.Sleep(10 * time.Millisecond)
 		}
+		// Signal to flush the file
+		fwChannel <- true
 
 		if status.Exit != 0 {
 			b.Failed()
@@ -128,7 +155,8 @@ func (b *Build) Cleanup() {
 	TakeFromQueue()
 }
 
-// BroadcastUpdate ...
+// BroadcastUpdate sends update to all subscribed clients. Contains general
+// information about the build
 func (b *Build) BroadcastUpdate() {
 	msg := MsgBroadcast{
 		Type: MsgTypeBuildUpdate,
@@ -144,7 +172,7 @@ func (b *Build) BroadcastUpdate() {
 	BroadcastChannel <- &msg
 }
 
-// PublishCommandLogs ...
+// PublishCommandLogs sends log update to all subscribed users
 func (b *Build) PublishCommandLogs(taskID int, id int, data string) {
 	msg := MsgBroadcast{
 		Type: MsgType("build:log:" + b.ID),
@@ -155,6 +183,11 @@ func (b *Build) PublishCommandLogs(taskID int, id int, data string) {
 		},
 	}
 	BroadcastChannel <- &msg
+}
+
+// GetWorkspace returns path to the workspace
+func (b *Build) GetWorkspace() string {
+	return WorkspaceDir + b.ID + "/"
 }
 
 // CreateBuild ..
@@ -199,7 +232,7 @@ func CreateBuild(job *Job) (*Build, error) {
 		Count:  id,
 		ID:     fmt.Sprintf("%s_%d", job.Name, id),
 	}
-	build.Logger = log.New(os.Stdout, build.ID, log.Lmicroseconds|log.Lshortfile)
+	build.Logger = log.New(os.Stdout, build.ID+" ", log.Lmicroseconds|log.Lshortfile)
 	return &build, nil
 }
 
