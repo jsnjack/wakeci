@@ -19,10 +19,10 @@ type Job struct {
 
 // Task ...
 type Task struct {
-	ID      int         `json:"id"`
-	Name    string      `yaml:"name" json:"name"`
-	Command string      `yaml:"command"`
-	Status  BuildStatus `json:"status"`
+	ID      int        `json:"id"`
+	Name    string     `yaml:"name" json:"name"`
+	Command string     `yaml:"command"`
+	Status  ItemStatus `json:"status"`
 }
 
 // ReadJob reads job from a file

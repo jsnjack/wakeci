@@ -22,27 +22,28 @@ var BuildList []*Build
 // BuildQueue ...
 var BuildQueue []*Build
 
-// BuildStatus ...
-type BuildStatus string
+// ItemStatus handles information about the item status (currently is used for
+// both Builds and Tasks)
+type ItemStatus string
 
-// BuildRunning ...
-const BuildRunning = "running"
+// StatusRunning ...
+const StatusRunning = "running"
 
-// BuildFailed ...
-const BuildFailed = "failed"
+// StatusFailed ...
+const StatusFailed = "failed"
 
-// BuildFinished ...
-const BuildFinished = "finished"
+// StatusFinished ...
+const StatusFinished = "finished"
 
-// BuildPending ...
-const BuildPending = "pending"
+// StatusPending ...
+const StatusPending = "pending"
 
 // Build ...
 type Build struct {
 	ID          string // job.Name + Count
 	Job         *Job
 	Count       int
-	Status      BuildStatus
+	Status      ItemStatus
 	Logger      *log.Logger
 	Subscribers []*websocket.Conn
 }
@@ -50,7 +51,7 @@ type Build struct {
 // Start starts execution of tasks in job
 func (b *Build) Start() {
 	b.Logger.Println("Started...")
-	b.Status = BuildRunning
+	b.Status = StatusRunning
 	b.BroadcastUpdate()
 	err := os.MkdirAll(b.GetWorkspace(), os.ModePerm)
 	if err != nil {
@@ -118,11 +119,11 @@ func (b *Build) Start() {
 		fwChannel <- true
 
 		if status.Exit != 0 {
-			task.Status = BuildFailed
+			task.Status = StatusFailed
 			b.Failed()
 			return
 		}
-		task.Status = BuildFinished
+		task.Status = StatusFinished
 		b.BroadcastUpdate()
 	}
 	b.Finished()
@@ -131,7 +132,7 @@ func (b *Build) Start() {
 // Failed is called when job fails
 func (b *Build) Failed() {
 	b.Logger.Println("Failed.")
-	b.Status = BuildFailed
+	b.Status = StatusFailed
 	b.BroadcastUpdate()
 	b.Cleanup()
 }
@@ -139,7 +140,7 @@ func (b *Build) Failed() {
 // Finished is called when a job succeded
 func (b *Build) Finished() {
 	b.Logger.Println("Finished.")
-	b.Status = BuildFinished
+	b.Status = StatusFinished
 	b.BroadcastUpdate()
 	b.Cleanup()
 }
@@ -195,7 +196,7 @@ func (b *Build) GetNumberOfFinishedTasks() int {
 	var x int
 	for _, t := range b.Job.Tasks {
 		switch t.Status {
-		case BuildFailed, BuildFinished:
+		case StatusFailed, StatusFinished:
 			x++
 			break
 		}
@@ -241,7 +242,7 @@ func CreateBuild(job *Job) (*Build, error) {
 
 	build := Build{
 		Job:    job,
-		Status: BuildPending,
+		Status: StatusPending,
 		Count:  id,
 		ID:     fmt.Sprintf("%s_%d", job.Name, id),
 	}

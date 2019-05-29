@@ -47,12 +47,12 @@ type JobsListData struct {
 
 // BuildUpdateData is viewable on the feed page
 type BuildUpdateData struct {
-	ID         string      `json:"id"`
-	Count      int         `json:"count"`
-	Name       string      `json:"name"`
-	Status     BuildStatus `json:"status"`
-	TotalTasks int         `json:"total_tasks"`
-	DoneTasks  int         `json:"done_tasks"`
+	ID         string     `json:"id"`
+	Count      int        `json:"count"`
+	Name       string     `json:"name"`
+	Status     ItemStatus `json:"status"`
+	TotalTasks int        `json:"total_tasks"`
+	DoneTasks  int        `json:"done_tasks"`
 }
 
 // CommandLogData ...
