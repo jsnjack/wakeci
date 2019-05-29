@@ -67,7 +67,7 @@ func (b *Build) Start() {
 
 		// Print STDOUT and STDERR lines streaming from CmdLogger
 		go func() {
-			file, err := os.Create(b.GetDataDir() + fmt.Sprintf("task_%d.log", task.ID))
+			file, err := os.Create(b.GetWakespaceDir() + fmt.Sprintf("task_%d.log", task.ID))
 			bw := bufio.NewWriter(file)
 			defer func() {
 				bw.Flush()
@@ -181,19 +181,21 @@ func (b *Build) PublishCommandLogs(taskID int, id int, data string) {
 	BroadcastChannel <- &msg
 }
 
-// GetWorkspaceDir returns path to the workspace
+// GetWorkspaceDir returns path to the workspace, where all user created files
+// are stored
 func (b *Build) GetWorkspaceDir() string {
-	return WorkspaceDir + b.ID + "/"
+	return WorkingDir + "workspace/" + b.ID + "/"
 }
 
-// GetDataDir returns path to the data dir
-func (b *Build) GetDataDir() string {
-	return b.GetWorkspaceDir() + ".wake/"
+// GetWakespaceDir returns path to the data dir - there all build+wake related data is
+// stored
+func (b *Build) GetWakespaceDir() string {
+	return WorkingDir + "wakespace/" + b.ID + "/"
 }
 
 // GetBuildConfigFilename returns build config filename (copy of the original job file)
 func (b *Build) GetBuildConfigFilename() string {
-	return b.GetDataDir() + "build.yaml"
+	return b.GetWakespaceDir() + "build.yaml"
 }
 
 // GetNumberOfFinishedTasks returns number of finished tasks

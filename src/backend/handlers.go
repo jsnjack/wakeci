@@ -24,13 +24,22 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	}
 
 	// Create workspace
-	err = os.MkdirAll(build.GetDataDir(), os.ModePerm)
+	err = os.MkdirAll(build.GetWorkspaceDir(), os.ModePerm)
 	if err != nil {
 		Logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	Logger.Printf("Workspace %s has been created\n", build.GetWorkspaceDir())
+
+	// Create wakespace
+	err = os.MkdirAll(build.GetWakespaceDir(), os.ModePerm)
+	if err != nil {
+		Logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	Logger.Printf("Wakespace %s has been created\n", build.GetWakespaceDir())
 
 	// Copy job config
 	input, err := ioutil.ReadFile(jobFile)
