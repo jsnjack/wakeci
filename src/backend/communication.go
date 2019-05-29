@@ -10,16 +10,21 @@ import (
 // MsgType ...
 type MsgType string
 
-// MsgTypeBuildUpdate ...
+// MsgTypeBuildUpdate is sent where there is an update in status of executing build
+// Used on the feed page
 const MsgTypeBuildUpdate = "build:update"
 
-// MsgTypeJobUpdate ...
+// MsgTypeBuildInfo contains information to bootstrap initial build page
+// Number and name of tasks to create a placeholder for logs
+const MsgTypeBuildInfo = "build:info"
+
+// MsgTypeJobUpdate is sent when new job was triggered to update job count on the job page
 const MsgTypeJobUpdate = "job:update"
 
-// MsgTypeInSubscribe ...
+// MsgTypeInSubscribe is incoming message. Means a user has opened build page
 const MsgTypeInSubscribe = "in:subscribe"
 
-// MsgTypeInUnsubscribe ...
+// MsgTypeInUnsubscribe is incoming message. Means a user has closed build page
 const MsgTypeInUnsubscribe = "in:unsubscribe"
 
 // MsgBroadcast ...
@@ -37,6 +42,12 @@ type MsgIncoming struct {
 // InSubscribeData ...
 type InSubscribeData struct {
 	To string `json:"to"`
+	ID string `json:"id"`
+}
+
+// BuildInfoData ...
+type BuildInfoData struct {
+	ID string `json:"id"`
 }
 
 // JobsListData ...

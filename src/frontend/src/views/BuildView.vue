@@ -67,6 +67,7 @@ export default {
                 "type": "in:subscribe",
                 "data": {
                     "to": this.subscription,
+                    "id": this.id,
                 },
             });
         },
@@ -83,6 +84,7 @@ export default {
     data: function() {
         return {
             subscription: `build:log:${this.job_name}_${this.count}`,
+            id: `${this.job_name}_${this.count}`,
         };
     },
 };

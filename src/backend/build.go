@@ -53,11 +53,6 @@ func (b *Build) Start() {
 	b.Logger.Println("Started...")
 	b.Status = StatusRunning
 	b.BroadcastUpdate()
-	err := os.MkdirAll(b.GetWorkspace(), os.ModePerm)
-	if err != nil {
-		b.Logger.Println(err)
-		b.Failed()
-	}
 	for _, task := range b.Job.Tasks {
 		// Disable output buffering, enable streaming
 		cmdOptions := cmd.Options{
@@ -72,7 +67,7 @@ func (b *Build) Start() {
 
 		// Print STDOUT and STDERR lines streaming from CmdLogger
 		go func() {
-			file, err := os.Create(b.GetWorkspace() + fmt.Sprintf("task_%d.log", task.ID))
+			file, err := os.Create(b.GetDataDir() + fmt.Sprintf("task_%d.log", task.ID))
 			bw := bufio.NewWriter(file)
 			defer func() {
 				bw.Flush()
@@ -186,9 +181,19 @@ func (b *Build) PublishCommandLogs(taskID int, id int, data string) {
 	BroadcastChannel <- &msg
 }
 
-// GetWorkspace returns path to the workspace
-func (b *Build) GetWorkspace() string {
+// GetWorkspaceDir returns path to the workspace
+func (b *Build) GetWorkspaceDir() string {
 	return WorkspaceDir + b.ID + "/"
+}
+
+// GetDataDir returns path to the data dir
+func (b *Build) GetDataDir() string {
+	return b.GetWorkspaceDir() + ".wake/"
+}
+
+// GetBuildConfigFilename returns build config filename (copy of the original job file)
+func (b *Build) GetBuildConfigFilename() string {
+	return b.GetDataDir() + "build.yaml"
 }
 
 // GetNumberOfFinishedTasks returns number of finished tasks

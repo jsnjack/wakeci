@@ -85,6 +85,12 @@ func (c *Client) Unsubscribe(mt MsgType) {
 	}
 }
 
+// SendBuildInfo sends a message that contains information about the build to bootstrap
+// the build page
+func (c *Client) SendBuildInfo(id string) {
+
+}
+
 // HandleIncomingMessage ...
 func (c *Client) HandleIncomingMessage(msg *MsgIncoming) {
 	switch msg.Type {
@@ -96,6 +102,7 @@ func (c *Client) HandleIncomingMessage(msg *MsgIncoming) {
 			return
 		}
 		c.Subscribe(MsgType(data.To))
+		c.SendBuildInfo(data.ID)
 		break
 	case MsgTypeInUnsubscribe:
 		var data InSubscribeData
