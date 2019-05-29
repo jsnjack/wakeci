@@ -37,9 +37,10 @@ func ReadJob(path string) (*Job, error) {
 		return nil, err
 	}
 
-	// Assign tasks ids
+	// Assign tasks ids and status
 	for i, t := range job.Tasks {
 		t.ID = i
+		t.Status = StatusPending
 	}
 
 	_, nameExt := filepath.Split(path)
