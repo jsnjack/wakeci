@@ -28,7 +28,7 @@ const mutations = {
         }
     },
     WS_MSG_BUILD_LOG(state, msg) {
-        if (state.activeSubscription === msg.type) {
+        if (state.buildView.activeSubscription === msg.type) {
             state.logs.push(msg.data);
         } else {
             console.log("Ignore", msg);
@@ -36,7 +36,7 @@ const mutations = {
     },
 
     ACTIVE_SUBSCRIPTION(state, name) {
-        state.activeSubscription = name;
+        state.buildView.activeSubscription = name;
         if (name === "") {
             state.logs = [];
         }

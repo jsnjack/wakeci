@@ -43,7 +43,6 @@ type Build struct {
 	Job         *Job
 	Count       int
 	Status      BuildStatus
-	DoneTasks   int // to report progress
 	Logger      *log.Logger
 	Subscribers []*websocket.Conn
 }
@@ -119,10 +118,11 @@ func (b *Build) Start() {
 		fwChannel <- true
 
 		if status.Exit != 0 {
+			task.Status = BuildFailed
 			b.Failed()
 			return
 		}
-		b.DoneTasks++
+		task.Status = BuildFinished
 		b.BroadcastUpdate()
 	}
 	b.Finished()
@@ -166,7 +166,7 @@ func (b *Build) BroadcastUpdate() {
 			Name:       b.Job.Name,
 			Status:     b.Status,
 			TotalTasks: len(b.Job.Tasks),
-			DoneTasks:  b.DoneTasks,
+			DoneTasks:  b.GetNumberOfFinishedTasks(),
 		},
 	}
 	BroadcastChannel <- &msg
@@ -188,6 +188,19 @@ func (b *Build) PublishCommandLogs(taskID int, id int, data string) {
 // GetWorkspace returns path to the workspace
 func (b *Build) GetWorkspace() string {
 	return WorkspaceDir + b.ID + "/"
+}
+
+// GetNumberOfFinishedTasks returns number of finished tasks
+func (b *Build) GetNumberOfFinishedTasks() int {
+	var x int
+	for _, t := range b.Job.Tasks {
+		switch t.Status {
+		case BuildFailed, BuildFinished:
+			x++
+			break
+		}
+	}
+	return x
 }
 
 // CreateBuild ..

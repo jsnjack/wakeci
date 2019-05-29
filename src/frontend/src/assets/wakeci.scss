@@ -1,6 +1,9 @@
 // Variables placeholder
-$primary-color: #5755d9;
+@import "@/assets/colors.scss";
 
 @import "node_modules/spectre.css/src/spectre.scss";
 
-@import "node_modules/spectre.css/src/spectre-exp.scss"
+@import "node_modules/spectre.css/src/spectre-exp.scss";
+
+@import "node_modules/spectre.css/src/spectre-icons.scss";
+

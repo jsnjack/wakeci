@@ -45,7 +45,7 @@ type JobsListData struct {
 	Count int    `json:"count"`
 }
 
-// BuildUpdateData ...
+// BuildUpdateData is viewable on the feed page
 type BuildUpdateData struct {
 	ID         string      `json:"id"`
 	Count      int         `json:"count"`

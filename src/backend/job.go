@@ -14,14 +14,15 @@ const ConfigExt = ".yaml"
 // Job represents Job
 type Job struct {
 	Name  string  `yaml:"name" json:"name"`
-	Tasks []*Task `yaml:"tasks"`
+	Tasks []*Task `yaml:"tasks" json:"tasks"`
 }
 
 // Task ...
 type Task struct {
-	ID      int
-	Name    string `yaml:"name"`
-	Command string `yaml:"command"`
+	ID      int         `json:"id"`
+	Name    string      `yaml:"name" json:"name"`
+	Command string      `yaml:"command"`
+	Status  BuildStatus `json:"status"`
 }
 
 // ReadJob reads job from a file
