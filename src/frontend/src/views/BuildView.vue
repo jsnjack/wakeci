@@ -38,7 +38,9 @@
 
 <script>
 import vuex from "vuex";
-import LogLineComp from "@/components/BuildView/LogLineComp.vue";
+import axios from "axios";
+
+// import LogLineComp from "@/components/BuildView/LogLineComp.vue";
 
 export default {
     props: {
@@ -50,15 +52,19 @@ export default {
             required: true,
         },
     },
-    components: {LogLineComp},
+    // components: {LogLineComp},
     mounted() {
         this.subscribe();
+        this.fetch();
     },
     destroyed() {
         this.unsubscribe();
     },
     computed: {
-        ...vuex.mapState(["ws", "logs"]),
+        ...vuex.mapState(["ws", "logs", "api"]),
+        getBuilInfoURL: function() {
+            return `${this.api.baseURL}/build/${this.id}/info`;
+        },
     },
     methods: {
         subscribe() {
@@ -79,6 +85,15 @@ export default {
                     "to": this.subscription,
                 },
             });
+        },
+        fetch() {
+            axios.get(this.getBuilInfoURL)
+                .then(function(response) {
+                    console.log(response);
+                })
+                .catch(function(error) {
+                    console.log(error);
+                });
         },
     },
     data: function() {

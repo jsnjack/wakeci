@@ -60,6 +60,7 @@ func main() {
 		router := httprouter.New()
 		router.GET("/ws", handleWSConnection)
 		router.POST("/api/job/:name/run", LogMi(CORSMi(HandleRunJob)))
+		router.GET("/api/build/:id/info", LogMi(CORSMi(HandleGetBuildInfo)))
 
 		go BroadcastMessage()
 

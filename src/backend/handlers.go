@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -61,5 +62,44 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	BuildQueue = append(BuildQueue, build)
 	TakeFromQueue()
 	build.BroadcastUpdate()
-	w.Write([]byte("{}"))
+	defer w.Write([]byte("{}"))
+}
+
+// HandleGetBuildInfo Returns information required to bootstrap build page
+func HandleGetBuildInfo(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	buildID := ps.ByName("id")
+	buildConfigFilename := WorkingDir + "wakespace/" + buildID + "/build.yaml"
+	if _, err := os.Stat(buildConfigFilename); os.IsNotExist(err) {
+		Logger.Println(err)
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("{}"))
+		return
+	}
+
+	job, err := ReadJob(buildConfigFilename)
+	if err != nil {
+		Logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("{}"))
+		return
+	}
+
+	if err != nil {
+		Logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	msg := MsgBroadcast{
+		Type: "build:info",
+		Data: job,
+	}
+
+	msgB, err := json.Marshal(msg)
+	if err != nil {
+		Logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Write(msgB)
 }
