@@ -46,6 +46,10 @@ func main() {
 		if err != nil {
 			return err
 		}
+		_, err = tx.CreateBucketIfNotExists(GlobalBucket)
+		if err != nil {
+			return err
+		}
 		return nil
 	})
 
@@ -59,6 +63,7 @@ func main() {
 		// Websocket section
 		router := httprouter.New()
 		router.GET("/ws", handleWSConnection)
+		router.POST("/api/feed/", LogMi(CORSMi(HandleFeed)))
 		router.POST("/api/job/:name/run", LogMi(CORSMi(HandleRunJob)))
 		router.GET("/api/build/:id/info", LogMi(CORSMi(HandleGetBuildInfo)))
 

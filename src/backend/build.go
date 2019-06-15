@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 	"time"
 
 	bolt "github.com/etcd-io/bbolt"
@@ -40,9 +39,8 @@ const StatusPending = "pending"
 
 // Build ...
 type Build struct {
-	ID          string // job.Name + Count
+	ID          int
 	Job         *Job
-	Count       int
 	Status      ItemStatus
 	Logger      *log.Logger
 	Subscribers []*websocket.Conn
@@ -158,7 +156,6 @@ func (b *Build) BroadcastUpdate() {
 		Type: MsgTypeBuildUpdate,
 		Data: &BuildUpdateData{
 			ID:         b.ID,
-			Count:      b.Count,
 			Name:       b.Job.Name,
 			Status:     b.Status,
 			TotalTasks: len(b.Job.Tasks),
@@ -171,7 +168,7 @@ func (b *Build) BroadcastUpdate() {
 // PublishCommandLogs sends log update to all subscribed users
 func (b *Build) PublishCommandLogs(taskID int, id int, data string) {
 	msg := MsgBroadcast{
-		Type: MsgType("build:log:" + b.ID),
+		Type: MsgType("build:log:" + string(b.ID)),
 		Data: &CommandLogData{
 			TaskID: taskID,
 			ID:     id,
@@ -184,13 +181,13 @@ func (b *Build) PublishCommandLogs(taskID int, id int, data string) {
 // GetWorkspaceDir returns path to the workspace, where all user created files
 // are stored
 func (b *Build) GetWorkspaceDir() string {
-	return WorkingDir + "workspace/" + b.ID + "/"
+	return WorkingDir + "workspace/" + string(b.ID) + "/"
 }
 
 // GetWakespaceDir returns path to the data dir - there all build+wake related data is
 // stored
 func (b *Build) GetWakespaceDir() string {
-	return WorkingDir + "wakespace/" + b.ID + "/"
+	return WorkingDir + "wakespace/" + string(b.ID) + "/"
 }
 
 // GetBuildConfigFilename returns build config filename (copy of the original job file)
@@ -213,23 +210,19 @@ func (b *Build) GetNumberOfFinishedTasks() int {
 
 // CreateBuild ..
 func CreateBuild(job *Job) (*Build, error) {
-	var id int
+	var counti int
 	err := DB.Update(func(tx *bolt.Tx) error {
 		var err error
-		b := tx.Bucket([]byte(JobsBucket))
-		j := b.Bucket([]byte(job.Name))
-		if j == nil {
-			return fmt.Errorf("No job with name %s", job.Name)
-		}
-		idS := string(j.Get([]byte("count")))
-		id, err = strconv.Atoi(idS)
-		if err != nil {
-			return err
-		}
-		id = id + 1
-		err = j.Put([]byte("count"), []byte(strconv.Itoa(id)))
-		if err != nil {
-			return err
+		gb := tx.Bucket([]byte(GlobalBucket))
+		count := gb.Get([]byte("count"))
+		if count == nil {
+			counti = 1
+		} else {
+			counti, err = ByteToInt(count)
+			if err != nil {
+				return err
+			}
+			counti++
 		}
 		return nil
 	})
@@ -237,23 +230,12 @@ func CreateBuild(job *Job) (*Build, error) {
 		return nil, err
 	}
 
-	// Broadcast job count update
-	msg := MsgBroadcast{
-		Type: MsgTypeJobUpdate,
-		Data: &JobsListData{
-			Name:  job.Name,
-			Count: id,
-		},
-	}
-	BroadcastChannel <- &msg
-
 	build := Build{
 		Job:    job,
 		Status: StatusPending,
-		Count:  id,
-		ID:     fmt.Sprintf("%s_%d", job.Name, id),
+		ID:     counti,
 	}
-	build.Logger = log.New(os.Stdout, build.ID+" ", log.Lmicroseconds|log.Lshortfile)
+	build.Logger = log.New(os.Stdout, string(build.ID)+" ", log.Lmicroseconds|log.Lshortfile)
 	return &build, nil
 }
 
@@ -261,7 +243,7 @@ func CreateBuild(job *Job) (*Build, error) {
 // and executes it
 func TakeFromQueue() {
 	if len(BuildList) < NumberOfConcurrentBuilds && len(BuildQueue) > 0 {
-		Logger.Printf("Taking job from queue %s\n", BuildQueue[0].ID)
+		Logger.Printf("Taking job from queue %d\n", BuildQueue[0].ID)
 		BuildList = append(BuildList, BuildQueue[0])
 		go BuildQueue[0].Start()
 		BuildQueue[0] = nil

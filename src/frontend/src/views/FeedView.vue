@@ -19,9 +19,48 @@
 
 <script>
 import FeedItem from "@/components/FeedItem.vue";
+import {APIURL} from "@/store/communication";
+import axios from "axios";
 
 export default {
     components: {FeedItem},
+    mounted() {
+        this.fetch();
+        this.subscribe();
+    },
+    destroyed() {
+        this.unsubscribe();
+    },
+    methods: {
+        subscribe() {
+            this.$store.commit("ACTIVE_SUBSCRIPTION", this.subscription);
+            this.ws.obj.sendMessage({
+                "type": "in:subscribe",
+                "data": {
+                    "to": this.subscription,
+                    "id": this.id,
+                },
+            });
+        },
+        unsubscribe() {
+            this.$store.commit("ACTIVE_SUBSCRIPTION", "");
+            this.ws.obj.sendMessage({
+                "type": "in:unsubscribe",
+                "data": {
+                    "to": this.subscription,
+                },
+            });
+        },
+        fetch() {
+            axios.get(APIURL + "/feed/")
+                .then(function(response) {
+                    console.log(response);
+                })
+                .catch(function(error) {
+                    console.log(error);
+                });
+        },
+    },
     data: function() {
         return {
             builds: [{

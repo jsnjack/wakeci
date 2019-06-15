@@ -5,21 +5,6 @@ const state = {
         connected: false,
         reconnectTimeout: 1000, // ms
     },
-    jobs: [], // All registered jobs
-    builds: [], // Recent builds on feed view
-    api: {
-        baseURL: process.env.API_ENDPOINT || "http://localhost:8080/api",
-    },
-    buildView: {
-        activeSubscription: "",
-        tasks: [
-            // {
-            //     name:
-            //     status:
-            //     logs:
-            // }
-        ],
-    },
 };
 
 export default state;

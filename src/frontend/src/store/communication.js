@@ -1,3 +1,5 @@
+export const APIURL = process.env.API_ENDPOINT || "http://localhost:8080/api";
+
 const wsMessageHandler = function(app, data) {
     const msg = JSON.parse(data);
     console.info("WS msg", msg);

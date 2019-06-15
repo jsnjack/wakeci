@@ -58,7 +58,7 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	}
 	Logger.Printf("Build config %s has been created\n", build.GetBuildConfigFilename())
 
-	Logger.Printf("New job queued: %s %d\n", build.Job.Name, build.Count)
+	Logger.Printf("New job queued: %s %d\n", build.Job.Name, build.ID)
 	BuildQueue = append(BuildQueue, build)
 	TakeFromQueue()
 	build.BroadcastUpdate()
@@ -102,4 +102,9 @@ func HandleGetBuildInfo(w http.ResponseWriter, r *http.Request, ps httprouter.Pa
 		return
 	}
 	w.Write(msgB)
+}
+
+// HandleFeed returns items in current feed - executed and queued jobs
+func HandleFeed(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+
 }
