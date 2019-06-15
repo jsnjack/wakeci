@@ -21,7 +21,7 @@ type ClientList struct {
 func (cl *ClientList) Append(ws *websocket.Conn) *Client {
 	client := Client{
 		WS:           ws,
-		SubscribedTo: []MsgType{MsgTypeBuildUpdate, MsgTypeJobUpdate},
+		SubscribedTo: []MsgType{},
 		Logger:       log.New(os.Stdout, "["+GenerateRandomString(5)+"] ", log.Lmicroseconds|log.Lshortfile),
 	}
 	cl.Lock()
@@ -102,7 +102,6 @@ func (c *Client) HandleIncomingMessage(msg *MsgIncoming) {
 			return
 		}
 		c.Subscribe(MsgType(data.To))
-		c.SendBuildInfo(data.ID)
 		break
 	case MsgTypeInUnsubscribe:
 		var data InSubscribeData

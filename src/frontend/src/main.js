@@ -4,6 +4,7 @@ import router from "./router";
 import store from "./store/index";
 
 
+Vue.prototype.$eventHub = new Vue();
 Vue.config.productionTip = false;
 
 new Vue({

@@ -8,10 +8,10 @@
         <th>Status</th>
       </thead>
       <tbody>
-        <FeedItem v-for="item in builds" :key="item.id" :build="item"></FeedItem>
+        <FeedItem v-for="item in sortedBuilds" :key="item.id" :build="item"></FeedItem>
       </tbody>
     </table>
-    <div class="empty" v-show="builds.length === 0">
+    <div class="empty" v-show="Object.keys(builds).length === 0">
       <p class="empty-title h5">Empty</p>
     </div>
   </div>
@@ -21,6 +21,8 @@
 import FeedItem from "@/components/FeedItem.vue";
 import {APIURL} from "@/store/communication";
 import axios from "axios";
+import {findInContainer} from "@/store/utils";
+
 
 export default {
     components: {FeedItem},
@@ -31,45 +33,52 @@ export default {
     destroyed() {
         this.unsubscribe();
     },
+    computed: {
+        sortedBuilds: function() {
+            return [...this.builds].sort((a, b) => a.id < b.id);
+        },
+    },
     methods: {
         subscribe() {
-            this.$store.commit("ACTIVE_SUBSCRIPTION", this.subscription);
-            this.ws.obj.sendMessage({
+            this.$store.commit("WS_SEND", {
                 "type": "in:subscribe",
                 "data": {
                     "to": this.subscription,
-                    "id": this.id,
                 },
             });
+            this.$eventHub.$on(this.subscription, this.applyUpdate);
         },
         unsubscribe() {
-            this.$store.commit("ACTIVE_SUBSCRIPTION", "");
-            this.ws.obj.sendMessage({
+            this.$store.commit("WS_SEND", {
                 "type": "in:unsubscribe",
                 "data": {
                     "to": this.subscription,
                 },
             });
+            this.$eventHub.$off(this.subscription);
         },
         fetch() {
             axios.get(APIURL + "/feed/")
-                .then(function(response) {
-                    console.log(response);
+                .then((response) => {
+                    this.builds = response.data || [];
                 })
                 .catch(function(error) {
                     console.log(error);
                 });
         },
+        applyUpdate(ev) {
+            const index = findInContainer(this.builds, "id", ev.id)[1];
+            if (index !== undefined) {
+                this.$set(this.builds, index, Object.assign({}, this.builds[index], ev));
+            } else {
+                this.builds.push(ev);
+            }
+        },
     },
     data: function() {
         return {
-            builds: [{
-                name: "build_project",
-                count: 10,
-                done_tasks: 3,
-                total_tasks: 5,
-                status: "running",
-            }],
+            builds: [],
+            subscription: "build:update",
         };
     },
 };

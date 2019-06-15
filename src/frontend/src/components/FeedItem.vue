@@ -4,7 +4,7 @@
             {{ build.name }}
         </td>
         <td>
-            <router-link :to="{ name: 'build', params: { count: build.count, job_name: build.name }}">{{ build.count }}</router-link>
+            <router-link :to="{ name: 'build', params: { count: build.id, job_name: build.name }}">{{ build.id }}</router-link>
         </td>
         <td class="tooltip tooltip-right" :data-tooltip="getProgressTooltip">
             <progress
@@ -29,8 +29,6 @@ export default {
             type: Object,
             required: true,
         },
-    },
-    methods: {
     },
     computed: {
         getProgressTooltip() {

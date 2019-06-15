@@ -4,12 +4,19 @@ const mutations = {
     WS_CONNECTED(state, connection) {
         state.ws.obj = connection;
         state.ws.connected = true;
+        while (state.ws.buffer.length > 0) {
+            state.ws.obj.sendMessage(state.ws.buffer.shift());
+        }
     },
     WS_DISCONNECTED(state) {
         state.ws.connected = false;
     },
-    WS_MSG_JOBS_LIST(state, data) {
-        state.jobs = data;
+    WS_SEND(state, msg) {
+        if (state.ws.connected === true) {
+            state.ws.obj.sendMessage(msg);
+        } else {
+            state.ws.buffer.push(msg);
+        }
     },
     WS_MSG_BUILD_UPDATE(state, data) {
         const r = findInContainer(state.builds, "id", data.id);

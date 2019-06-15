@@ -106,5 +106,30 @@ func HandleGetBuildInfo(w http.ResponseWriter, r *http.Request, ps httprouter.Pa
 
 // HandleFeed returns items in current feed - executed and queued jobs
 func HandleFeed(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-
+	var payload []*BuildUpdateData
+	for _, b := range BuildList {
+		payload = append(payload, &BuildUpdateData{
+			ID:         b.ID,
+			Name:       b.Job.Name,
+			Status:     b.Status,
+			TotalTasks: len(b.Job.Tasks),
+			DoneTasks:  b.GetNumberOfFinishedTasks(),
+		})
+	}
+	for _, b := range BuildQueue {
+		payload = append(payload, &BuildUpdateData{
+			ID:         b.ID,
+			Name:       b.Job.Name,
+			Status:     b.Status,
+			TotalTasks: len(b.Job.Tasks),
+			DoneTasks:  b.GetNumberOfFinishedTasks(),
+		})
+	}
+	payloadB, err := json.Marshal(payload)
+	if err != nil {
+		Logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Write(payloadB)
 }

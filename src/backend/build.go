@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	bolt "github.com/etcd-io/bbolt"
@@ -168,7 +169,7 @@ func (b *Build) BroadcastUpdate() {
 // PublishCommandLogs sends log update to all subscribed users
 func (b *Build) PublishCommandLogs(taskID int, id int, data string) {
 	msg := MsgBroadcast{
-		Type: MsgType("build:log:" + string(b.ID)),
+		Type: MsgType("build:log:" + strconv.Itoa(b.ID)),
 		Data: &CommandLogData{
 			TaskID: taskID,
 			ID:     id,
@@ -181,13 +182,13 @@ func (b *Build) PublishCommandLogs(taskID int, id int, data string) {
 // GetWorkspaceDir returns path to the workspace, where all user created files
 // are stored
 func (b *Build) GetWorkspaceDir() string {
-	return WorkingDir + "workspace/" + string(b.ID) + "/"
+	return WorkingDir + "workspace/" + strconv.Itoa(b.ID) + "/"
 }
 
 // GetWakespaceDir returns path to the data dir - there all build+wake related data is
 // stored
 func (b *Build) GetWakespaceDir() string {
-	return WorkingDir + "wakespace/" + string(b.ID) + "/"
+	return WorkingDir + "wakespace/" + strconv.Itoa(b.ID) + "/"
 }
 
 // GetBuildConfigFilename returns build config filename (copy of the original job file)
@@ -224,6 +225,7 @@ func CreateBuild(job *Job) (*Build, error) {
 			}
 			counti++
 		}
+		gb.Put([]byte("count"), []byte(strconv.Itoa(counti)))
 		return nil
 	})
 	if err != nil {
@@ -235,7 +237,7 @@ func CreateBuild(job *Job) (*Build, error) {
 		Status: StatusPending,
 		ID:     counti,
 	}
-	build.Logger = log.New(os.Stdout, string(build.ID)+" ", log.Lmicroseconds|log.Lshortfile)
+	build.Logger = log.New(os.Stdout, strconv.Itoa(build.ID)+" ", log.Lmicroseconds|log.Lshortfile)
 	return &build, nil
 }
 
