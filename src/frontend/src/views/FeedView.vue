@@ -1,16 +1,37 @@
 <template>
   <div class="container">
-    <FeedComp />
+    <table class="table table-striped">
+      <thead>
+        <th>Name</th>
+        <th>Build #</th>
+        <th>Tasks</th>
+        <th>Status</th>
+      </thead>
+      <tbody>
+        <FeedItem v-for="item in builds" :key="item.id" :build="item"></FeedItem>
+      </tbody>
+    </table>
+    <div class="empty" v-show="builds.length === 0">
+      <p class="empty-title h5">Empty</p>
+    </div>
   </div>
 </template>
 
 <script>
-// @ is an alias to /src
-import FeedComp from "@/components/FeedComp.vue";
+import FeedItem from "@/components/FeedItem.vue";
 
 export default {
-    components: {
-        FeedComp,
+    components: {FeedItem},
+    data: function() {
+        return {
+            builds: [{
+                name: "build_project",
+                count: 10,
+                done_tasks: 3,
+                total_tasks: 5,
+                status: "running",
+            }],
+        };
     },
 };
 </script>

@@ -14,14 +14,16 @@
             </progress>
         </td>
         <td>
-            <span class="label label-rounded" :class="getStatusClass">{{ build.status }}</span>
+            <BuildStatus :status="build.status"></BuildStatus>
         </td>
     </tr>
 </template>
 
 <script>
+import BuildStatus from "@/components/BuildStatus";
 
 export default {
+    components: {BuildStatus},
     props: {
         build: {
             type: Object,
@@ -33,18 +35,6 @@ export default {
     computed: {
         getProgressTooltip() {
             return `${this.build.done_tasks} of ${this.build.total_tasks}`;
-        },
-        getStatusClass() {
-            switch (this.build.status) {
-            case "running":
-                return "label-warning";
-            case "failed":
-                return "label-error";
-            case "finished":
-                return "label-success";
-            }
-            // pending
-            return "";
         },
     },
 };

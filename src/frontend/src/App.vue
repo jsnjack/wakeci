@@ -1,11 +1,11 @@
 <template>
   <div id="app">
-    <header class="navbar-center">
+    <header class="navbar-center bg-primary">
         <section class="navbar-section">
-            <router-link to="/" class="btn btn-link">Feed</router-link>
-            <router-link to="/jobs" class="btn btn-link">History</router-link>
-            <router-link to="/jobs" class="btn btn-link">Jobs</router-link>
-            <router-link to="/jobs" class="btn btn-link">Settings</router-link>
+            <router-link to="/" class="btn btn-link text-light">Feed</router-link>
+            <router-link to="/jobs" class="btn btn-link text-light">Jobs</router-link>
+            <router-link to="/jobs" class="btn btn-link text-light">Settings</router-link>
+            <router-link to="/jobs" class="btn btn-link text-light">Log out</router-link>
         </section>
     </header>
     <router-view/>
@@ -64,10 +64,5 @@ export default {
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
   color: #2c3e50;
-}
-
-.container {
-    display: flex;
-    justify-content: space-evenly;
 }
 </style>
