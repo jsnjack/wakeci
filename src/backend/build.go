@@ -39,6 +39,9 @@ const StatusFinished = "finished"
 // StatusPending ...
 const StatusPending = "pending"
 
+// StatusAborted ...
+const StatusAborted = "aborted"
+
 // Build ...
 type Build struct {
 	ID          int

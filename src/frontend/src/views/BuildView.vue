@@ -10,18 +10,7 @@
         <BuildProgress :done="statusUpdate.done_tasks" :total="statusUpdate.total_tasks"></BuildProgress>
       </div>
     </div>
-
-    <!-- TODO build parameters -->
-    <details class="accordion text-left" open>
-      <summary class="accordion-header c-hand">
-        <i class="icon icon-arrow-right mr-1"></i>
-        Build params
-      </summary>
-      <div class="accordion-body">
-        fewef
-        we
-      </div>
-    </details>
+    <TaskItem v-for="item in job.tasks" :key="item.id" :task="item"></TaskItem>
   </div>
 </template>
 
@@ -30,6 +19,9 @@ import {APIURL} from "@/store/communication";
 import axios from "axios";
 import BuildStatus from "@/components/BuildStatus";
 import BuildProgress from "@/components/BuildProgress";
+import TaskItem from "@/components/TaskItem";
+import {findInContainer} from "@/store/utils";
+
 
 export default {
     props: {
@@ -37,13 +29,13 @@ export default {
             required: true,
         },
     },
-    components: {BuildStatus, BuildProgress},
+    components: {BuildStatus, BuildProgress, TaskItem},
     mounted() {
         this.fetch();
-    // this.subscribe();
+        this.subscribe();
     },
     destroyed() {
-    // this.unsubscribe();
+        this.unsubscribe();
     },
     methods: {
         subscribe() {
@@ -80,12 +72,16 @@ export default {
         },
         applyUpdate(ev) {
             console.log("UPDATE", ev);
-            // const index = findInContainer(this.builds, "id", ev.id)[1];
-            // if (index !== undefined) {
-            //     this.$set(this.builds, index, Object.assign({}, this.builds[index], ev));
-            // } else {
-            //     this.builds.push(ev);
-            // }
+            const index = findInContainer(this.job.tasks, "id", ev.task_id)[1];
+            if (index !== undefined) {
+                if (this.job.tasks[index].logs === null) {
+                    this.job.tasks[index].logs = [];
+                }
+                this.job.tasks[index].logs.push(ev);
+                // this.$set(this.builds, index, Object.assign({}, this.builds[index], ev));
+            } else {
+                console.log("Unable to find task:", ev);
+            }
         },
     },
     data: function() {

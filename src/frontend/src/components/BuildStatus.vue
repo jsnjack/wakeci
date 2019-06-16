@@ -6,7 +6,6 @@
 export default {
     props: {
         status: {
-            type: String,
             required: true,
         },
     },
@@ -19,6 +18,8 @@ export default {
                 return "label-error";
             case "finished":
                 return "label-success";
+            case "aborted":
+                return "label-primary";
             }
             // pending
             return "";

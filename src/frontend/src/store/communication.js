@@ -8,6 +8,10 @@ const wsMessageHandler = function(app, data) {
         app.$eventHub.$emit(msg.type, msg.data);
         break;
     default:
+        if (msg.type.startsWith("build:log:")) {
+            app.$eventHub.$emit(msg.type, msg.data);
+            return;
+        }
         console.warn("Unhandled message", msg);
     }
 };
