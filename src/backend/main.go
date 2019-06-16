@@ -70,7 +70,7 @@ func main() {
 		router.GET("/api/feed/", LogMi(CORSMi(HandleFeedView)))
 		router.GET("/api/jobs/", LogMi(CORSMi(HandleJobsView)))
 		router.POST("/api/job/:name/run", LogMi(CORSMi(HandleRunJob)))
-		router.GET("/api/build/:id/info", LogMi(CORSMi(HandleGetBuildInfo)))
+		router.GET("/api/build/:id/log/", LogMi(CORSMi(HandleGetBuildLog)))
 
 		go BroadcastMessage()
 

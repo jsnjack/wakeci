@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -67,14 +68,14 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	defer w.Write([]byte(strconv.Itoa(build.ID)))
 }
 
-// HandleGetBuildInfo Returns information required to bootstrap build page
-func HandleGetBuildInfo(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+// HandleGetBuildLog Returns information required to bootstrap build page
+func HandleGetBuildLog(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	buildID := ps.ByName("id")
+	// Collect tasks info by reconstructing jon object
 	buildConfigFilename := WorkingDir + "wakespace/" + buildID + "/build.yaml"
 	if _, err := os.Stat(buildConfigFilename); os.IsNotExist(err) {
 		Logger.Println(err)
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("{}"))
 		return
 	}
 
@@ -82,40 +83,49 @@ func HandleGetBuildInfo(w http.ResponseWriter, r *http.Request, ps httprouter.Pa
 	if err != nil {
 		Logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("{}"))
 		return
 	}
 
+	// Get build statusupdate
+	var buildStatusData BuildUpdateData
+	err = DB.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(HistoryBucket))
+		ud := b.Get([]byte(buildID))
+		if ud == nil {
+			return fmt.Errorf("Not found")
+		}
+		return json.Unmarshal(ud, &buildStatusData)
+	})
+	if err != nil {
+		Logger.Println(err)
+		if err.Error() == "Not found" {
+			w.WriteHeader(http.StatusNotFound)
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		return
+	}
+	payload := struct {
+		Job          *Job             `json:"job"`
+		StatusUpdate *BuildUpdateData `json:"status_update"`
+	}{
+		Job:          job,
+		StatusUpdate: &buildStatusData,
+	}
+
+	payloadB, err := json.Marshal(payload)
 	if err != nil {
 		Logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
-	msg := MsgBroadcast{
-		Type: "build:info",
-		Data: job,
-	}
-
-	msgB, err := json.Marshal(msg)
-	if err != nil {
-		Logger.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	w.Write(msgB)
+	w.Write(payloadB)
 }
 
 // HandleFeedView returns items in current feed - executed and queued jobs
 func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	const pageSize = 10
 	var payload []*BuildUpdateData
-	for _, b := range BuildList {
-		payload = append(payload, b.GenerateBuildUpdateData())
-	}
-	for _, b := range BuildQueue {
-		payload = append(payload, b.GenerateBuildUpdateData())
-	}
 	err := DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(HistoryBucket))
 		c := b.Cursor()

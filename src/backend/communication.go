@@ -11,10 +11,6 @@ type MsgType string
 // Used on the feed page
 const MsgTypeBuildUpdate = "build:update"
 
-// MsgTypeBuildInfo contains information to bootstrap initial build page
-// Number and name of tasks to create a placeholder for logs
-const MsgTypeBuildInfo = "build:info"
-
 // MsgTypeJobUpdate is sent when new job was triggered to update job count on the job page
 const MsgTypeJobUpdate = "job:update"
 
@@ -39,11 +35,6 @@ type MsgIncoming struct {
 // InSubscribeData ...
 type InSubscribeData struct {
 	To string `json:"to"`
-	ID string `json:"id"`
-}
-
-// BuildInfoData ...
-type BuildInfoData struct {
 	ID string `json:"id"`
 }
 

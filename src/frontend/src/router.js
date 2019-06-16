@@ -24,7 +24,7 @@ export default new Router({
             },
         },
         {
-            path: "/:job_name/build/:count",
+            path: "/build/:id",
             name: "build",
             component() {
                 return import(/* webpackChunkName: "build" */ "./views/BuildView.vue");

@@ -1,29 +1,24 @@
 <template>
-    <tr>
-        <td>
-            {{ build.name }}
-        </td>
-        <td>
-            <router-link :to="{ name: 'build', params: { count: build.id, job_name: build.name }}">{{ build.id }}</router-link>
-        </td>
-        <td class="tooltip tooltip-right" :data-tooltip="getProgressTooltip">
-            <progress
-                class="progress"
-                :value="build.done_tasks"
-                :max="build.total_tasks">
-            </progress>
-        </td>
-        <td>
-            <BuildStatus :status="build.status"></BuildStatus>
-        </td>
-    </tr>
+  <tr>
+    <td>{{ build.name }}</td>
+    <td>
+      <router-link :to="{ name: 'build', params: { id: build.id}}">{{ build.id }}</router-link>
+    </td>
+    <td class="tooltip tooltip-right" :data-tooltip="getProgressTooltip">
+      <BuildProgress :done="build.done_tasks" :total="build.total_tasks"/>
+    </td>
+    <td>
+      <BuildStatus :status="build.status"></BuildStatus>
+    </td>
+  </tr>
 </template>
 
 <script>
 import BuildStatus from "@/components/BuildStatus";
+import BuildProgress from "@/components/BuildProgress";
 
 export default {
-    components: {BuildStatus},
+    components: {BuildStatus, BuildProgress},
     props: {
         build: {
             type: Object,
@@ -40,5 +35,4 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="scss">
-
 </style>

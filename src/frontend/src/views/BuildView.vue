@@ -1,122 +1,103 @@
 <template>
-    <div class="container">
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title h5">show_env</div>
-                <div class="card-subtitle text-gray">build # 5</div>
-            </div>
-            <div class="card-footer">
-                <progress
-                    class="progress"
-                    :value="3"
-                    :max="5">
-                </progress>
-            </div>
-        </div>
-
-        <!-- TODO build parameters -->
-        <details class="accordion text-left" open>
-            <summary class="accordion-header c-hand">
-                <i class="icon icon-arrow-right mr-1"></i>
-                Build params
-            </summary>
-            <div class="accordion-body">
-                fewef
-                we
-            </div>
-        </details>
-
-
+  <div class="container">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title h5">{{ statusUpdate.name }}</div>
+        <div class="card-subtitle text-gray">build #{{ statusUpdate.id }}</div>
+        <BuildStatus :status="statusUpdate.status"></BuildStatus>
+      </div>
+      <div class="card-footer">
+        <BuildProgress :done="statusUpdate.done_tasks" :total="statusUpdate.total_tasks"></BuildProgress>
+      </div>
     </div>
-      <!-- <div style="width=700px;">
-          <LogLineComp v-for="item in logs"
-          :key="item.id"
-          :log="item"
-          />
-      </div> -->
+
+    <!-- TODO build parameters -->
+    <details class="accordion text-left" open>
+      <summary class="accordion-header c-hand">
+        <i class="icon icon-arrow-right mr-1"></i>
+        Build params
+      </summary>
+      <div class="accordion-body">
+        fewef
+        we
+      </div>
+    </details>
+  </div>
 </template>
 
 <script>
-import vuex from "vuex";
+import {APIURL} from "@/store/communication";
 import axios from "axios";
-
-// import LogLineComp from "@/components/BuildView/LogLineComp.vue";
+import BuildStatus from "@/components/BuildStatus";
+import BuildProgress from "@/components/BuildProgress";
 
 export default {
     props: {
-        count: {
-            required: true,
-        },
-        job_name: {
-            type: String,
+        id: {
             required: true,
         },
     },
-    // components: {LogLineComp},
+    components: {BuildStatus, BuildProgress},
     mounted() {
-        this.subscribe();
         this.fetch();
+    // this.subscribe();
     },
     destroyed() {
-        this.unsubscribe();
-    },
-    computed: {
-        ...vuex.mapState(["ws", "logs", "api"]),
-        getBuilInfoURL: function() {
-            return `${this.api.baseURL}/build/${this.id}/info`;
-        },
+    // this.unsubscribe();
     },
     methods: {
         subscribe() {
-            this.$store.commit("ACTIVE_SUBSCRIPTION", this.subscription);
-            this.ws.obj.sendMessage({
-                "type": "in:subscribe",
-                "data": {
-                    "to": this.subscription,
-                    "id": this.id,
+            this.$store.commit("WS_SEND", {
+                type: "in:subscribe",
+                data: {
+                    to: this.subscription,
                 },
             });
+            this.$eventHub.$on(this.subscription, this.applyUpdate);
         },
         unsubscribe() {
-            this.$store.commit("ACTIVE_SUBSCRIPTION", "");
-            this.ws.obj.sendMessage({
-                "type": "in:unsubscribe",
-                "data": {
-                    "to": this.subscription,
+            this.$store.commit("WS_SEND", {
+                type: "in:unsubscribe",
+                data: {
+                    to: this.subscription,
                 },
             });
+            this.$eventHub.$off(this.subscription);
         },
         fetch() {
-            axios.get(this.getBuilInfoURL)
-                .then(function(response) {
-                    console.log(response);
+            axios
+                .get(APIURL + `/build/${this.id}/log/`)
+                .then((response) => {
+                    this.statusUpdate = response.data.status_update;
+                    this.job = response.data.job;
                 })
-                .catch(function(error) {
-                    console.log(error);
+                .catch((error) => {
+                    this.$notify({
+                        text: error,
+                        type: "error",
+                    });
                 });
+        },
+        applyUpdate(ev) {
+            console.log("UPDATE", ev);
+            // const index = findInContainer(this.builds, "id", ev.id)[1];
+            // if (index !== undefined) {
+            //     this.$set(this.builds, index, Object.assign({}, this.builds[index], ev));
+            // } else {
+            //     this.builds.push(ev);
+            // }
         },
     },
     data: function() {
         return {
-            subscription: `build:log:${this.job_name}_${this.count}`,
-            id: `${this.job_name}_${this.count}`,
+            name: "",
+            job: {},
+            statusUpdate: {},
+            subscription: "build:log:" + this.id,
         };
     },
 };
 </script>
 
 <style scoped lang="scss">
-@import "@/assets/colors.scss";
-
-.container {
-    width: 80%;
-    display: flex;
-    flex-direction: column;
-    .card {
-        width: 100%;
-    }
-}
-.accordion-body {
-    background: $gray-color-light;
-}
 </style>

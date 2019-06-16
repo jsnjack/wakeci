@@ -142,20 +142,6 @@ func (b *Build) Finished() {
 
 // Cleanup is called when a job finished or failed
 func (b *Build) Cleanup() {
-	err := DB.Update(func(tx *bolt.Tx) error {
-		var err error
-		hb := tx.Bucket([]byte(HistoryBucket))
-		data := b.GenerateBuildUpdateData()
-		dataB, err := json.Marshal(data)
-		if err != nil {
-			return err
-		}
-		return hb.Put([]byte(strconv.Itoa(data.ID)), dataB)
-	})
-	if err != nil {
-		b.Logger.Println(err)
-	}
-
 	for i, ex := range BuildList {
 		if ex.ID == b.ID {
 			BuildList = append(BuildList[:i], BuildList[i+1:]...)
@@ -168,11 +154,25 @@ func (b *Build) Cleanup() {
 // BroadcastUpdate sends update to all subscribed clients. Contains general
 // information about the build
 func (b *Build) BroadcastUpdate() {
+	data := b.GenerateBuildUpdateData()
 	msg := MsgBroadcast{
 		Type: MsgTypeBuildUpdate,
-		Data: b.GenerateBuildUpdateData(),
+		Data: data,
 	}
 	BroadcastChannel <- &msg
+
+	err := DB.Update(func(tx *bolt.Tx) error {
+		var err error
+		hb := tx.Bucket([]byte(HistoryBucket))
+		dataB, err := json.Marshal(data)
+		if err != nil {
+			return err
+		}
+		return hb.Put([]byte(strconv.Itoa(data.ID)), dataB)
+	})
+	if err != nil {
+		b.Logger.Println(err)
+	}
 }
 
 // GenerateBuildUpdateData generates BuildUpdateData
