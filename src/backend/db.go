@@ -14,6 +14,9 @@ var JobsBucket = []byte("jobs")
 // - count: id of the build, increments
 var GlobalBucket = []byte("global")
 
+// HistoryBucket contains information about all executed builds
+var HistoryBucket = []byte("history")
+
 // ByteToInt convert bytes to int
 func ByteToInt(b []byte) (int, error) {
 	bs := string(b)

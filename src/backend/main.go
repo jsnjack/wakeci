@@ -50,6 +50,10 @@ func main() {
 		if err != nil {
 			return err
 		}
+		_, err = tx.CreateBucketIfNotExists(HistoryBucket)
+		if err != nil {
+			return err
+		}
 		return nil
 	})
 

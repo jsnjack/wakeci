@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -139,8 +140,22 @@ func (b *Build) Finished() {
 	b.Cleanup()
 }
 
-// Cleanup is called when a job finished or filed
+// Cleanup is called when a job finished or failed
 func (b *Build) Cleanup() {
+	err := DB.Update(func(tx *bolt.Tx) error {
+		var err error
+		hb := tx.Bucket([]byte(HistoryBucket))
+		data := b.GenerateBuildUpdateData()
+		dataB, err := json.Marshal(data)
+		if err != nil {
+			return err
+		}
+		return hb.Put([]byte(strconv.Itoa(data.ID)), dataB)
+	})
+	if err != nil {
+		b.Logger.Println(err)
+	}
+
 	for i, ex := range BuildList {
 		if ex.ID == b.ID {
 			BuildList = append(BuildList[:i], BuildList[i+1:]...)
@@ -155,15 +170,20 @@ func (b *Build) Cleanup() {
 func (b *Build) BroadcastUpdate() {
 	msg := MsgBroadcast{
 		Type: MsgTypeBuildUpdate,
-		Data: &BuildUpdateData{
-			ID:         b.ID,
-			Name:       b.Job.Name,
-			Status:     b.Status,
-			TotalTasks: len(b.Job.Tasks),
-			DoneTasks:  b.GetNumberOfFinishedTasks(),
-		},
+		Data: b.GenerateBuildUpdateData(),
 	}
 	BroadcastChannel <- &msg
+}
+
+// GenerateBuildUpdateData generates BuildUpdateData
+func (b *Build) GenerateBuildUpdateData() *BuildUpdateData {
+	return &BuildUpdateData{
+		ID:         b.ID,
+		Name:       b.Job.Name,
+		Status:     b.Status,
+		TotalTasks: len(b.Job.Tasks),
+		DoneTasks:  b.GetNumberOfFinishedTasks(),
+	}
 }
 
 // PublishCommandLogs sends log update to all subscribed users

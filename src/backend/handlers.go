@@ -108,25 +108,33 @@ func HandleGetBuildInfo(w http.ResponseWriter, r *http.Request, ps httprouter.Pa
 
 // HandleFeedView returns items in current feed - executed and queued jobs
 func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	const pageSize = 10
 	var payload []*BuildUpdateData
 	for _, b := range BuildList {
-		payload = append(payload, &BuildUpdateData{
-			ID:         b.ID,
-			Name:       b.Job.Name,
-			Status:     b.Status,
-			TotalTasks: len(b.Job.Tasks),
-			DoneTasks:  b.GetNumberOfFinishedTasks(),
-		})
+		payload = append(payload, b.GenerateBuildUpdateData())
 	}
 	for _, b := range BuildQueue {
-		payload = append(payload, &BuildUpdateData{
-			ID:         b.ID,
-			Name:       b.Job.Name,
-			Status:     b.Status,
-			TotalTasks: len(b.Job.Tasks),
-			DoneTasks:  b.GetNumberOfFinishedTasks(),
-		})
+		payload = append(payload, b.GenerateBuildUpdateData())
 	}
+	err := DB.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(HistoryBucket))
+		c := b.Cursor()
+		count := 0
+		for key, _ := c.Last(); key != nil; key, _ = c.Prev() {
+			var msg BuildUpdateData
+			err := json.Unmarshal(b.Get(key), &msg)
+			if err != nil {
+				Logger.Println(err)
+			} else {
+				payload = append(payload, &msg)
+				count++
+				if count >= pageSize {
+					break
+				}
+			}
+		}
+		return nil
+	})
 	payloadB, err := json.Marshal(payload)
 	if err != nil {
 		Logger.Println(err)
