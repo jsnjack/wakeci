@@ -1,7 +1,6 @@
 <template>
     <tr>
         <td>{{ job.name }}</td>
-        <td>{{ job.count }}</td>
         <td>
             <a :href="getRunURL" @click.prevent="run" class="btn btn-primary">Run</a>
         </td>
@@ -9,8 +8,9 @@
 </template>
 
 <script>
-import vuex from "vuex";
 import axios from "axios";
+import {APIURL} from "@/store/communication";
+
 
 export default {
     props: {
@@ -22,20 +22,24 @@ export default {
     methods: {
         run(event) {
             axios.post(event.target.href)
-                .then(function(response) {
+                .then((response) => {
                     console.log(response);
+                    this.$notify({
+                        text: `${this.job.name} has been scheduled (#${response.data})`,
+                        type: "success",
+                    });
                 })
-                .catch(function(error) {
-                    console.log(error);
+                .catch((error) => {
+                    this.$notify({
+                        text: error,
+                        type: "error",
+                    });
                 });
         },
     },
     computed: {
-        ...vuex.mapState([
-            "api",
-        ]),
         getRunURL: function() {
-            return `${this.api.baseURL}/job/${this.job.name}/run`;
+            return `${APIURL}/job/${this.job.name}/run`;
         },
     },
 };

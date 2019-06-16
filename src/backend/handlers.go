@@ -5,7 +5,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 
+	bolt "github.com/etcd-io/bbolt"
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -62,7 +64,7 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	BuildQueue = append(BuildQueue, build)
 	TakeFromQueue()
 	build.BroadcastUpdate()
-	defer w.Write([]byte("{}"))
+	defer w.Write([]byte(strconv.Itoa(build.ID)))
 }
 
 // HandleGetBuildInfo Returns information required to bootstrap build page
@@ -104,8 +106,8 @@ func HandleGetBuildInfo(w http.ResponseWriter, r *http.Request, ps httprouter.Pa
 	w.Write(msgB)
 }
 
-// HandleFeed returns items in current feed - executed and queued jobs
-func HandleFeed(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+// HandleFeedView returns items in current feed - executed and queued jobs
+func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	var payload []*BuildUpdateData
 	for _, b := range BuildList {
 		payload = append(payload, &BuildUpdateData{
@@ -126,6 +128,34 @@ func HandleFeed(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		})
 	}
 	payloadB, err := json.Marshal(payload)
+	if err != nil {
+		Logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Write(payloadB)
+}
+
+// HandleJobsView returns items in current feed - executed and queued jobs
+func HandleJobsView(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	var data []*JobsListData
+	err := DB.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(JobsBucket))
+		c := b.Cursor()
+		for key, _ := c.First(); key != nil; key, _ = c.Next() {
+			job := JobsListData{
+				Name: string(key),
+			}
+			data = append(data, &job)
+		}
+		return nil
+	})
+	if err != nil {
+		Logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	payloadB, err := json.Marshal(data)
 	if err != nil {
 		Logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)

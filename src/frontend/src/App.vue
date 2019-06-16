@@ -9,6 +9,7 @@
         </section>
     </header>
     <router-view/>
+    <notifications classes="my-noty" position="bottom right" />
   </div>
 </template>
 
@@ -64,5 +65,29 @@ export default {
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
   color: #2c3e50;
+}
+
+.my-noty {
+  padding: 10px;
+  margin: 0 5px 5px;
+
+  color: $light-color;
+  background: $primary-color;
+  border-left: 5px solid $primary-color-dark;
+
+  &.warn {
+    background: $warning-color;
+    border-left-color: darken($warning-color, 10%);
+  }
+
+  &.error {
+    background: $error-color;
+    border-left-color: darken($error-color, 10%);
+  }
+
+  &.success {
+    background: $success-color;
+    border-left-color: darken($success-color, 10%);
+  }
 }
 </style>

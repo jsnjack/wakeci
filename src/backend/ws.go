@@ -163,9 +163,6 @@ func handleWSConnection(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 
 	client := ConnectedClients.Append(ws)
 
-	// Send information about all available jobs
-	ws.WriteMessage(websocket.TextMessage, *GetAllJobsMessage())
-
 	for {
 		var msg MsgIncoming
 		err := ws.ReadJSON(&msg)

@@ -63,7 +63,8 @@ func main() {
 		// Websocket section
 		router := httprouter.New()
 		router.GET("/ws", handleWSConnection)
-		router.GET("/api/feed/", LogMi(CORSMi(HandleFeed)))
+		router.GET("/api/feed/", LogMi(CORSMi(HandleFeedView)))
+		router.GET("/api/jobs/", LogMi(CORSMi(HandleJobsView)))
 		router.POST("/api/job/:name/run", LogMi(CORSMi(HandleRunJob)))
 		router.GET("/api/build/:id/info", LogMi(CORSMi(HandleGetBuildInfo)))
 

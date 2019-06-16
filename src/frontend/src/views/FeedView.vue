@@ -18,7 +18,7 @@
 </template>
 
 <script>
-import FeedItem from "@/components/FeedItem.vue";
+import FeedItem from "@/components/FeedItem";
 import {APIURL} from "@/store/communication";
 import axios from "axios";
 import {findInContainer} from "@/store/utils";
@@ -62,8 +62,11 @@ export default {
                 .then((response) => {
                     this.builds = response.data || [];
                 })
-                .catch(function(error) {
-                    console.log(error);
+                .catch((error) => {
+                    this.$notify({
+                        text: error,
+                        type: "error",
+                    });
                 });
         },
         applyUpdate(ev) {
