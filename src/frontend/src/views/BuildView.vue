@@ -42,19 +42,35 @@ export default {
             this.$store.commit("WS_SEND", {
                 type: "in:subscribe",
                 data: {
-                    to: this.subscription,
+                    to: this.buildLogSubscription,
                 },
             });
-            this.$eventHub.$on(this.subscription, this.applyUpdate);
+            this.$eventHub.$on(this.buildLogSubscription, this.applyBuildLog);
+
+            this.$store.commit("WS_SEND", {
+                type: "in:subscribe",
+                data: {
+                    to: this.buildUpdateSubscription,
+                },
+            });
+            this.$eventHub.$on(this.buildUpdateSubscription, this.applyBuildUpdate);
         },
         unsubscribe() {
             this.$store.commit("WS_SEND", {
                 type: "in:unsubscribe",
                 data: {
-                    to: this.subscription,
+                    to: this.buildLogSubscription,
                 },
             });
-            this.$eventHub.$off(this.subscription);
+            this.$eventHub.$off(this.buildLogSubscription);
+
+            this.$store.commit("WS_SEND", {
+                type: "in:unsubscribe",
+                data: {
+                    to: this.buildUpdateSubscription,
+                },
+            });
+            this.$eventHub.$off(this.buildUpdateSubscription);
         },
         fetch() {
             axios
@@ -70,7 +86,7 @@ export default {
                     });
                 });
         },
-        applyUpdate(ev) {
+        applyBuildLog(ev) {
             const index = findInContainer(this.job.tasks, "id", ev.task_id)[1];
             if (index !== undefined) {
                 if (this.job.tasks[index].logs === null) {
@@ -81,13 +97,17 @@ export default {
                 console.log("Unable to find task:", ev);
             }
         },
+        applyBuildUpdate(ev) {
+            this.statusUpdate = Object.assign({}, this.statusUpdate, ev);
+        },
     },
     data: function() {
         return {
             name: "",
             job: {},
             statusUpdate: {},
-            subscription: "build:log:" + this.id,
+            buildLogSubscription: "build:log:" + this.id,
+            buildUpdateSubscription: "build:update:" + this.id,
         };
     },
 };
