@@ -171,7 +171,7 @@ func (b *Build) BroadcastUpdate() {
 		if err != nil {
 			return err
 		}
-		return hb.Put([]byte(strconv.Itoa(data.ID)), dataB)
+		return hb.Put(Itob(data.ID), dataB)
 	})
 	if err != nil {
 		b.Logger.Println(err)

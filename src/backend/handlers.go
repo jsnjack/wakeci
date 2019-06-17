@@ -70,9 +70,15 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 
 // HandleGetBuildLog Returns information required to bootstrap build page
 func HandleGetBuildLog(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	buildID := ps.ByName("id")
+	idp := ps.ByName("id")
+	buildID, err := strconv.Atoi(idp)
+	if err != nil {
+		Logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	// Collect tasks info by reconstructing jon object
-	buildConfigFilename := WorkingDir + "wakespace/" + buildID + "/build.yaml"
+	buildConfigFilename := WorkingDir + "wakespace/" + strconv.Itoa(buildID) + "/build.yaml"
 	if _, err := os.Stat(buildConfigFilename); os.IsNotExist(err) {
 		Logger.Println(err)
 		w.WriteHeader(http.StatusNotFound)
@@ -90,7 +96,7 @@ func HandleGetBuildLog(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 	var buildStatusData BuildUpdateData
 	err = DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(HistoryBucket))
-		ud := b.Get([]byte(buildID))
+		ud := b.Get(Itob(buildID))
 		if ud == nil {
 			return fmt.Errorf("Not found")
 		}

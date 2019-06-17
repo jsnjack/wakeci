@@ -63,17 +63,9 @@ func ScanAllJobs() error {
 		err = DB.Update(func(tx *bolt.Tx) error {
 			jobsBucket := tx.Bucket(JobsBucket)
 
-			itemBucket, err := jobsBucket.CreateBucketIfNotExists([]byte(job.Name))
+			_, err := jobsBucket.CreateBucketIfNotExists([]byte(job.Name))
 			if err != nil {
 				return err
-			}
-
-			count := itemBucket.Get([]byte("count"))
-			if count == nil {
-				err = itemBucket.Put([]byte("count"), []byte("0"))
-				if err != nil {
-					return err
-				}
 			}
 			return nil
 		})

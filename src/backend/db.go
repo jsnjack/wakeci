@@ -1,6 +1,9 @@
 package main
 
-import "strconv"
+import (
+	"encoding/binary"
+	"strconv"
+)
 
 // DB schema
 // key `jobs`
@@ -25,4 +28,16 @@ func ByteToInt(b []byte) (int, error) {
 		return 0, err
 	}
 	return bi, nil
+}
+
+// Itob converts int to
+func Itob(v int) []byte {
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, uint64(v))
+	return b
+}
+
+// Btoi converts bytes to int
+func Btoi(b []byte) int {
+	return int(binary.BigEndian.Uint64(b))
 }
