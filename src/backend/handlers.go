@@ -132,7 +132,7 @@ func HandleGetBuildLog(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	const pageSize = 10
 	var payload []*BuildUpdateData
-	err := DB.View(func(tx *bolt.Tx) error {
+	err := DB.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(HistoryBucket))
 		c := b.Cursor()
 		count := 0
@@ -142,6 +142,18 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 			if err != nil {
 				Logger.Println(err)
 			} else {
+				switch msg.Status {
+				case StatusPending, StatusRunning:
+					if IsBuildAborted(msg.ID) {
+						msg.Status = StatusAborted
+						updatedB, err := json.Marshal(msg)
+						if err != nil {
+							Logger.Println(err)
+						}
+						b.Put(Itob(msg.ID), updatedB)
+					}
+					break
+				}
 				payload = append(payload, &msg)
 				count++
 				if count >= pageSize {
