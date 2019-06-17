@@ -81,7 +81,7 @@ export default {
     data: function() {
         return {
             builds: [],
-            subscription: "build:update",
+            subscription: "build:update:",
         };
     },
 };

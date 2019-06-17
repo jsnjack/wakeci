@@ -159,7 +159,7 @@ func (b *Build) Cleanup() {
 func (b *Build) BroadcastUpdate() {
 	data := b.GenerateBuildUpdateData()
 	msg := MsgBroadcast{
-		Type: MsgTypeBuildUpdate,
+		Type: "build:update:" + strconv.Itoa(b.ID),
 		Data: data,
 	}
 	BroadcastChannel <- &msg
@@ -192,7 +192,7 @@ func (b *Build) GenerateBuildUpdateData() *BuildUpdateData {
 // PublishCommandLogs sends log update to all subscribed users
 func (b *Build) PublishCommandLogs(taskID int, id int, data string) {
 	msg := MsgBroadcast{
-		Type: MsgType("build:log:" + strconv.Itoa(b.ID)),
+		Type: "build:log:" + strconv.Itoa(b.ID),
 		Data: &CommandLogData{
 			TaskID: taskID,
 			ID:     id,

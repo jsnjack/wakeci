@@ -71,14 +71,12 @@ export default {
                 });
         },
         applyUpdate(ev) {
-            console.log("UPDATE", ev);
             const index = findInContainer(this.job.tasks, "id", ev.task_id)[1];
             if (index !== undefined) {
                 if (this.job.tasks[index].logs === null) {
                     this.job.tasks[index].logs = [];
                 }
                 this.job.tasks[index].logs.push(ev);
-                // this.$set(this.builds, index, Object.assign({}, this.builds[index], ev));
             } else {
                 console.log("Unable to find task:", ev);
             }

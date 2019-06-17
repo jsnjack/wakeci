@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -21,7 +22,7 @@ type ClientList struct {
 func (cl *ClientList) Append(ws *websocket.Conn) *Client {
 	client := Client{
 		WS:           ws,
-		SubscribedTo: []MsgType{},
+		SubscribedTo: []string{},
 		Logger:       log.New(os.Stdout, "["+GenerateRandomString(5)+"] ", log.Lmicroseconds|log.Lshortfile),
 	}
 	cl.Lock()
@@ -52,14 +53,14 @@ var ConnectedClients ClientList
 // Client represents a websocket conection and subscriptions
 type Client struct {
 	WS           *websocket.Conn
-	SubscribedTo []MsgType
+	SubscribedTo []string
 	Logger       *log.Logger
 }
 
 // IsSubscribed checks if a client is subscribed for this type of messages
-func (c *Client) IsSubscribed(tag MsgType) (bool, int) {
+func (c *Client) IsSubscribed(tag string) (bool, int) {
 	for i, v := range c.SubscribedTo {
-		if v == tag {
+		if strings.HasPrefix(tag, v) {
 			return true, i
 		}
 	}
@@ -67,7 +68,7 @@ func (c *Client) IsSubscribed(tag MsgType) (bool, int) {
 }
 
 // Subscribe subscribes a client to message
-func (c *Client) Subscribe(mt MsgType) {
+func (c *Client) Subscribe(mt string) {
 	ok, _ := c.IsSubscribed(mt)
 	if !ok {
 		c.SubscribedTo = append(c.SubscribedTo, mt)
@@ -76,7 +77,7 @@ func (c *Client) Subscribe(mt MsgType) {
 }
 
 // Unsubscribe ...
-func (c *Client) Unsubscribe(mt MsgType) {
+func (c *Client) Unsubscribe(mt string) {
 	ok, index := c.IsSubscribed(mt)
 	if ok {
 		c.SubscribedTo[index] = ""
@@ -101,7 +102,7 @@ func (c *Client) HandleIncomingMessage(msg *MsgIncoming) {
 			c.Logger.Println(err)
 			return
 		}
-		c.Subscribe(MsgType(data.To))
+		c.Subscribe(data.To)
 		break
 	case MsgTypeInUnsubscribe:
 		var data InSubscribeData
@@ -110,7 +111,7 @@ func (c *Client) HandleIncomingMessage(msg *MsgIncoming) {
 			c.Logger.Println(err)
 			return
 		}
-		c.Unsubscribe(MsgType(data.To))
+		c.Unsubscribe(data.To)
 		break
 	default:
 		c.Logger.Printf("Unhandled msg: %v\n", msg)

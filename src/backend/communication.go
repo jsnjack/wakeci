@@ -4,16 +4,6 @@ import (
 	"encoding/json"
 )
 
-// MsgType ...
-type MsgType string
-
-// MsgTypeBuildUpdate is sent where there is an update in status of executing build
-// Used on the feed page
-const MsgTypeBuildUpdate = "build:update"
-
-// MsgTypeJobUpdate is sent when new job was triggered to update job count on the job page
-const MsgTypeJobUpdate = "job:update"
-
 // MsgTypeInSubscribe is incoming message. Means a user has opened build page
 const MsgTypeInSubscribe = "in:subscribe"
 
@@ -22,20 +12,19 @@ const MsgTypeInUnsubscribe = "in:unsubscribe"
 
 // MsgBroadcast ...
 type MsgBroadcast struct {
-	Type MsgType     `json:"type"`
+	Type string      `json:"type"`
 	Data interface{} `json:"data"`
 }
 
 // MsgIncoming ...
 type MsgIncoming struct {
-	Type MsgType         `json:"type"`
+	Type string          `json:"type"`
 	Data json.RawMessage `json:"data"`
 }
 
 // InSubscribeData ...
 type InSubscribeData struct {
 	To string `json:"to"`
-	ID string `json:"id"`
 }
 
 // JobsListData ...
