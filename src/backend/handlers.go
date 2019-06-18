@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -68,8 +70,8 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	defer w.Write([]byte(strconv.Itoa(build.ID)))
 }
 
-// HandleGetBuildLog Returns information required to bootstrap build page
-func HandleGetBuildLog(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+// HandleGetBuild Returns information required to bootstrap build page
+func HandleGetBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	idp := ps.ByName("id")
 	buildID, err := strconv.Atoi(idp)
 	if err != nil {
@@ -198,4 +200,65 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 		return
 	}
 	w.Write(payloadB)
+}
+
+// HandleReloadTaskLog broadcasts all logs from a filesystem file
+func HandleReloadTaskLog(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	buildID := ps.ByName("id")
+	taskID := ps.ByName("taskID")
+	// Verify ids
+	_, err := strconv.Atoi(buildID)
+	if err != nil {
+		Logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	taskIDint, err := strconv.Atoi(taskID)
+	if err != nil {
+		Logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	path := WorkingDir + "wakespace/" + buildID + "/" + "task_" + taskID + ".log"
+	// Verify that path exists
+	_, err = os.Stat(path)
+	if err != nil {
+		Logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	// Read file
+	f, err := os.OpenFile(path, os.O_RDONLY, os.ModePerm)
+	if err != nil {
+		Logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	defer f.Close()
+
+	rd := bufio.NewReader(f)
+	var counter int
+	for {
+		line, err := rd.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+
+			Logger.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		msg := MsgBroadcast{
+			Type: "build:log:" + buildID,
+			Data: &CommandLogData{
+				TaskID: taskIDint,
+				ID:     counter,
+				Data:   line,
+			},
+		}
+		counter++
+		BroadcastChannel <- &msg
+	}
 }

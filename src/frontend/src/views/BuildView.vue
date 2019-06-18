@@ -10,7 +10,7 @@
         <BuildProgress :done="statusUpdate.done_tasks" :total="statusUpdate.total_tasks"></BuildProgress>
       </div>
     </div>
-    <TaskItem v-for="item in job.tasks" :key="item.id" :task="item"></TaskItem>
+    <TaskItem v-for="item in job.tasks" :key="item.id" :task="item" :buildID="id"></TaskItem>
   </div>
 </template>
 
@@ -60,7 +60,7 @@ export default {
         },
         fetch() {
             axios
-                .get(APIURL + `/build/${this.id}/log/`)
+                .get(APIURL + `/build/${this.id}/`)
                 .then((response) => {
                     this.statusUpdate = response.data.status_update;
                     this.job = response.data.job;
@@ -78,7 +78,10 @@ export default {
                 if (this.job.tasks[index].logs === null) {
                     this.job.tasks[index].logs = [];
                 }
-                this.job.tasks[index].logs.push(ev);
+                const logIndex = findInContainer(this.job.tasks[index].logs, "id", ev.id);
+                if (logIndex[0] === undefined) {
+                    this.job.tasks[index].logs.push(ev);
+                }
             } else {
                 console.log("Unable to find task:", ev);
             }
@@ -100,4 +103,7 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.card {
+    margin-bottom: 1em;
+}
 </style>

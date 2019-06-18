@@ -23,7 +23,7 @@ type Task struct {
 	Name    string      `yaml:"name" json:"name"`
 	Command string      `yaml:"command" json:"command"`
 	Status  ItemStatus  `json:"status"`
-	Logs    interface{} `json:"logs"`
+	Logs    interface{} `json:"logs"` // used as a container for frontend
 }
 
 // ReadJob reads job from a file
