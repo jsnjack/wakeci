@@ -43,7 +43,7 @@ export default {
             this.$store.commit("WS_SEND", {
                 "type": "in:subscribe",
                 "data": {
-                    "to": this.subscription,
+                    "to": [this.subscription],
                 },
             });
             this.$eventHub.$on(this.subscription, this.applyUpdate);
@@ -52,7 +52,7 @@ export default {
             this.$store.commit("WS_SEND", {
                 "type": "in:unsubscribe",
                 "data": {
-                    "to": this.subscription,
+                    "to": [this.subscription],
                 },
             });
             this.$eventHub.$off(this.subscription);

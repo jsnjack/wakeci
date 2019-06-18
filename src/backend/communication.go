@@ -24,7 +24,7 @@ type MsgIncoming struct {
 
 // InSubscribeData ...
 type InSubscribeData struct {
-	To string `json:"to"`
+	To []string `json:"to"`
 }
 
 // JobsListData ...

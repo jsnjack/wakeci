@@ -42,34 +42,20 @@ export default {
             this.$store.commit("WS_SEND", {
                 type: "in:subscribe",
                 data: {
-                    to: this.buildLogSubscription,
+                    to: [this.buildLogSubscription, this.buildUpdateSubscription],
                 },
             });
             this.$eventHub.$on(this.buildLogSubscription, this.applyBuildLog);
-
-            this.$store.commit("WS_SEND", {
-                type: "in:subscribe",
-                data: {
-                    to: this.buildUpdateSubscription,
-                },
-            });
             this.$eventHub.$on(this.buildUpdateSubscription, this.applyBuildUpdate);
         },
         unsubscribe() {
             this.$store.commit("WS_SEND", {
                 type: "in:unsubscribe",
                 data: {
-                    to: this.buildLogSubscription,
+                    to: [this.buildLogSubscription, this.buildUpdateSubscription],
                 },
             });
             this.$eventHub.$off(this.buildLogSubscription);
-
-            this.$store.commit("WS_SEND", {
-                type: "in:unsubscribe",
-                data: {
-                    to: this.buildUpdateSubscription,
-                },
-            });
             this.$eventHub.$off(this.buildUpdateSubscription);
         },
         fetch() {

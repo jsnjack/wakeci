@@ -86,12 +86,6 @@ func (c *Client) Unsubscribe(mt string) {
 	}
 }
 
-// SendBuildInfo sends a message that contains information about the build to bootstrap
-// the build page
-func (c *Client) SendBuildInfo(id string) {
-
-}
-
 // HandleIncomingMessage ...
 func (c *Client) HandleIncomingMessage(msg *MsgIncoming) {
 	switch msg.Type {
@@ -102,7 +96,9 @@ func (c *Client) HandleIncomingMessage(msg *MsgIncoming) {
 			c.Logger.Println(err)
 			return
 		}
-		c.Subscribe(data.To)
+		for _, item := range data.To {
+			c.Subscribe(item)
+		}
 		break
 	case MsgTypeInUnsubscribe:
 		var data InSubscribeData
@@ -111,7 +107,9 @@ func (c *Client) HandleIncomingMessage(msg *MsgIncoming) {
 			c.Logger.Println(err)
 			return
 		}
-		c.Unsubscribe(data.To)
+		for _, item := range data.To {
+			c.Unsubscribe(item)
+		}
 		break
 	default:
 		c.Logger.Printf("Unhandled msg: %v\n", msg)
