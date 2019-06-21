@@ -22,4 +22,11 @@ runf:
 runb: src/backend/wakeci
 	./src/backend/wakeci
 
+.ONESHELL:
+clean:
+	cd test_wd
+	rm -f wakeci.db
+	rm -rf workspace/
+	rm -rf wakespace/
+
 .PHONY: runb runf version
