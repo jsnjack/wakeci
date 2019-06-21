@@ -57,6 +57,8 @@ func (b *Build) Start() {
 	b.Status = StatusRunning
 	b.BroadcastUpdate()
 	for _, task := range b.Job.Tasks {
+		task.Status = StatusRunning
+		b.BroadcastUpdate()
 		// Disable output buffering, enable streaming
 		cmdOptions := cmd.Options{
 			Buffered:  false,
@@ -181,11 +183,10 @@ func (b *Build) BroadcastUpdate() {
 // GenerateBuildUpdateData generates BuildUpdateData
 func (b *Build) GenerateBuildUpdateData() *BuildUpdateData {
 	return &BuildUpdateData{
-		ID:         b.ID,
-		Name:       b.Job.Name,
-		Status:     b.Status,
-		TotalTasks: len(b.Job.Tasks),
-		DoneTasks:  b.GetNumberOfFinishedTasks(),
+		ID:     b.ID,
+		Name:   b.Job.Name,
+		Status: b.Status,
+		Tasks:  b.GetTasksStatus(),
 	}
 }
 
@@ -219,17 +220,16 @@ func (b *Build) GetBuildConfigFilename() string {
 	return b.GetWakespaceDir() + "build.yaml"
 }
 
-// GetNumberOfFinishedTasks returns number of finished tasks
-func (b *Build) GetNumberOfFinishedTasks() int {
-	var x int
+// GetTasksStatus list of tasks with their status
+func (b *Build) GetTasksStatus() []*TaskStatus {
+	var info []*TaskStatus
 	for _, t := range b.Job.Tasks {
-		switch t.Status {
-		case StatusFailed, StatusFinished:
-			x++
-			break
-		}
+		info = append(info, &TaskStatus{
+			ID:     t.ID,
+			Status: t.Status,
+		})
 	}
-	return x
+	return info
 }
 
 // CreateBuild ..

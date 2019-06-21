@@ -5,7 +5,7 @@
       <router-link :to="{ name: 'build', params: { id: build.id}}">{{ build.id }}</router-link>
     </td>
     <td class="tooltip tooltip-right" :data-tooltip="getProgressTooltip">
-      <BuildProgress :done="build.done_tasks" :total="build.total_tasks"/>
+      <BuildProgress :done="getDoneTasks" :total="getTotalTasks"/>
     </td>
     <td>
       <BuildStatus :status="build.status"></BuildStatus>
@@ -27,7 +27,15 @@ export default {
     },
     computed: {
         getProgressTooltip() {
-            return `${this.build.done_tasks} of ${this.build.total_tasks}`;
+            return `${this.getDoneTasks} of ${this.getTotalTasks}`;
+        },
+        getDoneTasks() {
+            return this.build.tasks.filter((item) => {
+                return item.status !== "pending" && item.status !== "running";
+            }).length;
+        },
+        getTotalTasks() {
+            return this.build.tasks.length;
         },
     },
 };

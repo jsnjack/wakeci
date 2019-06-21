@@ -7,10 +7,15 @@
         <BuildStatus :status="statusUpdate.status"></BuildStatus>
       </div>
       <div class="card-footer">
-        <BuildProgress :done="statusUpdate.done_tasks" :total="statusUpdate.total_tasks"></BuildProgress>
+        <BuildProgress :done="getDoneTasks" :total="getTotalTasks"></BuildProgress>
       </div>
     </div>
-    <TaskItem v-for="item in job.tasks" :key="item.id" :task="item" :buildID="id"></TaskItem>
+    <TaskItem v-for="item in job.tasks"
+        :key="item.id"
+        :task="item"
+        :buildID="id"
+        :status="getTaskStatus(item.id)">
+    </TaskItem>
   </div>
 </template>
 
@@ -89,12 +94,36 @@ export default {
         applyBuildUpdate(ev) {
             this.statusUpdate = Object.assign({}, this.statusUpdate, ev);
         },
+        getTaskStatus(id) {
+            for (const item of this.statusUpdate.tasks) {
+                if (item.id === id) {
+                    return item.status;
+                }
+            }
+            console.warn("Unknown task", id);
+            return "pending";
+        },
+    },
+    computed: {
+        getProgressTooltip() {
+            return `${this.getDoneTasks} of ${this.getTotalTasks}`;
+        },
+        getDoneTasks() {
+            return this.statusUpdate.tasks.filter((item) => {
+                return item.status !== "pending" && item.status !== "running";
+            }).length;
+        },
+        getTotalTasks() {
+            return this.statusUpdate.tasks.length;
+        },
     },
     data: function() {
         return {
             name: "",
             job: {},
-            statusUpdate: {},
+            statusUpdate: {
+                tasks: [],
+            },
             buildLogSubscription: "build:log:" + this.id,
             buildUpdateSubscription: "build:update:" + this.id,
         };

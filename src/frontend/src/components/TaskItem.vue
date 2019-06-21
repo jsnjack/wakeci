@@ -7,7 +7,7 @@
       </div>
       <div class="column text-right">
         <button @click="reloadLogs" class="btn btn-sm btn-primary">Reload logs</button>
-        <BuildStatus :status="task.status"></BuildStatus>
+        <BuildStatus :status="status"></BuildStatus>
       </div>
     </div>
     <div class="log-container text-left">
@@ -27,6 +27,9 @@ export default {
             required: true,
         },
         task: {
+            required: true,
+        },
+        status: {
             required: true,
         },
     },
