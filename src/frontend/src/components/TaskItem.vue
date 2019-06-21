@@ -1,14 +1,13 @@
 <template>
   <section>
+    <div class="divider" :data-content="getDividerText"></div>
     <div class="columns">
       <div class="column">
         <h5 class="text-left">{{ task.name }}</h5>
       </div>
-      <div class="column">
+      <div class="column text-right">
         <button @click="reloadLogs" class="btn btn-sm btn-primary">Reload logs</button>
-      </div>
-      <div class="column">
-          <BuildStatus :status="task.status"></BuildStatus>
+        <BuildStatus :status="task.status"></BuildStatus>
       </div>
     </div>
     <div class="log-container text-left">
@@ -32,6 +31,11 @@ export default {
         },
     },
     components: {BuildStatus},
+    computed: {
+        getDividerText: function() {
+            return `task #${this.task.id}`;
+        },
+    },
     methods: {
         reloadLogs() {
             axios
@@ -60,5 +64,24 @@ export default {
 .log-container {
   background: $bg-color;
   margin-left: 1em;
+  span {
+      padding-left: 1em;
+  }
 }
+
+section {
+    margin-top: 2em;
+    margin-bottom: 2em;
+}
+
+button {
+    margin-left: 1em;
+    margin-right: 1em;
+}
+
+h5{
+    border-left: 0.2em solid $primary-color;
+    padding-left: 0.4em;
+}
+
 </style>
