@@ -10,6 +10,7 @@ wakeci
 # Impovements high
 - [ ] Parallel tasks
 - [ ] Post tasks (always executed)
+- [ ] Ignore exit status code
 
 # Improvements low
 - [ ] Create settings page
