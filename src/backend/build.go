@@ -269,6 +269,6 @@ func CreateBuild(job *Job) (*Build, error) {
 		ID:             counti,
 		abortedChannel: make(chan bool),
 	}
-	build.Logger = log.New(os.Stdout, strconv.Itoa(build.ID)+" ", log.Lmicroseconds|log.Lshortfile)
+	build.Logger = log.New(os.Stdout, fmt.Sprintf("build #%d ", build.ID), log.Lmicroseconds|log.Lshortfile)
 	return &build, nil
 }
