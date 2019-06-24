@@ -63,9 +63,8 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	}
 	Logger.Printf("Build config %s has been created\n", build.GetBuildConfigFilename())
 
-	Logger.Printf("New job queued: %s %d\n", build.Job.Name, build.ID)
-	BuildQueue = append(BuildQueue, build)
-	TakeFromQueue()
+	Q.Add(build)
+	Q.Take()
 	build.BroadcastUpdate()
 	defer w.Write([]byte(strconv.Itoa(build.ID)))
 }
@@ -146,7 +145,7 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 			} else {
 				switch msg.Status {
 				case StatusPending, StatusRunning:
-					if IsBuildAborted(msg.ID) {
+					if !Q.Verify(msg.ID) {
 						msg.Status = StatusAborted
 						updatedB, err := json.Marshal(msg)
 						if err != nil {

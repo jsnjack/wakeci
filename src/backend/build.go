@@ -14,15 +14,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// NumberOfConcurrentBuilds maximum amount of tasks that are being executed at the same time
-const NumberOfConcurrentBuilds = 2
-
-// BuildList contains all tasks that are being executed at the moment
-var BuildList []*Build
-
-// BuildQueue ...
-var BuildQueue []*Build
-
 // ItemStatus handles information about the item status (currently is used for
 // both Builds and Tasks)
 type ItemStatus string
@@ -147,13 +138,8 @@ func (b *Build) Finished() {
 
 // Cleanup is called when a job finished or failed
 func (b *Build) Cleanup() {
-	for i, ex := range BuildList {
-		if ex.ID == b.ID {
-			BuildList = append(BuildList[:i], BuildList[i+1:]...)
-			break
-		}
-	}
-	TakeFromQueue()
+	Q.Remove(b.ID)
+	Q.Take()
 }
 
 // BroadcastUpdate sends update to all subscribed clients. Contains general
@@ -262,18 +248,4 @@ func CreateBuild(job *Job) (*Build, error) {
 	}
 	build.Logger = log.New(os.Stdout, strconv.Itoa(build.ID)+" ", log.Lmicroseconds|log.Lshortfile)
 	return &build, nil
-}
-
-// TakeFromQueue checks if it is possible to start executing new job from queue
-// and executes it
-func TakeFromQueue() {
-	if len(BuildList) < NumberOfConcurrentBuilds && len(BuildQueue) > 0 {
-		Logger.Printf("Taking job from queue %d\n", BuildQueue[0].ID)
-		BuildList = append(BuildList, BuildQueue[0])
-		go BuildQueue[0].Start()
-		BuildQueue[0] = nil
-		BuildQueue = BuildQueue[1:]
-		TakeFromQueue()
-	}
-	Logger.Printf("Executing %d jobs, %d in queue\n", len(BuildList), len(BuildQueue))
 }

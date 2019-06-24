@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 
 	bolt "github.com/etcd-io/bbolt"
 	"github.com/julienschmidt/httprouter"
@@ -24,6 +25,9 @@ const WorkingDir = "/home/jsn/workspace/wakeci/test_wd/"
 
 // DB is the Bolt db
 var DB *bolt.DB
+
+// Q is a global queue object
+var Q *Queue
 
 func init() {
 	PortFlag = flag.String("port", "8081", "Port to start the server on")
@@ -59,6 +63,11 @@ func main() {
 
 	if err != nil {
 		Logger.Fatal(err)
+	}
+
+	Q = &Queue{
+		concurrentBuilds: 2,
+		mutex:            &sync.Mutex{},
 	}
 
 	ScanAllJobs()

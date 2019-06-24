@@ -41,18 +41,3 @@ func Itob(v int) []byte {
 func Btoi(b []byte) int {
 	return int(binary.BigEndian.Uint64(b))
 }
-
-// IsBuildAborted verifies that a build is not aborted
-func IsBuildAborted(id int) bool {
-	for _, item := range BuildList {
-		if item.ID == id {
-			return false
-		}
-	}
-	for _, item := range BuildQueue {
-		if item.ID == id {
-			return false
-		}
-	}
-	return true
-}
