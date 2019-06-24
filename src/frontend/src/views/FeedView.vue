@@ -6,6 +6,7 @@
         <th>Build #</th>
         <th>Tasks</th>
         <th>Status</th>
+        <th>Actions</th>
       </thead>
       <tbody>
         <FeedItem v-for="item in sortedBuilds" :key="item.id" :build="item"></FeedItem>

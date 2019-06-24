@@ -35,11 +35,13 @@ const StatusAborted = "aborted"
 
 // Build ...
 type Build struct {
-	ID          int
-	Job         *Job
-	Status      ItemStatus
-	Logger      *log.Logger
-	Subscribers []*websocket.Conn
+	ID             int
+	Job            *Job
+	Status         ItemStatus
+	Logger         *log.Logger
+	Subscribers    []*websocket.Conn
+	abortedChannel chan bool
+	aborted        bool
 }
 
 // Start starts execution of tasks in job
@@ -95,6 +97,12 @@ func (b *Build) Start() {
 					x++
 				case <-fwChannel:
 					return
+				case toAbort := <-b.abortedChannel:
+					b.Logger.Println("Aborting via abortedChannel")
+					if toAbort {
+						envCmd.Stop()
+						b.aborted = true
+					}
 				}
 			}
 		}()
@@ -108,6 +116,12 @@ func (b *Build) Start() {
 		}
 		// Signal to flush the file
 		fwChannel <- true
+
+		// Abort message was recieved via channel
+		if b.aborted {
+			b.Abort()
+			return
+		}
 
 		if status.Exit != 0 {
 			task.Status = StatusFailed
@@ -140,6 +154,14 @@ func (b *Build) Finished() {
 func (b *Build) Cleanup() {
 	Q.Remove(b.ID)
 	Q.Take()
+}
+
+// Abort task execution
+func (b *Build) Abort() {
+	b.Logger.Println("Aborted.")
+	b.Status = StatusAborted
+	b.BroadcastUpdate()
+	b.Cleanup()
 }
 
 // BroadcastUpdate sends update to all subscribed clients. Contains general
@@ -242,9 +264,10 @@ func CreateBuild(job *Job) (*Build, error) {
 	}
 
 	build := Build{
-		Job:    job,
-		Status: StatusPending,
-		ID:     counti,
+		Job:            job,
+		Status:         StatusPending,
+		ID:             counti,
+		abortedChannel: make(chan bool),
 	}
 	build.Logger = log.New(os.Stdout, strconv.Itoa(build.ID)+" ", log.Lmicroseconds|log.Lshortfile)
 	return &build, nil

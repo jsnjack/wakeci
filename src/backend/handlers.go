@@ -261,3 +261,20 @@ func HandleReloadTaskLog(w http.ResponseWriter, r *http.Request, ps httprouter.P
 		BroadcastChannel <- &msg
 	}
 }
+
+// HandleAbortBuild aborts build
+func HandleAbortBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	buildID := ps.ByName("id")
+	id, err := strconv.Atoi(buildID)
+	if err != nil {
+		Logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	err = Q.Abort(id)
+	if err != nil {
+		Logger.Println(err)
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+}

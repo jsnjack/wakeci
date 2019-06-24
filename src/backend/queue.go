@@ -1,6 +1,9 @@
 package main
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
 // Queue represents queued and running builds
 type Queue struct {
@@ -36,7 +39,7 @@ func (q *Queue) Add(b *Build) {
 	Logger.Printf("New build queued: %s %d\n", b.Job.Name, b.ID)
 }
 
-// Remove removes a build from `running` collection
+// Remove removes a build from Queue
 func (q *Queue) Remove(id int) {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
@@ -46,7 +49,13 @@ func (q *Queue) Remove(id int) {
 			return
 		}
 	}
-	Logger.Printf("Build %d was not found in `running`\n", id)
+	for i, ex := range q.queued {
+		if ex.ID == id {
+			q.queued = append(q.queued[:i], q.queued[i+1:]...)
+			return
+		}
+	}
+	Logger.Printf("Build %d was not found in Q\n", id)
 }
 
 // Verify returns true if a build with provided id is queued or running
@@ -64,4 +73,23 @@ func (q *Queue) Verify(id int) bool {
 		}
 	}
 	return false
+}
+
+// Abort schedules build to be aborted
+func (q *Queue) Abort(id int) error {
+	for _, item := range q.running {
+		if item.ID == id {
+			go func() {
+				item.abortedChannel <- true
+			}()
+			return nil
+		}
+	}
+	for _, item := range q.queued {
+		if item.ID == id {
+			item.Abort()
+			return nil
+		}
+	}
+	return fmt.Errorf("Build %d not found in Q", id)
 }

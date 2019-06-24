@@ -10,12 +10,17 @@
     <td>
       <BuildStatus :status="build.status"></BuildStatus>
     </td>
+    <td>
+      <a v-if="!isDone" :href="getAbortURL" @click.prevent="abort" class="btn btn-error">Abort</a>
+    </td>
   </tr>
 </template>
 
 <script>
 import BuildStatus from "@/components/BuildStatus";
 import BuildProgress from "@/components/BuildProgress";
+import axios from "axios";
+import {APIURL} from "@/store/communication";
 
 export default {
     components: {BuildStatus, BuildProgress},
@@ -36,6 +41,36 @@ export default {
         },
         getTotalTasks() {
             return this.build.tasks.length;
+        },
+        getAbortURL: function() {
+            return `${APIURL}/build/${this.build.id}/abort`;
+        },
+        isDone() {
+            switch (this.build.status) {
+            case "failed":
+            case "finished":
+            case "aborted":
+                return true;
+            }
+            return false;
+        },
+    },
+    methods: {
+        abort(event) {
+            axios.post(event.target.href)
+                .then((response) => {
+                    console.log(response);
+                    this.$notify({
+                        text: `${this.build.id} has been aborted`,
+                        type: "success",
+                    });
+                })
+                .catch((error) => {
+                    this.$notify({
+                        text: error,
+                        type: "error",
+                    });
+                });
         },
     },
 };

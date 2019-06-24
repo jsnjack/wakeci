@@ -80,6 +80,7 @@ func main() {
 		router.GET("/api/jobs/", LogMi(CORSMi(HandleJobsView)))
 		router.POST("/api/job/:name/run", LogMi(CORSMi(HandleRunJob)))
 		router.GET("/api/build/:id/", LogMi(CORSMi(HandleGetBuild)))
+		router.POST("/api/build/:id/abort", LogMi(CORSMi(HandleAbortBuild)))
 		router.GET("/api/build/:id/log/:taskID/", LogMi(CORSMi(HandleReloadTaskLog)))
 
 		go BroadcastMessage()
