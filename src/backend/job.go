@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"path/filepath"
 
@@ -13,8 +14,9 @@ const ConfigExt = ".yaml"
 
 // Job represents Job
 type Job struct {
-	Name  string  `yaml:"name" json:"name"`
-	Tasks []*Task `yaml:"tasks" json:"tasks"`
+	Name   string              `yaml:"name" json:"name"`
+	Tasks  []*Task             `yaml:"tasks" json:"tasks"`
+	Params []map[string]string `yaml:"params" json:"params"`
 }
 
 // Task ...
@@ -63,11 +65,15 @@ func ScanAllJobs() error {
 		err = DB.Update(func(tx *bolt.Tx) error {
 			jobsBucket := tx.Bucket(JobsBucket)
 
-			_, err := jobsBucket.CreateBucketIfNotExists([]byte(job.Name))
+			jb, err := jobsBucket.CreateBucketIfNotExists([]byte(job.Name))
 			if err != nil {
 				return err
 			}
-			return nil
+			paramsB, err := json.Marshal(job.Params)
+			if err != nil {
+				return err
+			}
+			return jb.Put([]byte("params"), paramsB)
 		})
 		if err != nil {
 			Logger.Println(err)

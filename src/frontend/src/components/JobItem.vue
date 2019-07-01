@@ -1,16 +1,48 @@
 <template>
-    <tr>
-        <td>{{ job.name }}</td>
-        <td>
-            <a :href="getRunURL" @click.prevent="run" class="btn btn-primary">Run</a>
-        </td>
-    </tr>
+  <tr>
+    <td>{{ job.name }}</td>
+    <td>
+      <button @click.prevent="toggle" class="btn btn-primary">Start</button>
+      <div class="modal" v-bind:class="{active: modalOpen}">
+        <a href="#" @click.prevent="toggle" class="modal-overlay" aria-label="Close"></a>
+        <div class="modal-container">
+          <div class="modal-header">
+            <a
+              href="#"
+              @click.prevent="toggle"
+              class="btn btn-clear float-right"
+              aria-label="Close"
+            ></a>
+            <div class="modal-title text-uppercase">{{ getModalTitle }}</div>
+          </div>
+          <div class="modal-body">
+            <div class="content">
+              <form v-show="this.job.params" ref="form">
+                <RunFormItem v-for="item in job.params" :key="item.name" :params="item"></RunFormItem>
+              </form>
+              <div class="empty" v-show="!this.job.params">
+                <p class="empty-title h6 text-uppercase">Empty</p>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <a
+              href="#"
+              @click.prevent="run"
+              class="btn btn-primary float-right"
+              aria-label="Close"
+            >Add to queue</a>
+          </div>
+        </div>
+      </div>
+    </td>
+  </tr>
 </template>
 
 <script>
 import axios from "axios";
 import {APIURL} from "@/store/communication";
-
+import RunFormItem from "@/components/RunFormItem";
 
 export default {
     props: {
@@ -19,9 +51,13 @@ export default {
             required: true,
         },
     },
+    components: {RunFormItem},
     methods: {
         run(event) {
-            axios.post(event.target.href)
+            this.toggle();
+            const url = `${APIURL}/job/${this.job.name}/run?` + new URLSearchParams(Array.from(new FormData(this.$refs.form))).toString();
+            axios
+                .post(url)
                 .then((response) => {
                     console.log(response);
                     this.$notify({
@@ -36,16 +72,26 @@ export default {
                     });
                 });
         },
+        toggle(event) {
+            this.modalOpen = !this.modalOpen;
+        },
     },
     computed: {
-        getRunURL: function() {
-            return `${APIURL}/job/${this.job.name}/run`;
+        isModalOpen: function() {
+            return this.modalOpen;
         },
+        getModalTitle: function() {
+            return `${this.job.name} job parameters`;
+        },
+    },
+    data: function() {
+        return {
+            modalOpen: false,
+        };
     },
 };
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="scss">
-
 </style>

@@ -183,6 +183,14 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 			job := JobsListData{
 				Name: string(key),
 			}
+			jb := b.Bucket(key)
+			if jb != nil {
+				params := jb.Get([]byte("params"))
+				err := json.Unmarshal(params, &job.Params)
+				if err != nil {
+					return err
+				}
+			}
 			data = append(data, &job)
 		}
 		return nil
