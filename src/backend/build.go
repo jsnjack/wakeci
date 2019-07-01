@@ -59,7 +59,15 @@ func (b *Build) Start() {
 		}
 
 		// Create Cmd with options
-		envCmd := cmd.NewCmdOptions(cmdOptions, "bash", "-c", task.Command)
+		taskCmd := cmd.NewCmdOptions(cmdOptions, "bash", "-c", task.Command)
+
+		// Construct environment from params
+		taskCmd.Env = os.Environ()
+		for idx := range b.Job.Params {
+			for pkey, pval := range b.Job.Params[idx] {
+				taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", pkey, pval))
+			}
+		}
 
 		fwChannel := make(chan bool)
 
@@ -75,20 +83,20 @@ func (b *Build) Start() {
 				// Allow command to start
 				time.Sleep(10 * time.Millisecond)
 				b.Logger.Println(err)
-				envCmd.Stop()
+				taskCmd.Stop()
 				return
 			}
 			x := 0
 			for {
 				select {
-				case line := <-envCmd.Stdout:
+				case line := <-taskCmd.Stdout:
 					_, err := bw.WriteString(line + "\n")
 					if err != nil {
 						b.Logger.Println(err)
 					}
 					b.PublishCommandLogs(task.ID, x, line)
 					x++
-				case line := <-envCmd.Stderr:
+				case line := <-taskCmd.Stderr:
 					_, err := bw.WriteString(line + "\n")
 					if err != nil {
 						b.Logger.Println(err)
@@ -100,7 +108,7 @@ func (b *Build) Start() {
 				case toAbort := <-b.abortedChannel:
 					b.Logger.Println("Aborting via abortedChannel")
 					if toAbort {
-						envCmd.Stop()
+						taskCmd.Stop()
 						b.aborted = true
 					}
 				}
@@ -108,10 +116,10 @@ func (b *Build) Start() {
 		}()
 
 		// Run and wait for Cmd to return, discard Status
-		status := <-envCmd.Start()
+		status := <-taskCmd.Start()
 
 		// Cmd has finished but wait for goroutine to print all lines
-		for len(envCmd.Stdout) > 0 || len(envCmd.Stderr) > 0 {
+		for len(taskCmd.Stdout) > 0 || len(taskCmd.Stderr) > 0 {
 			time.Sleep(10 * time.Millisecond)
 		}
 		// Signal to flush the file

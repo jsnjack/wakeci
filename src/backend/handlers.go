@@ -29,6 +29,17 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 		return
 	}
 
+	// Update params from URL
+	for idx := range job.Params {
+		for pkey := range job.Params[idx] {
+			value := r.URL.Query().Get(pkey)
+			if value != "" {
+				job.Params[idx][pkey] = value
+				Logger.Printf("Updating key %s to %s", pkey, value)
+			}
+		}
+	}
+
 	// Create workspace
 	err = os.MkdirAll(build.GetWorkspaceDir(), os.ModePerm)
 	if err != nil {
