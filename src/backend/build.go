@@ -204,6 +204,7 @@ func (b *Build) GenerateBuildUpdateData() *BuildUpdateData {
 		Name:   b.Job.Name,
 		Status: b.Status,
 		Tasks:  b.GetTasksStatus(),
+		Params: b.Params,
 	}
 }
 
