@@ -13,10 +13,11 @@ import (
 const ConfigExt = ".yaml"
 
 // Job represents Job
+// Default params are stored as params in yaml files
 type Job struct {
-	Name   string              `yaml:"name" json:"name"`
-	Tasks  []*Task             `yaml:"tasks" json:"tasks"`
-	Params []map[string]string `yaml:"params" json:"params"`
+	Name          string              `yaml:"name" json:"name"`
+	Tasks         []*Task             `yaml:"tasks" json:"tasks"`
+	DefaultParams []map[string]string `yaml:"params" json:"defaultParams"`
 }
 
 // Task ...
@@ -69,11 +70,11 @@ func ScanAllJobs() error {
 			if err != nil {
 				return err
 			}
-			paramsB, err := json.Marshal(job.Params)
+			paramsB, err := json.Marshal(job.DefaultParams)
 			if err != nil {
 				return err
 			}
-			return jb.Put([]byte("params"), paramsB)
+			return jb.Put([]byte("defaultParams"), paramsB)
 		})
 		if err != nil {
 			Logger.Println(err)

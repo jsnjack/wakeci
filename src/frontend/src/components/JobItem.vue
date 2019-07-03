@@ -17,10 +17,10 @@
           </div>
           <div class="modal-body">
             <div class="content">
-              <form v-show="this.job.params" ref="form">
-                <RunFormItem v-for="item in job.params" :key="item.name" :params="item"></RunFormItem>
+              <form v-show="this.job.defaultParams" ref="form">
+                <RunFormItem v-for="item in job.defaultParams" :key="item.name" :params="item"></RunFormItem>
               </form>
-              <div class="empty" v-show="!this.job.params">
+              <div class="empty" v-show="!this.job.defaultParams">
                 <p class="empty-title h6 text-uppercase">Empty</p>
               </div>
             </div>

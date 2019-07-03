@@ -29,8 +29,8 @@ type InSubscribeData struct {
 
 // JobsListData is a format of data that JobsView receives and JobsBucket stores
 type JobsListData struct {
-	Name   string              `json:"name"`
-	Params []map[string]string `json:"params"`
+	Name          string              `json:"name"`
+	DefaultParams []map[string]string `json:"defaultParams"`
 }
 
 // TaskStatus contains basic info about a task, used for status updates

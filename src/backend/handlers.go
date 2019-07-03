@@ -30,11 +30,11 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	}
 
 	// Update params from URL
-	for idx := range job.Params {
-		for pkey := range job.Params[idx] {
+	for idx := range build.Params {
+		for pkey := range build.Params[idx] {
 			value := r.URL.Query().Get(pkey)
 			if value != "" {
-				job.Params[idx][pkey] = value
+				build.Params[idx][pkey] = value
 				Logger.Printf("Updating key %s to %s", pkey, value)
 			}
 		}
@@ -184,7 +184,7 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 	w.Write(payloadB)
 }
 
-// HandleJobsView returns items in current feed - executed and queued jobs
+// HandleJobsView returns all available jobs
 func HandleJobsView(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	var data []*JobsListData
 	err := DB.View(func(tx *bolt.Tx) error {
@@ -196,8 +196,8 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 			}
 			jb := b.Bucket(key)
 			if jb != nil {
-				params := jb.Get([]byte("params"))
-				err := json.Unmarshal(params, &job.Params)
+				params := jb.Get([]byte("defaultParams"))
+				err := json.Unmarshal(params, &job.DefaultParams)
 				if err != nil {
 					return err
 				}

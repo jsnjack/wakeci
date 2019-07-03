@@ -42,6 +42,7 @@ type Build struct {
 	Subscribers    []*websocket.Conn
 	abortedChannel chan bool
 	aborted        bool
+	Params         []map[string]string
 }
 
 // Start starts execution of tasks in job
@@ -63,8 +64,8 @@ func (b *Build) Start() {
 
 		// Construct environment from params
 		taskCmd.Env = os.Environ()
-		for idx := range b.Job.Params {
-			for pkey, pval := range b.Job.Params[idx] {
+		for idx := range b.Params {
+			for pkey, pval := range b.Params[idx] {
 				taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", pkey, pval))
 			}
 		}
@@ -276,6 +277,7 @@ func CreateBuild(job *Job) (*Build, error) {
 		Status:         StatusPending,
 		ID:             counti,
 		abortedChannel: make(chan bool),
+		Params:         job.DefaultParams,
 	}
 	build.Logger = log.New(os.Stdout, fmt.Sprintf("build #%d ", build.ID), log.Lmicroseconds|log.Lshortfile)
 	return &build, nil
