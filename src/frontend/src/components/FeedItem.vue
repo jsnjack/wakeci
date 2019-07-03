@@ -10,7 +10,8 @@
     <td>
       <BuildStatus :status="build.status"></BuildStatus>
     </td>
-    <td>
+    <td class="item-actions">
+      <router-link :to="{ name: 'build', params: { id: build.id}}" class="btn btn-primary">Open</router-link>
       <a v-if="!isDone" :href="getAbortURL" @click.prevent="abort" class="btn btn-error">Abort</a>
     </td>
   </tr>
@@ -78,4 +79,8 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="scss">
+.item-actions a {
+    margin-left: 0.25em;
+    margin-right: 0.25em;
+}
 </style>
