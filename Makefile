@@ -29,4 +29,11 @@ clean:
 	rm -rf workspace/
 	rm -rf wakespace/
 
+.ONESHELL:
+viewdb:
+	cd test_wd
+	rm -f view.db
+	cp wakeci.db view.db
+	bolter -f view.db
+
 .PHONY: runb runf version
