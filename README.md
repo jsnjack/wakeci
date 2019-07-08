@@ -3,7 +3,7 @@ wakeci
 
 # Basic functionality
 - [x] Abort builds
-- [ ] Builds support parameters
+- [x] Builds support parameters
 - [ ] Auth
 - [ ] Artifacts
 
