@@ -1,6 +1,6 @@
 <template>
   <div class="container">
-    <div class="card">
+    <div class="card build-header">
       <div class="card-header">
         <div class="card-title h5">{{ statusUpdate.name }}</div>
         <div class="card-subtitle text-gray">build #{{ statusUpdate.id }}</div>
@@ -10,12 +10,16 @@
         <BuildProgress :done="getDoneTasks" :total="getTotalTasks"></BuildProgress>
       </div>
     </div>
-    <TaskItem v-for="item in job.tasks"
-        :key="item.id"
-        :task="item"
-        :buildID="id"
-        :status="getTaskStatus(item.id)">
-    </TaskItem>
+    <div class="columns">
+      <ParamItem v-for="(item, index) in statusUpdate.params" :key="index+'param'" :param="item"></ParamItem>
+    </div>
+    <TaskItem
+      v-for="item in job.tasks"
+      :key="item.id"
+      :task="item"
+      :buildID="id"
+      :status="getTaskStatus(item.id)"
+    ></TaskItem>
   </div>
 </template>
 
@@ -23,10 +27,10 @@
 import {APIURL} from "@/store/communication";
 import axios from "axios";
 import BuildStatus from "@/components/BuildStatus";
+import ParamItem from "@/components/ParamItem";
 import BuildProgress from "@/components/BuildProgress";
 import TaskItem from "@/components/TaskItem";
 import {findInContainer} from "@/store/utils";
-
 
 export default {
     props: {
@@ -34,7 +38,7 @@ export default {
             required: true,
         },
     },
-    components: {BuildStatus, BuildProgress, TaskItem},
+    components: {BuildStatus, BuildProgress, TaskItem, ParamItem},
     mounted() {
         this.fetch();
         this.subscribe();
@@ -83,7 +87,11 @@ export default {
                 if (this.job.tasks[index].logs === null) {
                     this.job.tasks[index].logs = [];
                 }
-                const logIndex = findInContainer(this.job.tasks[index].logs, "id", ev.id);
+                const logIndex = findInContainer(
+                    this.job.tasks[index].logs,
+                    "id",
+                    ev.id
+                );
                 if (logIndex[0] === undefined) {
                     this.job.tasks[index].logs.push(ev);
                 }
@@ -132,7 +140,7 @@ export default {
 </script>
 
 <style scoped lang="scss">
-.card {
-    margin-bottom: 1em;
+.build-header {
+  margin-bottom: 1em;
 }
 </style>

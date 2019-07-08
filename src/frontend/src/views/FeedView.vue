@@ -4,6 +4,7 @@
       <thead>
         <th>Name</th>
         <th>Build #</th>
+        <th>Params</th>
         <th>Tasks</th>
         <th>Status</th>
         <th>Actions</th>
