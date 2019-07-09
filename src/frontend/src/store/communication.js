@@ -1,4 +1,5 @@
 export const APIURL = process.env.API_ENDPOINT || "http://localhost:8080/api";
+export const AUTHURL = process.env.AUTH_ENDPOINT || "http://localhost:8080/auth";
 
 const wsMessageHandler = function(app, data) {
     const msg = JSON.parse(data);

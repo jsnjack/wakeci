@@ -58,6 +58,10 @@ func main() {
 		if err != nil {
 			return err
 		}
+		_, err = tx.CreateBucketIfNotExists(SessionBucket)
+		if err != nil {
+			return err
+		}
 		return nil
 	})
 
@@ -73,9 +77,16 @@ func main() {
 	ScanAllJobs()
 
 	go func() {
-		// Websocket section
 		router := httprouter.New()
+		// Websocket section
 		router.GET("/ws", handleWSConnection)
+
+		// Auth urls
+		router.GET("/auth/_isLoggedIn/", LogMi(CORSMi(HandleIsLoggedIn)))
+		router.POST("/auth/login/", LogMi(CORSMi(HandleLogIn)))
+		router.GET("/auth/logout/", LogMi(CORSMi(HandleLogOut)))
+
+		// API calls used by client application
 		router.GET("/api/feed/", LogMi(CORSMi(HandleFeedView)))
 		router.GET("/api/jobs/", LogMi(CORSMi(HandleJobsView)))
 		router.POST("/api/job/:name/run", LogMi(CORSMi(HandleRunJob)))

@@ -11,6 +11,7 @@ wakeci
 - [ ] Parallel tasks
 - [ ] Post tasks (always executed)
 - [ ] Ignore exit status code
+- [ ] Reload logs messes up order
 
 # Improvements low
 - [ ] Create settings page

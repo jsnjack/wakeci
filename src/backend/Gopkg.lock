@@ -18,6 +18,14 @@
   version = "v1.0.4"
 
 [[projects]]
+  digest = "1:bed9d72d596f94e65fff37f4d6c01398074a6bb1c3f3ceff963516bd01db6ff5"
+  name = "github.com/gofrs/uuid"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "6b08a5c5172ba18946672b49749cde22873dd7c2"
+  version = "v3.2.0"
+
+[[projects]]
   digest = "1:7b5c6e2eeaa9ae5907c391a91c132abfd5c9e8a784a341b5625e750c67e6825d"
   name = "github.com/gorilla/websocket"
   packages = ["."]
@@ -55,6 +63,7 @@
   input-imports = [
     "github.com/etcd-io/bbolt",
     "github.com/go-cmd/cmd",
+    "github.com/gofrs/uuid",
     "github.com/gorilla/websocket",
     "github.com/julienschmidt/httprouter",
     "gopkg.in/yaml.v2",

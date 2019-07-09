@@ -5,7 +5,7 @@
             <router-link to="/" class="btn btn-link text-light">Feed</router-link>
             <router-link to="/jobs" class="btn btn-link text-light">Jobs</router-link>
             <router-link to="/jobs" class="btn btn-link text-light">Settings</router-link>
-            <router-link to="/jobs" class="btn btn-link text-light">Log out</router-link>
+            <a href="#" @click.prevent="logOut" class="btn btn-link text-light">Log out</a>
         </section>
     </header>
     <router-view/>
@@ -15,6 +15,8 @@
 
 <script>
 import vuex from "vuex";
+import axios from "axios";
+import {AUTHURL} from "@/store/communication";
 import wsMessageHandler from "./store/communication";
 
 export default {
@@ -51,6 +53,20 @@ export default {
             } else {
                 console.error("WS already connected");
             }
+        },
+        logOut: function() {
+            axios
+                .get(AUTHURL + "/logout/")
+                .then((response) => {
+                    this.$store.commit("LOG_OUT");
+                    this.$router.push("/login");
+                })
+                .catch((error) => {
+                    this.$notify({
+                        text: error,
+                        type: "error",
+                    });
+                });
         },
     },
 };

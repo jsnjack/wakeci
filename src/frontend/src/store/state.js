@@ -6,6 +6,9 @@ const state = {
         reconnectTimeout: 1000, // ms
         buffer: [],
     },
+    auth: {
+        isLoggedIn: false,
+    },
 };
 
 export default state;

@@ -48,3 +48,7 @@
 [[constraint]]
   name = "github.com/go-cmd/cmd"
   version = "1.0.4"
+
+[[constraint]]
+  name = "github.com/gofrs/uuid"
+  version = "3.2.0"

@@ -20,6 +20,9 @@ var GlobalBucket = []byte("global")
 // HistoryBucket contains information about all executed builds
 var HistoryBucket = []byte("history")
 
+// SessionBucket contains information about active sessions
+var SessionBucket = []byte("session")
+
 // ByteToInt convert bytes to int
 func ByteToInt(b []byte) (int, error) {
 	bs := string(b)

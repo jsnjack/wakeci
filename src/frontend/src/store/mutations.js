@@ -41,12 +41,17 @@ const mutations = {
             console.log("Ignore", msg);
         }
     },
-
     ACTIVE_SUBSCRIPTION(state, name) {
         state.buildView.activeSubscription = name;
         if (name === "") {
             // state.logs = [];
         }
+    },
+    LOG_IN(state) {
+        state.auth.isLoggedIn = true;
+    },
+    LOG_OUT(state) {
+        state.auth.isLoggedIn = false;
     },
 };
 
