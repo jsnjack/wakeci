@@ -24,11 +24,15 @@ export default {
         this.connect();
     },
     computed: {
-        ...vuex.mapState([]),
+        ...vuex.mapState(["ws", "auth"]),
     },
     methods: {
         connect: function() {
             if (!this.$store.state.ws.connected) {
+                if (!this.auth.isLoggedIn) {
+                    setTimeout(this.connect, this.$store.state.ws.reconnectTimeout);
+                    return;
+                }
                 const ws = new WebSocket(this.$store.state.ws.url);
                 ws.sendMessage = function(obj) {
                     ws.send(JSON.stringify(obj));
@@ -60,6 +64,7 @@ export default {
                 .then((response) => {
                     this.$store.commit("LOG_OUT");
                     this.$router.push("/login");
+                    this.ws.obj.close();
                 })
                 .catch((error) => {
                     this.$notify({
