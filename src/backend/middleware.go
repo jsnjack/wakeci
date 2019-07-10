@@ -9,6 +9,7 @@ import (
 
 	bolt "github.com/etcd-io/bbolt"
 	"github.com/julienschmidt/httprouter"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // HandlerLogger is a special type for loggers per request
@@ -58,6 +59,26 @@ func CORSMi(next httprouter.Handle) httprouter.Handle {
 // AuthMi adds CORS headers
 func AuthMi(next httprouter.Handle) httprouter.Handle {
 	return httprouter.Handle(func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+		_, password, ok := r.BasicAuth()
+		if ok {
+			var hashedPassword []byte
+
+			err := DB.View(func(tx *bolt.Tx) error {
+				b := tx.Bucket([]byte(GlobalBucket))
+				hashedPassword = b.Get([]byte("password"))
+				return nil
+			})
+
+			err = bcrypt.CompareHashAndPassword(hashedPassword, []byte(password))
+			if err != nil {
+				Logger.Println(err)
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			next(w, r, ps)
+			return
+		}
+
 		sessionToken, err := r.Cookie("session")
 		if err != nil {
 			Logger.Println(err)
