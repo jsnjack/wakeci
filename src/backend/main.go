@@ -79,20 +79,20 @@ func main() {
 	go func() {
 		router := httprouter.New()
 		// Websocket section
-		router.GET("/ws", handleWSConnection)
+		router.GET("/ws", AuthMi(handleWSConnection))
 
 		// Auth urls
-		router.GET("/auth/_isLoggedIn/", LogMi(CORSMi(HandleIsLoggedIn)))
+		router.GET("/auth/_isLoggedIn/", LogMi(CORSMi(AuthMi(HandleIsLoggedIn))))
 		router.POST("/auth/login/", LogMi(CORSMi(HandleLogIn)))
 		router.GET("/auth/logout/", LogMi(CORSMi(HandleLogOut)))
 
 		// API calls used by client application
-		router.GET("/api/feed/", LogMi(CORSMi(HandleFeedView)))
-		router.GET("/api/jobs/", LogMi(CORSMi(HandleJobsView)))
-		router.POST("/api/job/:name/run", LogMi(CORSMi(HandleRunJob)))
-		router.GET("/api/build/:id/", LogMi(CORSMi(HandleGetBuild)))
-		router.POST("/api/build/:id/abort", LogMi(CORSMi(HandleAbortBuild)))
-		router.GET("/api/build/:id/log/:taskID/", LogMi(CORSMi(HandleReloadTaskLog)))
+		router.GET("/api/feed/", LogMi(CORSMi(AuthMi(HandleFeedView))))
+		router.GET("/api/jobs/", LogMi(CORSMi(AuthMi(HandleJobsView))))
+		router.POST("/api/job/:name/run", LogMi(CORSMi(AuthMi(HandleRunJob))))
+		router.GET("/api/build/:id/", LogMi(CORSMi(AuthMi(HandleGetBuild))))
+		router.POST("/api/build/:id/abort", LogMi(CORSMi(AuthMi(HandleAbortBuild))))
+		router.GET("/api/build/:id/log/:taskID/", LogMi(CORSMi(AuthMi(HandleReloadTaskLog))))
 
 		go BroadcastMessage()
 
