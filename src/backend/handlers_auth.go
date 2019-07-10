@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"time"
 
+	"golang.org/x/crypto/bcrypt"
+
 	bolt "github.com/etcd-io/bbolt"
 	"github.com/gofrs/uuid"
 	"github.com/julienschmidt/httprouter"
@@ -17,6 +19,23 @@ func HandleIsLoggedIn(w http.ResponseWriter, r *http.Request, ps httprouter.Para
 // HandleLogIn verifies password and logs the user in
 func HandleLogIn(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	// Create and store session token
+	password := r.FormValue("password")
+
+	var hashedPassword []byte
+
+	err := DB.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(GlobalBucket))
+		hashedPassword = b.Get([]byte("password"))
+		return nil
+	})
+
+	err = bcrypt.CompareHashAndPassword(hashedPassword, []byte(password))
+	if err != nil {
+		Logger.Println(err, password)
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
 	sessionToken, err := uuid.NewV4()
 	if err != nil {
 		Logger.Println(err)

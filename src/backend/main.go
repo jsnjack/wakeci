@@ -7,6 +7,8 @@ import (
 	"os"
 	"sync"
 
+	"golang.org/x/crypto/bcrypt"
+
 	bolt "github.com/etcd-io/bbolt"
 	"github.com/julienschmidt/httprouter"
 )
@@ -50,14 +52,29 @@ func main() {
 		if err != nil {
 			return err
 		}
-		_, err = tx.CreateBucketIfNotExists(GlobalBucket)
+
+		gb, err := tx.CreateBucketIfNotExists(GlobalBucket)
 		if err != nil {
 			return err
 		}
+		password := gb.Get([]byte("password"))
+		if password == nil {
+			Logger.Println("Creating default password...")
+			passwordH, err := bcrypt.GenerateFromPassword([]byte("admin"), bcrypt.DefaultCost)
+			if err != nil {
+				return err
+			}
+			err = gb.Put([]byte("password"), passwordH)
+			if err != nil {
+				return err
+			}
+		}
+
 		_, err = tx.CreateBucketIfNotExists(HistoryBucket)
 		if err != nil {
 			return err
 		}
+
 		_, err = tx.CreateBucketIfNotExists(SessionBucket)
 		if err != nil {
 			return err

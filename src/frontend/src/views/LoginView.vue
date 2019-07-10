@@ -18,7 +18,6 @@
 import {AUTHURL} from "@/store/communication";
 import axios from "axios";
 import vuex from "vuex";
-// axios.defaults.withCredentials = true;
 
 export default {
     mounted() {
@@ -38,8 +37,10 @@ export default {
                 .catch((error) => {});
         },
         logIn() {
+            const data = new FormData();
+            data.append("password", this.password);
             axios
-                .post(AUTHURL + "/login/", this.password, {
+                .post(AUTHURL + "/login/", data, {
                     headers: {
                         "Content-type": "application/x-www-form-urlencoded",
                     },
