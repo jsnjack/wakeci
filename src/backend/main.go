@@ -1,12 +1,14 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"log"
 	"net/http"
 	"os"
 	"sync"
 
+	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/crypto/bcrypt"
 
 	rice "github.com/GeertJohan/go.rice"
@@ -19,6 +21,9 @@ var Logger *log.Logger
 
 // PortFlag is a port on which the server should be started
 var PortFlag *string
+
+// HostnameFlag is the domain name for autocert. Active only when port is 443
+var HostnameFlag *string
 
 // Version is the version of the application calculated with monova
 var Version string
@@ -34,6 +39,7 @@ var Q *Queue
 
 func init() {
 	PortFlag = flag.String("port", "8081", "Port to start the server on")
+	HostnameFlag = flag.String("hostname", "wakeci.dev", "Hostname for autocert. Active only whem port is 443")
 	flag.Parse()
 
 	Logger = log.New(os.Stdout, "", log.Lmicroseconds|log.Lshortfile)
@@ -94,34 +100,60 @@ func main() {
 
 	ScanAllJobs()
 
-	go func() {
+	go BroadcastMessage()
 
-		router := httprouter.New()
-		router.NotFound = http.FileServer(rice.MustFindBox("../frontend/dist/").HTTPBox())
-		// Websocket section
-		router.GET("/ws", AuthMi(handleWSConnection))
+	certManager := autocert.Manager{
+		Prompt:     autocert.AcceptTOS,
+		Cache:      autocert.DirCache("certs"),
+		HostPolicy: autocert.HostWhitelist(*HostnameFlag),
+	}
 
-		// Auth urls
-		router.GET("/auth/_isLoggedIn/", LogMi(CORSMi(AuthMi(HandleIsLoggedIn))))
-		router.POST("/auth/login/", LogMi(CORSMi(HandleLogIn)))
-		router.GET("/auth/logout/", LogMi(CORSMi(HandleLogOut)))
+	// Configure routes
+	router := httprouter.New()
+	router.NotFound = http.FileServer(rice.MustFindBox("../frontend/dist/").HTTPBox())
+	// Websocket section
+	router.GET("/ws", AuthMi(handleWSConnection))
 
-		// API calls used by client application
-		router.GET("/api/feed/", LogMi(CORSMi(AuthMi(HandleFeedView))))
-		router.GET("/api/jobs/", LogMi(CORSMi(AuthMi(HandleJobsView))))
-		router.POST("/api/job/:name/run", LogMi(CORSMi(AuthMi(HandleRunJob))))
-		router.GET("/api/build/:id/", LogMi(CORSMi(AuthMi(HandleGetBuild))))
-		router.POST("/api/build/:id/abort", LogMi(CORSMi(AuthMi(HandleAbortBuild))))
-		router.GET("/api/build/:id/log/:taskID/", LogMi(CORSMi(AuthMi(HandleReloadTaskLog))))
+	// Auth urls
+	router.GET("/auth/_isLoggedIn/", LogMi(CORSMi(AuthMi(HandleIsLoggedIn))))
+	router.POST("/auth/login/", LogMi(CORSMi(HandleLogIn)))
+	router.GET("/auth/logout/", LogMi(CORSMi(HandleLogOut)))
 
-		go BroadcastMessage()
+	// API calls used by client application
+	router.GET("/api/feed/", LogMi(CORSMi(AuthMi(HandleFeedView))))
+	router.GET("/api/jobs/", LogMi(CORSMi(AuthMi(HandleJobsView))))
+	router.POST("/api/job/:name/run", LogMi(CORSMi(AuthMi(HandleRunJob))))
+	router.GET("/api/build/:id/", LogMi(CORSMi(AuthMi(HandleGetBuild))))
+	router.POST("/api/build/:id/abort", LogMi(CORSMi(AuthMi(HandleAbortBuild))))
+	router.GET("/api/build/:id/log/:taskID/", LogMi(CORSMi(AuthMi(HandleReloadTaskLog))))
 
-		Logger.Println("Starting ws server on port " + *PortFlag)
-		err = http.ListenAndServe(":"+*PortFlag, router)
-		if err != nil {
-			log.Fatal("ListenAndServe: ", err)
+	if *PortFlag == "443" {
+		go func() {
+			Logger.Println("Listening on port 80...")
+			err := http.ListenAndServe(":80", certManager.HTTPHandler(nil))
+			if err != nil {
+				Logger.Fatal(err)
+			}
+		}()
+
+		Logger.Println("Listening on port 443...")
+		server := &http.Server{
+			Addr: ":443",
+			TLSConfig: &tls.Config{
+				GetCertificate: certManager.GetCertificate,
+			},
+			Handler: router,
 		}
-	}()
 
-	select {}
+		err = server.ListenAndServeTLS("", "")
+		if err != nil {
+			Logger.Fatal(err)
+		}
+	} else {
+		Logger.Printf("Listening on port %s...\n", *PortFlag)
+		err := http.ListenAndServe(":"+*PortFlag, router)
+		if err != nil {
+			Logger.Fatal(err)
+		}
+	}
 }

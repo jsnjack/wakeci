@@ -62,9 +62,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:9d5b5d543996dd584da1db1e0de1926f3e4c3a8dba0fa2f8db70f3ebee2342e0"
+  digest = "1:86a2feed7a6be48a559a2c869a7073922997e185f8b6ea260ce9037bd0b3ba12"
   name = "golang.org/x/crypto"
   packages = [
+    "acme",
+    "acme/autocert",
     "bcrypt",
     "blowfish",
   ]
@@ -73,11 +75,44 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:15a159ca3e34c429f800dd822cbb37707e98552c9523b8d07fdd244dba62f04b"
+  name = "golang.org/x/net"
+  packages = ["idna"]
+  pruneopts = "UT"
+  revision = "da137c7871d730100384dbcf36e6f8fa493aef5b"
+
+[[projects]]
+  branch = "master"
   digest = "1:6ed9319f79a63e30779042ef237f81770df4091866e43f84a643257384b0aefc"
   name = "golang.org/x/sys"
   packages = ["unix"]
   pruneopts = "UT"
   revision = "ad400b1274690a55531a013560dc08706088f82b"
+
+[[projects]]
+  digest = "1:8d8faad6b12a3a4c819a3f9618cb6ee1fa1cfc33253abeeea8b55336721e3405"
+  name = "golang.org/x/text"
+  packages = [
+    "collate",
+    "collate/build",
+    "internal/colltab",
+    "internal/gen",
+    "internal/language",
+    "internal/language/compact",
+    "internal/tag",
+    "internal/triegen",
+    "internal/ucd",
+    "language",
+    "secure/bidirule",
+    "transform",
+    "unicode/bidi",
+    "unicode/cldr",
+    "unicode/norm",
+    "unicode/rangetable",
+  ]
+  pruneopts = "UT"
+  revision = "342b2e1fbaa52c93f31447ad2c6abc048c63e475"
+  version = "v0.3.2"
 
 [[projects]]
   digest = "1:4d2e5a73dc1500038e504a8d78b986630e3626dc027bc030ba5c75da257cdb96"
@@ -98,6 +133,7 @@
     "github.com/gofrs/uuid",
     "github.com/gorilla/websocket",
     "github.com/julienschmidt/httprouter",
+    "golang.org/x/crypto/acme/autocert",
     "golang.org/x/crypto/bcrypt",
     "gopkg.in/yaml.v2",
   ]
