@@ -4,7 +4,7 @@ wakeci
 # Basic functionality
 - [x] Abort builds
 - [x] Builds support parameters
-- [ ] Auth
+- [x] Auth
 - [ ] Artifacts
 
 # Impovements high
@@ -32,4 +32,4 @@ wakeci
 
 # Packaging
 - [ ] Add support for Lets encrypt SSL cert
-- [ ] Package all in one binary
+- [x] Package all in one binary

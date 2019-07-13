@@ -9,6 +9,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	rice "github.com/GeertJohan/go.rice"
 	bolt "github.com/etcd-io/bbolt"
 	"github.com/julienschmidt/httprouter"
 )
@@ -94,7 +95,9 @@ func main() {
 	ScanAllJobs()
 
 	go func() {
+
 		router := httprouter.New()
+		router.NotFound = http.FileServer(rice.MustFindBox("../frontend/dist/").HTTPBox())
 		// Websocket section
 		router.GET("/ws", AuthMi(handleWSConnection))
 
@@ -114,7 +117,7 @@ func main() {
 		go BroadcastMessage()
 
 		Logger.Println("Starting ws server on port " + *PortFlag)
-		err := http.ListenAndServe(":"+*PortFlag, router)
+		err = http.ListenAndServe(":"+*PortFlag, router)
 		if err != nil {
 			log.Fatal("ListenAndServe: ", err)
 		}
