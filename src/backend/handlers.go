@@ -16,7 +16,7 @@ import (
 
 // HandleRunJob adds job to queue
 func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	jobFile := WorkingDir + ps.ByName("name") + ".yaml"
+	jobFile := *WorkingDirFlag + ps.ByName("name") + ".yaml"
 	job, err := ReadJob(jobFile)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -90,7 +90,7 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 		return
 	}
 	// Collect tasks info by reconstructing jon object
-	buildConfigFilename := WorkingDir + "wakespace/" + strconv.Itoa(buildID) + "/build.yaml"
+	buildConfigFilename := *WorkingDirFlag + "wakespace/" + strconv.Itoa(buildID) + "/build.yaml"
 	if _, err := os.Stat(buildConfigFilename); os.IsNotExist(err) {
 		Logger.Println(err)
 		w.WriteHeader(http.StatusNotFound)
@@ -238,7 +238,7 @@ func HandleReloadTaskLog(w http.ResponseWriter, r *http.Request, ps httprouter.P
 		return
 	}
 
-	path := WorkingDir + "wakespace/" + buildID + "/" + "task_" + taskID + ".log"
+	path := *WorkingDirFlag + "wakespace/" + buildID + "/" + "task_" + taskID + ".log"
 	// Verify that path exists
 	_, err = os.Stat(path)
 	if err != nil {

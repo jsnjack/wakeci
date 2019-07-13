@@ -25,11 +25,11 @@ var PortFlag *string
 // HostnameFlag is the domain name for autocert. Active only when port is 443
 var HostnameFlag *string
 
+// WorkingDirFlag contains path to the working directory
+var WorkingDirFlag *string
+
 // Version is the version of the application calculated with monova
 var Version string
-
-// WorkingDir is a working directory which contains all jobs
-const WorkingDir = "/home/jsn/workspace/wakeci/test_wd/"
 
 // DB is the Bolt db
 var DB *bolt.DB
@@ -40,6 +40,7 @@ var Q *Queue
 func init() {
 	PortFlag = flag.String("port", "8081", "Port to start the server on")
 	HostnameFlag = flag.String("hostname", "wakeci.dev", "Hostname for autocert. Active only whem port is 443")
+	WorkingDirFlag = flag.String("wd", "~/.wakeci/", "Working directory")
 	flag.Parse()
 
 	Logger = log.New(os.Stdout, "", log.Lmicroseconds|log.Lshortfile)
@@ -47,7 +48,12 @@ func init() {
 
 func main() {
 	var err error
-	DB, err = bolt.Open(WorkingDir+"wakeci.db", 0644, nil)
+	err = os.MkdirAll(*WorkingDirFlag, os.ModePerm)
+	if err != nil {
+		Logger.Fatal(err)
+	}
+
+	DB, err = bolt.Open(*WorkingDirFlag+"wakeci.db", 0644, nil)
 	if err != nil {
 		Logger.Fatal(err)
 	}

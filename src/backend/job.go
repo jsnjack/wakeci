@@ -56,7 +56,7 @@ func ReadJob(path string) (*Job, error) {
 
 // ScanAllJobs scans for all available jobs and saves them in database
 func ScanAllJobs() error {
-	files, _ := filepath.Glob(WorkingDir + "*" + ConfigExt)
+	files, _ := filepath.Glob(*WorkingDirFlag + "*" + ConfigExt)
 	for _, f := range files {
 		job, err := ReadJob(f)
 		if err != nil {

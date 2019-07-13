@@ -224,13 +224,13 @@ func (b *Build) PublishCommandLogs(taskID int, id int, data string) {
 // GetWorkspaceDir returns path to the workspace, where all user created files
 // are stored
 func (b *Build) GetWorkspaceDir() string {
-	return WorkingDir + "workspace/" + strconv.Itoa(b.ID) + "/"
+	return *WorkingDirFlag + "workspace/" + strconv.Itoa(b.ID) + "/"
 }
 
 // GetWakespaceDir returns path to the data dir - there all build+wake related data is
 // stored
 func (b *Build) GetWakespaceDir() string {
-	return WorkingDir + "wakespace/" + strconv.Itoa(b.ID) + "/"
+	return *WorkingDirFlag + "wakespace/" + strconv.Itoa(b.ID) + "/"
 }
 
 // GetBuildConfigFilename returns build config filename (copy of the original job file)
