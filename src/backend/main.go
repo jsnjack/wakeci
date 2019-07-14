@@ -40,7 +40,7 @@ var Q *Queue
 func init() {
 	PortFlag = flag.String("port", "8081", "Port to start the server on")
 	HostnameFlag = flag.String("hostname", "wakeci.dev", "Hostname for autocert. Active only whem port is 443")
-	WorkingDirFlag = flag.String("wd", "~/.wakeci/", "Working directory")
+	WorkingDirFlag = flag.String("wd", ".wakeci/", "Working directory")
 	flag.Parse()
 
 	Logger = log.New(os.Stdout, "", log.Lmicroseconds|log.Lshortfile)
@@ -114,9 +114,14 @@ func main() {
 		HostPolicy: autocert.HostWhitelist(*HostnameFlag),
 	}
 
+	vueBox := rice.MustFindBox("../frontend/dist/").HTTPBox()
+
+	vuefs := http.FileServer(vueBox)
 	// Configure routes
 	router := httprouter.New()
-	router.NotFound = http.FileServer(rice.MustFindBox("../frontend/dist/").HTTPBox())
+	// Assume that all unknown routes are vue-related files
+	router.NotFound = VueResourcesMi(vuefs)
+
 	// Websocket section
 	router.GET("/ws", AuthMi(handleWSConnection))
 

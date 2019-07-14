@@ -4,7 +4,9 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	bolt "github.com/etcd-io/bbolt"
@@ -109,5 +111,23 @@ func AuthMi(next httprouter.Handle) httprouter.Handle {
 			return
 		}
 		next(w, r, ps)
+	})
+}
+
+// VueResourcesMi checks if path needs to be stripped out before serving the location
+func VueResourcesMi(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		Logger.Printf("vue GET %s\n", r.URL.Path)
+		if strings.Contains(r.URL.Path, ".") || r.URL.Path == "/" {
+			h.ServeHTTP(w, r)
+			return
+		}
+		r2 := new(http.Request)
+		*r2 = *r
+		r2.URL = new(url.URL)
+		*r2.URL = *r.URL
+		r2.URL.Path = "/"
+		Logger.Printf("vue %s --> %s\n", r.URL.Path, r2.URL.Path)
+		h.ServeHTTP(w, r2)
 	})
 }
