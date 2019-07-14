@@ -117,8 +117,13 @@ func AuthMi(next httprouter.Handle) httprouter.Handle {
 // VueResourcesMi checks if path needs to be stripped out before serving the location
 func VueResourcesMi(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		Logger.Printf("vue GET %s\n", r.URL.Path)
+		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/auth/") {
+			w.WriteHeader(http.StatusNotFound)
+			Logger.Printf("vue 404 %s\n", r.URL.Path)
+			return
+		}
 		if strings.Contains(r.URL.Path, ".") || r.URL.Path == "/" {
+			Logger.Printf("vue GET %s\n", r.URL.Path)
 			h.ServeHTTP(w, r)
 			return
 		}
