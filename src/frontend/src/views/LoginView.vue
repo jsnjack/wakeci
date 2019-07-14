@@ -32,7 +32,7 @@ export default {
                 .get(AUTHURL + "/_isLoggedIn/")
                 .then((response) => {
                     this.$store.commit("LOG_IN");
-                    this.$router.push("/");
+                    this.$route.query.redirect ? this.$router.push(this.$route.query.redirect) : this.$router.push("/");
                 })
                 .catch((error) => {});
         },
