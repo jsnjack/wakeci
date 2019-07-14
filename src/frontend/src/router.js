@@ -1,6 +1,12 @@
 import Vue from "vue";
 import Router from "vue-router";
 import LoginView from "./views/LoginView.vue";
+import FeedView from "./views/FeedView.vue";
+import JobsView from "./views/JobsView.vue";
+import BuildView from "./views/BuildView.vue";
+import SettingsView from "./views/SettingsView.vue";
+
+
 import {requireAuth} from "./auth";
 
 
@@ -17,38 +23,27 @@ export default new Router({
         {
             path: "/",
             name: "feed",
-            component() {
-                return import(/* webpackChunkName: "jobs" */ "./views/FeedView.vue");
-            },
+            component: FeedView,
             beforeEnter: requireAuth,
         },
         {
             path: "/jobs",
             name: "jobs",
+            component: JobsView,
             beforeEnter: requireAuth,
-            // route level code-splitting
-            // this generates a separate chunk (about.[hash].js) for this route
-            // which is lazy-loaded when the route is visited.
-            component() {
-                return import(/* webpackChunkName: "jobs" */ "./views/JobsView.vue");
-            },
         },
         {
             path: "/build/:id",
             name: "build",
+            component: BuildView,
             beforeEnter: requireAuth,
-            component() {
-                return import(/* webpackChunkName: "build" */ "./views/BuildView.vue");
-            },
             props: true,
         },
         {
             path: "/settings",
             name: "settings",
+            component: SettingsView,
             beforeEnter: requireAuth,
-            component() {
-                return import(/* webpackChunkName: "settings" */ "./views/SettingsView.vue");
-            },
         },
     ],
 });
