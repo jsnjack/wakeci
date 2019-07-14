@@ -25,6 +25,9 @@ export default {
     },
     computed: {
         ...vuex.mapState(["auth"]),
+        getRedirectURL: function() {
+            return this.$route.query.redirect || "/";
+        },
     },
     methods: {
         fetch() {
@@ -32,7 +35,7 @@ export default {
                 .get(AUTHURL + "/_isLoggedIn/")
                 .then((response) => {
                     this.$store.commit("LOG_IN");
-                    this.$route.query.redirect ? this.$router.push(this.$route.query.redirect) : this.$router.push("/");
+                    this.$router.push(this.getRedirectURL);
                 })
                 .catch((error) => {});
         },
@@ -47,7 +50,7 @@ export default {
                 })
                 .then((response) => {
                     this.$store.commit("LOG_IN");
-                    this.$router.push("/");
+                    this.$router.push(this.getRedirectURL);
                 })
                 .catch((error) => {
                     this.$notify({
