@@ -1,5 +1,5 @@
-export const APIURL = process.env.API_ENDPOINT || "/api";
-export const AUTHURL = process.env.AUTH_ENDPOINT || "/auth";
+export const APIURL = "/api";
+export const AUTHURL = "/auth";
 
 const wsMessageHandler = function(app, data) {
     const msg = JSON.parse(data);
@@ -15,6 +15,22 @@ const wsMessageHandler = function(app, data) {
         return;
     }
     console.warn("Unhandled message", msg);
+};
+
+export const getWSURL = function() {
+    let protocol; let hostname;
+    if (location.protocol === "https:") {
+        protocol = "wss://";
+    } else {
+        protocol = "ws://";
+    }
+
+    if (process.env.NODE_ENV === "production") {
+        hostname = location.host;
+    } else {
+        hostname = "localhost:8081";
+    }
+    return `${protocol}${hostname}/ws`;
 };
 
 export default wsMessageHandler;

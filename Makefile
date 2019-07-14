@@ -28,8 +28,6 @@ bin/wakeci: version src/backend/*.go
 	go build -ldflags="-X main.Version=${VERSION}" -o ${BINARY}
 	mv wakeci ${PWD}/bin/
 
-runf: API_ENDPOINT=http://localhost:8080/api
-runf: AUTH_ENDPOINT=http://localhost:8080/auth
 runf:
 	cd src/frontend && npm run serve
 

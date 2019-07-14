@@ -16,7 +16,7 @@
 <script>
 import vuex from "vuex";
 import axios from "axios";
-import {AUTHURL} from "@/store/communication";
+import {AUTHURL, getWSURL} from "@/store/communication";
 import wsMessageHandler from "./store/communication";
 
 export default {
@@ -33,7 +33,7 @@ export default {
                     setTimeout(this.connect, this.$store.state.ws.reconnectTimeout);
                     return;
                 }
-                const ws = new WebSocket(this.$store.state.ws.url);
+                const ws = new WebSocket(getWSURL());
                 ws.sendMessage = function(obj) {
                     ws.send(JSON.stringify(obj));
                 };
