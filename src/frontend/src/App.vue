@@ -4,7 +4,7 @@
         <section class="navbar-section">
             <router-link to="/" class="btn btn-link text-light">Feed</router-link>
             <router-link to="/jobs" class="btn btn-link text-light">Jobs</router-link>
-            <router-link to="/jobs" class="btn btn-link text-light">Settings</router-link>
+            <router-link to="/settings" class="btn btn-link text-light">Settings</router-link>
             <a href="#" @click.prevent="logOut" class="btn btn-link text-light">Log out</a>
         </section>
     </header>

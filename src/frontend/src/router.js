@@ -42,5 +42,13 @@ export default new Router({
             },
             props: true,
         },
+        {
+            path: "/settings",
+            name: "settings",
+            beforeEnter: requireAuth,
+            component() {
+                return import(/* webpackChunkName: "settings" */ "./views/SettingsView.vue");
+            },
+        },
     ],
 });

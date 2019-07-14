@@ -41,7 +41,9 @@ export default {
         },
         logIn() {
             const data = new FormData();
-            data.append("password", this.password);
+            if (this.password !== "") {
+                data.append("password", this.password);
+            }
             axios
                 .post(AUTHURL + "/login/", data, {
                     headers: {

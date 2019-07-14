@@ -31,5 +31,5 @@ wakeci
 - [ ] PWA?
 
 # Packaging
-- [ ] Add support for Lets encrypt SSL cert
+- [x] Add support for Lets encrypt SSL cert
 - [x] Package all in one binary

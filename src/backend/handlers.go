@@ -12,6 +12,7 @@ import (
 
 	bolt "github.com/etcd-io/bbolt"
 	"github.com/julienschmidt/httprouter"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // HandleRunJob adds job to queue
@@ -295,5 +296,31 @@ func HandleAbortBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Para
 		Logger.Println(err)
 		w.WriteHeader(http.StatusNotFound)
 		return
+	}
+}
+
+// HandleSettings saves settings
+func HandleSettings(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	// Create and store session token
+	password := r.FormValue("password")
+	if password != "" {
+		err := DB.Update(func(tx *bolt.Tx) error {
+			passwordH, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+			if err != nil {
+				return err
+			}
+
+			gb := tx.Bucket(GlobalBucket)
+			err = gb.Put([]byte("password"), passwordH)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+		if err != nil {
+			Logger.Println(err, password)
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
 	}
 }
