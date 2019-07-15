@@ -39,7 +39,7 @@ var Q *Queue
 
 func init() {
 	PortFlag = flag.String("port", "8081", "Port to start the server on")
-	HostnameFlag = flag.String("hostname", "wakeci.dev", "Hostname for autocert. Active only whem port is 443")
+	HostnameFlag = flag.String("hostname", "", "Hostname for autocert. Active only when port is 443")
 	WorkingDirFlag = flag.String("wd", ".wakeci/", "Working directory")
 	flag.Parse()
 

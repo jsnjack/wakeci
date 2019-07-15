@@ -54,13 +54,19 @@ func CORSMi(next httprouter.Handle) httprouter.Handle {
 	return httprouter.Handle(func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		// Call actuall handler
 		next(w, r, ps)
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		origin := "*"
+		if *HostnameFlag != "" {
+			origin = "https://" + *HostnameFlag
+		}
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Access-Control-Max-Age", "86400")
 	})
 }
 
 // AuthMi adds CORS headers
 func AuthMi(next httprouter.Handle) httprouter.Handle {
 	return httprouter.Handle(func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+		// Basic auth for API calls
 		_, password, ok := r.BasicAuth()
 		if ok {
 			var hashedPassword []byte
@@ -81,6 +87,7 @@ func AuthMi(next httprouter.Handle) httprouter.Handle {
 			return
 		}
 
+		// Session auth for vue calls
 		sessionToken, err := r.Cookie("session")
 		if err != nil {
 			Logger.Println(err)
@@ -117,16 +124,20 @@ func AuthMi(next httprouter.Handle) httprouter.Handle {
 // VueResourcesMi checks if path needs to be stripped out before serving the location
 func VueResourcesMi(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// First check if it is any of API or AUTH calls
 		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/auth/") {
 			w.WriteHeader(http.StatusNotFound)
 			Logger.Printf("vue 404 %s\n", r.URL.Path)
 			return
 		}
+		// Static file or root address
 		if strings.Contains(r.URL.Path, ".") || r.URL.Path == "/" {
 			Logger.Printf("vue GET %s\n", r.URL.Path)
 			h.ServeHTTP(w, r)
 			return
 		}
+		// Most likely this is request to one of the dynamic URLs used by frontend,
+		// serve index.html (/) in this case
 		r2 := new(http.Request)
 		*r2 = *r
 		r2.URL = new(url.URL)
