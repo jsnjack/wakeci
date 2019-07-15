@@ -39,6 +39,14 @@ buildf:
 
 build: buildf bin/wakeci
 
+deploy:
+	ssh wakeci sudo systemctl stop ${BINARY}
+	ssh wakeci rm -f ${BINARY}
+	scp bin/${BINARY} wakeci:~/
+	ssh wakeci sudo setcap cap_net_bind_service=+ep wakeci
+	ssh wakeci sudo systemctl start ${BINARY}
+	ssh wakeci sudo systemctl status ${BINARY}
+
 .ONESHELL:
 clean:
 	cd test_wd
