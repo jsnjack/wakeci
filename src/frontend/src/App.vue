@@ -1,14 +1,19 @@
 <template>
   <div id="app">
-    <header class="navbar-center bg-primary">
-        <section class="navbar-section">
-            <router-link to="/" class="btn btn-link text-light">Feed</router-link>
-            <router-link to="/jobs" class="btn btn-link text-light">Jobs</router-link>
-            <router-link to="/settings" class="btn btn-link text-light">Settings</router-link>
-            <a href="#" @click.prevent="logOut" class="btn btn-link text-light">Log out</a>
-        </section>
+    <header class="navbar bg-primary">
+      <section class="navbar-section">
+        <small class="text-gray">v {{ getVesion }}</small>
+      </section>
+      <section class="navbar-center">
+        <router-link to="/" class="btn btn-link text-light">Feed</router-link>
+        <router-link to="/jobs" class="btn btn-link text-light">Jobs</router-link>
+        <router-link to="/settings" class="btn btn-link text-light">Settings</router-link>
+      </section>
+      <section class="navbar-section">
+        <a href="#" @click.prevent="logOut" class="btn btn-link text-light">Log out</a>
+      </section>
     </header>
-    <router-view/>
+    <router-view />
     <notifications classes="my-noty" position="bottom right" />
   </div>
 </template>
@@ -25,6 +30,9 @@ export default {
     },
     computed: {
         ...vuex.mapState(["ws", "auth"]),
+        getVesion: function() {
+            return process.env.VUE_APP_VERSION || "0.0.0";
+        },
     },
     methods: {
         connect: function() {
@@ -81,7 +89,7 @@ export default {
 @import "@/assets/wakeci.scss";
 
 #app {
-  font-family: 'Avenir', Helvetica, Arial, sans-serif;
+  font-family: "Avenir", Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-align: center;

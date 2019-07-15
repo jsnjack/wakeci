@@ -5,10 +5,12 @@ MONOVA:=$(shell which monova dot 2> /dev/null)
 
 version:
 ifdef MONOVA
-override VERSION="$(shell monova)"
+override VERSION=$(shell monova)
 else
 	$(info "Install monova (https://github.com/jsnjack/monova) to calculate version")
 endif
+
+export VUE_APP_VERSION = ${VERSION}
 
 .ONESHELL:
 src/backend/wakeci: version src/backend/*.go
@@ -39,7 +41,7 @@ buildf:
 
 build: buildf bin/wakeci
 
-deploy:
+deploy: build
 	ssh wakeci sudo systemctl stop ${BINARY}
 	ssh wakeci rm -f ${BINARY}
 	scp bin/${BINARY} wakeci:~/
