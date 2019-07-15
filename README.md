@@ -14,7 +14,7 @@ wakeci
 - [ ] Reload logs messes up order
 
 # Improvements low
-- [ ] Create settings page
+- [x] Create settings page
 - [ ] Create/edit job with monaco
 - [ ] Default template for new jobs
 - [ ] When job was started
