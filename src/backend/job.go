@@ -50,7 +50,7 @@ func ReadJob(path string) (*Job, error) {
 	_, nameExt := filepath.Split(path)
 	job.Name = nameExt[0 : len(nameExt)-len(ConfigExt)]
 
-	Logger.Printf("Read job from file %s: %v\n", path, job)
+	Logger.Printf("Read job from file %s: %s, tasks %d\n", path, job.Name, len(job.Tasks))
 	return &job, nil
 }
 
