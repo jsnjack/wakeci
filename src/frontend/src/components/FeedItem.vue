@@ -1,13 +1,10 @@
 <template>
   <tr>
-    <td>{{ build.name }}</td>
     <td>
       <router-link :to="{ name: 'build', params: { id: build.id}}">{{ build.id }}</router-link>
     </td>
+    <td>{{ build.name }}</td>
     <td>
-        <!-- <div class="columns">
-        <ParamItem v-for="(item, index) in build.params" :key="index+'param'" :param="item"></ParamItem>
-        </div> -->
         {{ getParamsText }}
     </td>
     <td class="tooltip tooltip-right" :data-tooltip="getProgressTooltip">
@@ -26,12 +23,11 @@
 <script>
 import BuildStatus from "@/components/BuildStatus";
 import BuildProgress from "@/components/BuildProgress";
-import ParamItem from "@/components/ParamItem";
 import axios from "axios";
 import {APIURL} from "@/store/communication";
 
 export default {
-    components: {BuildStatus, BuildProgress, ParamItem},
+    components: {BuildStatus, BuildProgress},
     props: {
         build: {
             type: Object,
