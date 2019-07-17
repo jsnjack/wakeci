@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"sync"
 
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/crypto/bcrypt"
@@ -81,6 +80,10 @@ func main() {
 			if err != nil {
 				return err
 			}
+			err = gb.Put([]byte("concurrentBuilds"), IntToByte(2))
+			if err != nil {
+				return err
+			}
 		}
 
 		_, err = tx.CreateBucketIfNotExists(HistoryBucket)
@@ -99,9 +102,9 @@ func main() {
 		Logger.Fatal(err)
 	}
 
-	Q = &Queue{
-		concurrentBuilds: 2,
-		mutex:            &sync.Mutex{},
+	Q, err = CreateQueue()
+	if err != nil {
+		Logger.Fatal(err)
 	}
 
 	ScanAllJobs()
@@ -137,7 +140,8 @@ func main() {
 	router.GET("/api/build/:id/", LogMi(CORSMi(AuthMi(HandleGetBuild))))
 	router.POST("/api/build/:id/abort", LogMi(CORSMi(AuthMi(HandleAbortBuild))))
 	router.GET("/api/build/:id/log/:taskID/", LogMi(CORSMi(AuthMi(HandleReloadTaskLog))))
-	router.POST("/api/settings/", LogMi(CORSMi(AuthMi(HandleSettings))))
+	router.POST("/api/settings/", LogMi(CORSMi(AuthMi(HandleSettingsPost))))
+	router.GET("/api/settings/", LogMi(CORSMi(AuthMi(HandleSettingsGet))))
 
 	if *PortFlag == "443" {
 		go func() {

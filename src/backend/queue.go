@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"sync"
+
+	bolt "github.com/etcd-io/bbolt"
 )
 
 // Queue represents queued and running builds
@@ -92,4 +94,50 @@ func (q *Queue) Abort(id int) error {
 		}
 	}
 	return fmt.Errorf("Build %d not found in Q", id)
+}
+
+// SetConcurrency sets number of concurrent builds
+func (q *Queue) SetConcurrency(number int) {
+	err := DB.Update(func(tx *bolt.Tx) error {
+		gb := tx.Bucket(GlobalBucket)
+		err := gb.Put([]byte("concurrentBuilds"), IntToByte(number))
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		Logger.Println(err)
+		return
+	}
+	q.mutex.Lock()
+	q.concurrentBuilds = number
+	q.mutex.Unlock()
+	Logger.Printf("Number of concurrent builds changed to %d\n", number)
+	q.Take()
+}
+
+// CreateQueue creates new Queue object
+func CreateQueue() (*Queue, error) {
+	var cb int
+	err := DB.View(func(tx *bolt.Tx) error {
+		var err error
+		gb := tx.Bucket(GlobalBucket)
+		cb, err = ByteToInt(gb.Get([]byte("concurrentBuilds")))
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	Logger.Printf("Creating Queue with %d concurrent builds\n", cb)
+	q := &Queue{
+		concurrentBuilds: cb,
+		mutex:            &sync.Mutex{},
+	}
+	return q, nil
 }

@@ -23,7 +23,7 @@ var HistoryBucket = []byte("history")
 // SessionBucket contains information about active sessions
 var SessionBucket = []byte("session")
 
-// ByteToInt convert bytes to int
+// ByteToInt convert byte to int via string
 func ByteToInt(b []byte) (int, error) {
 	bs := string(b)
 	bi, err := strconv.Atoi(bs)
@@ -33,14 +33,15 @@ func ByteToInt(b []byte) (int, error) {
 	return bi, nil
 }
 
-// Itob converts int to
+// IntToByte converts integer to byte via string
+func IntToByte(i int) []byte {
+	s := strconv.Itoa(i)
+	return []byte(s)
+}
+
+// Itob converts int to byte array
 func Itob(v int) []byte {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, uint64(v))
 	return b
-}
-
-// Btoi converts bytes to int
-func Btoi(b []byte) int {
-	return int(binary.BigEndian.Uint64(b))
 }

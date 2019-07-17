@@ -9,6 +9,10 @@
           <label class="form-label" for="password">Password</label>
           <input class="form-input" type="password" id="password" v-model="password" />
         </div>
+        <div class="form-group">
+          <label class="form-label" for="concurrent-builds">Number of concurrent builds</label>
+          <input class="form-input" type="number" min="1" id="concurrent-builds" v-model="concurrentBuilds" />
+        </div>
       </div>
       <div class="card-footer">
         <button type="submit" class="btn btn-primary">Save</button>
@@ -22,10 +26,14 @@ import {APIURL} from "@/store/communication";
 import axios from "axios";
 
 export default {
+    mounted() {
+        this.fetch();
+    },
     methods: {
         save() {
             const data = new FormData();
             data.append("password", this.password);
+            data.append("concurrentBuilds", this.concurrentBuilds);
             axios
                 .post(APIURL + "/settings/", data, {
                     headers: {
@@ -45,10 +53,25 @@ export default {
                     });
                 });
         },
+        fetch() {
+            axios.get(APIURL + "/settings/")
+                .then((response) => {
+                    if (response.data.concurrentBuilds) {
+                        this.concurrentBuilds = response.data.concurrentBuilds;
+                    }
+                })
+                .catch((error) => {
+                    this.$notify({
+                        text: error,
+                        type: "error",
+                    });
+                });
+        },
     },
     data: function() {
         return {
             password: "",
+            concurrentBuilds: 2,
         };
     },
 };

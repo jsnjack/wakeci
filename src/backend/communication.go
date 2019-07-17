@@ -54,3 +54,8 @@ type CommandLogData struct {
 	ID     int    `json:"id"`
 	Data   string `json:"data"`
 }
+
+// SettingsData used for Settings view to allow user to modify settings
+type SettingsData struct {
+	ConcurrentBuilds int
+}

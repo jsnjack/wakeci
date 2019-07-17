@@ -329,13 +329,13 @@ func HandleAbortBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Para
 	}
 }
 
-// HandleSettings saves settings
-func HandleSettings(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	// Create and store session token
+// HandleSettingsPost saves settings
+func HandleSettingsPost(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	logger, ok := r.Context().Value(HL).(*log.Logger)
 	if !ok {
 		logger = Logger
 	}
+
 	password := r.FormValue("password")
 	if password != "" {
 		err := DB.Update(func(tx *bolt.Tx) error {
@@ -352,9 +352,51 @@ func HandleSettings(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 			return nil
 		})
 		if err != nil {
-			logger.Println(err, password)
-			w.WriteHeader(http.StatusForbidden)
+			logger.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 	}
+
+	cb := r.FormValue("concurrentBuilds")
+	cbInt, err := strconv.Atoi(cb)
+	if err != nil {
+		logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	Q.SetConcurrency(cbInt)
+}
+
+// HandleSettingsGet retrieves settings
+func HandleSettingsGet(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	logger, ok := r.Context().Value(HL).(*log.Logger)
+	if !ok {
+		logger = Logger
+	}
+	var settings SettingsData
+
+	err := DB.View(func(tx *bolt.Tx) error {
+		gb := tx.Bucket(GlobalBucket)
+		cb, err := ByteToInt(gb.Get([]byte("concurrentBuilds")))
+		if err != nil {
+			return err
+		}
+		settings.ConcurrentBuilds = cb
+		return nil
+	})
+
+	if err != nil {
+		logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	payloadB, err := json.Marshal(settings)
+	if err != nil {
+		logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Write(payloadB)
 }
