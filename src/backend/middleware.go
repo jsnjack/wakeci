@@ -66,6 +66,11 @@ func CORSMi(next httprouter.Handle) httprouter.Handle {
 // AuthMi adds CORS headers
 func AuthMi(next httprouter.Handle) httprouter.Handle {
 	return httprouter.Handle(func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+		logger, ok := r.Context().Value(HL).(*log.Logger)
+		if !ok {
+			logger = Logger
+		}
+
 		// Basic auth for API calls
 		_, password, ok := r.BasicAuth()
 		if ok {
@@ -79,7 +84,7 @@ func AuthMi(next httprouter.Handle) httprouter.Handle {
 
 			err = bcrypt.CompareHashAndPassword(hashedPassword, []byte(password))
 			if err != nil {
-				Logger.Println(err)
+				logger.Println(err)
 				w.WriteHeader(http.StatusForbidden)
 				return
 			}
@@ -90,7 +95,7 @@ func AuthMi(next httprouter.Handle) httprouter.Handle {
 		// Session auth for vue calls
 		sessionToken, err := r.Cookie("session")
 		if err != nil {
-			Logger.Println(err)
+			logger.Println(err)
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
@@ -101,19 +106,19 @@ func AuthMi(next httprouter.Handle) httprouter.Handle {
 			return nil
 		})
 		if expiresB == nil {
-			Logger.Printf("Session %s doesn't exist\n", sessionToken.Value)
+			logger.Printf("Session %s doesn't exist\n", sessionToken.Value)
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
 		var expires time.Time
 		err = expires.GobDecode(expiresB)
 		if err != nil {
-			Logger.Println(err)
+			logger.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		if expires.Before(time.Now()) {
-			Logger.Println("Session expired")
+			logger.Println("Session expired")
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
@@ -124,15 +129,19 @@ func AuthMi(next httprouter.Handle) httprouter.Handle {
 // VueResourcesMi checks if path needs to be stripped out before serving the location
 func VueResourcesMi(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		logger, ok := r.Context().Value(HL).(*log.Logger)
+		if !ok {
+			logger = Logger
+		}
 		// First check if it is any of API or AUTH calls
 		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/auth/") {
 			w.WriteHeader(http.StatusNotFound)
-			Logger.Printf("vue 404 %s\n", r.URL.Path)
+			logger.Printf("vue 404 %s\n", r.URL.Path)
 			return
 		}
 		// Static file or root address
 		if strings.Contains(r.URL.Path, ".") || r.URL.Path == "/" {
-			Logger.Printf("vue GET %s\n", r.URL.Path)
+			logger.Printf("vue GET %s\n", r.URL.Path)
 			h.ServeHTTP(w, r)
 			return
 		}
@@ -143,7 +152,7 @@ func VueResourcesMi(h http.Handler) http.Handler {
 		r2.URL = new(url.URL)
 		*r2.URL = *r.URL
 		r2.URL.Path = "/"
-		Logger.Printf("vue %s --> %s\n", r.URL.Path, r2.URL.Path)
+		logger.Printf("vue %s --> %s\n", r.URL.Path, r2.URL.Path)
 		h.ServeHTTP(w, r2)
 	})
 }

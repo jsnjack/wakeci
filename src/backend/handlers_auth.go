@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -18,6 +19,11 @@ func HandleIsLoggedIn(w http.ResponseWriter, r *http.Request, ps httprouter.Para
 
 // HandleLogIn verifies password and logs the user in
 func HandleLogIn(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	logger, ok := r.Context().Value(HL).(*log.Logger)
+	if !ok {
+		logger = Logger
+	}
+
 	// Create and store session token
 	password := r.FormValue("password")
 
@@ -31,14 +37,14 @@ func HandleLogIn(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	err = bcrypt.CompareHashAndPassword(hashedPassword, []byte(password))
 	if err != nil {
-		Logger.Println(err, password)
+		logger.Println(err, password)
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
 
 	sessionToken, err := uuid.NewV4()
 	if err != nil {
-		Logger.Println(err)
+		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -46,7 +52,7 @@ func HandleLogIn(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	expires := time.Now().Add(time.Hour * 24 * 7)
 	expiresB, err := expires.GobEncode()
 	if err != nil {
-		Logger.Println(err)
+		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -56,7 +62,7 @@ func HandleLogIn(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		return b.Put([]byte(sessionToken.String()), expiresB)
 	})
 	if err != nil {
-		Logger.Println(err)
+		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -73,9 +79,14 @@ func HandleLogIn(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 // HandleLogOut logs the user out
 func HandleLogOut(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	logger, ok := r.Context().Value(HL).(*log.Logger)
+	if !ok {
+		logger = Logger
+	}
+
 	sessionToken, err := r.Cookie("session")
 	if err != nil {
-		Logger.Println(err)
+		logger.Println(err)
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -84,7 +95,7 @@ func HandleLogOut(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 		return b.Delete([]byte(sessionToken.Value))
 	})
 	if err != nil {
-		Logger.Println(err)
+		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -17,6 +18,11 @@ import (
 
 // HandleRunJob adds job to queue
 func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	logger, ok := r.Context().Value(HL).(*log.Logger)
+	if !ok {
+		logger = Logger
+	}
+
 	jobFile := *WorkingDirFlag + ps.ByName("name") + ".yaml"
 	job, err := ReadJob(jobFile)
 	if err != nil {
@@ -25,7 +31,7 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	}
 	build, err := CreateBuild(job)
 	if err != nil {
-		Logger.Println(err)
+		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -36,7 +42,7 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 			value := r.URL.Query().Get(pkey)
 			if value != "" {
 				build.Params[idx][pkey] = value
-				Logger.Printf("Updating key %s to %s", pkey, value)
+				logger.Printf("Updating key %s to %s", pkey, value)
 			}
 		}
 	}
@@ -44,36 +50,36 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	// Create workspace
 	err = os.MkdirAll(build.GetWorkspaceDir(), os.ModePerm)
 	if err != nil {
-		Logger.Println(err)
+		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	Logger.Printf("Workspace %s has been created\n", build.GetWorkspaceDir())
+	logger.Printf("Workspace %s has been created\n", build.GetWorkspaceDir())
 
 	// Create wakespace
 	err = os.MkdirAll(build.GetWakespaceDir(), os.ModePerm)
 	if err != nil {
-		Logger.Println(err)
+		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	Logger.Printf("Wakespace %s has been created\n", build.GetWakespaceDir())
+	logger.Printf("Wakespace %s has been created\n", build.GetWakespaceDir())
 
 	// Copy job config
 	input, err := ioutil.ReadFile(jobFile)
 	if err != nil {
-		Logger.Println(err)
+		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	err = ioutil.WriteFile(build.GetBuildConfigFilename(), input, 0644)
 	if err != nil {
-		Logger.Println(err)
+		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	Logger.Printf("Build config %s has been created\n", build.GetBuildConfigFilename())
+	logger.Printf("Build config %s has been created\n", build.GetBuildConfigFilename())
 
 	Q.Add(build)
 	Q.Take()
@@ -83,24 +89,29 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 
 // HandleGetBuild Returns information required to bootstrap build page
 func HandleGetBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	logger, ok := r.Context().Value(HL).(*log.Logger)
+	if !ok {
+		logger = Logger
+	}
+
 	idp := ps.ByName("id")
 	buildID, err := strconv.Atoi(idp)
 	if err != nil {
-		Logger.Println(err)
+		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	// Collect tasks info by reconstructing jon object
 	buildConfigFilename := *WorkingDirFlag + "wakespace/" + strconv.Itoa(buildID) + "/build.yaml"
 	if _, err := os.Stat(buildConfigFilename); os.IsNotExist(err) {
-		Logger.Println(err)
+		logger.Println(err)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
 	job, err := ReadJob(buildConfigFilename)
 	if err != nil {
-		Logger.Println(err)
+		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -116,7 +127,7 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 		return json.Unmarshal(ud, &buildStatusData)
 	})
 	if err != nil {
-		Logger.Println(err)
+		logger.Println(err)
 		if err.Error() == "Not found" {
 			w.WriteHeader(http.StatusNotFound)
 		} else {
@@ -134,7 +145,7 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 
 	payloadB, err := json.Marshal(payload)
 	if err != nil {
-		Logger.Println(err)
+		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -143,6 +154,11 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 
 // HandleFeedView returns items in current feed - executed and queued jobs
 func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	logger, ok := r.Context().Value(HL).(*log.Logger)
+	if !ok {
+		logger = Logger
+	}
+
 	const pageSize = 10
 	var payload []*BuildUpdateData
 	err := DB.Update(func(tx *bolt.Tx) error {
@@ -153,7 +169,7 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 			var msg BuildUpdateData
 			err := json.Unmarshal(b.Get(key), &msg)
 			if err != nil {
-				Logger.Println(err)
+				logger.Println(err)
 			} else {
 				switch msg.Status {
 				case StatusPending, StatusRunning:
@@ -161,7 +177,7 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 						msg.Status = StatusAborted
 						updatedB, err := json.Marshal(msg)
 						if err != nil {
-							Logger.Println(err)
+							logger.Println(err)
 						}
 						b.Put(Itob(msg.ID), updatedB)
 					}
@@ -178,7 +194,7 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 	})
 	payloadB, err := json.Marshal(payload)
 	if err != nil {
-		Logger.Println(err)
+		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -187,6 +203,11 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 
 // HandleJobsView returns all available jobs
 func HandleJobsView(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	logger, ok := r.Context().Value(HL).(*log.Logger)
+	if !ok {
+		logger = Logger
+	}
+
 	var data []*JobsListData
 	err := DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(JobsBucket))
@@ -208,13 +229,13 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 		return nil
 	})
 	if err != nil {
-		Logger.Println(err)
+		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	payloadB, err := json.Marshal(data)
 	if err != nil {
-		Logger.Println(err)
+		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -223,18 +244,23 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 
 // HandleReloadTaskLog broadcasts all logs from a filesystem file
 func HandleReloadTaskLog(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	logger, ok := r.Context().Value(HL).(*log.Logger)
+	if !ok {
+		logger = Logger
+	}
+
 	buildID := ps.ByName("id")
 	taskID := ps.ByName("taskID")
 	// Verify ids
 	_, err := strconv.Atoi(buildID)
 	if err != nil {
-		Logger.Println(err)
+		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	taskIDint, err := strconv.Atoi(taskID)
 	if err != nil {
-		Logger.Println(err)
+		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -243,14 +269,14 @@ func HandleReloadTaskLog(w http.ResponseWriter, r *http.Request, ps httprouter.P
 	// Verify that path exists
 	_, err = os.Stat(path)
 	if err != nil {
-		Logger.Println(err)
+		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	// Read file
 	f, err := os.OpenFile(path, os.O_RDONLY, os.ModePerm)
 	if err != nil {
-		Logger.Println(err)
+		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -265,7 +291,7 @@ func HandleReloadTaskLog(w http.ResponseWriter, r *http.Request, ps httprouter.P
 				break
 			}
 
-			Logger.Println(err)
+			logger.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -284,16 +310,20 @@ func HandleReloadTaskLog(w http.ResponseWriter, r *http.Request, ps httprouter.P
 
 // HandleAbortBuild aborts build
 func HandleAbortBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	logger, ok := r.Context().Value(HL).(*log.Logger)
+	if !ok {
+		logger = Logger
+	}
 	buildID := ps.ByName("id")
 	id, err := strconv.Atoi(buildID)
 	if err != nil {
-		Logger.Println(err)
+		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	err = Q.Abort(id)
 	if err != nil {
-		Logger.Println(err)
+		logger.Println(err)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -302,6 +332,10 @@ func HandleAbortBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Para
 // HandleSettings saves settings
 func HandleSettings(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	// Create and store session token
+	logger, ok := r.Context().Value(HL).(*log.Logger)
+	if !ok {
+		logger = Logger
+	}
 	password := r.FormValue("password")
 	if password != "" {
 		err := DB.Update(func(tx *bolt.Tx) error {
@@ -318,7 +352,7 @@ func HandleSettings(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 			return nil
 		})
 		if err != nil {
-			Logger.Println(err, password)
+			logger.Println(err, password)
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
