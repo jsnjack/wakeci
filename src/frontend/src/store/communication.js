@@ -3,7 +3,6 @@ export const AUTHURL = "/auth";
 
 const wsMessageHandler = function(app, data) {
     const msg = JSON.parse(data);
-    console.info("WS msg", msg);
     if (msg.type.startsWith("build:log:")) {
         app.$eventHub.$emit(msg.type, msg.data);
         return;
