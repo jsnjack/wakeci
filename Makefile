@@ -1,6 +1,7 @@
 BINARY:=wakeci
 PWD:=$(shell pwd)
 VERSION=0.0.0
+VUE_VERSION_SUFFIX:=$(shell date +"%d%b")
 MONOVA:=$(shell which monova dot 2> /dev/null)
 
 version:
@@ -10,7 +11,7 @@ else
 	$(info "Install monova (https://github.com/jsnjack/monova) to calculate version")
 endif
 
-export VUE_APP_VERSION = ${VERSION}
+export VUE_APP_VERSION = ${VERSION}-${VUE_VERSION_SUFFIX}
 
 .ONESHELL:
 src/backend/wakeci: version src/backend/*.go
