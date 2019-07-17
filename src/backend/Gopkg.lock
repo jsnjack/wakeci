@@ -127,7 +127,6 @@
   analyzer-version = 1
   input-imports = [
     "github.com/GeertJohan/go.rice",
-    "github.com/GeertJohan/go.rice/embedded",
     "github.com/etcd-io/bbolt",
     "github.com/go-cmd/cmd",
     "github.com/gofrs/uuid",
