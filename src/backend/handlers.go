@@ -270,7 +270,7 @@ func HandleReloadTaskLog(w http.ResponseWriter, r *http.Request, ps httprouter.P
 	_, err = os.Stat(path)
 	if err != nil {
 		logger.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 	// Read file
