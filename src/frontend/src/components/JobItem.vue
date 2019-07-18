@@ -59,7 +59,6 @@ export default {
             axios
                 .post(url)
                 .then((response) => {
-                    console.log(response);
                     this.$notify({
                         text: `${this.job.name} has been scheduled (#${response.data})`,
                         type: "success",

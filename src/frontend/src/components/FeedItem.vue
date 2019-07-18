@@ -69,7 +69,6 @@ export default {
         abort(event) {
             axios.post(event.target.href)
                 .then((response) => {
-                    console.log(response);
                     this.$notify({
                         text: `${this.build.id} has been aborted`,
                         type: "success",
