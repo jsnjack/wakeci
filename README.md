@@ -14,6 +14,7 @@ wakeci
 - [ ] Reload logs messes up order
 
 # Improvements low
+- [ ] Add gzip middleware
 - [x] Create settings page
 - [ ] Create/edit job with monaco
 - [ ] Default template for new jobs
