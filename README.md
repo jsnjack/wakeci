@@ -14,6 +14,7 @@ wakeci
 - [ ] Reload logs messes up order
 
 # Improvements low
+- [ ] Use monospace font for logs
 - [ ] Add gzip middleware
 - [x] Create settings page
 - [ ] Create/edit job with monaco
