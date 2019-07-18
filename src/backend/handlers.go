@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -160,14 +161,35 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 	}
 
 	const pageSize = 10
+
+	pageS := r.URL.Query().Get("page")
+	pageI, err := strconv.Atoi(pageS)
+	if err != nil {
+		logger.Printf("Invalid page %s", pageS)
+		pageI = 1
+		return
+	}
+
+	if pageI < 1 {
+		pageI = 1
+	}
+
 	var payload []*BuildUpdateData
-	err := DB.Update(func(tx *bolt.Tx) error {
+	err = DB.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(HistoryBucket))
 		c := b.Cursor()
 		count := 0
-		for key, _ := c.Last(); key != nil; key, _ = c.Prev() {
+		// Check what is the last one
+		lastK, _ := c.Last()
+		if lastK == nil {
+			return nil
+		}
+		// Find starting point
+		fromB := make([]byte, 8)
+		binary.BigEndian.PutUint64(fromB, binary.BigEndian.Uint64(lastK)-uint64((pageI-1)*pageSize))
+		for key, v := c.Seek(fromB); key != nil; key, v = c.Prev() {
 			var msg BuildUpdateData
-			err := json.Unmarshal(b.Get(key), &msg)
+			err := json.Unmarshal(v, &msg)
 			if err != nil {
 				logger.Println(err)
 			} else {

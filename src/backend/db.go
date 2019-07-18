@@ -39,7 +39,7 @@ func IntToByte(i int) []byte {
 	return []byte(s)
 }
 
-// Itob converts int to byte array
+// Itob converts int to sorted byte array
 func Itob(v int) []byte {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, uint64(v))
