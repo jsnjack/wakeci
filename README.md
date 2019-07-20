@@ -17,8 +17,8 @@ wakeci
 - [x] Use monospace font for logs
 - [ ] Add gzip middleware
 - [x] Create settings page
-- [ ] Create/edit job with monaco
-- [ ] Default template for new jobs
+- [x] Create/edit job with editor
+- [x] Default template for new jobs
 - [ ] When job was started
 - [ ] Timestamps to logs
 - [ ] Total time to finish build/task
