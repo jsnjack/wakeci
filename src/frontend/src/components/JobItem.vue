@@ -1,8 +1,10 @@
 <template>
   <tr>
     <td>{{ job.name }}</td>
-    <td>
-      <button @click.prevent="toggle" class="btn btn-primary">Start</button>
+    <td class="item-actions">
+      <a @click.prevent="toggle" href="#" class="btn btn-success">Start</a>
+      <router-link :to="{ name: 'jobEdit', params: { name: job.name}}" class="btn btn-primary">Edit</router-link>
+
       <div class="modal" v-bind:class="{active: modalOpen}">
         <a href="#" @click.prevent="toggle" class="modal-overlay" aria-label="Close"></a>
         <div class="modal-container">
@@ -93,4 +95,8 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="scss">
+.item-actions a {
+    margin-left: 0.25em;
+    margin-right: 0.25em;
+}
 </style>

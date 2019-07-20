@@ -5,6 +5,7 @@ import FeedView from "./views/FeedView.vue";
 import JobsView from "./views/JobsView.vue";
 import BuildView from "./views/BuildView.vue";
 import SettingsView from "./views/SettingsView.vue";
+import JobEditView from "./views/JobEditView.vue";
 
 
 import {requireAuth} from "./auth";
@@ -31,6 +32,13 @@ export default new Router({
             name: "jobs",
             component: JobsView,
             beforeEnter: requireAuth,
+        },
+        {
+            path: "/job/:name",
+            name: "jobEdit",
+            component: JobEditView,
+            beforeEnter: requireAuth,
+            props: true,
         },
         {
             path: "/build/:id",
