@@ -2,8 +2,8 @@
   <div class="container">
     <div class="card build-header">
       <div class="card-header">
-        <div class="card-title h5">{{ statusUpdate.name }}</div>
-        <div class="card-subtitle text-gray">build #{{ statusUpdate.id }}</div>
+        <div class="card-title h5">{{ statusUpdate.name }} #{{ statusUpdate.id }}</div>
+        <div class="card-subtitle text-gray">{{ job.desc }}</div>
         <BuildStatus :status="statusUpdate.status"></BuildStatus>
       </div>
       <div class="card-footer">
