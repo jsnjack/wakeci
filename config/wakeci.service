@@ -1,0 +1,14 @@
+[Unit]
+Description=wakeci
+
+[Service]
+Type=simple
+User=ec2-user
+Group=ec2-user
+Restart=always
+RestartSec=5s
+WorkingDirectory=/home/ec2-user/
+ExecStart=/home/ec2-user/wakeci -port 443 -hostname ci.yauhen.space
+
+[Install]
+WantedBy=multi-user.target
