@@ -2,7 +2,7 @@
   <div class="container">
     <table class="table table-striped">
       <thead>
-        <th>Name</th>
+        <th class="h-name">Name</th>
         <th class="h-actions">Actions</th>
       </thead>
       <tbody>
@@ -128,5 +128,8 @@ export default {
 }
 .h-actions {
     min-width: 300px;
+}
+.h-name{
+    width: 100%;
 }
 </style>
