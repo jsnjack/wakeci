@@ -145,6 +145,7 @@ func main() {
 	router.GET("/api/jobs/", LogMi(CORSMi(AuthMi(HandleJobsView))))
 	router.POST("/api/jobs/create", LogMi(CORSMi(AuthMi(HandleJobsCreate))))
 	router.POST("/api/job/:name/run", LogMi(CORSMi(AuthMi(HandleRunJob))))
+	router.DELETE("/api/job/:name/", LogMi(CORSMi(AuthMi(HandleDeleteJob))))
 	router.POST("/api/job/:name/", LogMi(CORSMi(AuthMi(HandleJobPost))))
 	router.GET("/api/job/:name/", LogMi(CORSMi(AuthMi(HandleJobGet))))
 

@@ -465,6 +465,7 @@ func HandleJobPost(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	logger.Printf("Job %s was updated\n", ps.ByName("name"))
 	err = ScanAllJobs()
 	if err != nil {
 		logger.Println(err)
@@ -496,6 +497,36 @@ func HandleJobsCreate(w http.ResponseWriter, r *http.Request, ps httprouter.Para
 		if err != nil {
 			logger.Println(err)
 		}
+	} else {
+		logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
+// HandleDeleteJob deletes the job
+func HandleDeleteJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	logger, ok := r.Context().Value(HL).(*log.Logger)
+	if !ok {
+		logger = Logger
+	}
+
+	name := ps.ByName("name")
+	path := *ConfigDirFlag + name + ".yaml"
+
+	if _, err := os.Stat(path); err == nil {
+		err = os.Remove(path)
+		logger.Printf("Job %s was deleted\n", name)
+		if err != nil {
+			logger.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		return
+	} else if os.IsNotExist(err) {
+		logger.Println(err)
+		w.WriteHeader(http.StatusNotFound)
+		return
 	} else {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
