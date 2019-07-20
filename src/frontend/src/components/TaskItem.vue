@@ -67,6 +67,7 @@ export default {
 .log-container {
   background: $bg-color;
   margin-left: 1em;
+  overflow: auto;
   pre {
       padding-left: 1em;
       margin: 0;
