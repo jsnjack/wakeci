@@ -20,6 +20,12 @@
       :buildID="id"
       :status="getTaskStatus(item.id)"
     ></TaskItem>
+    <div class="form-group float-right">
+    <label class="form-switch">
+        <input type="checkbox" v-model="follow">
+        <i class="form-icon"></i> Follow logs
+    </label>
+    </div>
   </div>
 </template>
 
@@ -94,6 +100,7 @@ export default {
                 );
                 if (logIndex[0] === undefined) {
                     this.job.tasks[index].logs.push(ev);
+                    this.followLogs();
                 }
             } else {
                 console.log("Unable to find task:", ev);
@@ -110,6 +117,11 @@ export default {
             }
             console.warn("Unknown task", id);
             return "pending";
+        },
+        followLogs() {
+            if (this.follow) {
+                window.scrollTo(0, window.scrollMaxY);
+            }
         },
     },
     computed: {
@@ -134,6 +146,7 @@ export default {
             },
             buildLogSubscription: "build:log:" + this.id,
             buildUpdateSubscription: "build:update:" + this.id,
+            follow: true,
         };
     },
 };
