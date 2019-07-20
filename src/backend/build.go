@@ -87,7 +87,15 @@ func (b *Build) Start() {
 				taskCmd.Stop()
 				return
 			}
-			x := 0
+
+			// Add executed command to logs
+			_, err = bw.WriteString(task.Command + "\n")
+			if err != nil {
+				b.Logger.Println(err)
+			}
+			b.PublishCommandLogs(task.ID, 0, task.Command)
+
+			x := 1
 			for {
 				select {
 				case line := <-taskCmd.Stdout:
