@@ -15,7 +15,7 @@ import (
 // demonstrate all possible functionality
 var NewJobTemplate = strings.Trim(`
 
-name: Ask a cow to say something smart
+desc: Ask a cow to say something smart
 params:
   - SLEEP: 5
 
@@ -35,6 +35,7 @@ const ConfigExt = ".yaml"
 // Default params are stored as params in yaml files
 type Job struct {
 	Name          string              `yaml:"name" json:"name"`
+	Desc          string              `yaml:"desc" json:"desc"`
 	Tasks         []*Task             `yaml:"tasks" json:"tasks"`
 	DefaultParams []map[string]string `yaml:"params" json:"defaultParams"`
 }
@@ -93,7 +94,15 @@ func ScanAllJobs() error {
 			if err != nil {
 				return err
 			}
-			return jb.Put([]byte("defaultParams"), paramsB)
+			err = jb.Put([]byte("defaultParams"), paramsB)
+			if err != nil {
+				return err
+			}
+			err = jb.Put([]byte("desc"), []byte(job.Desc))
+			if err != nil {
+				return err
+			}
+			return nil
 		})
 		if err != nil {
 			Logger.Println(err)

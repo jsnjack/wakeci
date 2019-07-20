@@ -259,6 +259,9 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 				if err != nil {
 					return err
 				}
+				desc := jb.Get([]byte("desc"))
+				job.Desc = string(desc)
+
 			}
 			data = append(data, &job)
 		}

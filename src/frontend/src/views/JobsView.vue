@@ -3,7 +3,7 @@
     <table class="table table-striped">
       <thead>
         <th>Name</th>
-        <th>Actions</th>
+        <th class="h-actions">Actions</th>
       </thead>
       <tbody>
         <JobItem v-for="item in jobs" :key="item.name" :job="item"></JobItem>
@@ -125,5 +125,8 @@ export default {
 <style scoped lang="scss">
 .create-section {
   margin-top: 1em;
+}
+.h-actions {
+    min-width: 300px;
 }
 </style>

@@ -30,6 +30,7 @@ type InSubscribeData struct {
 // JobsListData is a format of data that JobsView receives and JobsBucket stores
 type JobsListData struct {
 	Name          string              `json:"name"`
+	Desc          string              `json:"desc"`
 	DefaultParams []map[string]string `json:"defaultParams"`
 }
 
