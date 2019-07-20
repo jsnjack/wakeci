@@ -30,12 +30,14 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
 		return
 	}
 	build, err := CreateBuild(job)
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 
@@ -55,6 +57,7 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 	logger.Printf("Workspace %s has been created\n", build.GetWorkspaceDir())
@@ -64,6 +67,7 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 	logger.Printf("Wakespace %s has been created\n", build.GetWakespaceDir())
@@ -73,6 +77,7 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 
@@ -80,6 +85,7 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 	logger.Printf("Build config %s has been created\n", build.GetBuildConfigFilename())
@@ -102,6 +108,7 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 	// Collect tasks info by reconstructing job object
@@ -109,6 +116,7 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 	if _, err := os.Stat(buildConfigFilename); os.IsNotExist(err) {
 		logger.Println(err)
 		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(err.Error()))
 		return
 	}
 
@@ -116,6 +124,7 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 
@@ -135,6 +144,7 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 			w.WriteHeader(http.StatusNotFound)
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
 		}
 		return
 	}
@@ -150,6 +160,7 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 	w.Write(payloadB)
@@ -220,6 +231,7 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 	w.Write(payloadB)
@@ -255,12 +267,14 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 	payloadB, err := json.Marshal(data)
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 	w.Write(payloadB)
@@ -280,12 +294,14 @@ func HandleReloadTaskLog(w http.ResponseWriter, r *http.Request, ps httprouter.P
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 	taskIDint, err := strconv.Atoi(taskID)
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 
@@ -295,6 +311,7 @@ func HandleReloadTaskLog(w http.ResponseWriter, r *http.Request, ps httprouter.P
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(err.Error()))
 		return
 	}
 	// Read file
@@ -302,6 +319,7 @@ func HandleReloadTaskLog(w http.ResponseWriter, r *http.Request, ps httprouter.P
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 	defer f.Close()
@@ -314,9 +332,9 @@ func HandleReloadTaskLog(w http.ResponseWriter, r *http.Request, ps httprouter.P
 			if err == io.EOF {
 				break
 			}
-
 			logger.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
 			return
 		}
 		msg := MsgBroadcast{
@@ -343,6 +361,7 @@ func HandleAbortBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Para
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 	err = Q.Abort(id)
@@ -378,6 +397,7 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request, ps httprouter.Pa
 		if err != nil {
 			logger.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
 			return
 		}
 	}
@@ -387,6 +407,7 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request, ps httprouter.Pa
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 	Q.SetConcurrency(cbInt)
@@ -413,6 +434,7 @@ func HandleSettingsGet(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 
@@ -420,6 +442,7 @@ func HandleSettingsGet(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 	w.Write(payloadB)
@@ -437,6 +460,7 @@ func HandleJobGet(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 	jd := JobData{
@@ -446,6 +470,7 @@ func HandleJobGet(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 	w.Write(payloadB)
@@ -468,6 +493,7 @@ func HandleJobPost(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
 		return
 	}
 
@@ -477,6 +503,7 @@ func HandleJobPost(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
 		return
 	}
 	logger.Printf("Job %s was updated\n", ps.ByName("name"))
@@ -499,12 +526,14 @@ func HandleJobsCreate(w http.ResponseWriter, r *http.Request, ps httprouter.Para
 	if _, err := os.Stat(path); err == nil {
 		logger.Printf("File %s already exists\n", path)
 		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
 		return
 	} else if os.IsNotExist(err) {
 		err := ioutil.WriteFile(path, []byte(NewJobTemplate), 0644)
 		if err != nil {
 			logger.Println(err)
 			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(err.Error()))
 			return
 		}
 		err = ScanAllJobs()
@@ -514,6 +543,7 @@ func HandleJobsCreate(w http.ResponseWriter, r *http.Request, ps httprouter.Para
 	} else {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 }
@@ -535,6 +565,7 @@ func HandleDeleteJob(w http.ResponseWriter, r *http.Request, ps httprouter.Param
 		if err != nil {
 			logger.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
 			return
 		}
 		return
@@ -545,6 +576,7 @@ func HandleDeleteJob(w http.ResponseWriter, r *http.Request, ps httprouter.Param
 	} else {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 }

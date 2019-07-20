@@ -82,7 +82,7 @@ export default {
                 })
                 .catch((error) => {
                     this.$notify({
-                        text: error,
+                        text: error.response && error.response.data || error,
                         type: "error",
                     });
                 });
@@ -105,7 +105,7 @@ export default {
                 })
                 .catch((error) => {
                     this.$notify({
-                        text: error,
+                        text: error.response && error.response.data || error,
                         type: "error",
                     });
                 });
