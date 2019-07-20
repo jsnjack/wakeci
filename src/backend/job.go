@@ -4,10 +4,28 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 
 	bolt "github.com/etcd-io/bbolt"
 	yaml "gopkg.in/yaml.v2"
 )
+
+// NewJobTemplate is a template for newly created jobs. Suppose to also
+// demonstrate all possible functionality
+var NewJobTemplate = strings.Trim(`
+
+name: Ask a cow to say something smart
+params:
+  - SLEEP: 5
+
+tasks:
+  - name: Waking up a cow
+    command: sleep ${SLEEP}
+
+  - name: Cow says
+    command: fortune | cowsay
+
+`, "\n ")
 
 // ConfigExt ...
 const ConfigExt = ".yaml"

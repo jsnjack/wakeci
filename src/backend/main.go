@@ -141,13 +141,17 @@ func main() {
 
 	// API calls used by client application
 	router.GET("/api/feed/", LogMi(CORSMi(AuthMi(HandleFeedView))))
+
 	router.GET("/api/jobs/", LogMi(CORSMi(AuthMi(HandleJobsView))))
+	router.POST("/api/jobs/create", LogMi(CORSMi(AuthMi(HandleJobsCreate))))
 	router.POST("/api/job/:name/run", LogMi(CORSMi(AuthMi(HandleRunJob))))
 	router.POST("/api/job/:name/", LogMi(CORSMi(AuthMi(HandleJobPost))))
 	router.GET("/api/job/:name/", LogMi(CORSMi(AuthMi(HandleJobGet))))
+
 	router.GET("/api/build/:id/", LogMi(CORSMi(AuthMi(HandleGetBuild))))
 	router.POST("/api/build/:id/abort", LogMi(CORSMi(AuthMi(HandleAbortBuild))))
 	router.GET("/api/build/:id/log/:taskID/", LogMi(CORSMi(AuthMi(HandleReloadTaskLog))))
+
 	router.POST("/api/settings/", LogMi(CORSMi(AuthMi(HandleSettingsPost))))
 	router.GET("/api/settings/", LogMi(CORSMi(AuthMi(HandleSettingsGet))))
 

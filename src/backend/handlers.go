@@ -450,7 +450,7 @@ func HandleJobGet(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	w.Write(payloadB)
 }
 
-// HandleJobPost returns content of a specific job file
+// HandleJobPost updates content of a specific job
 func HandleJobPost(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	logger, ok := r.Context().Value(HL).(*log.Logger)
 	if !ok {
@@ -463,6 +463,42 @@ func HandleJobPost(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	err = ScanAllJobs()
+	if err != nil {
+		logger.Println(err)
+	}
+}
+
+// HandleJobsCreate creates a new job file from default template
+func HandleJobsCreate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	logger, ok := r.Context().Value(HL).(*log.Logger)
+	if !ok {
+		logger = Logger
+	}
+
+	name := r.FormValue("name")
+	path := *ConfigDirFlag + name + ".yaml"
+
+	if _, err := os.Stat(path); err == nil {
+		logger.Printf("File %s already exists\n", path)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	} else if os.IsNotExist(err) {
+		err := ioutil.WriteFile(path, []byte(NewJobTemplate), 0644)
+		if err != nil {
+			logger.Println(err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		err = ScanAllJobs()
+		if err != nil {
+			logger.Println(err)
+		}
+	} else {
+		logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 }
