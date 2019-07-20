@@ -24,8 +24,13 @@ var PortFlag *string
 // HostnameFlag is the domain name for autocert. Active only when port is 443
 var HostnameFlag *string
 
-// WorkingDirFlag contains path to the working directory
+// WorkingDirFlag contains path to the working directory where db and all
+// build results are stored
 var WorkingDirFlag *string
+
+// ConfigDirFlag contains path to the config directory, the one with the job
+// files
+var ConfigDirFlag *string
 
 // Version is the version of the application calculated with monova
 var Version string
@@ -39,7 +44,8 @@ var Q *Queue
 func init() {
 	PortFlag = flag.String("port", "8081", "Port to start the server on")
 	HostnameFlag = flag.String("hostname", "", "Hostname for autocert. Active only when port is 443")
-	WorkingDirFlag = flag.String("wd", ".wakeci/", "Working directory")
+	WorkingDirFlag = flag.String("wdir", ".wakeci/", "Working directory")
+	ConfigDirFlag = flag.String("cdir", "./", "Configuration directory")
 	flag.Parse()
 
 	Logger = log.New(os.Stdout, "", log.Lmicroseconds|log.Lshortfile)

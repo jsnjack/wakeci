@@ -35,7 +35,7 @@ runf:
 	cd src/frontend && npm run serve
 
 runb: src/backend/wakeci
-	./src/backend/wakeci -wd test_wd/
+	./src/backend/wakeci -wdir example_wd/ -cdir example_cd/
 
 buildf:
 	cd src/frontend && npm run build
@@ -52,15 +52,12 @@ deploy: build
 
 .ONESHELL:
 clean:
-	cd test_wd
-	rm -f wakeci.db
-	rm -rf workspace/
-	rm -rf wakespace/
+	rm -rf example_wd/*
 	rm -rf src/frontend/dist
 
 .ONESHELL:
 viewdb:
-	cd test_wd
+	cd example_wd
 	rm -f view.db
 	cp wakeci.db view.db
 	bolter -f view.db

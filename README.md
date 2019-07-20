@@ -22,7 +22,6 @@ wakeci
 - [ ] When job was started
 - [ ] Timestamps to logs
 - [ ] Total time to finish build/task
-- [ ] Have a workspace as a subfolder for wakespace
 - [ ] Collapse logs on the Build page
 - [ ] Cleanups
 

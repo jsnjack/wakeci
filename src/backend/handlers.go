@@ -24,7 +24,7 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 		logger = Logger
 	}
 
-	jobFile := *WorkingDirFlag + ps.ByName("name") + ".yaml"
+	jobFile := *ConfigDirFlag + ps.ByName("name") + ".yaml"
 	job, err := ReadJob(jobFile)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -102,7 +102,7 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	// Collect tasks info by reconstructing jon object
+	// Collect tasks info by reconstructing job object
 	buildConfigFilename := *WorkingDirFlag + "wakespace/" + strconv.Itoa(buildID) + "/build.yaml"
 	if _, err := os.Stat(buildConfigFilename); os.IsNotExist(err) {
 		logger.Println(err)
