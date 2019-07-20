@@ -59,3 +59,8 @@ type CommandLogData struct {
 type SettingsData struct {
 	ConcurrentBuilds int
 }
+
+// JobData used for editing a job
+type JobData struct {
+	Content string `json:"fileContent"`
+}

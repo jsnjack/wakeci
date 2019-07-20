@@ -25,8 +25,9 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	}
 
 	jobFile := *ConfigDirFlag + ps.ByName("name") + ".yaml"
-	job, err := ReadJob(jobFile)
+	job, err := CreateJobFromFile(jobFile)
 	if err != nil {
+		logger.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -110,7 +111,7 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 		return
 	}
 
-	job, err := ReadJob(buildConfigFilename)
+	job, err := CreateJobFromFile(buildConfigFilename)
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -421,4 +422,47 @@ func HandleSettingsGet(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 		return
 	}
 	w.Write(payloadB)
+}
+
+// HandleJobGet returns content of a specific job file
+func HandleJobGet(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	logger, ok := r.Context().Value(HL).(*log.Logger)
+	if !ok {
+		logger = Logger
+	}
+
+	path := *ConfigDirFlag + ps.ByName("name") + ".yaml"
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	jd := JobData{
+		Content: string(data),
+	}
+	payloadB, err := json.Marshal(jd)
+	if err != nil {
+		logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Write(payloadB)
+}
+
+// HandleJobPost returns content of a specific job file
+func HandleJobPost(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	logger, ok := r.Context().Value(HL).(*log.Logger)
+	if !ok {
+		logger = Logger
+	}
+
+	content := r.FormValue("fileContent")
+	path := *ConfigDirFlag + ps.ByName("name") + ".yaml"
+	err := ioutil.WriteFile(path, []byte(content), 0644)
+	if err != nil {
+		logger.Println(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 }

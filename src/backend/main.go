@@ -143,6 +143,8 @@ func main() {
 	router.GET("/api/feed/", LogMi(CORSMi(AuthMi(HandleFeedView))))
 	router.GET("/api/jobs/", LogMi(CORSMi(AuthMi(HandleJobsView))))
 	router.POST("/api/job/:name/run", LogMi(CORSMi(AuthMi(HandleRunJob))))
+	router.POST("/api/job/:name/", LogMi(CORSMi(AuthMi(HandleJobPost))))
+	router.GET("/api/job/:name/", LogMi(CORSMi(AuthMi(HandleJobGet))))
 	router.GET("/api/build/:id/", LogMi(CORSMi(AuthMi(HandleGetBuild))))
 	router.POST("/api/build/:id/abort", LogMi(CORSMi(AuthMi(HandleAbortBuild))))
 	router.GET("/api/build/:id/log/:taskID/", LogMi(CORSMi(AuthMi(HandleReloadTaskLog))))

@@ -29,8 +29,8 @@ type Task struct {
 	Logs    interface{} `json:"logs"` // used as a container for frontend
 }
 
-// ReadJob reads job from a file
-func ReadJob(path string) (*Job, error) {
+// CreateJobFromFile reads job from a file
+func CreateJobFromFile(path string) (*Job, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -58,7 +58,7 @@ func ReadJob(path string) (*Job, error) {
 func ScanAllJobs() error {
 	files, _ := filepath.Glob(*ConfigDirFlag + "*" + ConfigExt)
 	for _, f := range files {
-		job, err := ReadJob(f)
+		job, err := CreateJobFromFile(f)
 		if err != nil {
 			Logger.Println(err)
 			continue
