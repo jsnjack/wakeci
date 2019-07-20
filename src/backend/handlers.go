@@ -15,6 +15,7 @@ import (
 	bolt "github.com/etcd-io/bbolt"
 	"github.com/julienschmidt/httprouter"
 	"golang.org/x/crypto/bcrypt"
+	yaml "gopkg.in/yaml.v2"
 )
 
 // HandleRunJob adds job to queue
@@ -458,8 +459,21 @@ func HandleJobPost(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 	}
 
 	content := r.FormValue("fileContent")
+	contentB := []byte(content)
+
+	// Verify that it is still a valid yaml file and it is possible to create
+	// a job out of it
+	job := Job{}
+	err := yaml.Unmarshal(contentB, &job)
+	if err != nil {
+		logger.Println(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	path := *ConfigDirFlag + ps.ByName("name") + ".yaml"
-	err := ioutil.WriteFile(path, []byte(content), 0644)
+
+	err = ioutil.WriteFile(path, contentB, 0644)
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
