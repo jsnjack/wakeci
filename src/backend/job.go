@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -100,4 +101,29 @@ func ScanAllJobs() error {
 		}
 	}
 	return nil
+}
+
+// CleanUpJobs verifies that jobs bucket is up to date
+func CleanUpJobs() {
+	DB.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(JobsBucket)
+		c := b.Cursor()
+		var toRemove [][]byte
+		for key, _ := c.First(); key != nil; key, _ = c.Next() {
+			name := string(key)
+			path := *ConfigDirFlag + name + ".yaml"
+			_, err := os.Stat(path)
+			if err != nil {
+				Logger.Printf("Removing %s: %s\n", name, err.Error())
+				toRemove = append(toRemove, key)
+			}
+		}
+		for _, rk := range toRemove {
+			err := b.DeleteBucket(rk)
+			if err != nil {
+				Logger.Println(err)
+			}
+		}
+		return nil
+	})
 }

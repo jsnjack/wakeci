@@ -114,6 +114,7 @@ func main() {
 	}
 
 	ScanAllJobs()
+	CleanUpJobs()
 
 	go BroadcastMessage()
 

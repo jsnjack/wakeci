@@ -105,6 +105,7 @@ export default {
                         type: "success",
                     });
                     this.toggleModalDelete();
+                    this.$router.go();
                 })
                 .catch((error) => {
                     this.$notify({
