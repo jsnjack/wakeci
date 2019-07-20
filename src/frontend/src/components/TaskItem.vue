@@ -11,7 +11,7 @@
       </div>
     </div>
     <div class="log-container text-left code">
-      <pre v-for="item in task.logs" :key="item.id" class="d-block">{{ item.data }}</pre>
+      <pre v-for="item in sortedLogs" :key="item.id" class="d-block">{{ item.data }}</pre>
     </div>
   </section>
 </template>
@@ -37,6 +37,12 @@ export default {
     computed: {
         getDividerText: function() {
             return `task #${this.task.id}`;
+        },
+        sortedLogs: function() {
+            if (!this.task.logs) {
+                return this.task.logs;
+            }
+            return [...this.task.logs].sort((a, b) => a.id > b.id);
         },
     },
     methods: {
