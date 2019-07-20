@@ -64,6 +64,7 @@ func (b *Build) Start() {
 
 		// Construct environment from params
 		taskCmd.Env = os.Environ()
+		taskCmd.Dir = b.GetWorkspaceDir()
 		for idx := range b.Params {
 			for pkey, pval := range b.Params[idx] {
 				taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", pkey, pval))
