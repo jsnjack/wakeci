@@ -529,10 +529,20 @@ func HandleJobsCreate(w http.ResponseWriter, r *http.Request, ps httprouter.Para
 	if _, err := os.Stat(path); err == nil {
 		logger.Printf("File %s already exists\n", path)
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
+		w.Write([]byte("Job with this name already exists"))
 		return
 	} else if os.IsNotExist(err) {
-		err := ioutil.WriteFile(path, []byte(NewJobTemplate), 0644)
+		// Verify that it is still a valid yaml file and it is possible to create
+		// a job out of it
+		job := Job{}
+		err := yaml.Unmarshal([]byte(NewJobTemplate), &job)
+		if err != nil {
+			logger.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
+		}
+		err = ioutil.WriteFile(path, []byte(NewJobTemplate), 0644)
 		if err != nil {
 			logger.Println(err)
 			w.WriteHeader(http.StatusBadRequest)
