@@ -25,7 +25,7 @@ tasks:
     command: sleep ${SLEEP}
 
   - name: Cow says
-	command: fortune | cowsay
+    command: fortune | cowsay
 
 # List of patterns according to https://golang.org/pkg/path/filepath/#Match
 artifacts:
