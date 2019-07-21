@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -43,6 +44,7 @@ type Build struct {
 	abortedChannel chan bool
 	aborted        bool
 	Params         []map[string]string
+	Artifacts      []string
 }
 
 // Start starts execution of tasks in job
@@ -164,6 +166,7 @@ func (b *Build) Failed() {
 func (b *Build) Finished() {
 	b.Logger.Println("Finished.")
 	b.Status = StatusFinished
+	b.CollectArtifacts()
 	b.BroadcastUpdate()
 	b.Cleanup()
 }
@@ -172,6 +175,35 @@ func (b *Build) Finished() {
 func (b *Build) Cleanup() {
 	Q.Remove(b.ID)
 	Q.Take()
+}
+
+// CollectArtifacts copies artifacts from workspace to wakespace
+func (b *Build) CollectArtifacts() {
+	for _, artPattern := range b.Job.Artifacts {
+		pattern := b.GetWorkspaceDir() + artPattern
+		files, err := filepath.Glob(pattern)
+		if err != nil {
+			b.Logger.Println(err)
+			continue
+		}
+		// Create artifacts directory first
+		err = os.MkdirAll(b.GetWakespaceDir()+"artifacts/", os.ModePerm)
+		if err != nil {
+			b.Logger.Println(err)
+			return
+		}
+		for _, f := range files {
+			b.Logger.Printf("Copying artifact %s...\n", f)
+			c := cmd.NewCmd("cp", f, b.GetWakespaceDir()+"artifacts/")
+			s := <-c.Start()
+			if s.Exit != 0 {
+				b.Logger.Printf("Exit code: %d\n", s.Exit)
+			} else {
+				_, afile := filepath.Split(f)
+				b.Artifacts = append(b.Artifacts, afile)
+			}
+		}
+	}
 }
 
 // Abort task execution
@@ -209,11 +241,12 @@ func (b *Build) BroadcastUpdate() {
 // GenerateBuildUpdateData generates BuildUpdateData
 func (b *Build) GenerateBuildUpdateData() *BuildUpdateData {
 	return &BuildUpdateData{
-		ID:     b.ID,
-		Name:   b.Job.Name,
-		Status: b.Status,
-		Tasks:  b.GetTasksStatus(),
-		Params: b.Params,
+		ID:        b.ID,
+		Name:      b.Job.Name,
+		Status:    b.Status,
+		Tasks:     b.GetTasksStatus(),
+		Params:    b.Params,
+		Artifacts: b.Artifacts,
 	}
 }
 

@@ -16,6 +16,7 @@ import (
 var NewJobTemplate = strings.Trim(`
 
 desc: Ask a cow to say something smart
+# 'params' are injected as environmetal variables
 params:
   - SLEEP: 5
 
@@ -24,7 +25,11 @@ tasks:
     command: sleep ${SLEEP}
 
   - name: Cow says
-    command: fortune | cowsay
+	command: fortune | cowsay
+
+# List of patterns according to https://golang.org/pkg/path/filepath/#Match
+artifacts:
+  - ./*.tar.gz
 
 `, "\n ")
 
@@ -38,6 +43,7 @@ type Job struct {
 	Desc          string              `yaml:"desc" json:"desc"`
 	Tasks         []*Task             `yaml:"tasks" json:"tasks"`
 	DefaultParams []map[string]string `yaml:"params" json:"defaultParams"`
+	Artifacts     []string            `yaml:"artifacts" json:"artifacts"`
 }
 
 // Task ...

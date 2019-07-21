@@ -42,11 +42,12 @@ type TaskStatus struct {
 
 // BuildUpdateData is viewable on the feed page
 type BuildUpdateData struct {
-	ID     int                 `json:"id"`
-	Name   string              `json:"name"`
-	Status ItemStatus          `json:"status"`
-	Tasks  []*TaskStatus       `json:"tasks"`
-	Params []map[string]string `json:"params"`
+	ID        int                 `json:"id"`
+	Name      string              `json:"name"`
+	Status    ItemStatus          `json:"status"`
+	Tasks     []*TaskStatus       `json:"tasks"`
+	Params    []map[string]string `json:"params"`
+	Artifacts []string            `json:"artifacts"`
 }
 
 // CommandLogData ...

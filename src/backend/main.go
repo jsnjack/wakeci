@@ -127,10 +127,14 @@ func main() {
 	vueBox := rice.MustFindBox("../frontend/dist/").HTTPBox()
 
 	vuefs := http.FileServer(vueBox)
+	storageServer := http.FileServer(http.Dir(*WorkingDirFlag + "wakespace"))
 	// Configure routes
 	router := httprouter.New()
 	// Assume that all unknown routes are vue-related files
 	router.NotFound = VueResourcesMi(vuefs)
+
+	// For artifacts
+	router.GET("/storage/build/*filepath", LogMi(AuthMi(WakespaceResourceMi(storageServer))))
 
 	// Websocket section
 	router.GET("/ws", AuthMi(handleWSConnection))

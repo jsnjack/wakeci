@@ -20,6 +20,7 @@
       :buildID="id"
       :status="getTaskStatus(item.id)"
     ></TaskItem>
+    <Artifacts :artifacts="getArtifacts" :buildID="statusUpdate.id"></Artifacts>
     <div class="form-group float-right">
     <label class="form-switch">
         <input type="checkbox" v-model="follow">
@@ -36,6 +37,7 @@ import BuildStatus from "@/components/BuildStatus";
 import ParamItem from "@/components/ParamItem";
 import BuildProgress from "@/components/BuildProgress";
 import TaskItem from "@/components/TaskItem";
+import Artifacts from "@/components/Artifacts";
 import {findInContainer} from "@/store/utils";
 
 export default {
@@ -44,7 +46,7 @@ export default {
             required: true,
         },
     },
-    components: {BuildStatus, BuildProgress, TaskItem, ParamItem},
+    components: {BuildStatus, BuildProgress, TaskItem, ParamItem, Artifacts},
     mounted() {
         this.fetch();
         this.subscribe();
@@ -136,6 +138,9 @@ export default {
         getTotalTasks() {
             return this.statusUpdate.tasks.length;
         },
+        getArtifacts() {
+            return this.statusUpdate.artifacts || [];
+        },
     },
     data: function() {
         return {
@@ -143,6 +148,7 @@ export default {
             job: {},
             statusUpdate: {
                 tasks: [],
+                id: NaN,
             },
             buildLogSubscription: "build:log:" + this.id,
             buildUpdateSubscription: "build:update:" + this.id,

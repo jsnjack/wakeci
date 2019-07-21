@@ -156,3 +156,21 @@ func VueResourcesMi(h http.Handler) http.Handler {
 		h.ServeHTTP(w, r2)
 	})
 }
+
+// WakespaceResourceMi serves content of wakespace/ dir
+func WakespaceResourceMi(h http.Handler) httprouter.Handle {
+	return httprouter.Handle(func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+		logger, ok := r.Context().Value(HL).(*log.Logger)
+		if !ok {
+			logger = Logger
+		}
+
+		r2 := new(http.Request)
+		*r2 = *r
+		r2.URL = new(url.URL)
+		*r2.URL = *r.URL
+		r2.URL.Path = strings.TrimPrefix(r.URL.Path, "/storage/build/")
+		logger.Printf("storage %s --> %s\n", r.URL.Path, r2.URL.Path)
+		h.ServeHTTP(w, r2)
+	})
+}

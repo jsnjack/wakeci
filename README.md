@@ -5,13 +5,13 @@ wakeci
 - [x] Abort builds
 - [x] Builds support parameters
 - [x] Auth
-- [ ] Artifacts
+- [x] Artifacts
 
 # Impovements high
 - [ ] Parallel tasks
 - [ ] Post tasks (always executed)
 - [ ] Ignore exit status code
-- [ ] Reload logs messes up order
+- [x] Reload logs messes up order
 
 # Improvements low
 - [x] Use monospace font for logs
