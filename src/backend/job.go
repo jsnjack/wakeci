@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/robfig/cron"
+
 	bolt "github.com/etcd-io/bbolt"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -70,6 +72,15 @@ func (j *Job) Run() {
 	if err != nil {
 		build.Logger.Printf("Unable to schedule the build via cron: %s\n", err.Error())
 	}
+}
+
+// Used to verify interval before saving after editing
+func (j *Job) verifyInterval() error {
+	if j.Interval == "" {
+		return nil
+	}
+	_, err := cron.ParseStandard(j.Interval)
+	return err
 }
 
 // Task ...

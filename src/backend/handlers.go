@@ -440,6 +440,15 @@ func HandleJobPost(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 		return
 	}
 
+	// Verify provided interval
+	err = job.verifyInterval()
+	if err != nil {
+		logger.Println(err)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+		return
+	}
+
 	path := *ConfigDirFlag + ps.ByName("name") + ".yaml"
 
 	err = ioutil.WriteFile(path, contentB, 0644)
