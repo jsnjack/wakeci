@@ -19,6 +19,7 @@
       :task="item"
       :buildID="id"
       :status="getTaskStatus(item.id)"
+      :ref="'task-'+item.id"
     ></TaskItem>
     <Artifacts :artifacts="getArtifacts" :buildID="statusUpdate.id"></Artifacts>
     <div class="form-group float-right">
@@ -102,7 +103,9 @@ export default {
                 );
                 if (logIndex[0] === undefined) {
                     this.job.tasks[index].logs.push(ev);
-                    this.followLogs();
+                    if (this.follow) {
+                        this.$refs["task-"+index][0].$el.scrollIntoView(false);
+                    }
                 }
             } else {
                 console.log("Unable to find task:", ev);
@@ -119,11 +122,6 @@ export default {
             }
             console.warn("Unknown task", id);
             return "pending";
-        },
-        followLogs() {
-            if (this.follow) {
-                window.scrollTo(0, window.scrollMaxY);
-            }
         },
     },
     computed: {
