@@ -60,3 +60,7 @@
 [[constraint]]
   name = "github.com/GeertJohan/go.rice"
   version = "1.0.0"
+
+[[constraint]]
+  name = "github.com/robfig/cron"
+  version = "3.0.0"

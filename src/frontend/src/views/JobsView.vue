@@ -3,6 +3,7 @@
     <table class="table table-striped">
       <thead>
         <th class="h-name">Name</th>
+        <th class="h-actions">Interval</th>
         <th class="h-actions">Actions</th>
       </thead>
       <tbody>

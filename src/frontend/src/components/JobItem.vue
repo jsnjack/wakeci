@@ -4,6 +4,7 @@
         <div>{{ job.name }}</div>
         <small>{{ job.desc }}</small>
     </td>
+    <td>{{ job.interval }}</td>
     <td class="item-actions">
       <a @click.prevent="toggle" href="#" class="btn btn-success">Start</a>
       <router-link :to="{ name: 'jobEdit', params: { name: job.name}}" class="btn btn-primary">Edit</router-link>

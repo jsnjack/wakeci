@@ -33,6 +33,10 @@ tasks:
 artifacts:
   - "*.tar.gz"
 
+# Automatically run the job every configured interval (cron expression)
+# More info https://godoc.org/github.com/robfig/cron
+interval: @daily
+
 `, "\n ")
 
 // ConfigExt ...
@@ -46,6 +50,26 @@ type Job struct {
 	Tasks         []*Task             `yaml:"tasks" json:"tasks"`
 	DefaultParams []map[string]string `yaml:"params" json:"defaultParams"`
 	Artifacts     []string            `yaml:"artifacts" json:"artifacts"`
+	Interval      string              `yaml:"interval" json:"interval"`
+}
+
+// AddToCron adds a job to cron
+func (j *Job) AddToCron() error {
+	if j.Interval == "" {
+		return nil
+	}
+	_, err := C.AddJob(j.Interval, j)
+	Logger.Printf("Add job %s to cron with interval %s\n", j.Name, j.Interval)
+	return err
+}
+
+// Run is used to add job to cron
+func (j *Job) Run() {
+	var params url.Values
+	build, err := RunJob(j.Name, params)
+	if err != nil {
+		build.Logger.Printf("Unable to schedule the build via cron: %s\n", err.Error())
+	}
 }
 
 // Task ...
@@ -84,6 +108,11 @@ func CreateJobFromFile(path string) (*Job, error) {
 
 // ScanAllJobs scans for all available jobs and saves them in database
 func ScanAllJobs() error {
+	// Clean Cron entries
+	Logger.Println("Cleaning all cron entries...")
+	for _, entry := range C.Entries() {
+		C.Remove(entry.ID)
+	}
 	files, _ := filepath.Glob(*ConfigDirFlag + "*" + ConfigExt)
 	for _, f := range files {
 		job, err := CreateJobFromFile(f)
@@ -110,11 +139,19 @@ func ScanAllJobs() error {
 			if err != nil {
 				return err
 			}
+			err = jb.Put([]byte("interval"), []byte(job.Interval))
+			if err != nil {
+				return err
+			}
 			return nil
 		})
 		if err != nil {
 			Logger.Println(err)
 			continue
+		}
+		err = job.AddToCron()
+		if err != nil {
+			Logger.Println(err)
 		}
 	}
 	return nil

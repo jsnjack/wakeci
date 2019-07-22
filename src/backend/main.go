@@ -13,6 +13,7 @@ import (
 	rice "github.com/GeertJohan/go.rice"
 	bolt "github.com/etcd-io/bbolt"
 	"github.com/julienschmidt/httprouter"
+	"github.com/robfig/cron"
 )
 
 // Logger is the main logger
@@ -40,6 +41,9 @@ var DB *bolt.DB
 
 // Q is a global queue object
 var Q *Queue
+
+// C is a global cron object
+var C *cron.Cron
 
 func init() {
 	PortFlag = flag.String("port", "8081", "Port to start the server on")
@@ -112,6 +116,9 @@ func main() {
 	if err != nil {
 		Logger.Fatal(err)
 	}
+
+	C = cron.New()
+	C.Start()
 
 	ScanAllJobs()
 	CleanUpJobs()

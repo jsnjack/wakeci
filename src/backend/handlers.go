@@ -200,7 +200,8 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 				}
 				desc := jb.Get([]byte("desc"))
 				job.Desc = string(desc)
-
+				interval := jb.Get([]byte("interval"))
+				job.Interval = string(interval)
 			}
 			data = append(data, &job)
 		}
