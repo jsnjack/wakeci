@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	bolt "github.com/etcd-io/bbolt"
@@ -187,21 +188,24 @@ func (b *Build) CollectArtifacts() {
 			b.Logger.Println(err)
 			continue
 		}
-		// Create artifacts directory first
-		err = os.MkdirAll(b.GetWakespaceDir()+"artifacts/", os.ModePerm)
-		if err != nil {
-			b.Logger.Println(err)
-			return
-		}
+
 		for _, f := range files {
-			b.Logger.Printf("Copying artifact %s...\n", f)
-			c := cmd.NewCmd("cp", f, b.GetWakespaceDir()+"artifacts/")
+			relPath := strings.TrimPrefix(f, b.GetWorkspaceDir())
+			relDir, _ := filepath.Split(relPath)
+
+			// Recreate folder structure relative to artifacts directory
+			err = os.MkdirAll(b.GetArtifactsDir()+relDir, os.ModePerm)
+			if err != nil {
+				b.Logger.Println(err)
+				continue
+			}
+			b.Logger.Printf("Copying artifact %s...\n", relPath)
+			c := cmd.NewCmd("cp", f, b.GetArtifactsDir()+relPath)
 			s := <-c.Start()
 			if s.Exit != 0 {
-				b.Logger.Printf("Exit code: %d\n", s.Exit)
+				b.Logger.Printf("Unable to copy %s, code %d\n", f, s.Exit)
 			} else {
-				_, afile := filepath.Split(f)
-				b.Artifacts = append(b.Artifacts, afile)
+				b.Artifacts = append(b.Artifacts, relPath)
 			}
 		}
 	}
@@ -276,6 +280,11 @@ func (b *Build) GetWakespaceDir() string {
 	return *WorkingDirFlag + "wakespace/" + strconv.Itoa(b.ID) + "/"
 }
 
+// GetArtifactsDir returns location of artifacts folder
+func (b *Build) GetArtifactsDir() string {
+	return b.GetWakespaceDir() + "artifacts/"
+}
+
 // GetBuildConfigFilename returns build config filename (copy of the original job file)
 func (b *Build) GetBuildConfigFilename() string {
 	return b.GetWakespaceDir() + "build.yaml"
@@ -341,6 +350,13 @@ func CreateBuild(job *Job, jobPath string) (*Build, error) {
 	}
 	build.Logger.Printf("Wakespace %s has been created\n", build.GetWakespaceDir())
 
+	// Create artifacts dir
+	err = os.MkdirAll(build.GetArtifactsDir(), os.ModePerm)
+	if err != nil {
+		build.Logger.Println(err)
+		return nil, err
+	}
+
 	// Copy job config
 	input, err := ioutil.ReadFile(jobPath)
 	if err != nil {
@@ -348,7 +364,7 @@ func CreateBuild(job *Job, jobPath string) (*Build, error) {
 		return nil, err
 	}
 
-	err = ioutil.WriteFile(build.GetBuildConfigFilename(), input, 0644)
+	err = ioutil.WriteFile(build.GetBuildConfigFilename(), input, os.ModePerm)
 	if err != nil {
 		build.Logger.Println(err)
 		return nil, err

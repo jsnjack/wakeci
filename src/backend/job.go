@@ -28,8 +28,9 @@ tasks:
     command: fortune | cowsay
 
 # List of patterns according to https://golang.org/pkg/path/filepath/#Match
+# related to the workspce directory
 artifacts:
-  - ./*.tar.gz
+  - "*.tar.gz"
 
 `, "\n ")
 
