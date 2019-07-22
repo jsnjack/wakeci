@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -142,4 +143,33 @@ func CleanUpJobs() {
 		}
 		return nil
 	})
+}
+
+// RunJob creates a new build and schedules it for execution
+func RunJob(name string, params url.Values) (*Build, error) {
+	jobFile := *ConfigDirFlag + name + ".yaml"
+	job, err := CreateJobFromFile(jobFile)
+	if err != nil {
+		return nil, err
+	}
+	build, err := CreateBuild(job, jobFile)
+	if err != nil {
+		return nil, err
+	}
+
+	// Update params from URL
+	for idx := range build.Params {
+		for pkey := range build.Params[idx] {
+			value := params.Get(pkey)
+			if value != "" {
+				build.Params[idx][pkey] = value
+				build.Logger.Printf("Updating key %s to %s", pkey, value)
+			}
+		}
+	}
+
+	Q.Add(build)
+	Q.Take()
+	build.BroadcastUpdate()
+	return build, nil
 }

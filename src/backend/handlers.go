@@ -25,37 +25,14 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 		logger = Logger
 	}
 
-	jobFile := *ConfigDirFlag + ps.ByName("name") + ".yaml"
-	job, err := CreateJobFromFile(jobFile)
+	build, err := RunJob(ps.ByName("name"), r.URL.Query())
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
 		return
 	}
-	build, err := CreateBuild(job, jobFile)
-	if err != nil {
-		logger.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
-		return
-	}
-
-	// Update params from URL
-	for idx := range build.Params {
-		for pkey := range build.Params[idx] {
-			value := r.URL.Query().Get(pkey)
-			if value != "" {
-				build.Params[idx][pkey] = value
-				logger.Printf("Updating key %s to %s", pkey, value)
-			}
-		}
-	}
-
-	Q.Add(build)
-	Q.Take()
-	build.BroadcastUpdate()
-	defer w.Write([]byte(strconv.Itoa(build.ID)))
+	w.Write([]byte(strconv.Itoa(build.ID)))
 }
 
 // HandleGetBuild Returns information required to bootstrap build page
