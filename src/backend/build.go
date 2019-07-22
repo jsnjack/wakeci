@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -292,8 +293,8 @@ func (b *Build) GetTasksStatus() []*TaskStatus {
 	return info
 }
 
-// CreateBuild ..
-func CreateBuild(job *Job) (*Build, error) {
+// CreateBuild creates Build instance and all necessary files and folders in wakespace
+func CreateBuild(job *Job, jobPath string) (*Build, error) {
 	var counti int
 	err := DB.Update(func(tx *bolt.Tx) error {
 		var err error
@@ -323,5 +324,36 @@ func CreateBuild(job *Job) (*Build, error) {
 		Params:         job.DefaultParams,
 	}
 	build.Logger = log.New(os.Stdout, fmt.Sprintf("[build #%d] ", build.ID), log.Lmicroseconds|log.Lshortfile)
+
+	// Create workspace
+	err = os.MkdirAll(build.GetWorkspaceDir(), os.ModePerm)
+	if err != nil {
+		build.Logger.Println(err)
+		return nil, err
+	}
+	build.Logger.Printf("Workspace %s has been created\n", build.GetWorkspaceDir())
+
+	// Create wakespace
+	err = os.MkdirAll(build.GetWakespaceDir(), os.ModePerm)
+	if err != nil {
+		build.Logger.Println(err)
+		return nil, err
+	}
+	build.Logger.Printf("Wakespace %s has been created\n", build.GetWakespaceDir())
+
+	// Copy job config
+	input, err := ioutil.ReadFile(jobPath)
+	if err != nil {
+		build.Logger.Println(err)
+		return nil, err
+	}
+
+	err = ioutil.WriteFile(build.GetBuildConfigFilename(), input, 0644)
+	if err != nil {
+		build.Logger.Println(err)
+		return nil, err
+	}
+	build.Logger.Printf("Build config %s has been created\n", build.GetBuildConfigFilename())
+
 	return &build, nil
 }

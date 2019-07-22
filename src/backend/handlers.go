@@ -33,7 +33,7 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 		w.Write([]byte(err.Error()))
 		return
 	}
-	build, err := CreateBuild(job)
+	build, err := CreateBuild(job, jobFile)
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -51,44 +51,6 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 			}
 		}
 	}
-
-	// Create workspace
-	err = os.MkdirAll(build.GetWorkspaceDir(), os.ModePerm)
-	if err != nil {
-		logger.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
-		return
-	}
-	logger.Printf("Workspace %s has been created\n", build.GetWorkspaceDir())
-
-	// Create wakespace
-	err = os.MkdirAll(build.GetWakespaceDir(), os.ModePerm)
-	if err != nil {
-		logger.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
-		return
-	}
-	logger.Printf("Wakespace %s has been created\n", build.GetWakespaceDir())
-
-	// Copy job config
-	input, err := ioutil.ReadFile(jobFile)
-	if err != nil {
-		logger.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
-		return
-	}
-
-	err = ioutil.WriteFile(build.GetBuildConfigFilename(), input, 0644)
-	if err != nil {
-		logger.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
-		return
-	}
-	logger.Printf("Build config %s has been created\n", build.GetBuildConfigFilename())
 
 	Q.Add(build)
 	Q.Take()
