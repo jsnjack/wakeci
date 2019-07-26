@@ -12,7 +12,7 @@ wakeci
 - [ ] Post tasks (always executed)
 - [ ] Ignore exit status code
 - [x] Reload logs messes up order
-- [ ] Add cron-like features
+- [x] Add cron-like features
 
 # Improvements low
 - [x] Use monospace font for logs
