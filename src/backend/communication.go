@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"time"
 )
 
 // MsgTypeInSubscribe is incoming message. Means a user has opened build page
@@ -49,6 +50,8 @@ type BuildUpdateData struct {
 	Tasks     []*TaskStatus       `json:"tasks"`
 	Params    []map[string]string `json:"params"`
 	Artifacts []string            `json:"artifacts"`
+	StartedAt time.Time           `json:"startedAt"`
+	Duration  time.Duration       `json:"duration"`
 }
 
 // CommandLogData ...

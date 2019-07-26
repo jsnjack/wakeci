@@ -14,7 +14,6 @@ import (
 
 	bolt "github.com/etcd-io/bbolt"
 	"github.com/go-cmd/cmd"
-	"github.com/gorilla/websocket"
 )
 
 // ItemStatus handles information about the item status (currently is used for
@@ -42,17 +41,19 @@ type Build struct {
 	Job            *Job
 	Status         ItemStatus
 	Logger         *log.Logger
-	Subscribers    []*websocket.Conn
 	abortedChannel chan bool
 	aborted        bool
 	Params         []map[string]string
 	Artifacts      []string
+	StartedAt      time.Time
+	Duration       time.Duration
 }
 
 // Start starts execution of tasks in job
 func (b *Build) Start() {
 	b.Logger.Println("Started...")
 	b.Status = StatusRunning
+	b.StartedAt = time.Now()
 	b.BroadcastUpdate()
 	for _, task := range b.Job.Tasks {
 		task.Status = StatusRunning
@@ -160,6 +161,7 @@ func (b *Build) Start() {
 func (b *Build) Failed() {
 	b.Logger.Println("Failed.")
 	b.Status = StatusFailed
+	b.Duration = time.Since(b.StartedAt)
 	b.BroadcastUpdate()
 	b.Cleanup()
 }
@@ -169,6 +171,7 @@ func (b *Build) Finished() {
 	b.Logger.Println("Finished.")
 	b.Status = StatusFinished
 	b.CollectArtifacts()
+	b.Duration = time.Since(b.StartedAt)
 	b.BroadcastUpdate()
 	b.Cleanup()
 }
@@ -252,6 +255,8 @@ func (b *Build) GenerateBuildUpdateData() *BuildUpdateData {
 		Tasks:     b.GetTasksStatus(),
 		Params:    b.Params,
 		Artifacts: b.Artifacts,
+		StartedAt: b.StartedAt,
+		Duration:  b.Duration,
 	}
 }
 

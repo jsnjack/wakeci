@@ -7,6 +7,7 @@
         <th>Params</th>
         <th>Tasks</th>
         <th>Status</th>
+        <th>Duration</th>
         <th>Actions</th>
       </thead>
       <tbody>
