@@ -144,6 +144,7 @@ func (b *Build) Start() {
 
 		// Abort message was recieved via channel
 		if b.aborted {
+			task.Status = StatusAborted
 			b.Abort()
 			return
 		}
