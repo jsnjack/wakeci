@@ -19,6 +19,7 @@
       :task="item"
       :buildID="id"
       :logs="job.tasks[item.id].logs"
+      :name="job.tasks[item.id].name"
       :ref="'task-'+item.id"
     ></TaskItem>
     <Artifacts :artifacts="getArtifacts" :buildID="statusUpdate.id"></Artifacts>

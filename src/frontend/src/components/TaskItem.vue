@@ -1,9 +1,13 @@
 <template>
   <section>
-    <div class="divider" :data-content="getDividerText"></div>
+    <div class="divider">
+        <div>
+        {{ getDividerText }}<Duration :item="task" class="chip"></Duration>
+        </div>
+    </div>
     <div class="columns">
       <div class="column">
-        <h5 class="text-left">{{ task.name }}</h5>
+        <h5 class="text-left">{{ name }}</h5>
       </div>
       <div class="column text-right">
         <button @click="reloadLogs" class="btn btn-sm btn-primary">Reload logs</button>
@@ -18,9 +22,9 @@
 
 <script>
 import BuildStatus from "@/components/BuildStatus";
+import Duration from "@/components/Duration";
 import {APIURL} from "@/store/communication";
 import axios from "axios";
-import {runningDuration, doneDuration, updateDurationPeriod} from "@/duration";
 
 
 export default {
@@ -34,35 +38,20 @@ export default {
         logs: {
             required: true,
         },
+        name: {
+            required: true,
+        },
     },
-    components: {BuildStatus},
-    mounted() {
-        this.onStatusChange();
-    },
-    beforeDestroy: function() {
-        clearInterval(this.updateInterval);
-    },
-    watch: {
-        "task.status": "onStatusChange",
-    },
+    components: {BuildStatus, Duration},
     computed: {
         getDividerText: function() {
-            return `task #${this.task.id} - ${this.durationText}`;
+            return `task #${this.task.id}`;
         },
         sortedLogs: function() {
             if (!this.logs) {
                 return this.logs;
             }
             return [...this.logs].sort((a, b) => a.id > b.id);
-        },
-        isDone() {
-            switch (this.task.status) {
-            case "failed":
-            case "finished":
-            case "aborted":
-                return true;
-            }
-            return false;
         },
     },
     methods: {
@@ -83,38 +72,6 @@ export default {
                     });
                 });
         },
-        updateDuration() {
-            if (this.task.startedAt.indexOf("0001-") === 0) {
-                // Go's way of saying it is zero
-                this.durationText = "";
-                return;
-            }
-            if (this.task.status === "running") {
-                this.durationText = runningDuration(this.task.startedAt);
-                return;
-            }
-            if (this.task.duration > 0) {
-                this.durationText = doneDuration(this.task.duration);
-                return;
-            }
-            return "";
-        },
-        onStatusChange() {
-            if (this.isDone) {
-                clearInterval(this.updateInterval);
-            } else if (this.task.status === "running" && !this.updateInterval) {
-                this.updateInterval = setInterval(function() {
-                    this.updateDuration();
-                }.bind(this), updateDurationPeriod);
-            }
-            this.updateDuration();
-        },
-    },
-    data: function() {
-        return {
-            updateInterval: null,
-            durationText: "",
-        };
     },
 };
 </script>
