@@ -1,5 +1,5 @@
 <template>
-    <span class="label label-rounded" :class="getStatusClass">{{ status }}</span>
+    <span class="chip label" :class="getStatusClass">{{ status }}</span>
 </template>
 
 <script>

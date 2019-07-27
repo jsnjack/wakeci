@@ -14,7 +14,7 @@
       <BuildStatus :status="build.status"></BuildStatus>
     </td>
     <td>
-        <Duration :item="build" class="chip"></Duration>
+        <Duration v-show="build.status !== 'pending'" :item="build" class="chip"></Duration>
     </td>
     <td class="item-actions">
       <router-link :to="{ name: 'build', params: { id: build.id}}" class="btn btn-primary">Open</router-link>

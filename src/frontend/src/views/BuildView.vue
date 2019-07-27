@@ -5,6 +5,7 @@
         <div class="card-title h5">{{ statusUpdate.name }} #{{ statusUpdate.id }}</div>
         <div class="card-subtitle text-gray">{{ job.desc }}</div>
         <BuildStatus :status="statusUpdate.status"></BuildStatus>
+        <Duration v-show="statusUpdate.status !== 'pending'" :item="statusUpdate" class="chip"></Duration>
       </div>
       <div class="card-footer">
         <BuildProgress :done="getDoneTasks" :total="getTotalTasks"></BuildProgress>
@@ -24,10 +25,10 @@
     ></TaskItem>
     <Artifacts :artifacts="getArtifacts" :buildID="statusUpdate.id"></Artifacts>
     <div class="form-group float-right">
-    <label class="form-switch">
-        <input type="checkbox" v-model="follow">
+      <label class="form-switch">
+        <input type="checkbox" v-model="follow" />
         <i class="form-icon"></i> Follow logs
-    </label>
+      </label>
     </div>
   </div>
 </template>
@@ -36,12 +37,12 @@
 import {APIURL} from "@/store/communication";
 import axios from "axios";
 import BuildStatus from "@/components/BuildStatus";
+import Duration from "@/components/Duration";
 import ParamItem from "@/components/ParamItem";
 import BuildProgress from "@/components/BuildProgress";
 import TaskItem from "@/components/TaskItem";
 import Artifacts from "@/components/Artifacts";
 import {findInContainer} from "@/store/utils";
-
 
 export default {
     props: {
@@ -49,7 +50,14 @@ export default {
             required: true,
         },
     },
-    components: {BuildStatus, BuildProgress, TaskItem, ParamItem, Artifacts},
+    components: {
+        BuildStatus,
+        BuildProgress,
+        TaskItem,
+        ParamItem,
+        Artifacts,
+        Duration,
+    },
     mounted() {
         this.fetch();
         this.subscribe();
@@ -87,7 +95,7 @@ export default {
                 })
                 .catch((error) => {
                     this.$notify({
-                        text: error.response && error.response.data || error,
+                        text: (error.response && error.response.data) || error,
                         type: "error",
                     });
                 });
@@ -106,7 +114,7 @@ export default {
                 if (logIndex[0] === undefined) {
                     this.job.tasks[index].logs.push(ev);
                     if (this.follow) {
-                        this.$refs["task-"+index][0].$el.scrollIntoView(false);
+                        this.$refs["task-" + index][0].$el.scrollIntoView(false);
                     }
                 }
             } else {
