@@ -38,7 +38,7 @@ artifacts:
 
 # Automatically run the job every configured interval (cron expression)
 # More info https://godoc.org/github.com/robfig/cron
-interval: @daily
+interval: "@daily"
 
 `, "\n ")
 
