@@ -57,6 +57,7 @@ func (b *Build) Start() {
 	b.BroadcastUpdate()
 	for _, task := range b.Job.Tasks {
 		task.Status = StatusRunning
+		task.startedAt = time.Now()
 		b.BroadcastUpdate()
 		// Disable output buffering, enable streaming
 		cmdOptions := cmd.Options{
@@ -132,6 +133,7 @@ func (b *Build) Start() {
 
 		// Run and wait for Cmd to return, discard Status
 		status := <-taskCmd.Start()
+		task.duration = time.Since(task.startedAt)
 
 		// Cmd has finished but wait for goroutine to print all lines
 		for len(taskCmd.Stdout) > 0 || len(taskCmd.Stderr) > 0 {
@@ -218,6 +220,7 @@ func (b *Build) CollectArtifacts() {
 func (b *Build) Abort() {
 	b.Logger.Println("Aborted.")
 	b.Status = StatusAborted
+	b.Duration = time.Since(b.StartedAt)
 	b.BroadcastUpdate()
 	b.Cleanup()
 }
@@ -300,8 +303,10 @@ func (b *Build) GetTasksStatus() []*TaskStatus {
 	var info []*TaskStatus
 	for _, t := range b.Job.Tasks {
 		info = append(info, &TaskStatus{
-			ID:     t.ID,
-			Status: t.Status,
+			ID:        t.ID,
+			Status:    t.Status,
+			StartedAt: t.startedAt,
+			Duration:  t.duration,
 		})
 	}
 	return info

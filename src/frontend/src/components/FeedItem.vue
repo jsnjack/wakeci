@@ -28,9 +28,7 @@ import BuildStatus from "@/components/BuildStatus";
 import BuildProgress from "@/components/BuildProgress";
 import axios from "axios";
 import {APIURL} from "@/store/communication";
-import {runningDuration, doneDuration} from "@/time";
-
-const updateDurationPeriod = 10000;
+import {runningDuration, doneDuration, updateDurationPeriod} from "@/duration";
 
 export default {
     components: {BuildStatus, BuildProgress},
@@ -102,7 +100,7 @@ export default {
                 this.durationText = "";
                 return;
             }
-            if (this.build.startedAt && !this.build.duration) {
+            if (this.build.status === "running") {
                 this.durationText = runningDuration(this.build.startedAt);
                 return;
             }

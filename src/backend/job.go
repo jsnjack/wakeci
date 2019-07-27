@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/robfig/cron"
 
@@ -85,11 +86,13 @@ func (j *Job) verifyInterval() error {
 
 // Task ...
 type Task struct {
-	ID      int         `json:"id"`
-	Name    string      `yaml:"name" json:"name"`
-	Command string      `yaml:"command" json:"command"`
-	Status  ItemStatus  `json:"status"`
-	Logs    interface{} `json:"logs"` // used as a container for frontend
+	ID        int         `json:"id"`
+	Name      string      `yaml:"name" json:"name"`
+	Command   string      `yaml:"command" json:"command"`
+	Status    ItemStatus  `json:"status"`
+	Logs      interface{} `json:"logs"` // used as a container for frontend
+	startedAt time.Time
+	duration  time.Duration
 }
 
 // CreateJobFromFile reads job from a file

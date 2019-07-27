@@ -38,8 +38,10 @@ type JobsListData struct {
 
 // TaskStatus contains basic info about a task, used for status updates
 type TaskStatus struct {
-	ID     int        `json:"id"`
-	Status ItemStatus `json:"status"`
+	ID        int           `json:"id"`
+	Status    ItemStatus    `json:"status"`
+	StartedAt time.Time     `json:"startedAt"`
+	Duration  time.Duration `json:"duration"`
 }
 
 // BuildUpdateData is viewable on the feed page

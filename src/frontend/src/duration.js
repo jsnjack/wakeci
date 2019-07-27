@@ -14,3 +14,5 @@ export function doneDuration(duration) {
         return min + " min " + Math.floor(d - min * 60) + " sec";
     }
 }
+
+export const updateDurationPeriod = 10000;

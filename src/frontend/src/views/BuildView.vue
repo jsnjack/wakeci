@@ -14,11 +14,11 @@
       <ParamItem v-for="(item, index) in statusUpdate.params" :key="index+'param'" :param="item"></ParamItem>
     </div>
     <TaskItem
-      v-for="item in job.tasks"
+      v-for="item in statusUpdate.tasks"
       :key="item.id"
       :task="item"
       :buildID="id"
-      :status="getTaskStatus(item.id)"
+      :logs="job.tasks[item.id].logs"
       :ref="'task-'+item.id"
     ></TaskItem>
     <Artifacts :artifacts="getArtifacts" :buildID="statusUpdate.id"></Artifacts>
@@ -40,6 +40,7 @@ import BuildProgress from "@/components/BuildProgress";
 import TaskItem from "@/components/TaskItem";
 import Artifacts from "@/components/Artifacts";
 import {findInContainer} from "@/store/utils";
+
 
 export default {
     props: {
@@ -113,15 +114,6 @@ export default {
         },
         applyBuildUpdate(ev) {
             this.statusUpdate = Object.assign({}, this.statusUpdate, ev);
-        },
-        getTaskStatus(id) {
-            for (const item of this.statusUpdate.tasks) {
-                if (item.id === id) {
-                    return item.status;
-                }
-            }
-            console.warn("Unknown task", id);
-            return "pending";
         },
     },
     computed: {
