@@ -34,7 +34,7 @@ export default {
     },
     methods: {
         updateDuration() {
-            if (this.item.startedAt.indexOf("0001-") === 0) {
+            if (this.item.startedAt && this.item.startedAt.indexOf("0001-") === 0) {
                 // Go's way of saying it is zero
                 this.durationText = "";
                 return;
