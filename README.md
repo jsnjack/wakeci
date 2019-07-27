@@ -20,9 +20,9 @@ wakeci
 - [x] Create settings page
 - [x] Create/edit job with editor
 - [x] Default template for new jobs
-- [ ] When job was started
+- [x] When job was started
 - [ ] Timestamps to logs
-- [ ] Total time to finish build/task
+- [x] Total time to finish build/task
 - [ ] Collapse logs on the Build page
 - [ ] Cleanups
 
