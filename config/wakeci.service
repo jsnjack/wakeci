@@ -8,7 +8,7 @@ Group=fedora
 Restart=always
 RestartSec=5s
 WorkingDirectory=/home/fedora/
-ExecStart=/home/fedora/wakeci -port 443 -hostname ci.yauhen.space
+ExecStart=/home/fedora/wakeci -port 443 -hostname ci.yauhen.space -wdir /home/fedora/wakedir/ -cdir /home/fedora/wakeconfig/
 
 [Install]
 WantedBy=multi-user.target

@@ -43,10 +43,12 @@ buildf:
 build: buildf bin/wakeci
 
 deploy: build
-	ssh wakeci sudo systemctl stop ${BINARY}
+	ssh wakeci mkdir wakedir
+	ssh wakeci mkdir wakeconfig
+	ssh wakeci sudo systemctl stop ${BINARY} || exit 0
 	ssh wakeci rm -f ${BINARY}
 	scp bin/${BINARY} wakeci:~/
-	ssh wakeci sudo setcap cap_net_bind_service=+ep wakeci
+	ssh wakeci sudo setcap cap_net_bind_service=+ep ${BINARY}
 	ssh wakeci sudo systemctl start ${BINARY}
 	ssh wakeci sudo systemctl status ${BINARY}
 
