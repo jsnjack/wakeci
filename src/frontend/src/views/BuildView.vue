@@ -114,7 +114,9 @@ export default {
                 if (logIndex[0] === undefined) {
                     this.job.tasks[index].logs.push(ev);
                     if (this.follow) {
-                        this.$refs["task-" + index][0].$el.scrollIntoView(false);
+                        this.$nextTick(() => {
+                            this.$refs["task-" + index][0].$el.scrollIntoView(false);
+                        });
                     }
                 }
             } else {
