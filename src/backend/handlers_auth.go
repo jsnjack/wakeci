@@ -61,16 +61,11 @@ func HandleLogOut(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	}
 
 	sessionToken, err := r.Cookie("session")
-	if err != nil {
-		logger.Println(err)
-		w.WriteHeader(http.StatusNoContent)
-		return
-	}
-	err = S.Delete(sessionToken.Value)
-	if err != nil {
-		logger.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+	if err == nil {
+		err = S.Delete(sessionToken.Value)
+		if err != nil {
+			logger.Println(err)
+		}
 	}
 
 	expires, _ := time.Parse(time.RFC3339, "1970-01-01T00:00:00+00:00")
