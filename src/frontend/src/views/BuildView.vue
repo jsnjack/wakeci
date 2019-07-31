@@ -93,12 +93,7 @@ export default {
                     this.statusUpdate = response.data.status_update;
                     this.job = response.data.job;
                 })
-                .catch((error) => {
-                    this.$notify({
-                        text: (error.response && error.response.data) || error,
-                        type: "error",
-                    });
-                });
+                .catch((error) => {});
         },
         applyBuildLog(ev) {
             const index = findInContainer(this.job.tasks, "id", ev.task_id)[1];

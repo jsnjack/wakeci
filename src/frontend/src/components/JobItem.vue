@@ -92,12 +92,7 @@ export default {
                         type: "success",
                     });
                 })
-                .catch((error) => {
-                    this.$notify({
-                        text: error.response && error.response.data || error,
-                        type: "error",
-                    });
-                });
+                .catch((error) => {});
         },
         deleteJob(event) {
             const url = `${APIURL}/job/${this.job.name}/`;
@@ -111,12 +106,7 @@ export default {
                     this.toggleModalDelete();
                     this.$router.go();
                 })
-                .catch((error) => {
-                    this.$notify({
-                        text: error.response && error.response.data || error,
-                        type: "error",
-                    });
-                });
+                .catch((error) => {});
         },
         toggle(event) {
             this.modalOpen = !this.modalOpen;

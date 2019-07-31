@@ -46,12 +46,7 @@ export default {
                         type: "success",
                     });
                 })
-                .catch((error) => {
-                    this.$notify({
-                        text: error.response && error.response.data || error,
-                        type: "error",
-                    });
-                });
+                .catch((error) => {});
         },
         fetch() {
             axios.get(APIURL + "/settings/")
@@ -60,12 +55,7 @@ export default {
                         this.concurrentBuilds = response.data.concurrentBuilds;
                     }
                 })
-                .catch((error) => {
-                    this.$notify({
-                        text: error.response && error.response.data || error,
-                        type: "error",
-                    });
-                });
+                .catch((error) => {});
         },
     },
     data: function() {

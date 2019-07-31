@@ -22,6 +22,9 @@ const mutations = {
     },
     LOG_OUT(state) {
         state.auth.isLoggedIn = false;
+        if (state.ws.obj.close) {
+            state.ws.obj.close();
+        }
     },
 };
 

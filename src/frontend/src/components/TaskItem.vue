@@ -63,12 +63,7 @@ export default {
                         duration: 1000,
                     });
                 })
-                .catch((error) => {
-                    this.$notify({
-                        text: (error.response && error.response.data) || error,
-                        type: "error",
-                    });
-                });
+                .catch((error) => {});
         },
     },
 };

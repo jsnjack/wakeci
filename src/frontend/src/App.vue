@@ -74,12 +74,7 @@ export default {
                     this.$router.push("/login");
                     this.ws.obj.close();
                 })
-                .catch((error) => {
-                    this.$notify({
-                        text: error.response && error.response.data || error,
-                        type: "error",
-                    });
-                });
+                .catch((error) => {});
         },
     },
 };

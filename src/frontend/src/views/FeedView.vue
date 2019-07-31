@@ -84,12 +84,7 @@ export default {
                 .then((response) => {
                     this.builds = response.data || [];
                 })
-                .catch((error) => {
-                    this.$notify({
-                        text: error.response && error.response.data || error,
-                        type: "error",
-                    });
-                });
+                .catch((error) => {});
         },
         applyUpdate(ev) {
             const index = findInContainer(this.builds, "id", ev.id)[1];

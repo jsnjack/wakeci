@@ -81,12 +81,7 @@ export default {
                 .then((response) => {
                     this.jobs = response.data || [];
                 })
-                .catch((error) => {
-                    this.$notify({
-                        text: error.response && error.response.data || error,
-                        type: "error",
-                    });
-                });
+                .catch((error) => {});
         },
         toggle(event) {
             this.modalOpen = !this.modalOpen;
@@ -104,12 +99,7 @@ export default {
                     });
                     this.fetch();
                 })
-                .catch((error) => {
-                    this.$notify({
-                        text: error.response && error.response.data || error,
-                        type: "error",
-                    });
-                });
+                .catch((error) => {});
         },
     },
     data: function() {

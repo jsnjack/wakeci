@@ -54,12 +54,7 @@ export default {
                     this.$store.commit("LOG_IN");
                     this.$router.push(this.getRedirectURL);
                 })
-                .catch((error) => {
-                    this.$notify({
-                        text: error.response && error.response.data || error,
-                        type: "error",
-                    });
-                });
+                .catch((error) => {});
         },
     },
     data: function() {

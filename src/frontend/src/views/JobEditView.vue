@@ -39,12 +39,7 @@ export default {
                 .then((response) => {
                     this.job.fileContent = response.data.fileContent || "";
                 })
-                .catch((error) => {
-                    this.$notify({
-                        text: error.response && error.response.data || error,
-                        type: "error",
-                    });
-                });
+                .catch((error) => {});
         },
         save() {
             const data = new FormData();
@@ -62,12 +57,7 @@ export default {
                         type: "success",
                     });
                 })
-                .catch((error) => {
-                    this.$notify({
-                        text: error.response && error.response.data || error,
-                        type: "error",
-                    });
-                });
+                .catch((error) => {});
         },
     },
     data: function() {
