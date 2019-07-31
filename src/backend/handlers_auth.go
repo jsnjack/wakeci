@@ -8,7 +8,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	bolt "github.com/etcd-io/bbolt"
-	"github.com/gofrs/uuid"
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -43,40 +42,11 @@ func HandleLogIn(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		return
 	}
 
-	sessionToken, err := uuid.NewV4()
+	c, err := S.New()
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
-	}
-
-	expires := time.Now().Add(time.Hour * 24 * 7)
-	expiresB, err := expires.GobEncode()
-	if err != nil {
-		logger.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	err = DB.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(SessionBucket))
-		return b.Put([]byte(sessionToken.String()), expiresB)
-	})
-	if err != nil {
-		logger.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	c := &http.Cookie{
-		Name:     "session",
-		Value:    sessionToken.String(),
-		Expires:  expires,
-		Path:     "/",
-		HttpOnly: true,
-	}
-	if *PortFlag == "443" {
-		c.Secure = true
 	}
 	// Set session cookie
 	http.SetCookie(w, c)
@@ -96,10 +66,7 @@ func HandleLogOut(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	err = DB.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(SessionBucket))
-		return b.Delete([]byte(sessionToken.Value))
-	})
+	err = S.Delete(sessionToken.Value)
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)

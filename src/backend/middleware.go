@@ -99,26 +99,9 @@ func AuthMi(next httprouter.Handle) httprouter.Handle {
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
-		var expiresB []byte
-		err = DB.View(func(tx *bolt.Tx) error {
-			b := tx.Bucket([]byte(SessionBucket))
-			expiresB = b.Get([]byte(sessionToken.Value))
-			return nil
-		})
-		if expiresB == nil {
-			logger.Printf("Session %s doesn't exist\n", sessionToken.Value)
-			w.WriteHeader(http.StatusForbidden)
-			return
-		}
-		var expires time.Time
-		err = expires.GobDecode(expiresB)
+		err = S.Verify(sessionToken.Value)
 		if err != nil {
 			logger.Println(err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		if expires.Before(time.Now()) {
-			logger.Println("Session expired")
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}

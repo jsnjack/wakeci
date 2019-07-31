@@ -45,6 +45,9 @@ var Q *Queue
 // C is a global cron object
 var C *cron.Cron
 
+// S is a global session storage object
+var S *SessionStorage
+
 func init() {
 	PortFlag = flag.String("port", "8081", "Port to start the server on")
 	HostnameFlag = flag.String("hostname", "", "Hostname for autocert. Active only when port is 443")
@@ -101,16 +104,14 @@ func main() {
 			return err
 		}
 
-		_, err = tx.CreateBucketIfNotExists(SessionBucket)
-		if err != nil {
-			return err
-		}
 		return nil
 	})
 
 	if err != nil {
 		Logger.Fatal(err)
 	}
+
+	S = CreateSessionStorage(SessionCleanupPeriod)
 
 	Q, err = CreateQueue()
 	if err != nil {
