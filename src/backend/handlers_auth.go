@@ -68,13 +68,18 @@ func HandleLogIn(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		return
 	}
 
+	c := &http.Cookie{
+		Name:     "session",
+		Value:    sessionToken.String(),
+		Expires:  expires,
+		Path:     "/",
+		HttpOnly: true,
+	}
+	if *PortFlag == "443" {
+		c.Secure = true
+	}
 	// Set session cookie
-	http.SetCookie(w, &http.Cookie{
-		Name:    "session",
-		Value:   sessionToken.String(),
-		Expires: expires,
-		Path:    "/",
-	})
+	http.SetCookie(w, c)
 	w.WriteHeader(http.StatusNoContent)
 }
 
