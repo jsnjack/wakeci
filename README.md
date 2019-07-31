@@ -10,9 +10,12 @@ wakeci
 # Impovements high
 - [ ] Parallel tasks
 - [ ] Post tasks (always executed)
-- [ ] Ignore exit status code
 - [x] Reload logs messes up order
 - [x] Add cron-like features
+- [ ] Add default env variables: workspace, build_id ...
+- [ ] Handlers on failure, on abort..?
+- [ ] A token to only run task ang get status update
+- [ ] Cleanups
 
 # Improvements low
 - [x] Use monospace font for logs
@@ -24,7 +27,6 @@ wakeci
 - [ ] Timestamps to logs
 - [x] Total time to finish build/task
 - [ ] Collapse logs on the Build page
-- [ ] Cleanups
 
 # Improvements super low
 - [ ] Make it all pretty
