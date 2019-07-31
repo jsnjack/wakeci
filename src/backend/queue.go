@@ -11,7 +11,7 @@ import (
 type Queue struct {
 	queued           []*Build
 	running          []*Build
-	mutex            *sync.Mutex
+	mutex            sync.Mutex
 	concurrentBuilds int
 }
 
