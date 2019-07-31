@@ -25,7 +25,12 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 		logger = Logger
 	}
 
-	build, err := RunJob(ps.ByName("name"), r.URL.Query())
+	err := r.ParseForm()
+	if err != nil {
+		logger.Println(err)
+	}
+
+	build, err := RunJob(ps.ByName("name"), r.Form)
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
