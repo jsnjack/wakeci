@@ -137,7 +137,6 @@ func CreateQueue() (*Queue, error) {
 	Logger.Printf("Creating Queue with %d concurrent builds\n", cb)
 	q := &Queue{
 		concurrentBuilds: cb,
-		mutex:            &sync.Mutex{},
 	}
 	return q, nil
 }

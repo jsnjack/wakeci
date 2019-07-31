@@ -15,7 +15,7 @@ import (
 // ClientList is a list of connected clients
 type ClientList struct {
 	Clients []*Client
-	sync.RWMutex
+	sync.Mutex
 }
 
 // Append creates new Client and appends it to the list
