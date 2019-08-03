@@ -51,7 +51,7 @@ type Build struct {
 
 // Start starts execution of tasks in job
 func (b *Build) Start() {
-	b.SetStatus(StatusRunning)
+	b.SetBuildStatus(StatusRunning)
 	for _, task := range b.Job.Tasks {
 		task.Status = StatusRunning
 		task.startedAt = time.Now()
@@ -142,19 +142,19 @@ func (b *Build) Start() {
 		// Abort message was recieved via channel
 		if b.aborted {
 			task.Status = StatusAborted
-			b.SetStatus(StatusAborted)
+			b.SetBuildStatus(StatusAborted)
 			return
 		}
 
 		if status.Exit != 0 {
 			task.Status = StatusFailed
-			b.SetStatus(StatusFailed)
+			b.SetBuildStatus(StatusFailed)
 			return
 		}
 		task.Status = StatusFinished
 		b.BroadcastUpdate()
 	}
-	b.SetStatus(StatusFinished)
+	b.SetBuildStatus(StatusFinished)
 }
 
 // Cleanup is called when a job finished or failed
@@ -282,8 +282,8 @@ func (b *Build) GetTasksStatus() []*TaskStatus {
 	return info
 }
 
-// SetStatus sets the status of the buils
-func (b *Build) SetStatus(status ItemStatus) {
+// SetBuildStatus sets the status of the buils
+func (b *Build) SetBuildStatus(status ItemStatus) {
 	b.Logger.Printf("Status: %s\n", status)
 	b.Status = status
 	defer b.BroadcastUpdate()
@@ -302,8 +302,8 @@ func (b *Build) SetStatus(status ItemStatus) {
 		b.Cleanup()
 		break
 	case StatusFinished:
-		b.CollectArtifacts()
 		b.Duration = time.Since(b.StartedAt)
+		b.CollectArtifacts()
 		b.Cleanup()
 		break
 	}
@@ -377,6 +377,6 @@ func CreateBuild(job *Job, jobPath string) (*Build, error) {
 	}
 	build.Logger.Printf("Build config %s has been created\n", build.GetBuildConfigFilename())
 
-	build.SetStatus(StatusPending)
+	build.SetBuildStatus(StatusPending)
 	return &build, nil
 }
