@@ -89,7 +89,7 @@ func (q *Queue) Abort(id int) error {
 	}
 	for _, item := range q.queued {
 		if item.ID == id {
-			item.Abort()
+			item.SetStatus(StatusAborted)
 			return nil
 		}
 	}
