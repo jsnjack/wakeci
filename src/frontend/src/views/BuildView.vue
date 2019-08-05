@@ -96,11 +96,14 @@ export default {
                 .catch((error) => {});
         },
         applyBuildLog(ev) {
-            const index = findInContainer(this.job.tasks, "id", ev.task_id)[1];
+            // Get index of a task
+            const index = findInContainer(this.job.tasks, "id", ev.taskID)[1];
             if (index !== undefined) {
                 if (this.job.tasks[index].logs === null) {
+                    // Initialize container
                     this.job.tasks[index].logs = [];
                 }
+                // Check if log with this index already exists
                 const logIndex = findInContainer(
                     this.job.tasks[index].logs,
                     "id",

@@ -58,8 +58,8 @@ type BuildUpdateData struct {
 
 // CommandLogData ...
 type CommandLogData struct {
-	TaskID int    `json:"task_id"`
-	ID     int    `json:"id"`
+	TaskID int    `json:"taskID"`
+	ID     int    `json:"id"` // ID of a log message
 	Data   string `json:"data"`
 }
 
