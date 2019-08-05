@@ -291,6 +291,7 @@ func (b *Build) GetTasksStatus() []*TaskStatus {
 			Status:    t.Status,
 			StartedAt: t.startedAt,
 			Duration:  t.duration,
+			Kind:      t.Kind,
 		})
 	}
 	return info

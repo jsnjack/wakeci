@@ -42,6 +42,7 @@ type TaskStatus struct {
 	Status    ItemStatus    `json:"status"`
 	StartedAt time.Time     `json:"startedAt"`
 	Duration  time.Duration `json:"duration"`
+	Kind      string        `json:"kind"`
 }
 
 // BuildUpdateData is viewable on the feed page
