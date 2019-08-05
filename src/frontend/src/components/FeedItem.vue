@@ -42,13 +42,18 @@ export default {
         getProgressTooltip() {
             return `${this.getDoneTasks} of ${this.getTotalTasks}`;
         },
-        getDoneTasks() {
+        getMainTasks() {
             return this.build.tasks.filter((item) => {
+                return item.kind === "main";
+            });
+        },
+        getDoneTasks() {
+            return this.getMainTasks.filter((item) => {
                 return item.status !== "pending" && item.status !== "running";
             }).length;
         },
         getTotalTasks() {
-            return this.build.tasks.length;
+            return this.getMainTasks.length;
         },
         getAbortURL: function() {
             return `${APIURL}/build/${this.build.id}/abort`;

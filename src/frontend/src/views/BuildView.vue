@@ -148,13 +148,18 @@ export default {
         getProgressTooltip() {
             return `${this.getDoneTasks} of ${this.getTotalTasks}`;
         },
-        getDoneTasks() {
+        getMainTasks() {
             return this.statusUpdate.tasks.filter((item) => {
+                return item.kind === "main";
+            });
+        },
+        getDoneTasks() {
+            return this.getMainTasks.filter((item) => {
                 return item.status !== "pending" && item.status !== "running";
             }).length;
         },
         getTotalTasks() {
-            return this.statusUpdate.tasks.length;
+            return this.getMainTasks.length;
         },
         getArtifacts() {
             return this.statusUpdate.artifacts || [];
