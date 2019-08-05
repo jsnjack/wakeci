@@ -60,17 +60,17 @@ func (b *Build) Start() {
 		status := b.runTask("task", task)
 
 		task.Status = status
+		task.duration = time.Since(task.startedAt)
 		switch status {
 		case StatusFinished:
 			break
 		case StatusFailed:
 			b.SetBuildStatus(StatusFailed)
-			break
+			return
 		case StatusAborted:
 			b.SetBuildStatus(StatusAborted)
-			break
+			return
 		}
-		task.duration = time.Since(task.startedAt)
 		b.BroadcastUpdate()
 	}
 	b.SetBuildStatus(StatusFinished)
