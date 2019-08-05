@@ -56,105 +56,119 @@ func (b *Build) Start() {
 		task.Status = StatusRunning
 		task.startedAt = time.Now()
 		b.BroadcastUpdate()
-		// Disable output buffering, enable streaming
-		cmdOptions := cmd.Options{
-			Buffered:  false,
-			Streaming: true,
-		}
 
-		// Create Cmd with options
-		taskCmd := cmd.NewCmdOptions(cmdOptions, "bash", "-c", task.Command)
+		status := b.runTask("task", task)
 
-		// Construct environment from params
-		taskCmd.Env = os.Environ()
-		taskCmd.Dir = b.GetWorkspaceDir()
-		for idx := range b.Params {
-			for pkey, pval := range b.Params[idx] {
-				taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", pkey, pval))
-			}
-		}
-
-		fwChannel := make(chan bool)
-
-		// Print STDOUT and STDERR lines streaming from CmdLogger
-		go func() {
-			file, err := os.Create(b.GetWakespaceDir() + fmt.Sprintf("task_%d.log", task.ID))
-			bw := bufio.NewWriter(file)
-			defer func() {
-				bw.Flush()
-				file.Close()
-			}()
-			if err != nil {
-				// Allow command to start
-				time.Sleep(10 * time.Millisecond)
-				b.Logger.Println(err)
-				taskCmd.Stop()
-				return
-			}
-
-			// Add executed command to logs
-			_, err = bw.WriteString(task.Command + "\n")
-			if err != nil {
-				b.Logger.Println(err)
-			}
-			b.PublishCommandLogs(task.ID, 0, task.Command)
-
-			x := 1
-			for {
-				select {
-				case line := <-taskCmd.Stdout:
-					_, err := bw.WriteString(line + "\n")
-					if err != nil {
-						b.Logger.Println(err)
-					}
-					b.PublishCommandLogs(task.ID, x, line)
-					x++
-				case line := <-taskCmd.Stderr:
-					_, err := bw.WriteString(line + "\n")
-					if err != nil {
-						b.Logger.Println(err)
-					}
-					b.PublishCommandLogs(task.ID, x, line)
-					x++
-				case <-fwChannel:
-					return
-				case toAbort := <-b.abortedChannel:
-					b.Logger.Println("Aborting via abortedChannel")
-					if toAbort {
-						taskCmd.Stop()
-						b.aborted = true
-					}
-				}
-			}
-		}()
-
-		// Run and wait for Cmd to return, discard Status
-		status := <-taskCmd.Start()
-		task.duration = time.Since(task.startedAt)
-
-		// Cmd has finished but wait for goroutine to print all lines
-		for len(taskCmd.Stdout) > 0 || len(taskCmd.Stderr) > 0 {
-			time.Sleep(10 * time.Millisecond)
-		}
-		// Signal to flush the file
-		fwChannel <- true
-
-		// Abort message was recieved via channel
-		if b.aborted {
-			task.Status = StatusAborted
-			b.SetBuildStatus(StatusAborted)
-			return
-		}
-
-		if status.Exit != 0 {
-			task.Status = StatusFailed
+		task.Status = status
+		switch status {
+		case StatusFinished:
+			break
+		case StatusFailed:
 			b.SetBuildStatus(StatusFailed)
-			return
+			break
+		case StatusAborted:
+			b.SetBuildStatus(StatusAborted)
+			break
 		}
-		task.Status = StatusFinished
+		task.duration = time.Since(task.startedAt)
 		b.BroadcastUpdate()
 	}
 	b.SetBuildStatus(StatusFinished)
+}
+
+// runTask is responsible for running one task and return it's status
+func (b *Build) runTask(prefix string, task *Task) ItemStatus {
+	// Disable output buffering, enable streaming
+	cmdOptions := cmd.Options{
+		Buffered:  false,
+		Streaming: true,
+	}
+
+	// Create Cmd with options
+	taskCmd := cmd.NewCmdOptions(cmdOptions, "bash", "-c", task.Command)
+
+	// Construct environment from params
+	taskCmd.Env = os.Environ()
+	taskCmd.Dir = b.GetWorkspaceDir()
+	for idx := range b.Params {
+		for pkey, pval := range b.Params[idx] {
+			taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", pkey, pval))
+		}
+	}
+
+	fwChannel := make(chan bool)
+
+	// Print STDOUT and STDERR lines streaming from CmdLogger
+	go func() {
+		file, err := os.Create(b.GetWakespaceDir() + fmt.Sprintf(prefix+"_%d.log", task.ID))
+		bw := bufio.NewWriter(file)
+		defer func() {
+			bw.Flush()
+			file.Close()
+		}()
+		if err != nil {
+			// Allow command to start
+			time.Sleep(10 * time.Millisecond)
+			b.Logger.Println(err)
+			taskCmd.Stop()
+			return
+		}
+
+		// Add executed command to logs
+		_, err = bw.WriteString(task.Command + "\n")
+		if err != nil {
+			b.Logger.Println(err)
+		}
+		b.PublishCommandLogs(task.ID, 0, task.Command)
+
+		x := 1
+		for {
+			select {
+			case line := <-taskCmd.Stdout:
+				_, err := bw.WriteString(line + "\n")
+				if err != nil {
+					b.Logger.Println(err)
+				}
+				b.PublishCommandLogs(task.ID, x, line)
+				x++
+			case line := <-taskCmd.Stderr:
+				_, err := bw.WriteString(line + "\n")
+				if err != nil {
+					b.Logger.Println(err)
+				}
+				b.PublishCommandLogs(task.ID, x, line)
+				x++
+			case <-fwChannel:
+				return
+			case toAbort := <-b.abortedChannel:
+				b.Logger.Println("Aborting via abortedChannel")
+				if toAbort {
+					taskCmd.Stop()
+					b.aborted = true
+				}
+			}
+		}
+	}()
+
+	// Run and wait for Cmd to return
+	status := <-taskCmd.Start()
+
+	// Cmd has finished but wait for goroutine to print all lines
+	for len(taskCmd.Stdout) > 0 || len(taskCmd.Stderr) > 0 {
+		time.Sleep(10 * time.Millisecond)
+	}
+	// Signal to flush the file
+	fwChannel <- true
+
+	// Abort message was recieved via channel
+	if b.aborted {
+		return StatusAborted
+	}
+
+	if status.Exit != 0 {
+		return StatusFailed
+	}
+	return StatusFinished
 }
 
 // Cleanup is called when a job finished or failed
