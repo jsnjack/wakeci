@@ -19,6 +19,7 @@
       :key="item.id"
       :task="item"
       :buildID="id"
+      :buildStatus="statusUpdate.status"
       :logs="job.tasks[item.id].logs"
       :name="job.tasks[item.id].name"
       :ref="'task-'+item.id"

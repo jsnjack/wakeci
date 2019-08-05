@@ -1,5 +1,5 @@
 <template>
-  <section>
+  <section v-show="isVisible">
     <div class="divider" :data-content="getDividerText"></div>
     <div class="columns">
       <div class="column">
@@ -50,6 +50,15 @@ export default {
                 return this.logs;
             }
             return [...this.logs].sort((a, b) => a.id > b.id);
+        },
+        isVisible: function() {
+            // Show only "main" tasks or tasks that were started. For example,
+            // there is no need to show "finished" tasks if build failed because
+            // they won't be executed anyway
+            if (this.task.kind === "main") {
+                return true;
+            }
+            return !(this.task.startedAt && this.task.startedAt.indexOf("0001-") === 0);
         },
     },
     methods: {

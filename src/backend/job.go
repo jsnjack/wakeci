@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/robfig/cron"
+	yaml "gopkg.in/yaml.v2"
 
 	bolt "github.com/etcd-io/bbolt"
-	yaml "gopkg.in/yaml.v2"
 )
 
 // NewJobTemplate is a template for newly created jobs. Suppose to also
@@ -84,15 +84,25 @@ func (j *Job) verifyInterval() error {
 	return err
 }
 
-// Task ...
+// Task is a command to execute
 type Task struct {
 	ID        int         `json:"id"`
 	Name      string      `yaml:"name" json:"name"`
 	Command   string      `yaml:"command" json:"command"`
 	Status    ItemStatus  `json:"status"`
+	Kind      string      `json:"kind"`
 	Logs      interface{} `json:"logs"` // used as a container for frontend
 	startedAt time.Time
 	duration  time.Duration
+}
+
+// OnTasks is a list of tasks that should be ran on status change
+type OnTasks struct {
+	OnPending  []*Task `yaml:"on_pending"`
+	OnRunning  []*Task `yaml:"on_running"`
+	OnFailed   []*Task `yaml:"on_failed"`
+	OnAborted  []*Task `yaml:"on_aborted"`
+	OnFinished []*Task `yaml:"on_finished"`
 }
 
 // CreateJobFromFile reads job from a file
@@ -105,6 +115,52 @@ func CreateJobFromFile(path string) (*Job, error) {
 	err = yaml.Unmarshal(data, &job)
 	if err != nil {
 		return nil, err
+	}
+
+	// Assign main kind to all tasks
+	for _, t := range job.Tasks {
+		t.Kind = "main"
+	}
+
+	ot := OnTasks{}
+	err = yaml.Unmarshal(data, &ot)
+	if err != nil {
+		return nil, err
+	}
+
+	if ot.OnRunning != nil {
+		for _, t := range ot.OnRunning {
+			t.Kind = StatusRunning
+		}
+		job.Tasks = append(ot.OnRunning, job.Tasks...)
+	}
+
+	if ot.OnPending != nil {
+		for _, t := range ot.OnPending {
+			t.Kind = StatusPending
+		}
+		job.Tasks = append(ot.OnPending, job.Tasks...)
+	}
+
+	if ot.OnFailed != nil {
+		for _, t := range ot.OnFailed {
+			t.Kind = StatusFailed
+		}
+		job.Tasks = append(job.Tasks, ot.OnFailed...)
+	}
+
+	if ot.OnAborted != nil {
+		for _, t := range ot.OnAborted {
+			t.Kind = StatusAborted
+		}
+		job.Tasks = append(job.Tasks, ot.OnAborted...)
+	}
+
+	if ot.OnFinished != nil {
+		for _, t := range ot.OnFinished {
+			t.Kind = StatusFinished
+		}
+		job.Tasks = append(job.Tasks, ot.OnFinished...)
 	}
 
 	// Assign tasks ids and status
