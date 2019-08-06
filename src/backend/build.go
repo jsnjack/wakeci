@@ -103,8 +103,14 @@ func (b *Build) runTask(prefix string, task *Task) ItemStatus {
 		file, err := os.Create(b.GetWakespaceDir() + fmt.Sprintf(prefix+"_%d.log", task.ID))
 		bw := bufio.NewWriter(file)
 		defer func() {
-			bw.Flush()
-			file.Close()
+			err = bw.Flush()
+			if err != nil {
+				b.Logger.Println(err)
+			}
+			err = file.Close()
+			if err != nil {
+				b.Logger.Println(err)
+			}
 		}()
 		if err != nil {
 			// Allow command to start
