@@ -88,6 +88,7 @@ export default {
   background: $bg-color;
   margin-left: 1em;
   overflow: auto;
+  font-size: 90%;
   pre {
     padding-left: 1em;
     margin: 0;
