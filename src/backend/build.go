@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	bolt "github.com/etcd-io/bbolt"
@@ -42,6 +43,7 @@ type Build struct {
 	Status         ItemStatus
 	Logger         *log.Logger
 	abortedChannel chan bool
+	pendingTasksWG sync.WaitGroup
 	aborted        bool
 	Params         []map[string]string
 	Artifacts      []string
@@ -81,6 +83,10 @@ func (b *Build) Start() {
 
 // runOnStatusTasks runs tasks on status change
 func (b *Build) runOnStatusTasks(status ItemStatus) {
+	if status == StatusPending {
+		b.pendingTasksWG.Add(1)
+		defer b.pendingTasksWG.Done()
+	}
 	for _, task := range b.Job.Tasks {
 		if task.Kind == string(status) {
 			task.Status = StatusRunning
@@ -96,6 +102,8 @@ func (b *Build) runOnStatusTasks(status ItemStatus) {
 
 // runTask is responsible for running one task and return it's status
 func (b *Build) runTask(task *Task) ItemStatus {
+	b.Logger.Printf("Task %d has been started\n", task.ID)
+	defer b.Logger.Printf("Task %d is completed\n", task.ID)
 	// Disable output buffering, enable streaming
 	cmdOptions := cmd.Options{
 		Buffered:  false,
@@ -325,23 +333,32 @@ func (b *Build) GetTasksStatus() []*TaskStatus {
 func (b *Build) SetBuildStatus(status ItemStatus) {
 	b.Logger.Printf("Status: %s\n", status)
 	b.Status = status
-	b.runOnStatusTasks(status)
 	defer b.BroadcastUpdate()
+	// Wait for pending task to finish before running anything else
+	b.pendingTasksWG.Wait()
 	switch status {
 	case StatusPending:
+		// Run onStatusTasks of kind pending in separate goroutine so it doesn't
+		// slow down putting build into queue. Also it is expected to be something
+		// really simple, like setting commit status in VCS
+		go b.runOnStatusTasks(status)
 		break
 	case StatusRunning:
 		b.StartedAt = time.Now()
+		b.runOnStatusTasks(status)
 		break
 	case StatusAborted:
+		b.runOnStatusTasks(status)
 		b.Duration = time.Since(b.StartedAt)
 		b.Cleanup()
 		break
 	case StatusFailed:
+		b.runOnStatusTasks(status)
 		b.Duration = time.Since(b.StartedAt)
 		b.Cleanup()
 		break
 	case StatusFinished:
+		b.runOnStatusTasks(status)
 		b.Duration = time.Since(b.StartedAt)
 		b.CollectArtifacts()
 		b.Cleanup()
