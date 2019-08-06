@@ -45,6 +45,9 @@ interval: "@daily"
 // ConfigExt ...
 const ConfigExt = ".yaml"
 
+// KindMain is a kind for main tasks - the ones which actually do the job
+const KindMain = "main"
+
 // Job represents Job
 // Default params are stored as params in yaml files
 type Job struct {
@@ -119,7 +122,7 @@ func CreateJobFromFile(path string) (*Job, error) {
 
 	// Assign main kind to all tasks
 	for _, t := range job.Tasks {
-		t.Kind = "main"
+		t.Kind = KindMain
 	}
 
 	ot := OnTasks{}
