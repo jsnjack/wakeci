@@ -3,7 +3,7 @@
     <div class="divider" :data-content="getDividerText"></div>
     <div class="columns">
       <div class="column">
-        <div class="task-header text-left">
+        <div class="task-header text-left" :class="getBorderClass">
           <span class="h5">{{ name }}</span>
           <BuildStatus :status="task.status"></BuildStatus>
           <Duration v-show="task.status !== 'pending'" :item="task" class="chip text-small"></Duration>
@@ -60,6 +60,9 @@ export default {
             }
             return !(this.task.startedAt && this.task.startedAt.indexOf("0001-") === 0);
         },
+        getBorderClass() {
+            return `border-${this.task.kind}`;
+        },
     },
     methods: {
         reloadLogs() {
@@ -102,7 +105,25 @@ button {
 }
 
 .task-header {
-  border-left: 0.2em solid $primary-color;
+  border-left: 0.2em solid;
   padding-left: 0.4em;
+}
+.border-main {
+    border-left-color: $primary-color;
+}
+.border-pending {
+    border-left-color: $gray-color;
+}
+.border-running {
+    border-left-color: $warning-color;
+}
+.border-aborted {
+    border-left-color: $secondary-color;
+}
+.border-failed {
+    border-left-color: $error-color;
+}
+.border-finished {
+    border-left-color: $success-color;
 }
 </style>

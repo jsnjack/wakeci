@@ -15,7 +15,7 @@
       <ParamItem v-for="(item, index) in statusUpdate.params" :key="index+'param'" :param="item"></ParamItem>
     </div>
     <TaskItem
-      v-for="item in sortedMainTasks"
+      v-for="item in statusUpdate.tasks"
       :key="item.id"
       :task="item"
       :buildID="id"
@@ -25,24 +25,6 @@
       :ref="'task-'+item.id"
     ></TaskItem>
     <Artifacts :artifacts="getArtifacts" :buildID="statusUpdate.id"></Artifacts>
-    <details class="accordion">
-      <summary class="accordion-header text-left h5">
-        <i class="icon icon-arrow-right mr-1"></i>
-        Tasks executed on a status change
-      </summary>
-      <div class="accordion-body">
-        <TaskItem
-          v-for="item in sortedOnStatusChangeTasks"
-          :key="item.id"
-          :task="item"
-          :buildID="id"
-          :buildStatus="statusUpdate.status"
-          :logs="job.tasks[item.id].logs"
-          :name="job.tasks[item.id].name"
-          :ref="'task-'+item.id"
-        ></TaskItem>
-      </div>
-    </details>
     <div class="form-group float-right">
       <label class="form-switch">
         <input type="checkbox" v-model="follow" />
@@ -163,16 +145,6 @@ export default {
         },
         getArtifacts() {
             return this.statusUpdate.artifacts || [];
-        },
-        sortedMainTasks: function() {
-            return [...this.statusUpdate.tasks]
-                .filter((item) => item.kind === "main")
-                .sort((a, b) => a.id > b.id);
-        },
-        sortedOnStatusChangeTasks: function() {
-            return [...this.statusUpdate.tasks]
-                .filter((item) => item.kind !== "main")
-                .sort((a, b) => a.id > b.id);
         },
     },
     data: function() {

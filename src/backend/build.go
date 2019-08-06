@@ -53,11 +53,14 @@ type Build struct {
 func (b *Build) Start() {
 	b.SetBuildStatus(StatusRunning)
 	for _, task := range b.Job.Tasks {
+		if task.Kind != KindMain {
+			continue
+		}
 		task.Status = StatusRunning
 		task.startedAt = time.Now()
 		b.BroadcastUpdate()
 
-		status := b.runTask("task", task)
+		status := b.runTask(task)
 
 		task.Status = status
 		task.duration = time.Since(task.startedAt)
@@ -76,8 +79,23 @@ func (b *Build) Start() {
 	b.SetBuildStatus(StatusFinished)
 }
 
+// runOnStatusTasks runs tasks on status change
+func (b *Build) runOnStatusTasks(status ItemStatus) {
+	for _, task := range b.Job.Tasks {
+		if task.Kind == string(status) {
+			task.Status = StatusRunning
+			task.startedAt = time.Now()
+
+			status := b.runTask(task)
+
+			task.Status = status
+			task.duration = time.Since(task.startedAt)
+		}
+	}
+}
+
 // runTask is responsible for running one task and return it's status
-func (b *Build) runTask(prefix string, task *Task) ItemStatus {
+func (b *Build) runTask(task *Task) ItemStatus {
 	// Disable output buffering, enable streaming
 	cmdOptions := cmd.Options{
 		Buffered:  false,
@@ -100,7 +118,7 @@ func (b *Build) runTask(prefix string, task *Task) ItemStatus {
 
 	// Print STDOUT and STDERR lines streaming from CmdLogger
 	go func() {
-		file, err := os.Create(b.GetWakespaceDir() + fmt.Sprintf(prefix+"_%d.log", task.ID))
+		file, err := os.Create(b.GetWakespaceDir() + fmt.Sprintf("task_%d.log", task.ID))
 		bw := bufio.NewWriter(file)
 		defer func() {
 			err = bw.Flush()
@@ -307,6 +325,7 @@ func (b *Build) GetTasksStatus() []*TaskStatus {
 func (b *Build) SetBuildStatus(status ItemStatus) {
 	b.Logger.Printf("Status: %s\n", status)
 	b.Status = status
+	b.runOnStatusTasks(status)
 	defer b.BroadcastUpdate()
 	switch status {
 	case StatusPending:
