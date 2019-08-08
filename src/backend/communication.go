@@ -66,7 +66,8 @@ type CommandLogData struct {
 
 // SettingsData used for Settings view to allow user to modify settings
 type SettingsData struct {
-	ConcurrentBuilds int
+	ConcurrentBuilds int `json:"concurrentBuilds"`
+	BuildHistorySize int `json:"buildHistorySize"`
 }
 
 // JobData used for editing a job

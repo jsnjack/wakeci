@@ -327,6 +327,7 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request, ps httprouter.Pa
 		logger = Logger
 	}
 
+	// Password
 	password := r.FormValue("password")
 	if password != "" {
 		err := DB.Update(func(tx *bolt.Tx) error {
@@ -350,6 +351,7 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request, ps httprouter.Pa
 		}
 	}
 
+	// Number of concurrent builds
 	cb := r.FormValue("concurrentBuilds")
 	cbInt, err := strconv.Atoi(cb)
 	if err != nil {
@@ -359,6 +361,30 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request, ps httprouter.Pa
 		return
 	}
 	Q.SetConcurrency(cbInt)
+
+	// Build history size
+	bhs := r.FormValue("buildHistorySize")
+	bhsInt, err := strconv.Atoi(bhs)
+	if err != nil {
+		logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
+	err = DB.Update(func(tx *bolt.Tx) error {
+		gb := tx.Bucket(GlobalBucket)
+		err = gb.Put([]byte("buildHistorySize"), IntToByte(bhsInt))
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
 }
 
 // HandleSettingsGet retrieves settings
@@ -376,6 +402,12 @@ func HandleSettingsGet(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 			return err
 		}
 		settings.ConcurrentBuilds = cb
+
+		bhs, err := ByteToInt(gb.Get([]byte("buildHistorySize")))
+		if err != nil {
+			return err
+		}
+		settings.BuildHistorySize = bhs
 		return nil
 	})
 

@@ -13,6 +13,10 @@
           <label class="form-label" for="concurrent-builds">Number of concurrent builds</label>
           <input class="form-input" type="number" min="1" id="concurrent-builds" v-model="concurrentBuilds" />
         </div>
+        <div class="form-group">
+          <label class="form-label" for="build-history-size">Number of builds to preserve</label>
+          <input class="form-input" type="number" min="1" id="build-history-size" v-model="buildHistorySize" />
+        </div>
       </div>
       <div class="card-footer">
         <button type="submit" class="btn btn-primary">Save</button>
@@ -34,6 +38,7 @@ export default {
             const data = new FormData();
             data.append("password", this.password);
             data.append("concurrentBuilds", this.concurrentBuilds);
+            data.append("buildHistorySize", this.buildHistorySize);
             axios
                 .post(APIURL + "/settings/", data, {
                     headers: {
@@ -54,6 +59,9 @@ export default {
                     if (response.data.concurrentBuilds) {
                         this.concurrentBuilds = response.data.concurrentBuilds;
                     }
+                    if (response.data.buildHistorySize) {
+                        this.buildHistorySize = response.data.buildHistorySize;
+                    }
                 })
                 .catch((error) => {});
         },
@@ -62,6 +70,7 @@ export default {
         return {
             password: "",
             concurrentBuilds: 2,
+            buildHistorySize: 200,
         };
     },
 };

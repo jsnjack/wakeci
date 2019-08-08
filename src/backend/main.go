@@ -97,6 +97,10 @@ func main() {
 			if err != nil {
 				return err
 			}
+			err = gb.Put([]byte("buildHistorySize"), IntToByte(200))
+			if err != nil {
+				return err
+			}
 		}
 
 		_, err = tx.CreateBucketIfNotExists(HistoryBucket)
