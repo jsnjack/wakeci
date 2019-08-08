@@ -40,6 +40,12 @@ artifacts:
 # More info https://godoc.org/github.com/robfig/cron
 interval: "@daily"
 
+# On status change handlers (on_pending, on_running, on_aborted, on_failed,
+# on_finished)
+on_pending:
+  - name: Log a call
+    command: logger "Looking for a suitable cow"
+
 `, "\n ")
 
 // ConfigExt ...
