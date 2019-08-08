@@ -18,7 +18,7 @@
     </td>
     <td class="actions">
       <router-link :to="{ name: 'build', params: { id: build.id}}" class="btn btn-primary item-action">Open</router-link>
-      <RunJobButton :params="build.params" :buttonTitle="'Retry'" :jobName="build.name" class="item-action"></RunJobButton>
+      <RunJobButton :params="build.params" :buttonTitle="'Rerun'" :jobName="build.name" class="item-action"></RunJobButton>
       <a v-if="!isDone" :href="getAbortURL" @click.prevent="abort" class="btn btn-error item-action">Abort</a>
     </td>
   </tr>

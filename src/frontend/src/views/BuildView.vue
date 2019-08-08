@@ -6,6 +6,12 @@
         <div class="card-subtitle text-gray">{{ job.desc }}</div>
         <BuildStatus :status="statusUpdate.status"></BuildStatus>
         <Duration v-show="statusUpdate.status !== 'pending'" :item="statusUpdate" class="chip"></Duration>
+        <RunJobButton
+          :params="statusUpdate.params"
+          :buttonTitle="'Rerun'"
+          :jobName="statusUpdate.name"
+          class="item-action float-right"
+        ></RunJobButton>
       </div>
       <div class="card-footer">
         <BuildProgress :done="getDoneTasks" :total="getTotalTasks"></BuildProgress>
@@ -41,6 +47,7 @@ import BuildStatus from "@/components/BuildStatus";
 import Duration from "@/components/Duration";
 import ParamItem from "@/components/ParamItem";
 import BuildProgress from "@/components/BuildProgress";
+import RunJobButton from "@/components/RunJobButton";
 import TaskItem from "@/components/TaskItem";
 import Artifacts from "@/components/Artifacts";
 import {findInContainer} from "@/store/utils";
@@ -58,6 +65,7 @@ export default {
         ParamItem,
         Artifacts,
         Duration,
+        RunJobButton,
     },
     mounted() {
         this.fetch();
@@ -168,6 +176,6 @@ export default {
   margin-bottom: 1em;
 }
 summary:hover {
-    cursor: pointer;
+  cursor: pointer;
 }
 </style>
