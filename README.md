@@ -8,12 +8,12 @@ wakeci
 - [x] Artifacts
 
 # Impovements high
-- [ ] Parallel tasks
-- [ ] Post tasks (always executed)
+- [ ] Parallel tasks(?)
+- [x] ~~Post tasks (always executed)~~ Replaced with on status change handlers
 - [x] Reload logs messes up order
 - [x] Add cron-like features
 - [ ] Add default env variables: workspace, build_id ...
-- [ ] Handlers on failure, on abort..?
+- [x] Handlers on failure, on abort..?
 - [ ] A token to only run task ang get status update
 - [ ] Cleanups
 
