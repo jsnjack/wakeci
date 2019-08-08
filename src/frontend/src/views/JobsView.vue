@@ -2,9 +2,9 @@
   <div class="container">
     <table class="table table-striped">
       <thead>
-        <th class="h-name">Name</th>
-        <th class="h-actions">Interval</th>
-        <th class="h-actions">Actions</th>
+        <th>Name</th>
+        <th>Interval</th>
+        <th>Actions</th>
       </thead>
       <tbody>
         <JobItem v-for="item in jobs" :key="item.name" :job="item"></JobItem>
@@ -116,11 +116,5 @@ export default {
 <style scoped lang="scss">
 .create-section {
   margin-top: 1em;
-}
-.h-actions {
-    min-width: 300px;
-}
-.h-name{
-    width: 100%;
 }
 </style>
