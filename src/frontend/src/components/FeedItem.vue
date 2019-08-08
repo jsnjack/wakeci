@@ -4,16 +4,16 @@
       <router-link :to="{ name: 'build', params: { id: build.id}}">{{ build.id }}</router-link>
     </td>
     <td>{{ build.name }}</td>
-    <td>
+    <td class="hide-xs hide-sm">
         {{ getParamsText }}
     </td>
-    <td class="tooltip tooltip-right" :data-tooltip="getProgressTooltip">
+    <td class="tooltip tooltip-right hide-xs hide-sm" :data-tooltip="getProgressTooltip">
       <BuildProgress :done="getDoneTasks" :total="getTotalTasks"/>
     </td>
     <td>
       <BuildStatus :status="build.status"></BuildStatus>
     </td>
-    <td>
+    <td class="hide-xs">
         <Duration v-show="build.status !== 'pending'" :item="build" class="chip"></Duration>
     </td>
     <td class="actions">

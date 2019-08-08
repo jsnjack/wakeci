@@ -4,10 +4,10 @@
       <thead>
         <th>#</th>
         <th>Name</th>
-        <th>Params</th>
-        <th>Tasks</th>
+        <th class="hide-xs hide-sm">Params</th>
+        <th class="hide-xs hide-sm">Tasks</th>
         <th>Status</th>
-        <th>Duration</th>
+        <th class="hide-xs">Duration</th>
         <th>Actions</th>
       </thead>
       <tbody>
