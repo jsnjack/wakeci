@@ -46,6 +46,12 @@ on_pending:
   - name: Log a call
     command: logger "Looking for a suitable cow"
 
+# Available environmetal variables:
+# WAKE_BUILD_ID - current build id, e.g. 169
+# WAKE_BUILD_WORKSPACE - path to the builds workspace
+# WAKE_JOB_NAME - name of the job, e.g. ask_a_cow
+# WAKE_CONFIG_DIR - path to the directory with all jobs
+
 `, "\n ")
 
 // ConfigExt ...

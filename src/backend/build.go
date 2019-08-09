@@ -116,6 +116,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	// Construct environment from params
 	taskCmd.Env = os.Environ()
 	taskCmd.Dir = b.GetWorkspaceDir()
+	taskCmd.Env = b.generateDefaultEnvVariables()
 	for idx := range b.Params {
 		for pkey, pval := range b.Params[idx] {
 			taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", pkey, pval))
@@ -201,6 +202,18 @@ func (b *Build) runTask(task *Task) ItemStatus {
 		return StatusFailed
 	}
 	return StatusFinished
+}
+
+// Generate default set of environmental variables that are injected before
+// running a task, for example WAKE_BUILD_ID
+func (b *Build) generateDefaultEnvVariables() []string {
+	var evs = []string{
+		fmt.Sprintf("WAKE_BUILD_ID=%d", b.ID),
+		fmt.Sprintf("WAKE_BUILD_WORKSPACE=%s", b.GetWorkspaceDir()),
+		fmt.Sprintf("WAKE_JOB_NAME=%s", b.Job.Name),
+		fmt.Sprintf("WAKE_CONFIG_DIR=%s", *ConfigDirFlag),
+	}
+	return evs
 }
 
 // Cleanup is called when a job finished or failed
