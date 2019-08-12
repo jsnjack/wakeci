@@ -142,7 +142,6 @@ func main() {
 	C.Start()
 
 	ScanAllJobs()
-	CleanUpJobs()
 
 	go BroadcastMessage()
 
