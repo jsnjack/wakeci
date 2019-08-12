@@ -51,6 +51,7 @@ on_pending:
 # WAKE_BUILD_WORKSPACE - path to the builds workspace
 # WAKE_JOB_NAME - name of the job, e.g. ask_a_cow
 # WAKE_CONFIG_DIR - path to the directory with all jobs
+# WAKE_URL - URL of the service, e.g. https://myci.space/
 
 `, "\n ")
 

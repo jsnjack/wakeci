@@ -213,6 +213,11 @@ func (b *Build) generateDefaultEnvVariables() []string {
 		fmt.Sprintf("WAKE_JOB_NAME=%s", b.Job.Name),
 		fmt.Sprintf("WAKE_CONFIG_DIR=%s", *ConfigDirFlag),
 	}
+	if *PortFlag == "443" {
+		evs = append(evs, fmt.Sprintf("WAKE_URL=https://%s/", *HostnameFlag))
+	} else {
+		evs = append(evs, fmt.Sprintf("WAKE_URL=http://localhost:%s/", *PortFlag))
+	}
 	return evs
 }
 
