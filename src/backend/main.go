@@ -142,6 +142,7 @@ func main() {
 	C.Start()
 
 	ScanAllJobs()
+	CleanupOldBuilds(BuildCleanupPeriod)
 
 	go BroadcastMessage()
 
