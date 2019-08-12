@@ -64,3 +64,7 @@
 [[constraint]]
   name = "github.com/robfig/cron"
   version = "3.0.0"
+
+[[constraint]]
+  name = "github.com/bmatcuk/doublestar"
+  version = "1.1.5"

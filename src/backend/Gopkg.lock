@@ -13,6 +13,14 @@
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:f69f3dd5ddb194ab787d0fd8e3ac382576d4f80c36584b70713656d5c72fca70"
+  name = "github.com/bmatcuk/doublestar"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "2437321e1473408f122a95f65df3d8841fec4fba"
+  version = "v1.1.5"
+
+[[projects]]
   digest = "1:8e8da6cc8cca12851d4e089d970a0f7387b3a6bcc8c459ff432213b03076a66d"
   name = "github.com/daaku/go.zipexe"
   packages = ["."]
@@ -135,6 +143,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/GeertJohan/go.rice",
+    "github.com/bmatcuk/doublestar",
     "github.com/etcd-io/bbolt",
     "github.com/go-cmd/cmd",
     "github.com/gofrs/uuid",

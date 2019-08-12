@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bmatcuk/doublestar"
+
 	bolt "github.com/etcd-io/bbolt"
 	"github.com/go-cmd/cmd"
 )
@@ -233,13 +235,22 @@ func (b *Build) Cleanup() {
 func (b *Build) CollectArtifacts() {
 	for _, artPattern := range b.Job.Artifacts {
 		pattern := b.GetWorkspaceDir() + artPattern
-		files, err := filepath.Glob(pattern)
+		files, err := doublestar.Glob(pattern)
 		if err != nil {
 			b.Logger.Println(err)
 			continue
 		}
 
 		for _, f := range files {
+			// Skip directories
+			fi, err := os.Stat(f)
+			if err != nil {
+				b.Logger.Println(err)
+				continue
+			}
+			if fi.IsDir() {
+				continue
+			}
 			relPath := strings.TrimPrefix(f, b.GetWorkspaceDir())
 			relDir, _ := filepath.Split(relPath)
 
