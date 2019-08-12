@@ -13,6 +13,14 @@
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:af6e785bedb62fc2abb81977c58a7a44e5cf9f7e41b8d3c8dd4d872edea0ce08"
+  name = "github.com/NYTimes/gziphandler"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "dd0439581c7657cb652dfe5c71d7d48baf39541d"
+  version = "v1.1.1"
+
+[[projects]]
   digest = "1:f69f3dd5ddb194ab787d0fd8e3ac382576d4f80c36584b70713656d5c72fca70"
   name = "github.com/bmatcuk/doublestar"
   packages = ["."]
@@ -143,6 +151,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/GeertJohan/go.rice",
+    "github.com/NYTimes/gziphandler",
     "github.com/bmatcuk/doublestar",
     "github.com/etcd-io/bbolt",
     "github.com/go-cmd/cmd",

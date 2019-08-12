@@ -68,3 +68,7 @@
 [[constraint]]
   name = "github.com/bmatcuk/doublestar"
   version = "1.1.5"
+
+[[constraint]]
+  name = "github.com/NYTimes/gziphandler"
+  version = "1.1.1"

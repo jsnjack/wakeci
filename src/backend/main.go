@@ -12,6 +12,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	rice "github.com/GeertJohan/go.rice"
+	"github.com/NYTimes/gziphandler"
 	bolt "github.com/etcd-io/bbolt"
 	"github.com/julienschmidt/httprouter"
 	"github.com/robfig/cron"
@@ -204,7 +205,7 @@ func main() {
 			TLSConfig: &tls.Config{
 				GetCertificate: certManager.GetCertificate,
 			},
-			Handler: router,
+			Handler: gziphandler.GzipHandler(router),
 		}
 
 		err = server.ListenAndServeTLS("", "")
@@ -213,7 +214,7 @@ func main() {
 		}
 	} else {
 		Logger.Printf("Listening on port %s...\n", *PortFlag)
-		err := http.ListenAndServe(":"+*PortFlag, router)
+		err := http.ListenAndServe(":"+*PortFlag, gziphandler.GzipHandler(router))
 		if err != nil {
 			Logger.Fatal(err)
 		}
