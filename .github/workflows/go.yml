@@ -23,7 +23,7 @@ jobs:
         curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
         go get github.com/GeertJohan/go.rice/rice
         dep ensure
-        
+
      - name: Build frontend
       working-directory: ${{ go.module-path }}/src/frontend
       run: |
