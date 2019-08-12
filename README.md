@@ -19,7 +19,7 @@ wakeci
 
 # Improvements low
 - [x] Use monospace font for logs
-- [ ] Add gzip middleware
+- [x] Add gzip middleware
 - [x] Create settings page
 - [x] Create/edit job with editor
 - [x] Default template for new jobs
