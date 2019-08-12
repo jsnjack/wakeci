@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/crypto/bcrypt"
@@ -55,7 +56,22 @@ func init() {
 	ConfigDirFlag = flag.String("cdir", "./", "Configuration directory")
 	flag.Parse()
 
+	// Make *DirFlar paths absolute
+	cwd, err := os.Getwd()
+	if err != nil {
+		Logger.Fatal(err)
+	}
+	if !filepath.IsAbs(*WorkingDirFlag) {
+		*WorkingDirFlag = filepath.Join(cwd, *WorkingDirFlag) + "/"
+	}
+	if !filepath.IsAbs(*ConfigDirFlag) {
+		*ConfigDirFlag = filepath.Join(cwd, *ConfigDirFlag) + "/"
+	}
+
 	Logger = log.New(os.Stdout, "", log.Lmicroseconds|log.Lshortfile)
+
+	Logger.Printf("Working directory: %s\n", *WorkingDirFlag)
+	Logger.Printf("Config directory: %s\n", *ConfigDirFlag)
 }
 
 func main() {
