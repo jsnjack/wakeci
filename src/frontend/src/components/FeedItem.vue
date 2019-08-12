@@ -18,7 +18,6 @@
     </td>
     <td class="actions">
       <router-link :to="{ name: 'build', params: { id: build.id}}" class="btn btn-primary item-action">Open</router-link>
-      <RunJobButton :params="build.params" :buttonTitle="'Rerun'" :jobName="build.name" class="item-action"></RunJobButton>
       <a v-if="!isDone" :href="getAbortURL" @click.prevent="abort" class="btn btn-error item-action">Abort</a>
     </td>
   </tr>
@@ -27,13 +26,12 @@
 <script>
 import BuildStatus from "@/components/BuildStatus";
 import BuildProgress from "@/components/BuildProgress";
-import RunJobButton from "@/components/RunJobButton";
 import Duration from "@/components/Duration";
 import axios from "axios";
 import {APIURL} from "@/store/communication";
 
 export default {
-    components: {BuildStatus, BuildProgress, Duration, RunJobButton},
+    components: {BuildStatus, BuildProgress, Duration},
     props: {
         build: {
             type: Object,
