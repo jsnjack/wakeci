@@ -2,6 +2,7 @@ package main
 
 import (
 	"math/rand"
+	"regexp"
 	"time"
 )
 
@@ -31,4 +32,14 @@ func GenerateRandomString(n int) string {
 	}
 
 	return string(b)
+}
+
+// Copied from https://github.com/acarl005/stripansi/blob/master/stripansi.go
+const colorEscapeCodes = "[\u001B\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PRZcf-ntqry=><~]))"
+
+var colorEscapeCodesRE = regexp.MustCompile(colorEscapeCodes)
+
+// StripColor removes color escape codes from string
+func StripColor(str string) string {
+	return colorEscapeCodesRE.ReplaceAllString(str, "")
 }

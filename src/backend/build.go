@@ -158,6 +158,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 		for {
 			select {
 			case line := <-taskCmd.Stdout:
+				line = StripColor(line)
 				_, err := bw.WriteString(line + "\n")
 				if err != nil {
 					b.Logger.Println(err)
@@ -165,6 +166,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 				b.PublishCommandLogs(task.ID, x, line)
 				x++
 			case line := <-taskCmd.Stderr:
+				line = StripColor(line)
 				_, err := bw.WriteString(line + "\n")
 				if err != nil {
 					b.Logger.Println(err)
