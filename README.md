@@ -8,14 +8,14 @@ wakeci
 - [x] Artifacts
 
 # Impovements high
-- [ ] Parallel tasks(?)
+- [ ] ~~Parallel tasks(?)~~
 - [x] ~~Post tasks (always executed)~~ Replaced with on status change handlers
 - [x] Reload logs messes up order
 - [x] Add cron-like features
-- [ ] Add default env variables: workspace, build_id ...
+- [x] Add default env variables: workspace, build_id ...
 - [x] Handlers on failure, on abort..?
 - [ ] A token to only run task ang get status update
-- [ ] Cleanups
+- [x] Cleanups
 
 # Improvements low
 - [x] Use monospace font for logs
@@ -26,7 +26,7 @@ wakeci
 - [x] When job was started
 - [ ] Timestamps to logs
 - [x] Total time to finish build/task
-- [ ] Collapse logs on the Build page
+- [ ] ~~Collapse logs on the Build page~~
 
 # Improvements super low
 - [ ] Make it all pretty
