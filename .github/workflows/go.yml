@@ -24,7 +24,7 @@ jobs:
         go get github.com/GeertJohan/go.rice/rice
         dep ensure
 
-     - name: Build frontend
+    - name: Build frontend
       working-directory: ${{ go.module-path }}/src/frontend
       run: |
         npm install
