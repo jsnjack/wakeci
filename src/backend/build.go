@@ -118,7 +118,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	// Construct environment from params
 	taskCmd.Env = os.Environ()
 	taskCmd.Dir = b.GetWorkspaceDir()
-	taskCmd.Env = b.generateDefaultEnvVariables()
+	taskCmd.Env = append(taskCmd.Env, b.generateDefaultEnvVariables()...)
 	for idx := range b.Params {
 		for pkey, pval := range b.Params[idx] {
 			taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", pkey, pval))
