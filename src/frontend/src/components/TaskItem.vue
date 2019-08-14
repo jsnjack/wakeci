@@ -14,7 +14,7 @@
       </div>
     </div>
     <div class="log-container text-left code">
-      <pre v-for="item in sortedLogs" :key="item.id" class="d-block">{{ item.data }}</pre>
+      <pre v-for="item in sortedLogs" :key="item.id" class="d-block log-line">{{ item.data }}</pre>
     </div>
   </section>
 </template>
@@ -93,6 +93,10 @@ export default {
     padding-left: 1em;
     margin: 0;
   }
+}
+
+.log-line {
+    white-space: pre-wrap;
 }
 
 section {
