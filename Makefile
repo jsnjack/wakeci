@@ -12,7 +12,8 @@ else
 endif
 
 export VUE_APP_VERSION = ${VERSION}-${VUE_VERSION_SUFFIX}
-export GOPATH = ${PWD}:${GOPATH}
+GOPATH = ${PWD}:${GOPATH}
+export GOPATH
 
 .ONESHELL:
 src/backend/wakeci: version src/backend/*.go
