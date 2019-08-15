@@ -23,7 +23,6 @@ src/backend/wakeci: version src/backend/*.go
 
 .ONESHEL:
 bin/wakeci: version src/backend/*.go
-	env
 	go get github.com/golang/dep/cmd/dep || exit 1
 	go get github.com/GeertJohan/go.rice/rice || exit 1
 	cd src/backend
