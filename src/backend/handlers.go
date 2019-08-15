@@ -560,6 +560,7 @@ func HandleDeleteJob(w http.ResponseWriter, r *http.Request, ps httprouter.Param
 	if _, err := os.Stat(path); err == nil {
 		err = os.Remove(path)
 		logger.Printf("Job %s was deleted\n", name)
+		CleanupJobsBucket()
 		if err != nil {
 			logger.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)

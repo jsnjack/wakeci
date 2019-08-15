@@ -142,6 +142,7 @@ func main() {
 	C = cron.New()
 	C.Start()
 
+	CleanupJobsBucket()
 	ScanAllJobs()
 	CleanupOldBuilds(BuildCleanupPeriod)
 
