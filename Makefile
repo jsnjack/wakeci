@@ -12,8 +12,7 @@ else
 endif
 
 export VUE_APP_VERSION = ${VERSION}-${VUE_VERSION_SUFFIX}
-GOPATH = ${PWD}:${GOPATH}
-export GOPATH
+export GOPATH = ${PWD}:/home/${USER}/go
 
 .ONESHELL:
 src/backend/wakeci: version src/backend/*.go
@@ -24,6 +23,7 @@ src/backend/wakeci: version src/backend/*.go
 
 .ONESHEL:
 bin/wakeci: version src/backend/*.go
+	env
 	go get github.com/golang/dep/cmd/dep || exit 1
 	go get github.com/GeertJohan/go.rice/rice || exit 1
 	cd src/backend
