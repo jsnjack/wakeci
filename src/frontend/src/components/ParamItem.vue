@@ -1,5 +1,5 @@
 <template>
-  <div class="chip">{{ getName }} = {{ getValue }}</div>
+  <div class="label label-rounded param">{{ getName }} = {{ getValue }}</div>
 </template>
 
 <script>
@@ -24,5 +24,8 @@ export default {
 <style scoped lang="scss">
 .param {
   margin: 0.25em;
+}
+.param:hover{
+    cursor: default;
 }
 </style>

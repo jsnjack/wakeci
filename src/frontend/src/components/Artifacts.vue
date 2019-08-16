@@ -1,7 +1,7 @@
 <template>
   <section>
     <div class="divider" data-content="artifacts"></div>
-    <div class="chip" v-for="item in artifacts" :key="item">
+    <div class="label label-rounded artifact" v-for="item in artifacts" :key="item">
         <a :href="downloadURL(item)">{{ item }}</a>
     </div>
   </section>
@@ -31,4 +31,7 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+.artifact {
+    margin: 0.25em;
+}
 </style>

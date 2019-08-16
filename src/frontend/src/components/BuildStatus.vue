@@ -1,5 +1,5 @@
 <template>
-    <span class="chip label" :class="getStatusClass">{{ status }}</span>
+    <span class="label label-rounded" :class="getStatusClass">{{ status }}</span>
 </template>
 
 <script>
@@ -29,4 +29,10 @@ export default {
 </script>
 
 <style scoped lang="scss">
+span {
+    margin: 0.25em;
+}
+span:hover{
+    cursor: default;
+}
 </style>
