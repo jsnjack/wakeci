@@ -48,7 +48,6 @@ export default {
             required: true,
         },
         jobName: {
-            type: String,
             required: true,
         },
     },
