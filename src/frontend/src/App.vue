@@ -1,6 +1,6 @@
 <template>
   <div id="app">
-    <header class="navbar bg-primary">
+    <header class="navbar" :class="getHeaderClass">
       <section class="navbar-section">
         <small class="text-gray">v {{ getVesion }}</small>
       </section>
@@ -32,6 +32,12 @@ export default {
         ...vuex.mapState(["ws", "auth"]),
         getVesion: function() {
             return process.env.VUE_APP_VERSION || "0.0.0";
+        },
+        getHeaderClass: function() {
+            if (this.$store.state.ws.connected) {
+                return "header-connected";
+            }
+            return "header-disconnected";
         },
     },
     methods: {
@@ -89,6 +95,18 @@ export default {
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
   color: #2c3e50;
+}
+
+.navbar {
+    transition: background-color 1000ms linear;
+}
+
+.header-connected {
+    background: $primary-color;
+}
+
+.header-disconnected {
+    background: #6f6f94;
 }
 
 .my-noty {
