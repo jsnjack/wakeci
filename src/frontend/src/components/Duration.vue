@@ -1,9 +1,16 @@
 <template>
-  <span>{{durationText }}</span>
+  <span
+    class="label label-rounded tooltip tooltip-right"
+    :data-tooltip="tooltipText"
+  >{{ durationText }}</span>
 </template>
 
 <script>
-import {runningDuration, doneDuration, updateDurationPeriod} from "@/duration";
+import {
+    runningDuration,
+    doneDuration,
+    updateDurationPeriod,
+} from "@/duration";
 
 export default {
     props: {
@@ -31,6 +38,10 @@ export default {
             }
             return false;
         },
+        tooltipText() {
+            const d = new Date(this.item.startedAt).toLocaleTimeString();
+            return `Started at: ${d}`;
+        },
     },
     methods: {
         updateDuration() {
@@ -53,9 +64,12 @@ export default {
             if (this.isDone) {
                 clearInterval(this.updateInterval);
             } else if (this.item.status === "running" && !this.updateInterval) {
-                this.updateInterval = setInterval(function() {
-                    this.updateDuration();
-                }.bind(this), updateDurationPeriod);
+                this.updateInterval = setInterval(
+                    function() {
+                        this.updateDuration();
+                    }.bind(this),
+                    updateDurationPeriod
+                );
             }
             this.updateDuration();
         },
@@ -70,4 +84,7 @@ export default {
 </script>
 
 <style scoped lang="scss">
+span:hover {
+  cursor: default;
+}
 </style>

@@ -5,7 +5,7 @@
         <div class="card-title h5">{{ statusUpdate.name }} #{{ statusUpdate.id }}</div>
         <div class="card-subtitle text-gray">{{ job.desc }}</div>
         <BuildStatus :status="statusUpdate.status"></BuildStatus>
-        <Duration v-show="statusUpdate.status !== 'pending'" :item="statusUpdate" class="chip"></Duration>
+        <Duration v-show="statusUpdate.status !== 'pending'" :item="statusUpdate"></Duration>
         <RunJobButton
           :params="statusUpdate.params"
           :buttonTitle="'Rerun'"

@@ -4,21 +4,30 @@
       <router-link :to="{ name: 'build', params: { id: build.id}}">{{ build.id }}</router-link>
     </td>
     <td>{{ build.name }}</td>
-    <td class="hide-xs hide-sm">
-        {{ getParamsText }}
-    </td>
+    <td class="hide-xs hide-sm">{{ getParamsText }}</td>
     <td class="tooltip tooltip-right hide-xs hide-sm" :data-tooltip="getProgressTooltip">
-      <BuildProgress :done="getDoneTasks" :total="getTotalTasks"/>
+      <BuildProgress :done="getDoneTasks" :total="getTotalTasks" />
     </td>
     <td>
       <BuildStatus :status="build.status"></BuildStatus>
     </td>
     <td class="hide-xs">
-        <Duration v-show="build.status !== 'pending'" :item="build" class="chip"></Duration>
+      <Duration
+        v-show="build.status !== 'pending'"
+        :item="build"
+      ></Duration>
     </td>
     <td class="actions">
-      <router-link :to="{ name: 'build', params: { id: build.id}}" class="btn btn-primary item-action">Open</router-link>
-      <a v-if="!isDone" :href="getAbortURL" @click.prevent="abort" class="btn btn-error item-action">Abort</a>
+      <router-link
+        :to="{ name: 'build', params: { id: build.id}}"
+        class="btn btn-primary item-action"
+      >Open</router-link>
+      <a
+        v-if="!isDone"
+        :href="getAbortURL"
+        @click.prevent="abort"
+        class="btn btn-error item-action"
+      >Abort</a>
     </td>
   </tr>
 </template>
@@ -69,14 +78,18 @@ export default {
         },
         getParamsText() {
             if (this.build.params) {
-                return this.build.params.map((v) => v[Object.keys(v)[0]]).join(", ").substring(0, 50);
+                return this.build.params
+                    .map((v) => v[Object.keys(v)[0]])
+                    .join(", ")
+                    .substring(0, 50);
             }
             return "";
         },
     },
     methods: {
         abort(event) {
-            axios.post(event.target.href)
+            axios
+                .post(event.target.href)
                 .then((response) => {
                     this.$notify({
                         text: `${this.build.id} has been aborted`,
@@ -92,6 +105,6 @@ export default {
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="scss">
 .item-action {
-    margin: 0.25em;
+  margin: 0.25em;
 }
 </style>

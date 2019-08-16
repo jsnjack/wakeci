@@ -6,7 +6,7 @@
         <div class="task-header text-left" :class="getBorderClass">
           <span class="h5">{{ name }}</span>
           <BuildStatus :status="task.status"></BuildStatus>
-          <Duration v-show="task.status !== 'pending'" :item="task" class="chip text-small"></Duration>
+          <Duration v-show="task.status !== 'pending'" :item="task" class="text-small"></Duration>
         </div>
       </div>
       <div class="column text-right">
