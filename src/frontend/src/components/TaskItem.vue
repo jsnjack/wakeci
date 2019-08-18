@@ -122,6 +122,7 @@ export default {
 
 .log-line {
     white-space: pre-wrap;
+    word-break: break-word;
 }
 
 section {
