@@ -189,6 +189,10 @@ func (b *Build) runTask(task *Task) ItemStatus {
 
 	// Run and wait for Cmd to return
 	status := <-taskCmd.Start()
+	b.Logger.Printf(
+		"Task %d result: Completed: %v, Exit code %d, Error %s",
+		task.ID, status.Complete, status.Exit, status.Error,
+	)
 
 	// Cmd has finished but wait for goroutine to print all lines
 	for len(taskCmd.Stdout) > 0 || len(taskCmd.Stderr) > 0 {
@@ -202,7 +206,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 		return StatusAborted
 	}
 
-	if status.Exit != 0 {
+	if !status.Complete || status.Exit != 0 || status.Error != nil {
 		return StatusFailed
 	}
 	return StatusFinished
