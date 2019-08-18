@@ -35,7 +35,6 @@
 <script>
 import RunFormItem from "@/components/RunFormItem";
 import axios from "axios";
-import {APIURL} from "@/store/communication";
 
 export default {
     components: {RunFormItem},
@@ -63,7 +62,7 @@ export default {
         run(event) {
             this.toggleModal();
             const url =
-        `${APIURL}/job/${this.jobName}/run?` +
+        `/api/job/${this.jobName}/run?` +
         new URLSearchParams(
             Array.from(new FormData(this.$refs.form))
         ).toString();

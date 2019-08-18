@@ -61,7 +61,6 @@
 
 <script>
 import JobItem from "@/components/JobItem";
-import {APIURL} from "@/store/communication";
 import axios from "axios";
 
 export default {
@@ -77,7 +76,7 @@ export default {
     methods: {
         fetch() {
             axios
-                .get(APIURL + "/jobs/")
+                .get("/api/jobs/")
                 .then((response) => {
                     this.jobs = response.data || [];
                 })
@@ -90,7 +89,7 @@ export default {
             const data = new FormData();
             data.append("name", this.newJobName);
             axios
-                .post(`${APIURL}/jobs/create`, data)
+                .post("/api/jobs/create", data)
                 .then((response) => {
                     this.toggle();
                     this.$notify({

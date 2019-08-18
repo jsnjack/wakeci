@@ -37,7 +37,6 @@ import BuildStatus from "@/components/BuildStatus";
 import BuildProgress from "@/components/BuildProgress";
 import Duration from "@/components/Duration";
 import axios from "axios";
-import {APIURL} from "@/store/communication";
 
 export default {
     components: {BuildStatus, BuildProgress, Duration},
@@ -65,7 +64,7 @@ export default {
             return this.getMainTasks.length;
         },
         getAbortURL: function() {
-            return `${APIURL}/build/${this.build.id}/abort`;
+            return `/api/build/${this.build.id}/abort`;
         },
         isDone() {
             switch (this.build.status) {

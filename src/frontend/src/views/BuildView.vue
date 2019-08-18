@@ -41,7 +41,6 @@
 </template>
 
 <script>
-import {APIURL} from "@/store/communication";
 import axios from "axios";
 import BuildStatus from "@/components/BuildStatus";
 import Duration from "@/components/Duration";
@@ -97,7 +96,7 @@ export default {
         },
         fetch() {
             axios
-                .get(APIURL + `/build/${this.id}/`)
+                .get(`/api/build/${this.id}/`)
                 .then((response) => {
                     this.statusUpdate = response.data.status_update;
                     this.job = response.data.job;

@@ -21,7 +21,7 @@
 <script>
 import vuex from "vuex";
 import axios from "axios";
-import {AUTHURL, getWSURL} from "@/store/communication";
+import {getWSURL} from "@/store/communication";
 import wsMessageHandler from "./store/communication";
 
 export default {
@@ -74,7 +74,7 @@ export default {
         },
         logOut: function() {
             axios
-                .get(AUTHURL + "/logout/")
+                .get("/auth/logout/")
                 .then((response) => {
                     this.$store.commit("LOG_OUT");
                     this.$router.push("/login");

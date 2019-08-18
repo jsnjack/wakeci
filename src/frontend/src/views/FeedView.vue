@@ -31,7 +31,6 @@
 
 <script>
 import FeedItem from "@/components/FeedItem";
-import {APIURL} from "@/store/communication";
 import axios from "axios";
 import {findInContainer} from "@/store/utils";
 
@@ -81,7 +80,7 @@ export default {
         },
         fetch() {
             axios
-                .get(APIURL + "/feed/?page=" + this.page)
+                .get("/api/feed/?page=" + this.page)
                 .then((response) => {
                     this.builds = response.data || [];
                 })

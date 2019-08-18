@@ -1,6 +1,3 @@
-export const APIURL = "/api";
-export const AUTHURL = "/auth";
-
 const wsMessageHandler = function(app, data) {
     const msg = JSON.parse(data);
     if (msg.type.startsWith("build:log:")) {

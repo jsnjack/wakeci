@@ -26,7 +26,6 @@
 </template>
 
 <script>
-import {APIURL} from "@/store/communication";
 import axios from "axios";
 
 export default {
@@ -40,7 +39,7 @@ export default {
             data.append("concurrentBuilds", this.concurrentBuilds);
             data.append("buildHistorySize", this.buildHistorySize);
             axios
-                .post(APIURL + "/settings/", data, {
+                .post("/api/settings/", data, {
                     headers: {
                         "Content-type": "application/x-www-form-urlencoded",
                     },
@@ -54,7 +53,7 @@ export default {
                 .catch((error) => {});
         },
         fetch() {
-            axios.get(APIURL + "/settings/")
+            axios.get("/api/settings/")
                 .then((response) => {
                     if (response.data.concurrentBuilds) {
                         this.concurrentBuilds = response.data.concurrentBuilds;

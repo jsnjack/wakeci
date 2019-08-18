@@ -37,7 +37,6 @@
 
 <script>
 import axios from "axios";
-import {APIURL} from "@/store/communication";
 import RunJobButton from "@/components/RunJobButton";
 
 export default {
@@ -50,7 +49,7 @@ export default {
     components: {RunJobButton},
     methods: {
         deleteJob(event) {
-            const url = `${APIURL}/job/${this.job.name}/`;
+            const url = `/api/job/${this.job.name}/`;
             axios
                 .delete(url)
                 .then((response) => {

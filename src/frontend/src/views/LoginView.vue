@@ -15,7 +15,6 @@
 </template>
 
 <script>
-import {AUTHURL} from "@/store/communication";
 import axios from "axios";
 import vuex from "vuex";
 
@@ -32,7 +31,7 @@ export default {
     methods: {
         fetch() {
             axios
-                .get(AUTHURL + "/_isLoggedIn/")
+                .get("/auth/_isLoggedIn/")
                 .then((response) => {
                     this.$store.commit("LOG_IN");
                     this.$router.push(this.getRedirectURL);
@@ -45,7 +44,7 @@ export default {
                 data.append("password", this.password);
             }
             axios
-                .post(AUTHURL + "/login/", data, {
+                .post("/auth/login/", data, {
                     headers: {
                         "Content-type": "application/x-www-form-urlencoded",
                     },
