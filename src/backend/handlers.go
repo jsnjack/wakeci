@@ -1,11 +1,9 @@
 package main
 
 import (
-	"bufio"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -226,76 +224,6 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 		return
 	}
 	w.Write(payloadB)
-}
-
-// HandleReloadTaskLog broadcasts all logs from a filesystem file
-func HandleReloadTaskLog(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	logger, ok := r.Context().Value(HL).(*log.Logger)
-	if !ok {
-		logger = Logger
-	}
-
-	buildID := ps.ByName("id")
-	taskID := ps.ByName("taskID")
-	// Verify ids
-	_, err := strconv.Atoi(buildID)
-	if err != nil {
-		logger.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
-		return
-	}
-	taskIDint, err := strconv.Atoi(taskID)
-	if err != nil {
-		logger.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
-		return
-	}
-
-	path := *WorkingDirFlag + "wakespace/" + buildID + "/" + "task_" + taskID + ".log"
-	// Verify that path exists
-	_, err = os.Stat(path)
-	if err != nil {
-		logger.Println(err)
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(err.Error()))
-		return
-	}
-	// Read file
-	f, err := os.OpenFile(path, os.O_RDONLY, os.ModePerm)
-	if err != nil {
-		logger.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
-		return
-	}
-	defer f.Close()
-
-	rd := bufio.NewReader(f)
-	var counter int
-	for {
-		line, err := rd.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			logger.Println(err)
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-			return
-		}
-		msg := MsgBroadcast{
-			Type: "build:log:" + buildID,
-			Data: &CommandLogData{
-				TaskID: taskIDint,
-				ID:     counter,
-				Data:   line,
-			},
-		}
-		counter++
-		BroadcastChannel <- &msg
-	}
 }
 
 // HandleAbortBuild aborts build

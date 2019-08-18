@@ -22,7 +22,7 @@
 <script>
 import BuildStatus from "@/components/BuildStatus";
 import Duration from "@/components/Duration";
-import {APIURL} from "@/store/communication";
+import {findInContainer} from "@/store/utils";
 import axios from "axios";
 
 export default {
@@ -33,23 +33,26 @@ export default {
         task: {
             required: true,
         },
-        logs: {
+        name: {
             required: true,
         },
-        name: {
+        follow: {
             required: true,
         },
     },
     components: {BuildStatus, Duration},
+    mounted() {
+        this.$on("new:log", this.addLog);
+    },
+    destroyed() {
+        this.$off(this.addLog);
+    },
     computed: {
         getDividerText: function() {
             return `task #${this.task.id}`;
         },
         sortedLogs: function() {
-            if (!this.logs) {
-                return this.logs;
-            }
-            return [...this.logs].sort((a, b) => a.id > b.id);
+            return [...this.logItems].sort((a, b) => a.id > b.id);
         },
         isVisible: function() {
             // Show only "main" tasks or tasks that were started. For example,
@@ -67,16 +70,38 @@ export default {
     methods: {
         reloadLogs() {
             axios
-                .get(APIURL + `/build/${this.buildID}/log/${this.task.id}/`)
+                .get(`/storage/build/${this.buildID}/task_${this.task.id}.log`)
                 .then((response) => {
                     this.$notify({
                         text: "Reloading logs...",
                         type: "success",
                         duration: 1000,
                     });
+                    response.data.split("\n").forEach((element, index) => {
+                        this.addLog({
+                            "id": index,
+                            "data": element,
+                        });
+                    });
                 })
                 .catch((error) => {});
         },
+        addLog(log) {
+            const index = findInContainer(this.logItems, "id", log.id);
+            if (index[0] === undefined) {
+                this.logItems.push(log);
+                if (this.follow) {
+                    this.$nextTick(() => {
+                        this.$el.scrollIntoView(false);
+                    });
+                }
+            }
+        },
+    },
+    data: function() {
+        return {
+            logItems: [],
+        };
     },
 };
 </script>

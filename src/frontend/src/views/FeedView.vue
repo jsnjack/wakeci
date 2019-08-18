@@ -41,6 +41,7 @@ export default {
     mounted() {
         this.fetch();
         this.subscribe();
+        this.$on("new:log", this.applyNewLog);
     },
     destroyed() {
         this.unsubscribe();

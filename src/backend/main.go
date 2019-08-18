@@ -186,7 +186,6 @@ func main() {
 
 	router.GET("/api/build/:id/", LogMi(CORSMi(AuthMi(HandleGetBuild))))
 	router.POST("/api/build/:id/abort", LogMi(CORSMi(AuthMi(HandleAbortBuild))))
-	router.GET("/api/build/:id/log/:taskID/", LogMi(CORSMi(AuthMi(HandleReloadTaskLog))))
 
 	router.POST("/api/settings/", LogMi(CORSMi(AuthMi(HandleSettingsPost))))
 	router.GET("/api/settings/", LogMi(CORSMi(AuthMi(HandleSettingsGet))))

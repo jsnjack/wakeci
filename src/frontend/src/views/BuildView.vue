@@ -26,8 +26,8 @@
       :task="item"
       :buildID="id"
       :buildStatus="statusUpdate.status"
-      :logs="job.tasks[item.id].logs"
       :name="job.tasks[item.id].name"
+      :follow="follow"
       :ref="'task-'+item.id"
     ></TaskItem>
     <Artifacts :artifacts="getArtifacts" :buildID="statusUpdate.id"></Artifacts>
@@ -108,24 +108,7 @@ export default {
             // Get index of a task
             const index = findInContainer(this.job.tasks, "id", ev.taskID)[1];
             if (index !== undefined) {
-                if (this.job.tasks[index].logs === null) {
-                    // Initialize container
-                    this.job.tasks[index].logs = [];
-                }
-                // Check if log with this index already exists
-                const logIndex = findInContainer(
-                    this.job.tasks[index].logs,
-                    "id",
-                    ev.id
-                );
-                if (logIndex[0] === undefined) {
-                    this.job.tasks[index].logs.push(ev);
-                    if (this.follow) {
-                        this.$nextTick(() => {
-                            this.$refs["task-" + index][0].$el.scrollIntoView(false);
-                        });
-                    }
-                }
+                this.$refs["task-" + index][0].$emit("new:log", ev);
             } else {
                 console.log("Unable to find task:", ev);
             }
