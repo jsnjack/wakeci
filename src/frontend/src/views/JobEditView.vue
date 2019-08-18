@@ -1,13 +1,37 @@
 <template>
   <div class="container text-left">
-      <h4 class="text-center title">Edit {{ name }}</h4>
-      <div>
-        <codemirror :code="job.fileContent" :options="codeMirrorOptions" @input="onCodeChange"></codemirror>
+    <h4 class="text-center title">Edit {{ name }}</h4>
+    <div>
+      <codemirror :code="job.fileContent" :options="editorOptions" @input="onCodeChange"></codemirror>
+    </div>
+    <div class="divider"></div>
+    <div class="text-right">
+      <button @click.prevent="toggleHelpModal" class="btn btn-link">Show description</button>
+      <a href="#" @click.prevent="save" class="btn btn-primary">Save</a>
+    </div>
+
+    <div class="modal modal-lg" v-bind:class="{active: helpModalOpen}">
+      <a href="#close" @click.prevent="toggleHelpModal" class="modal-overlay" aria-label="Close"></a>
+      <div class="modal-container">
+        <div class="modal-header">
+          <a href="#close" @click.prevent="toggleHelpModal" class="btn btn-clear float-right" aria-label="Close"></a>
+          <div class="modal-title text-uppercase">Job format description</div>
+        </div>
+        <div class="modal-body">
+          <div class="content">
+            <codemirror
+              :ref="'codeViewer'"
+              class="codemirror-viewer"
+              :code="configFormatContent"
+              :options="viewerOptions"
+            ></codemirror>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <a href="#close" @click.prevent="toggleHelpModal" class="btn btn-link">Close</a>
+        </div>
       </div>
-      <div class="divider"></div>
-      <div class="text-center">
-        <a href="#" @click.prevent="save" class="btn btn-primary">Save</a>
-      </div>
+    </div>
   </div>
 </template>
 
@@ -16,6 +40,7 @@ import axios from "axios";
 import {codemirror} from "vue-codemirror";
 import "codemirror/lib/codemirror.css";
 import "codemirror/mode/yaml/yaml.js";
+import description from "raw-loader!@/assets/configDescription.yaml";
 
 export default {
     props: {
@@ -59,18 +84,30 @@ export default {
                 })
                 .catch((error) => {});
         },
+        toggleHelpModal(event) {
+            this.helpModalOpen = !this.helpModalOpen;
+            this.$refs.codeViewer.refresh();
+        },
     },
     data: function() {
         return {
             job: {
                 fileContent: "",
             },
-            codeMirrorOptions: {
+            editorOptions: {
                 tabSize: 2,
                 mode: "text/x-yaml",
                 lineNumbers: true,
                 line: true,
             },
+            viewerOptions: {
+                tabSize: 2,
+                mode: "text/x-yaml",
+                lineNumbers: false,
+                readOnly: true,
+            },
+            configFormatContent: description,
+            helpModalOpen: false,
         };
     },
 };
@@ -83,13 +120,15 @@ export default {
 </style>
 
 <style lang="scss" scoped>
+@import "@/assets/colors.scss";
+
 .form-input {
   width: 30%;
 }
 .title {
-    margin-top: 1em;
+  margin-top: 1em;
 }
 .btn {
-    margin: 1em;
+  margin: 1em;
 }
 </style>

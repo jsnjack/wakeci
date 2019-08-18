@@ -51,9 +51,6 @@ export default {
         },
     },
     computed: {
-        ismodalOpen: function() {
-            return this.modalOpen;
-        },
         getModalTitle: function() {
             return `${this.jobName} job parameters`;
         },

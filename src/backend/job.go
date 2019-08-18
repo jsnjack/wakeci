@@ -14,44 +14,14 @@ import (
 	bolt "github.com/etcd-io/bbolt"
 )
 
-// NewJobTemplate is a template for newly created jobs. Suppose to also
-// demonstrate all possible functionality
+// NewJobTemplate is a template for newly created jobs
+// See configDescription.yaml for functionality demonstration
 var NewJobTemplate = strings.Trim(`
 
-desc: Ask a cow to say something smart
-# 'params' are injected as environmetal variables
-params:
-  - SLEEP: 5
-
+desc: New job
 tasks:
-  - name: Waking up a cow
-    command: sleep ${SLEEP}
-
-  - name: Cow says
-    command: fortune | cowsay
-
-# List of patterns according to https://golang.org/pkg/path/filepath/#Match
-# related to the workspce directory
-artifacts:
-  - "*.tar.gz"
-
-# Automatically run the job every configured interval (cron expression)
-# More info https://godoc.org/github.com/robfig/cron
-interval: "@daily"
-
-# On status change handlers (on_pending, on_running, on_aborted, on_failed,
-# on_finished)
-on_pending:
-  - name: Log a call
-    command: logger "Looking for a suitable cow"
-
-# Available environmetal variables:
-# WAKE_BUILD_ID - current build id, e.g. 169
-# WAKE_BUILD_WORKSPACE - path to the builds workspace
-# WAKE_JOB_NAME - name of the job, e.g. ask_a_cow
-# WAKE_CONFIG_DIR - path to the directory with all jobs
-# WAKE_URL - URL of the service, e.g. https://myci.space/
-
+  - name: Print kernel information
+    command: uname -a
 `, "\n ")
 
 // ConfigExt ...
