@@ -16,7 +16,7 @@ import (
 	"github.com/bmatcuk/doublestar"
 
 	bolt "github.com/etcd-io/bbolt"
-	"github.com/go-cmd/cmd"
+	"github.com/jsnjack/cmd"
 )
 
 // ItemStatus handles information about the item status (currently is used for
@@ -113,6 +113,8 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	}
 
 	// Create Cmd with options
+	// Modify default streaming buffer size (thanks, webpack)
+	cmd.DEFAULT_LINE_BUFFER_SIZE = 163840
 	taskCmd := cmd.NewCmdOptions(cmdOptions, "bash", "-c", task.Command)
 
 	// Construct environment from params
