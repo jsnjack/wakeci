@@ -4,6 +4,7 @@
       <div>
         <codemirror :code="job.fileContent" :options="codeMirrorOptions" @input="onCodeChange"></codemirror>
       </div>
+      <div class="divider"></div>
       <div class="text-center">
         <a href="#" @click.prevent="save" class="btn btn-primary">Save</a>
       </div>
@@ -87,5 +88,8 @@ export default {
 }
 .title {
     margin-top: 1em;
+}
+.btn {
+    margin: 1em;
 }
 </style>
