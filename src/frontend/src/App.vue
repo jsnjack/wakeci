@@ -117,6 +117,11 @@ export default {
   background: $primary-color;
   border-left: 5px solid $primary-color-dark;
 
+  & a {
+      color: $light-color;
+      text-decoration: underline;
+  }
+
   &.warn {
     background: $warning-color;
     border-left-color: darken($warning-color, 10%);
