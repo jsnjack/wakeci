@@ -114,7 +114,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 
 	// Create Cmd with options
 	// Modify default streaming buffer size (thanks, webpack)
-	cmd.DEFAULT_LINE_BUFFER_SIZE = 163840
+	cmd.DEFAULT_LINE_BUFFER_SIZE = 491520
 	taskCmd := cmd.NewCmdOptions(cmdOptions, "bash", "-c", task.Command)
 
 	// Construct environment from params
