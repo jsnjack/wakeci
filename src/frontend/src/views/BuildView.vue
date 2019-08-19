@@ -6,12 +6,20 @@
         <div class="card-subtitle text-gray">{{ job.desc }}</div>
         <BuildStatus :status="statusUpdate.status"></BuildStatus>
         <Duration v-show="statusUpdate.status !== 'pending'" :item="statusUpdate"></Duration>
-        <RunJobButton
-          :params="statusUpdate.params"
-          :buttonTitle="'Rerun'"
-          :jobName="statusUpdate.name"
-          class="item-action float-right"
-        ></RunJobButton>
+        <div class="float-right">
+            <a
+                v-if="!isDone"
+                :href="getAbortURL"
+                @click.prevent="abort"
+                class="btn btn-error item-action"
+            >Abort</a>
+            <RunJobButton
+            :params="statusUpdate.params"
+            :buttonTitle="'Rerun'"
+            :jobName="statusUpdate.name"
+            class="item-action"
+            ></RunJobButton>
+        </div>
       </div>
       <div class="card-footer">
         <BuildProgress :done="getDoneTasks" :total="getTotalTasks"></BuildProgress>
@@ -103,6 +111,17 @@ export default {
                 })
                 .catch((error) => {});
         },
+        abort(event) {
+            axios
+                .post(event.target.href)
+                .then((response) => {
+                    this.$notify({
+                        text: `${this.id} has been aborted`,
+                        type: "success",
+                    });
+                })
+                .catch((error) => {});
+        },
         applyBuildLog(ev) {
             // Get index of a task
             const index = findInContainer(this.job.tasks, "id", ev.taskID)[1];
@@ -136,6 +155,18 @@ export default {
         getArtifacts() {
             return this.statusUpdate.artifacts || [];
         },
+        getAbortURL: function() {
+            return `/api/build/${this.id}/abort`;
+        },
+        isDone() {
+            switch (this.statusUpdate.status) {
+            case "failed":
+            case "finished":
+            case "aborted":
+                return true;
+            }
+            return false;
+        },
     },
     data: function() {
         return {
@@ -159,5 +190,8 @@ export default {
 }
 summary:hover {
   cursor: pointer;
+}
+.item-action {
+    margin: 0.25em;
 }
 </style>
