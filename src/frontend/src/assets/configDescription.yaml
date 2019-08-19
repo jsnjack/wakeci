@@ -19,6 +19,10 @@ artifacts:
 # More info https://godoc.org/github.com/robfig/cron
 interval: "@daily"
 
+# Abort the job if it takes more than specified amount of time to finish
+# Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
+timeout: 5m30s
+
 # List of tasks executed on build's status change
 # Available handlers:
 #  - on_pending

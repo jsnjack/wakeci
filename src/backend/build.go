@@ -51,6 +51,7 @@ type Build struct {
 	Artifacts      []string
 	StartedAt      time.Time
 	Duration       time.Duration
+	timer          *time.Timer // A timer for Job.Timeout
 }
 
 // Start starts execution of tasks in job
@@ -233,6 +234,9 @@ func (b *Build) generateDefaultEnvVariables() []string {
 
 // Cleanup is called when a job finished or failed
 func (b *Build) Cleanup() {
+	if b.timer != nil {
+		b.timer.Stop()
+	}
 	Q.Remove(b.ID)
 	Q.Take()
 }
@@ -382,6 +386,23 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		break
 	case StatusRunning:
 		b.StartedAt = time.Now()
+		// Start timeout if available
+		if b.Job.Timeout != "" {
+			duration, err := time.ParseDuration(b.Job.Timeout)
+			if err != nil {
+				b.Logger.Println(err)
+			} else {
+				b.timer = time.NewTimer(duration)
+				go func() {
+					<-b.timer.C
+					b.Logger.Printf("Build %d has timed out\n", b.ID)
+					err = Q.Abort(b.ID)
+					if err != nil {
+						b.Logger.Println(err)
+					}
+				}()
+			}
+		}
 		b.runOnStatusTasks(status)
 		break
 	case StatusAborted:
