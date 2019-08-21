@@ -4,7 +4,9 @@
       <router-link :to="{ name: 'build', params: { id: build.id}}">{{ build.id }}</router-link>
     </td>
     <td>{{ build.name }}</td>
-    <td class="hide-xs hide-sm">{{ getParamsText }}</td>
+    <td class="hide-xs hide-sm">
+        <div class="label param tooltip" :data-tooltip="getParamsTooltip">{{ getParamsText }}</div>
+    </td>
     <td class="tooltip tooltip-right hide-xs hide-sm" :data-tooltip="getProgressTooltip">
       <BuildProgress :done="getDoneTasks" :total="getTotalTasks" />
     </td>
@@ -77,10 +79,15 @@ export default {
         },
         getParamsText() {
             if (this.build.params) {
+                return Object.values(this.build.params[0])[0].substring(0, 20);
+            }
+            return "";
+        },
+        getParamsTooltip() {
+            if (this.build.params) {
                 return this.build.params
                     .map((v) => v[Object.keys(v)[0]])
-                    .join(", ")
-                    .substring(0, 50);
+                    .join("\n");
             }
             return "";
         },
@@ -105,5 +112,11 @@ export default {
 <style scoped lang="scss">
 .item-action {
   margin: 0.25em;
+}
+.param {
+  margin: 0.25em;
+}
+.param:hover{
+    cursor: default;
 }
 </style>
