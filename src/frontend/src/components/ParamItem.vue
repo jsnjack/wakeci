@@ -1,5 +1,5 @@
 <template>
-  <div class="label label-rounded param">{{ getName }} = {{ getValue }}</div>
+  <div class="label param">{{ getName }} = {{ getValue }}</div>
 </template>
 
 <script>

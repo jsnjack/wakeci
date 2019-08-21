@@ -1,6 +1,6 @@
 <template>
   <span
-    class="label label-rounded tooltip tooltip-right"
+    class="label tooltip tooltip-right"
     :data-tooltip="tooltipText"
   >{{ durationText }}</span>
 </template>
