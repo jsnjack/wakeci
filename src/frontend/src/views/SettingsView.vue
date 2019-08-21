@@ -1,6 +1,6 @@
 <template>
-  <div class="container">
-    <form class="card col-6 col-mx-auto" method="post" @submit.prevent="save">
+  <div class="container grid-sm">
+    <form class="card" method="post" @submit.prevent="save">
       <div class="card-header">
         <div class="card-title h5">Settings</div>
       </div>

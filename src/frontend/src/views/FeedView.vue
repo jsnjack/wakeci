@@ -1,11 +1,11 @@
 <template>
-  <div class="container">
+  <div class="container grid-xl">
     <table class="table table-striped">
       <thead>
         <th>#</th>
         <th>Name</th>
         <th class="hide-xs hide-sm">Params</th>
-        <th class="hide-xs hide-sm">Tasks</th>
+        <th class="hide-xs hide-sm hide-md">Tasks</th>
         <th>Status</th>
         <th class="hide-xs">Duration</th>
         <th>Actions</th>

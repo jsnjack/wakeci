@@ -1,6 +1,6 @@
 <template>
-  <div class="container">
-    <form class="card col-4 col-mx-auto" method="post" @submit.prevent="logIn">
+  <div class="container grid-xs">
+    <form class="card" method="post" @submit.prevent="logIn">
       <div class="card-header">
         <div class="card-title h5">Password</div>
       </div>

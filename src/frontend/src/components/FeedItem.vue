@@ -3,11 +3,13 @@
     <td>
       <router-link :to="{ name: 'build', params: { id: build.id}}">{{ build.id }}</router-link>
     </td>
-    <td>{{ build.name }}</td>
+    <td>
+        <div class="cell-name">{{ build.name }}</div>
+    </td>
     <td class="hide-xs hide-sm">
         <div class="label param tooltip" :data-tooltip="getParamsTooltip">{{ getParamsText }}</div>
     </td>
-    <td class="tooltip tooltip-right hide-xs hide-sm" :data-tooltip="getProgressTooltip">
+    <td class="tooltip tooltip-right hide-xs hide-sm hide-md" :data-tooltip="getProgressTooltip">
       <BuildProgress :done="getDoneTasks" :total="getTotalTasks" />
     </td>
     <td>
@@ -118,5 +120,11 @@ export default {
 }
 .param:hover{
     cursor: default;
+}
+.cell-name{
+    max-width: 20ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 </style>
