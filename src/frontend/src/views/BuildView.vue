@@ -75,6 +75,7 @@ export default {
         RunJobButton,
     },
     mounted() {
+        document.title = `#${this.id} - wakeci`;
         this.fetch();
         this.subscribe();
     },

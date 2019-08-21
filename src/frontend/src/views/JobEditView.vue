@@ -52,6 +52,7 @@ export default {
         codemirror,
     },
     mounted() {
+        document.title = `Edit ${this.name} - wakeci`;
         this.fetch();
     },
     methods: {

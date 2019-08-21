@@ -20,6 +20,7 @@ import vuex from "vuex";
 
 export default {
     mounted() {
+        document.title = "Login - wakeci";
         this.fetch();
     },
     computed: {

@@ -38,6 +38,7 @@ import {findInContainer} from "@/store/utils";
 export default {
     components: {FeedItem},
     mounted() {
+        document.title = "Feed - wakeci";
         this.fetch();
         this.subscribe();
         this.$on("new:log", this.applyNewLog);

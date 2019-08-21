@@ -66,6 +66,7 @@ import axios from "axios";
 export default {
     components: {JobItem},
     mounted() {
+        document.title = "Jobs - wakeci";
         this.fetch();
     },
     computed: {

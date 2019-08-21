@@ -30,6 +30,7 @@ import axios from "axios";
 
 export default {
     mounted() {
+        document.title = "Settings - wakeci";
         this.fetch();
     },
     methods: {
