@@ -4,6 +4,7 @@
       <thead>
         <th>Name</th>
         <th>Interval</th>
+        <th>Active</th>
         <th>Actions</th>
       </thead>
       <tbody>

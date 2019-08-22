@@ -183,6 +183,7 @@ func main() {
 	router.DELETE("/api/job/:name/", LogMi(CORSMi(AuthMi(HandleDeleteJob))))
 	router.POST("/api/job/:name/", LogMi(CORSMi(AuthMi(HandleJobPost))))
 	router.GET("/api/job/:name/", LogMi(CORSMi(AuthMi(HandleJobGet))))
+	router.POST("/api/job/:name/set_active/", LogMi(CORSMi(AuthMi(HandleJobSetActive))))
 
 	router.GET("/api/build/:id/", LogMi(CORSMi(AuthMi(HandleGetBuild))))
 	router.POST("/api/build/:id/abort", LogMi(CORSMi(AuthMi(HandleAbortBuild))))

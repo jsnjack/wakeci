@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/url"
 	"path/filepath"
@@ -199,6 +200,13 @@ func ScanAllJobs() error {
 			if err != nil {
 				return err
 			}
+			isActive := jb.Get([]byte("active"))
+			if isActive == nil {
+				err = jb.Put([]byte("active"), []byte("true"))
+				if err != nil {
+					return err
+				}
+			}
 			return nil
 		})
 		if err != nil {
@@ -215,6 +223,26 @@ func ScanAllJobs() error {
 
 // RunJob creates a new build and schedules it for execution
 func RunJob(name string, params url.Values) (*Build, error) {
+	// Check if job is enabled
+	err := DB.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(JobsBucket))
+		jb := b.Bucket([]byte(name))
+		if jb == nil {
+			return fmt.Errorf("Invalid job name: %s", name)
+		}
+		isActive := jb.Get([]byte("active"))
+		if isActive == nil {
+			return fmt.Errorf("Unknown if job %s is active", name)
+		}
+		if string(isActive) != "true" {
+			return fmt.Errorf("Job %s is not enabled", name)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	jobFile := *ConfigDirFlag + name + ".yaml"
 	job, err := CreateJobFromFile(jobFile)
 	if err != nil {

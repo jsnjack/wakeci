@@ -5,8 +5,14 @@
         <small>{{ job.desc }}</small>
     </td>
     <td>{{ job.interval }}</td>
+    <td>
+      <label class="form-switch">
+        <input type="checkbox" v-model="isActive" @click.prevent="toggleIsActive"/>
+        <i class="form-icon"></i>
+      </label>
+    </td>
     <td class="actions">
-      <RunJobButton :params="job.defaultParams" :buttonTitle="'Start'" :jobName="job.name" class="item-action"></RunJobButton>
+      <RunJobButton v-show="isActive" :params="job.defaultParams" :buttonTitle="'Start'" :jobName="job.name" class="item-action"></RunJobButton>
       <router-link :to="{ name: 'jobEdit', params: { name: job.name}}" class="btn btn-primary item-action">Edit</router-link>
       <a @click.prevent="toggleModalDelete" href="#" class="btn btn-error item-action">Delete</a>
 
@@ -47,6 +53,8 @@ export default {
         },
     },
     components: {RunJobButton},
+    computed: {
+    },
     methods: {
         deleteJob(event) {
             const url = `/api/job/${this.job.name}/`;
@@ -65,10 +73,26 @@ export default {
         toggleModalDelete() {
             this.modalDelete = !this.modalDelete;
         },
+        toggleIsActive() {
+            const url = `/api/job/${this.job.name}/set_active/`;
+            const data = new FormData();
+            data.append("active", String(!this.isActive));
+            axios
+                .post(url, data)
+                .then((response) => {
+                    this.$notify({
+                        text: `Job ${this.job.name} is ` + (response.data ? "enabled" : "disabled"),
+                        type: "success",
+                    });
+                    this.isActive = response.data;
+                })
+                .catch((error) => {});
+        },
     },
     data: function() {
         return {
             modalDelete: false,
+            isActive: this.job.active === "true",
         };
     },
 };

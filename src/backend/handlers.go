@@ -205,6 +205,8 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 				job.Desc = string(desc)
 				interval := jb.Get([]byte("interval"))
 				job.Interval = string(interval)
+				active := jb.Get([]byte("active"))
+				job.Active = string(active)
 			}
 			data = append(data, &job)
 		}
@@ -506,4 +508,47 @@ func HandleDeleteJob(w http.ResponseWriter, r *http.Request, ps httprouter.Param
 		w.Write([]byte(err.Error()))
 		return
 	}
+}
+
+// HandleJobSetActive sets if job is active (enabled/disabled)
+func HandleJobSetActive(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	logger, ok := r.Context().Value(HL).(*log.Logger)
+	if !ok {
+		logger = Logger
+	}
+
+	name := ps.ByName("name")
+
+	activeStatus := r.FormValue("active")
+
+	switch activeStatus {
+	case "false", "true":
+		break
+	default:
+		m := fmt.Sprintf("Invalid active flag for a job: %s\n", activeStatus)
+		logger.Printf("Invalid active flag for a job: %s\n", activeStatus)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(m))
+		return
+	}
+
+	err := DB.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(JobsBucket))
+		jb := b.Bucket([]byte(name))
+		if jb == nil {
+			return fmt.Errorf("Invalid job name: %s", name)
+		}
+		err := jb.Put([]byte("active"), []byte(activeStatus))
+		if err == nil {
+			logger.Printf("Change active state of job %s to %s\n", name, activeStatus)
+		}
+		return err
+	})
+	if err != nil {
+		logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
+	w.Write([]byte(activeStatus))
 }

@@ -34,6 +34,7 @@ type JobsListData struct {
 	Desc          string              `json:"desc"`
 	DefaultParams []map[string]string `json:"defaultParams"`
 	Interval      string              `json:"interval"`
+	Active        string              `json:"active"`
 }
 
 // TaskStatus contains basic info about a task, used for status updates
