@@ -109,6 +109,7 @@ export default {
                 .then((response) => {
                     this.statusUpdate = response.data.status_update;
                     this.job = response.data.job;
+                    this.updateTitle();
                 })
                 .catch((error) => {});
         },
@@ -134,6 +135,10 @@ export default {
         },
         applyBuildUpdate(ev) {
             this.statusUpdate = Object.assign({}, this.statusUpdate, ev);
+            this.updateTitle();
+        },
+        updateTitle() {
+            document.title = `#${this.id} - ${this.statusUpdate.status} - wakeci`;
         },
     },
     computed: {
