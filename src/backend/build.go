@@ -153,26 +153,27 @@ func (b *Build) runTask(task *Task) ItemStatus {
 		}
 
 		// Add executed command to logs
-		_, err = bw.WriteString(task.Command + "\n")
+		commandInfo := b.ProcessLogEntry(task.Command, task.startedAt)
+		_, err = bw.WriteString(commandInfo)
 		if err != nil {
 			b.Logger.Println(err)
 		}
-		b.PublishCommandLogs(task.ID, 0, task.Command)
+		b.PublishCommandLogs(task.ID, 0, commandInfo)
 
 		x := 1
 		for {
 			select {
 			case line := <-taskCmd.Stdout:
-				line = StripColor(line)
-				_, err := bw.WriteString(line + "\n")
+				line = b.ProcessLogEntry(line, task.startedAt)
+				_, err := bw.WriteString(line)
 				if err != nil {
 					b.Logger.Println(err)
 				}
 				b.PublishCommandLogs(task.ID, x, line)
 				x++
 			case line := <-taskCmd.Stderr:
-				line = StripColor(line)
-				_, err := bw.WriteString(line + "\n")
+				line = b.ProcessLogEntry(line, task.startedAt)
+				_, err := bw.WriteString(line)
 				if err != nil {
 					b.Logger.Println(err)
 				}
@@ -331,6 +332,11 @@ func (b *Build) PublishCommandLogs(taskID int, id int, data string) {
 		},
 	}
 	BroadcastChannel <- &msg
+}
+
+// ProcessLogEntry adds duration and a new line to the log entry; stips out color info
+func (b *Build) ProcessLogEntry(line string, startedAt time.Time) string {
+	return fmt.Sprintf("[%10s] ", time.Since(startedAt).Truncate(time.Millisecond).String()) + StripColor(line) + "\n"
 }
 
 // GetWorkspaceDir returns path to the workspace, where all user created files
