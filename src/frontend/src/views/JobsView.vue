@@ -3,8 +3,8 @@
     <table class="table table-striped">
       <thead>
         <th>Name</th>
-        <th>Interval</th>
-        <th>Active</th>
+        <th class="hide-sm">Interval</th>
+        <th class="hide-sm">Active</th>
         <th>Actions</th>
       </thead>
       <tbody>

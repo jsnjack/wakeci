@@ -1,19 +1,28 @@
 <template>
   <tr>
     <td>
-        <div>{{ job.name }}</div>
-        <small>{{ job.desc }}</small>
+      <div>{{ job.name }}</div>
+      <small>{{ job.desc }}</small>
     </td>
-    <td>{{ job.interval }}</td>
-    <td>
+    <td class="hide-sm">{{ job.interval }}</td>
+    <td class="hide-sm">
       <label class="form-switch">
-        <input type="checkbox" v-model="isActive" @click.prevent="toggleIsActive"/>
+        <input type="checkbox" v-model="isActive" @click.prevent="toggleIsActive" />
         <i class="form-icon"></i>
       </label>
     </td>
     <td class="actions">
-      <RunJobButton v-show="isActive" :params="job.defaultParams" :buttonTitle="'Start'" :jobName="job.name" class="item-action"></RunJobButton>
-      <router-link :to="{ name: 'jobEdit', params: { name: job.name}}" class="btn btn-primary item-action">Edit</router-link>
+      <RunJobButton
+        v-show="isActive"
+        :params="job.defaultParams"
+        :buttonTitle="'Start'"
+        :jobName="job.name"
+        class="item-action"
+      ></RunJobButton>
+      <router-link
+        :to="{ name: 'jobEdit', params: { name: job.name}}"
+        class="btn btn-primary item-action"
+      >Edit</router-link>
       <a @click.prevent="toggleModalDelete" href="#" class="btn btn-error item-action">Delete</a>
 
       <div class="modal" v-bind:class="{active: modalDelete}">
@@ -53,8 +62,7 @@ export default {
         },
     },
     components: {RunJobButton},
-    computed: {
-    },
+    computed: {},
     methods: {
         deleteJob(event) {
             const url = `/api/job/${this.job.name}/`;
@@ -81,7 +89,9 @@ export default {
                 .post(url, data)
                 .then((response) => {
                     this.$notify({
-                        text: `Job ${this.job.name} is ` + (response.data ? "enabled" : "disabled"),
+                        text:
+              `Job ${this.job.name} is ` +
+              (response.data ? "enabled" : "disabled"),
                         type: "success",
                     });
                     this.isActive = response.data;
@@ -101,6 +111,6 @@ export default {
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="scss">
 .item-action {
-    margin: 0.25em;
+  margin: 0.25em;
 }
 </style>
