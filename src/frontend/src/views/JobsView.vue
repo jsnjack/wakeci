@@ -1,5 +1,5 @@
 <template>
-  <div class="container grid-lg">
+  <div class="container grid-xl">
     <table class="table table-striped">
       <thead>
         <th>Name</th>
