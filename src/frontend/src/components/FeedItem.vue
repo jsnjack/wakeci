@@ -7,7 +7,7 @@
         <div class="cell-name">{{ build.name }}</div>
     </td>
     <td class="hide-xs hide-sm">
-        <div class="label param tooltip" :data-tooltip="getParamsTooltip">{{ getParamsText }}</div>
+        <div v-show="build.params" class="label param tooltip" :data-tooltip="getParamsTooltip">{{ getParamsText }}</div>
     </td>
     <td class="tooltip tooltip-right hide-xs hide-sm hide-md" :data-tooltip="getProgressTooltip">
       <BuildProgress :done="getDoneTasks" :total="getTotalTasks" />
