@@ -127,4 +127,9 @@ export default {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+@media (max-width: 480px) {
+    .cell-name{
+        max-width: 15ch;
+    }
+}
 </style>
