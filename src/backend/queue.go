@@ -19,15 +19,36 @@ type Queue struct {
 func (q *Queue) Take() {
 	q.mutex.Lock()
 	toRun := len(q.running) < q.concurrentBuilds && len(q.queued) > 0
+	var foundItem bool
+	var foundItemID int
 	if toRun {
-		Logger.Printf("Taking build from queue %d\n", q.queued[0].ID)
-		q.running = append(q.running, q.queued[0])
-		go q.queued[0].Start()
-		q.queued[0] = nil
-		q.queued = q.queued[1:]
+	QLoop:
+		for id, qItem := range q.queued {
+			Logger.Printf("Inspecting build %d from queue\n", qItem.ID)
+			if !qItem.Job.AllowParallel {
+				// Verify that other build of the same job is not running
+				for _, rItem := range q.running {
+					if rItem.Job.Name == qItem.Job.Name {
+						continue QLoop
+					}
+				}
+			}
+			foundItem = true
+			foundItemID = id
+			break
+		}
+		if foundItem {
+			Logger.Printf("Running item %d, build %d\n", foundItemID, q.queued[foundItemID].ID)
+			q.running = append(q.running, q.queued[foundItemID])
+			go q.queued[foundItemID].Start()
+			q.queued[foundItemID] = nil
+			q.queued = append(q.queued[:foundItemID], q.queued[foundItemID+1:]...)
+		} else {
+			Logger.Println("Nothing to run")
+		}
 	}
 	q.mutex.Unlock()
-	if toRun {
+	if toRun && foundItem {
 		q.Take()
 	}
 	Logger.Printf("Executing %d builds, %d in queue\n", len(q.running), len(q.queued))

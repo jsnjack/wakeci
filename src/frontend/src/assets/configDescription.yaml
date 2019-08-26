@@ -23,6 +23,9 @@ interval: "@daily"
 # Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
 timeout: 5m30s
 
+# Designates if parallel builds of the same job are allowed
+allow_parallel: no
+
 # List of tasks executed on build's status change
 # Available handlers:
 #  - on_pending

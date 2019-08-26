@@ -41,6 +41,7 @@ type Job struct {
 	Artifacts     []string            `yaml:"artifacts" json:"artifacts"`
 	Interval      string              `yaml:"interval" json:"interval"`
 	Timeout       string              `yaml:"timeout" json:"timeout"`
+	AllowParallel bool                `yaml:"allow_parallel"`
 }
 
 // AddToCron adds a job to cron
