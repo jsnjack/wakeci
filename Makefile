@@ -21,14 +21,12 @@ src/backend/wakeci: version src/backend/*.go
 	rm -f rice-box.go
 	go build -ldflags="-X main.Version=${VERSION}" -o ${BINARY}
 
-.ONESHEL:
+.ONESHELL:
 bin/wakeci: version src/backend/*.go
-	go get github.com/golang/dep/cmd/dep || exit 1
-	go get github.com/GeertJohan/go.rice/rice || exit 1
 	cd src/backend
-	dep ensure
+	dep ensure || exit 1
 	rm -f rice-box.go
-	rice embed-go
+	rice embed-go || exit 1
 	go build -ldflags="-X main.Version=${VERSION}" -o ${BINARY}
 	mv wakeci ${PWD}/bin/
 
