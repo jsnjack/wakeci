@@ -39,7 +39,7 @@ export default {
             return false;
         },
         tooltipText() {
-            const d = new Date(this.item.startedAt).toLocaleTimeString();
+            const d = new Date(this.item.startedAt).toLocaleString();
             return `Started at: ${d}`;
         },
     },
