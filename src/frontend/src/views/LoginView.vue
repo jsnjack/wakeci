@@ -1,6 +1,6 @@
 <template>
-  <div class="container grid-xs">
-    <form class="card" method="post" @submit.prevent="logIn">
+  <div class="container grid-xs" v-bind:class="{'loading loading-lg': fetching}">
+    <form v-show="!fetching" class="card" method="post" @submit.prevent="logIn">
       <div class="card-header">
         <div class="card-title h5">Password</div>
       </div>
@@ -36,8 +36,11 @@ export default {
                 .then((response) => {
                     this.$store.commit("LOG_IN");
                     this.$router.push(this.getRedirectURL);
+                    this.fetching = false;
                 })
-                .catch((error) => {});
+                .catch((error) => {
+                    this.fetching = false;
+                });
         },
         logIn() {
             const data = new FormData();
@@ -59,6 +62,7 @@ export default {
     },
     data: function() {
         return {
+            fetching: true,
             password: "",
         };
     },
@@ -69,5 +73,8 @@ export default {
 <style scoped lang="scss">
 .card {
   margin-top: 1em;
+}
+.loading {
+    min-height: 80vh;
 }
 </style>
