@@ -53,8 +53,8 @@ var S *SessionStorage
 func init() {
 	PortFlag = flag.String("port", "8081", "Port to start the server on")
 	HostnameFlag = flag.String("hostname", "", "Hostname for autocert. Active only when port is 443")
-	WorkingDirFlag = flag.String("wdir", ".wakeci/", "Working directory")
-	ConfigDirFlag = flag.String("cdir", "./", "Configuration directory")
+	WorkingDirFlag = flag.String("wdir", ".wakeci/", "Working directory - workspace and build artifacts")
+	ConfigDirFlag = flag.String("cdir", "./", "Configuration directory - all your job files")
 	flag.Parse()
 
 	// Make *DirFlar paths absolute
