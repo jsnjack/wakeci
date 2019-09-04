@@ -4,6 +4,8 @@ wakeci
 ### What is it?
 wakeci is an automation tool which helps to execute repetitive tasks
 
+![ScreenShot](https://raw.githubusercontent.com/jsnjack/wakeci/master/screenshots/feed_view.png)
+
 ### Features
  - simple job configuration using YAML
  - easy to install - just download a binary file from Releases
