@@ -64,8 +64,9 @@ Usage of bin/wakeci:
     	Port to start the server on (default "8081")
   -wdir string
     	Working directory (default ".wakeci/")
-
 ```
+
+> Default password is `admin`. Don't forget to immediately change it!
 
 ### For developers
 #### Build dependencies
