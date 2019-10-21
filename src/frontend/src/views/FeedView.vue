@@ -1,5 +1,11 @@
 <template>
   <div class="container grid-xl">
+    <div class="input-group input-inline float-right py-1">
+      <input class="form-input" type="text" v-model="filter" />
+      <button class="btn btn-action" :class="{'loading': isFetching}">
+        <i class="icon" :class="filterIconType"></i>
+      </button>
+    </div>
     <table class="table table-striped">
       <thead>
         <th>#</th>
@@ -17,7 +23,11 @@
     <div class="empty" v-show="Object.keys(builds).length === 0">
       <p class="empty-title h5">Empty</p>
     </div>
-    <button @click.prevent="fetch(true)" class="btn btn-link float-right" :class="{'loading': isFetching}">more...</button>
+    <button
+      @click.prevent="fetch(true)"
+      class="btn btn-link float-right"
+      :class="{'loading': isFetching}"
+    >more...</button>
   </div>
 </template>
 
@@ -25,21 +35,63 @@
 import FeedItem from "@/components/FeedItem";
 import axios from "axios";
 import {findInContainer} from "@/store/utils";
+import _ from "lodash";
 
 export default {
     components: {FeedItem},
     mounted() {
         document.title = "Feed - wakeci";
         this.fetch();
+        // First time, fetch immediately
+        this.fetch.flush();
         this.subscribe();
         this.$on("new:log", this.applyNewLog);
     },
     destroyed() {
         this.unsubscribe();
     },
+    created() {
+        this.fetch = _.debounce((more = false) => {
+            this.isFetching = true;
+            let offset = 0;
+            if (more) {
+                offset = this.builds.length;
+            }
+            axios
+                .get(`/api/feed/?offset=${offset}&filter=${this.filter}`)
+                .then((response) => {
+                    this.isFetching = false;
+                    (response.data || []).forEach((element) => {
+                        this.applyUpdate(element);
+                    });
+                })
+                .catch((error) => {});
+            this.filterIsDirty = false;
+        }, 500);
+    },
     computed: {
         sortedBuilds: function() {
             return [...this.builds].sort((a, b) => a.id < b.id);
+        },
+        filterIconType: function() {
+            if (this.isFetching) {
+                return "";
+            }
+            if (this.filterIsDirty) {
+                return "icon-more-horiz";
+            }
+            if (this.filter === "") {
+                return "icon-search";
+            }
+            return "icon-cross";
+        },
+    },
+    watch: {
+        filter: function() {
+            this.filterIsDirty = true;
+            // Reset builds if user starts to change filter
+            this.builds = [];
+            this.fetch();
         },
     },
     methods: {
@@ -61,22 +113,7 @@ export default {
             });
             this.$eventHub.$off(this.subscription);
         },
-        fetch(more=false) {
-            let offset = 0;
-            if (more) {
-                offset = this.builds.length;
-            }
-            this.isFetching = true;
-            axios
-                .get("/api/feed/?offset=" + offset)
-                .then((response) => {
-                    this.isFetching = false;
-                    (response.data || []).forEach((element) => {
-                        this.applyUpdate(element);
-                    });
-                })
-                .catch((error) => {});
-        },
+        fetch() {},
         applyUpdate(ev) {
             const index = findInContainer(this.builds, "id", ev.id)[1];
             if (index !== undefined) {
@@ -94,7 +131,9 @@ export default {
         return {
             builds: [],
             subscription: "build:update:",
-            isFetching: false,
+            isFetching: false, // request to the server is in progress
+            filterIsDirty: false, // when user is still typing
+            filter: "", // sent to the server, to filter builds out
         };
     },
 };

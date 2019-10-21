@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	bolt "github.com/etcd-io/bbolt"
 	"github.com/julienschmidt/httprouter"
@@ -128,6 +129,8 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 		offset = 1
 	}
 
+	filter := r.URL.Query().Get("filter")
+
 	var payload []*BuildUpdateData
 	err = DB.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(HistoryBucket))
@@ -158,6 +161,11 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 						b.Put(Itob(msg.ID), updatedB)
 					}
 					break
+				}
+				if filter != "" {
+					if !strings.Contains(fmt.Sprintf("%v", msg.Params), filter) {
+						continue
+					}
 				}
 				payload = append(payload, &msg)
 				count++
