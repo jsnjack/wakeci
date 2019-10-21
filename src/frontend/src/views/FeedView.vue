@@ -2,7 +2,7 @@
   <div class="container grid-xl">
     <div class="input-group input-inline float-right py-1">
       <input class="form-input" type="text" v-model="filter" />
-      <button class="btn btn-action" :class="{'loading': isFetching}">
+      <button @click.prevent="clearFilter" class="btn btn-action" :class="{'loading': isFetching}">
         <i class="icon" :class="filterIconType"></i>
       </button>
     </div>
@@ -125,6 +125,11 @@ export default {
             } else {
                 this.builds.push(ev);
             }
+        },
+        clearFilter() {
+            this.filter = "";
+            this.fetch();
+            this.fetch.flush();
         },
     },
     data: function() {
