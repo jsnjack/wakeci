@@ -24,6 +24,7 @@
       <p class="empty-title h5">Empty</p>
     </div>
     <button
+      v-show="moreEnabled"
       @click.prevent="fetch(true)"
       class="btn btn-link float-right"
       :class="{'loading': isFetching}"
@@ -36,6 +37,8 @@ import FeedItem from "@/components/FeedItem";
 import axios from "axios";
 import {findInContainer} from "@/store/utils";
 import _ from "lodash";
+
+const FetchItemsSize = 10;
 
 export default {
     components: {FeedItem},
@@ -61,9 +64,17 @@ export default {
                 .get(`/api/feed/?offset=${offset}&filter=${this.filter}`)
                 .then((response) => {
                     this.isFetching = false;
-                    (response.data || []).forEach((element) => {
+                    const data = response.data || [];
+                    data.forEach((element) => {
                         this.applyUpdate(element);
                     });
+                    if (data.length < FetchItemsSize) {
+                        // Server returned less than pageSize, so no more builds
+                        // available
+                        this.moreEnabled = false;
+                    } else {
+                        this.moreEnabled = true;
+                    }
                 })
                 .catch((error) => {});
             this.filterIsDirty = false;
@@ -139,6 +150,7 @@ export default {
             isFetching: false, // request to the server is in progress
             filterIsDirty: false, // when user is still typing
             filter: "", // sent to the server, to filter builds out
+            moreEnabled: true, // if makes sense to load more builds from the server
         };
     },
 };
