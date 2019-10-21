@@ -1,7 +1,12 @@
 <template>
   <div class="container grid-xl">
     <div class="input-group input-inline float-right py-1">
-      <input class="form-input" type="text" v-model="filter" />
+      <input
+        class="form-input"
+        type="text"
+        v-model="filter"
+        title="Filter builds by ID, name, params and status"
+      />
       <button @click.prevent="clearFilter" class="btn btn-action" :class="{'loading': isFetching}">
         <i class="icon" :class="filterIconType"></i>
       </button>
