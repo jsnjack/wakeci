@@ -30,7 +30,7 @@
     </div>
     <button
       v-show="moreEnabled"
-      @click.prevent="fetch(true)"
+      @click.prevent="fetchNow(true)"
       class="btn btn-link float-right"
       :class="{'loading': isFetching}"
     >more...</button>
@@ -49,9 +49,7 @@ export default {
     components: {FeedItem},
     mounted() {
         document.title = "Feed - wakeci";
-        this.fetch();
-        // First time, fetch immediately
-        this.fetch.flush();
+        this.fetchNow();
         this.subscribe();
         this.$on("new:log", this.applyNewLog);
     },
@@ -130,6 +128,10 @@ export default {
             this.$eventHub.$off(this.subscription);
         },
         fetch() {},
+        fetchNow(more=false) {
+            this.fetch(more);
+            this.fetch.flush();
+        },
         applyUpdate(ev) {
             const index = findInContainer(this.builds, "id", ev.id)[1];
             if (index !== undefined) {
@@ -144,8 +146,7 @@ export default {
         },
         clearFilter() {
             this.filter = "";
-            this.fetch();
-            this.fetch.flush();
+            this.fetchNow();
         },
     },
     data: function() {
