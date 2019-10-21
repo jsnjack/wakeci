@@ -143,7 +143,13 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 		}
 		// Find starting point
 		fromB := make([]byte, 8)
-		binary.BigEndian.PutUint64(fromB, binary.BigEndian.Uint64(lastK)-uint64(offset))
+		if filter == "" {
+			binary.BigEndian.PutUint64(fromB, binary.BigEndian.Uint64(lastK)-uint64(offset))
+		} else {
+			// If interval is specified, always iterate from the beginning to take
+			// into account offset later
+			fromB = lastK
+		}
 		for key, v := c.Seek(fromB); key != nil; key, v = c.Prev() {
 			var msg BuildUpdateData
 			err := json.Unmarshal(v, &msg)
@@ -163,13 +169,17 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 					break
 				}
 				if filter != "" {
-					if !strings.Contains(fmt.Sprintf("%v %v %v %v", msg.ID, msg.Name, msg.Status, msg.Params), filter) {
+					if strings.Contains(fmt.Sprintf("%v %v %v %v", msg.ID, msg.Name, msg.Status, msg.Params), filter) {
+						count++
+						if count <= offset {
+							continue
+						}
+					} else {
 						continue
 					}
 				}
 				payload = append(payload, &msg)
-				count++
-				if count >= pageSize {
+				if len(payload) >= pageSize {
 					break
 				}
 			}
