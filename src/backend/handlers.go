@@ -163,7 +163,7 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 					break
 				}
 				if filter != "" {
-					if !strings.Contains(fmt.Sprintf("%v", msg.Params), filter) {
+					if !strings.Contains(fmt.Sprintf("%v %v %v %v", msg.ID, msg.Name, msg.Status, msg.Params), filter) {
 						continue
 					}
 				}
