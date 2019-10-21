@@ -17,15 +17,7 @@
     <div class="empty" v-show="Object.keys(builds).length === 0">
       <p class="empty-title h5">Empty</p>
     </div>
-    <ul class="pagination float-right">
-      <li class="page-item" v-bind:class="{ disabled: isFirstPage }">
-        <a href="#" @click.prevent="fetchPrevious">Previous</a>
-      </li>
-      <li>|</li>
-      <li class="page-item" v-bind:class="{ disabled: isLastPage }">
-        <a href="#" @click.prevent="fetchNext">Next</a>
-      </li>
-    </ul>
+    <button @click.prevent="fetch(true)" class="btn btn-link float-right" :class="{'loading': isFetching}">more...</button>
   </div>
 </template>
 
@@ -33,7 +25,6 @@
 import FeedItem from "@/components/FeedItem";
 import axios from "axios";
 import {findInContainer} from "@/store/utils";
-
 
 export default {
     components: {FeedItem},
@@ -46,18 +37,9 @@ export default {
     destroyed() {
         this.unsubscribe();
     },
-    watch: {
-        "$route.query.page": "onQueryChange",
-    },
     computed: {
         sortedBuilds: function() {
             return [...this.builds].sort((a, b) => a.id < b.id);
-        },
-        isFirstPage: function() {
-            return this.page === 1;
-        },
-        isLastPage: function() {
-            return this.builds.length === 0;
         },
     },
     methods: {
@@ -79,11 +61,19 @@ export default {
             });
             this.$eventHub.$off(this.subscription);
         },
-        fetch() {
+        fetch(more=false) {
+            let offset = 0;
+            if (more) {
+                offset = this.builds.length;
+            }
+            this.isFetching = true;
             axios
-                .get("/api/feed/?page=" + this.page)
+                .get("/api/feed/?offset=" + offset)
                 .then((response) => {
-                    this.builds = response.data || [];
+                    this.isFetching = false;
+                    (response.data || []).forEach((element) => {
+                        this.applyUpdate(element);
+                    });
                 })
                 .catch((error) => {});
         },
@@ -96,28 +86,15 @@ export default {
                     Object.assign({}, this.builds[index], ev)
                 );
             } else {
-                // Only push new items to the first page
-                if (this.page === 1) {
-                    this.builds.push(ev);
-                }
+                this.builds.push(ev);
             }
-        },
-        fetchNext() {
-            this.$router.push({path: "/", query: {page: this.page + 1}});
-        },
-        fetchPrevious() {
-            this.$router.push({path: "/", query: {page: this.page - 1}});
-        },
-        onQueryChange(val) {
-            this.page = val;
-            this.fetch();
         },
     },
     data: function() {
         return {
             builds: [],
             subscription: "build:update:",
-            page: this.$route.query.page || 1,
+            isFetching: false,
         };
     },
 };

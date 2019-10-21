@@ -5,7 +5,7 @@
         <small class="text-gray">v {{ getVesion }}</small>
       </section>
       <section class="navbar-center">
-        <router-link :to="{ path: '/', query: { page: 1 }}" class="btn btn-link text-light">Feed</router-link>
+        <router-link to="/" class="btn btn-link text-light">Feed</router-link>
         <router-link to="/jobs" class="btn btn-link text-light">Jobs</router-link>
         <router-link to="/settings" class="btn btn-link text-light">Settings</router-link>
       </section>

@@ -117,16 +117,15 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 
 	const pageSize = 10
 
-	pageS := r.URL.Query().Get("page")
-	pageI, err := strconv.Atoi(pageS)
+	offsetS := r.URL.Query().Get("offset")
+	offset, err := strconv.Atoi(offsetS)
 	if err != nil {
-		logger.Printf("Invalid page %s", pageS)
-		pageI = 1
+		logger.Printf("Invalid offset %s", offsetS)
 		return
 	}
 
-	if pageI < 1 {
-		pageI = 1
+	if offset < 0 {
+		offset = 1
 	}
 
 	var payload []*BuildUpdateData
@@ -141,7 +140,7 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 		}
 		// Find starting point
 		fromB := make([]byte, 8)
-		binary.BigEndian.PutUint64(fromB, binary.BigEndian.Uint64(lastK)-uint64((pageI-1)*pageSize))
+		binary.BigEndian.PutUint64(fromB, binary.BigEndian.Uint64(lastK)-uint64(offset))
 		for key, v := c.Seek(fromB); key != nil; key, v = c.Prev() {
 			var msg BuildUpdateData
 			err := json.Unmarshal(v, &msg)
