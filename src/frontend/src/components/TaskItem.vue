@@ -4,13 +4,20 @@
     <div class="columns">
       <div class="column">
         <div class="task-header text-left" :class="getBorderClass">
-          <span class="h5">{{ name }}</span>
           <BuildStatus :status="task.status"></BuildStatus>
-          <Duration v-show="task.status !== 'pending'" :item="task" class="text-small"></Duration>
+          <span class="h5">{{ name }}</span>
+          <Duration v-show="task.status !== 'pending'" :item="task" class="text-small m-1"></Duration>
         </div>
       </div>
       <div class="column text-right">
-        <button @click="reloadLogs" class="btn btn-sm btn-primary">Reload logs</button>
+        <button
+          @click="reloadLogs"
+          class="btn btn-sm btn-primary m-1 tooltip tooltip-left"
+          data-tooltip="Reload logs"
+        >
+          <i class="icon icon-refresh"></i>
+        </button>
+        <a :href="getLogURL" target="_blank" class="btn btn-sm">Open</a>
       </div>
     </div>
     <div class="log-container text-left code">
@@ -61,16 +68,21 @@ export default {
             if (this.task.kind === "main") {
                 return true;
             }
-            return !(this.task.startedAt && this.task.startedAt.indexOf("0001-") === 0);
+            return !(
+                this.task.startedAt && this.task.startedAt.indexOf("0001-") === 0
+            );
         },
         getBorderClass() {
             return `border-${this.task.kind}`;
+        },
+        getLogURL() {
+            return `/storage/build/${this.buildID}/task_${this.task.id}.log`;
         },
     },
     methods: {
         reloadLogs() {
             axios
-                .get(`/storage/build/${this.buildID}/task_${this.task.id}.log`)
+                .get(this.getLogURL)
                 .then((response) => {
                     this.$notify({
                         text: "Reloading logs...",
@@ -79,8 +91,8 @@ export default {
                     });
                     response.data.split("\n").forEach((element, index) => {
                         this.addLog({
-                            "id": index,
-                            "data": element,
+                            id: index,
+                            data: element,
                         });
                     });
                 })
@@ -121,8 +133,8 @@ export default {
 }
 
 .log-line {
-    white-space: pre-wrap;
-    word-break: break-word;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 section {
@@ -130,31 +142,26 @@ section {
   margin-bottom: 2em;
 }
 
-button {
-  margin-left: 1em;
-  margin-right: 1em;
-}
-
 .task-header {
   border-left: 0.2em solid;
   padding-left: 0.4em;
 }
 .border-main {
-    border-left-color: $primary-color;
+  border-left-color: $primary-color;
 }
 .border-pending {
-    border-left-color: $gray-color;
+  border-left-color: $gray-color;
 }
 .border-running {
-    border-left-color: $warning-color;
+  border-left-color: $warning-color;
 }
 .border-aborted {
-    border-left-color: $secondary-color;
+  border-left-color: $secondary-color;
 }
 .border-failed {
-    border-left-color: $error-color;
+  border-left-color: $error-color;
 }
 .border-finished {
-    border-left-color: $success-color;
+  border-left-color: $success-color;
 }
 </style>
