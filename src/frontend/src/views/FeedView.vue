@@ -4,7 +4,8 @@
       <input
         class="form-input"
         type="text"
-        v-model="filter"
+        :value="filter"
+        @input="evt=>filter=evt.target.value"
         title="Filter builds by ID, name, params and status"
       />
       <button @click.prevent="clearFilter" class="btn btn-action" :class="{'loading': isFetching}">
