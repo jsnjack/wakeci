@@ -146,8 +146,10 @@ export default {
             }
         },
         clearFilter() {
-            this.filter = "";
-            this.fetchNow();
+            if (!this.isFetching && !this.filterIsDirty) {
+                this.filter = "";
+                this.fetchNow();
+            }
         },
     },
     data: function() {
