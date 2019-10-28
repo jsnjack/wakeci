@@ -132,6 +132,12 @@ export default {
   }
 }
 
+@media (max-width: 600px) {
+    .log-container {
+        font-size: 60%;
+    }
+}
+
 .log-line {
   white-space: pre-wrap;
   word-break: break-word;
