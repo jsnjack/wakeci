@@ -1,8 +1,5 @@
 <template>
-  <span
-    class="label tooltip tooltip-right"
-    :data-tooltip="tooltipText"
-  >{{ durationText }}</span>
+  <span class="label tooltip tooltip-bottom" :data-tooltip="tooltipText">{{ durationText }}</span>
 </template>
 
 <script>
