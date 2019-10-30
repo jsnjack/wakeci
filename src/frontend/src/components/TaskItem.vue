@@ -10,14 +10,11 @@
         </div>
       </div>
       <div class="column text-right">
+        <a :href="getLogURL" target="_blank" class="btn btn-sm">Open</a>
         <button
           @click="reloadLogs"
-          class="btn btn-sm btn-primary m-1 tooltip tooltip-left"
-          data-tooltip="Reload logs"
-        >
-          <i class="icon icon-refresh"></i>
-        </button>
-        <a :href="getLogURL" target="_blank" class="btn btn-sm">Open</a>
+          class="btn btn-sm btn-primary m-1"
+        >Reload</button>
       </div>
     </div>
     <div class="log-container text-left code">
@@ -133,9 +130,9 @@ export default {
 }
 
 @media (max-width: 600px) {
-    .log-container {
-        font-size: 60%;
-    }
+  .log-container {
+    font-size: 60%;
+  }
 }
 
 .log-line {
