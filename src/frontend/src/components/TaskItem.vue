@@ -56,7 +56,15 @@ export default {
             return `task #${this.task.id}`;
         },
         sortedLogs: function() {
-            return [...this.logItems].sort((a, b) => a.id > b.id);
+            return [...this.logItems].sort((a, b) => {
+                if (a.id > b.id) {
+                    return 1;
+                }
+                if (a.id < b.id) {
+                    return -1;
+                }
+                return 0;
+            });
         },
         isVisible: function() {
             // Show only "main" tasks or tasks that were started. For example,
