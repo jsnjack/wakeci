@@ -86,7 +86,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:86a2feed7a6be48a559a2c869a7073922997e185f8b6ea260ce9037bd0b3ba12"
+  digest = "1:00520231dcb80e31f20c6fa4e94c6ded749be22d439e7c3abd28220d9eef26fc"
   name = "golang.org/x/crypto"
   packages = [
     "acme",
@@ -95,7 +95,7 @@
     "blowfish",
   ]
   pruneopts = "UT"
-  revision = "4def268fd1a49955bfb3dda92fe3db4f924f2285"
+  revision = "b544559bb6d1b5c62fba4af5e843ff542174f079"
 
 [[projects]]
   branch = "master"
