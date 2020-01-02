@@ -159,9 +159,8 @@ func (b *Build) runTask(task *Task) ItemStatus {
 		if err != nil {
 			b.Logger.Println(err)
 		}
-		b.PublishCommandLogs(task.ID, 0, commandInfo)
+		b.PublishCommandLogs(task.ID, commandInfo)
 
-		x := 1
 		for {
 			select {
 			case line := <-taskCmd.Stdout:
@@ -170,16 +169,14 @@ func (b *Build) runTask(task *Task) ItemStatus {
 				if err != nil {
 					b.Logger.Println(err)
 				}
-				b.PublishCommandLogs(task.ID, x, line)
-				x++
+				b.PublishCommandLogs(task.ID, line)
 			case line := <-taskCmd.Stderr:
 				line = b.ProcessLogEntry(line, task.startedAt)
 				_, err := bw.WriteString(line)
 				if err != nil {
 					b.Logger.Println(err)
 				}
-				b.PublishCommandLogs(task.ID, x, line)
-				x++
+				b.PublishCommandLogs(task.ID, line)
 			case <-fwChannel:
 				return
 			case toAbort := <-b.abortedChannel:
@@ -347,12 +344,11 @@ func (b *Build) GenerateBuildUpdateData() *BuildUpdateData {
 }
 
 // PublishCommandLogs sends log update to all subscribed users
-func (b *Build) PublishCommandLogs(taskID int, id int, data string) {
+func (b *Build) PublishCommandLogs(taskID int, data string) {
 	msg := MsgBroadcast{
 		Type: "build:log:" + strconv.Itoa(b.ID),
 		Data: &CommandLogData{
 			TaskID: taskID,
-			ID:     id,
 			Data:   data,
 		},
 	}
