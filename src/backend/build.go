@@ -131,56 +131,40 @@ func (b *Build) runTask(task *Task) ItemStatus {
 
 	fwChannel := make(chan bool)
 
+	// Configure task logs
+	file, err := os.Create(b.GetWakespaceDir() + fmt.Sprintf("task_%d.log", task.ID))
+	bw := bufio.NewWriter(file)
+	defer func() {
+		err = bw.Flush()
+		if err != nil {
+			b.Logger.Println(err)
+		}
+		err = file.Close()
+		if err != nil {
+			b.Logger.Println(err)
+		}
+	}()
+	if err != nil {
+		b.Logger.Println(err)
+		return StatusFailed
+	}
+
+	// Add executed command to logs
+	b.ProcessLogEntry(task.Command, bw, task.ID, task.startedAt)
+
 	// Print STDOUT and STDERR lines streaming from CmdLogger
 	go func() {
-		file, err := os.Create(b.GetWakespaceDir() + fmt.Sprintf("task_%d.log", task.ID))
-		bw := bufio.NewWriter(file)
-		defer func() {
-			err = bw.Flush()
-			if err != nil {
-				b.Logger.Println(err)
-			}
-			err = file.Close()
-			if err != nil {
-				b.Logger.Println(err)
-			}
-		}()
-		if err != nil {
-			// Allow command to start
-			time.Sleep(10 * time.Millisecond)
-			b.Logger.Println(err)
-			taskCmd.Stop()
-			return
-		}
-
-		// Add executed command to logs
-		commandInfo := b.ProcessLogEntry(task.Command, task.startedAt)
-		_, err = bw.WriteString(commandInfo)
-		if err != nil {
-			b.Logger.Println(err)
-		}
-		b.PublishCommandLogs(task.ID, commandInfo)
-
 		for {
 			select {
 			case line := <-taskCmd.Stdout:
-				line = b.ProcessLogEntry(line, task.startedAt)
-				_, err := bw.WriteString(line)
-				if err != nil {
-					b.Logger.Println(err)
-				}
-				b.PublishCommandLogs(task.ID, line)
+				b.ProcessLogEntry(line, bw, task.ID, task.startedAt)
 			case line := <-taskCmd.Stderr:
-				line = b.ProcessLogEntry(line, task.startedAt)
-				_, err := bw.WriteString(line)
-				if err != nil {
-					b.Logger.Println(err)
-				}
-				b.PublishCommandLogs(task.ID, line)
+				b.ProcessLogEntry(line, bw, task.ID, task.startedAt)
 			case <-fwChannel:
 				return
 			case toAbort := <-b.abortedChannel:
 				b.Logger.Println("Aborting via abortedChannel")
+				b.ProcessLogEntry("Aborted.", bw, task.ID, task.startedAt)
 				if toAbort {
 					taskCmd.Stop()
 					b.aborted = true
@@ -200,8 +184,6 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	for len(taskCmd.Stdout) > 0 || len(taskCmd.Stderr) > 0 {
 		time.Sleep(10 * time.Millisecond)
 	}
-	// Signal to flush the file
-	fwChannel <- true
 
 	// Abort message was recieved via channel
 	if b.aborted {
@@ -227,12 +209,15 @@ func (b *Build) runTask(task *Task) ItemStatus {
 		if err != nil {
 			newBuildMsg := fmt.Sprintf("Unable to add job %s to the queue: %s\n", task.QueueJob, err)
 			b.Logger.Printf(newBuildMsg)
+			b.ProcessLogEntry(newBuildMsg, bw, task.ID, task.startedAt)
 			return StatusFailed
 		}
-		b.Logger.Printf(
+		newBuildMsg := fmt.Sprintf(
 			"New job %s has been scheduled with build ID %d\n",
 			task.QueueJob, newBuild.ID,
 		)
+		b.Logger.Printf(newBuildMsg)
+		b.ProcessLogEntry(newBuildMsg, bw, task.ID, task.startedAt)
 	}
 
 	return StatusFinished
@@ -343,21 +328,27 @@ func (b *Build) GenerateBuildUpdateData() *BuildUpdateData {
 	}
 }
 
-// PublishCommandLogs sends log update to all subscribed users
-func (b *Build) PublishCommandLogs(taskID int, data string) {
+// ProcessLogEntry handles log messages from tasks
+func (b *Build) ProcessLogEntry(line string, buffer *bufio.Writer, taskID int, startedAt time.Time) {
+	// Format and clean up the log line:
+	// - add duration and a new line to the log entry
+	// - stip out color info
+	pline := fmt.Sprintf("[%10s] ", time.Since(startedAt).Truncate(time.Millisecond).String()) + StripColor(line) + "\n"
+	// Write to the task's log file
+	_, err := buffer.WriteString(pline)
+	if err != nil {
+		b.Logger.Println(err)
+	}
+
+	// Send the log to all subscribed users
 	msg := MsgBroadcast{
 		Type: "build:log:" + strconv.Itoa(b.ID),
 		Data: &CommandLogData{
 			TaskID: taskID,
-			Data:   data,
+			Data:   pline,
 		},
 	}
 	BroadcastChannel <- &msg
-}
-
-// ProcessLogEntry adds duration and a new line to the log entry; stips out color info
-func (b *Build) ProcessLogEntry(line string, startedAt time.Time) string {
-	return fmt.Sprintf("[%10s] ", time.Since(startedAt).Truncate(time.Millisecond).String()) + StripColor(line) + "\n"
 }
 
 // GetWorkspaceDir returns path to the workspace, where all user created files
