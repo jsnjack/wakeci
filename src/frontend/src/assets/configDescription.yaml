@@ -10,6 +10,9 @@ tasks:
 
   - name: Cow says
     command: fortune | cowsay
+    # Add a new job `new_job` to the queue. The job will have the same `params`
+    # as the current job + WAKE_PARENT_BUILD_ID
+    queue_job: new_job
 
 # List of patterns according to https://golang.org/pkg/path/filepath/#Match
 # related to the workspace directory
@@ -38,9 +41,11 @@ allow_parallel: no
 on_pending:
   - name: Log a call
     command: logger "Looking for a suitable cow"
+    queue_job: new_job
 
 # Available environmetal variables:
 # WAKE_BUILD_ID - current build id, e.g. 169
+# WAKE_PARENT_BUILD_ID - assigned when a build was started with `queue_job`, e.g. 169
 # WAKE_BUILD_WORKSPACE - path to the build's workspace
 # WAKE_JOB_NAME - name of the job, e.g. ask_a_cow
 # WAKE_CONFIG_DIR - path to the directory with all job configuration files
