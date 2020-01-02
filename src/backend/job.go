@@ -73,6 +73,8 @@ func (j *Job) verifyInterval() error {
 }
 
 // Task is a command to execute
+// .Kind - Possible values: `KindMain` for main tasks; one of `StatusRunning` (and etc) for tasks that are executed when
+//  job status has changed
 type Task struct {
 	ID        int         `json:"id"`
 	Name      string      `yaml:"name" json:"name"`
