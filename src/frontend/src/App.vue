@@ -98,15 +98,15 @@ export default {
 }
 
 .navbar {
-    transition: background-color 1000ms linear;
+  transition: background-color 1000ms linear;
 }
 
 .header-connected {
-    background: $primary-color;
+  background: $primary-color;
 }
 
 .header-disconnected {
-    background: #6f6f94;
+  background: #6f6f94;
 }
 
 .my-noty {
@@ -118,8 +118,8 @@ export default {
   border-left: 5px solid $primary-color-dark;
 
   & a {
-      color: $light-color;
-      text-decoration: underline;
+    color: $light-color;
+    text-decoration: underline;
   }
 
   &.warn {
