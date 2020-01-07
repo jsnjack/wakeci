@@ -30,7 +30,7 @@
       </div>
     </div>
     <div class="log-container text-left code">
-      <pre class="d-block log-line">{{ content }}</pre>
+      <pre v-if="content" class="d-block log-line">{{ content }}</pre>
     </div>
   </section>
 </template>
