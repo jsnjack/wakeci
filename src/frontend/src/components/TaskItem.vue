@@ -10,11 +10,23 @@
         </div>
       </div>
       <div class="column text-right">
-        <a :href="getLogURL" target="_blank" class="btn btn-sm">Open</a>
-        <button
-          @click="reloadLogs"
-          class="btn btn-sm btn-primary m-1"
-        >Reload</button>
+        <div class="dropdown dropdown-right text-left">
+          <div class="btn-group">
+            <button @click="reloadLogs" class="btn btn-sm btn-primary">Reload</button>
+            <a class="btn btn-sm dropdown-toggle" tabindex="0">
+              <i class="icon icon-caret"></i>
+            </a>
+            <ul class="menu">
+              <li class="divider" data-content="ACTIONS"></li>
+              <li class="menu-item">
+                <a :href="getLogURL" target="_blank">Open</a>
+              </li>
+              <li class="menu-item">
+                <a href="#" @click="clearLogs">Hide</a>
+              </li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
     <div class="log-container text-left code">
@@ -98,6 +110,9 @@ export default {
                     this.$el.scrollIntoView(false);
                 });
             }
+        },
+        clearLogs() {
+            this.content = "";
         },
     },
     data: function() {
