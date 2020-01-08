@@ -68,6 +68,9 @@ Usage of bin/wakeci:
 
 > Default password is `admin`. Don't forget to immediately change it!
 
+### API documentation
+See full description [here](https://github.com/jsnjack/wakeci/blob/master/API.md)
+
 ### For developers
 #### Build dependencies
 ```bash
