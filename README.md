@@ -55,15 +55,21 @@ See full description [here](https://github.com/jsnjack/wakeci/blob/master/src/fr
 
 ### How to use it?
 ```
-Usage of bin/wakeci:
-  -cdir string
-    	Configuration directory (default "./")
-  -hostname string
-    	Hostname for autocert. Active only when port is 443
-  -port string
-    	Port to start the server on (default "8081")
-  -wdir string
-    	Working directory (default ".wakeci/")
+Usage of ./bin/wakeci:
+  -config string
+    	Configuration file location (default "Wakefile.yaml")
+```
+
+#### Wakefile.yaml format
+```
+# Port to start the server on (default "8081")
+port: 8081
+# Hostname for autocert. Active only when port is 443
+hostname: ""
+# Working directory (default ".wakeci/")
+workdir: ./wakeci
+# Configuration directory - all your job files (default "./")
+jobdir: ./
 ```
 
 > Default password is `admin`. Don't forget to immediately change it!
