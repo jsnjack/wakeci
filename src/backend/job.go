@@ -25,9 +25,6 @@ tasks:
     command: uname -a
 `, "\n ")
 
-// ConfigExt ...
-const ConfigExt = ".yaml"
-
 // KindMain is a kind for main tasks - the ones which actually do the job
 const KindMain = "main"
 
@@ -161,7 +158,7 @@ func CreateJobFromFile(path string) (*Job, error) {
 	}
 
 	_, nameExt := filepath.Split(path)
-	job.Name = nameExt[0 : len(nameExt)-len(ConfigExt)]
+	job.Name = nameExt[0 : len(nameExt)-len(Config.jobsExt)]
 
 	Logger.Printf("Read job from file %s: %s, tasks %d\n", path, job.Name, len(job.Tasks))
 	return &job, nil
@@ -174,7 +171,7 @@ func ScanAllJobs() error {
 	for _, entry := range C.Entries() {
 		C.Remove(entry.ID)
 	}
-	files, _ := filepath.Glob(Config.JobDir + "*" + ConfigExt)
+	files, _ := filepath.Glob(Config.JobDir + "*" + Config.jobsExt)
 	for _, f := range files {
 		job, err := CreateJobFromFile(f)
 		if err != nil {
@@ -247,7 +244,7 @@ func RunJob(name string, params url.Values) (*Build, error) {
 		return nil, err
 	}
 
-	jobFile := Config.JobDir + name + ".yaml"
+	jobFile := Config.JobDir + name + Config.jobsExt
 	job, err := CreateJobFromFile(jobFile)
 	if err != nil {
 		return nil, err

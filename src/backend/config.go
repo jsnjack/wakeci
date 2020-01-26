@@ -19,6 +19,8 @@ type WakeConfig struct {
 	WorkDir string `yaml:"workdir"`
 	// Configuration directory - all your job files
 	JobDir string `yaml:"jobdir"`
+	// Job files extension
+	jobsExt string
 }
 
 // CreateWakeConfig creates new config instance
@@ -42,7 +44,7 @@ func CreateWakeConfig(path string) (*WakeConfig, error) {
 		return nil, err
 	}
 
-	// Clean up the config object
+	// Force defaults
 	if config.Port == "" {
 		config.Port = "8081"
 	}
@@ -55,6 +57,9 @@ func CreateWakeConfig(path string) (*WakeConfig, error) {
 		config.JobDir = "./"
 	}
 
+	config.jobsExt = ".yaml"
+
+	// Clean up the config object
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, err

@@ -370,7 +370,7 @@ func (b *Build) GetArtifactsDir() string {
 
 // GetBuildConfigFilename returns build config filename (copy of the original job file)
 func (b *Build) GetBuildConfigFilename() string {
-	return b.GetWakespaceDir() + "build.yaml"
+	return b.GetWakespaceDir() + "build" + Config.jobsExt
 }
 
 // GetTasksStatus list of tasks with their status

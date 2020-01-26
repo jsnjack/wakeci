@@ -91,7 +91,7 @@ func CleanupJobsBucket() {
 		var toRemove [][]byte
 		for key, _ := c.First(); key != nil; key, _ = c.Next() {
 			name := string(key)
-			path := Config.JobDir + name + ".yaml"
+			path := Config.JobDir + name + Config.jobsExt
 			_, err := os.Stat(path)
 			if err != nil {
 				Logger.Printf("Removing %s: %s\n", name, err.Error())

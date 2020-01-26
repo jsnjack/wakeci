@@ -55,7 +55,7 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 		return
 	}
 	// Collect tasks info by reconstructing job object
-	buildConfigFilename := Config.WorkDir + "wakespace/" + strconv.Itoa(buildID) + "/build.yaml"
+	buildConfigFilename := Config.WorkDir + "wakespace/" + strconv.Itoa(buildID) + "/build" + Config.jobsExt
 	if _, err := os.Stat(buildConfigFilename); os.IsNotExist(err) {
 		logger.Println(err)
 		w.WriteHeader(http.StatusNotFound)
@@ -382,7 +382,7 @@ func HandleJobGet(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 		logger = Logger
 	}
 
-	path := Config.JobDir + ps.ByName("name") + ".yaml"
+	path := Config.JobDir + ps.ByName("name") + Config.jobsExt
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		logger.Println(err)
@@ -433,7 +433,7 @@ func HandleJobPost(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 		return
 	}
 
-	path := Config.JobDir + ps.ByName("name") + ".yaml"
+	path := Config.JobDir + ps.ByName("name") + Config.jobsExt
 
 	err = ioutil.WriteFile(path, contentB, 0644)
 	if err != nil {
@@ -457,7 +457,7 @@ func HandleJobsCreate(w http.ResponseWriter, r *http.Request, ps httprouter.Para
 	}
 
 	name := r.FormValue("name")
-	path := Config.JobDir + name + ".yaml"
+	path := Config.JobDir + name + Config.jobsExt
 
 	if _, err := os.Stat(path); err == nil {
 		logger.Printf("File %s already exists\n", path)
@@ -502,7 +502,7 @@ func HandleDeleteJob(w http.ResponseWriter, r *http.Request, ps httprouter.Param
 	}
 
 	name := ps.ByName("name")
-	path := Config.JobDir + name + ".yaml"
+	path := Config.JobDir + name + Config.jobsExt
 
 	if _, err := os.Stat(path); err == nil {
 		err = os.Remove(path)
