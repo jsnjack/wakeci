@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/crypto/bcrypt"
@@ -20,20 +19,6 @@ import (
 
 // Logger is the main logger
 var Logger *log.Logger
-
-// PortFlag is a port on which the server should be started
-var PortFlag *string
-
-// HostnameFlag is the domain name for autocert. Active only when port is 443
-var HostnameFlag *string
-
-// WorkingDirFlag contains path to the working directory where db and all
-// build results are stored
-var WorkingDirFlag *string
-
-// ConfigDirFlag contains path to the config directory, the one with the job
-// files
-var ConfigDirFlag *string
 
 // Version is the version of the application calculated with monova
 var Version string
@@ -50,39 +35,30 @@ var C *cron.Cron
 // S is a global session storage object
 var S *SessionStorage
 
+// Config is a global configuration object
+var Config *WakeConfig
+
 func init() {
-	PortFlag = flag.String("port", "8081", "Port to start the server on")
-	HostnameFlag = flag.String("hostname", "", "Hostname for autocert. Active only when port is 443")
-	WorkingDirFlag = flag.String("wdir", ".wakeci/", "Working directory - workspace and build artifacts")
-	ConfigDirFlag = flag.String("cdir", "./", "Configuration directory - all your job files")
+	Logger = log.New(os.Stdout, "", log.Lmicroseconds|log.Lshortfile)
+
+	configFlag := flag.String("config", "Wakefile.yaml", "Configuration file location")
 	flag.Parse()
 
-	// Make *DirFlar paths absolute
-	cwd, err := os.Getwd()
+	var err error
+	Config, err = CreateWakeConfig(*configFlag)
 	if err != nil {
 		Logger.Fatal(err)
 	}
-	if !filepath.IsAbs(*WorkingDirFlag) {
-		*WorkingDirFlag = filepath.Join(cwd, *WorkingDirFlag) + "/"
-	}
-	if !filepath.IsAbs(*ConfigDirFlag) {
-		*ConfigDirFlag = filepath.Join(cwd, *ConfigDirFlag) + "/"
-	}
-
-	Logger = log.New(os.Stdout, "", log.Lmicroseconds|log.Lshortfile)
-
-	Logger.Printf("Working directory: %s\n", *WorkingDirFlag)
-	Logger.Printf("Config directory: %s\n", *ConfigDirFlag)
 }
 
 func main() {
 	var err error
-	err = os.MkdirAll(*WorkingDirFlag, os.ModePerm)
+	err = os.MkdirAll(Config.WorkDir, os.ModePerm)
 	if err != nil {
 		Logger.Fatal(err)
 	}
 
-	DB, err = bolt.Open(*WorkingDirFlag+"wakeci.db", 0644, nil)
+	DB, err = bolt.Open(Config.WorkDir+"wakeci.db", 0644, nil)
 	if err != nil {
 		Logger.Fatal(err)
 	}
@@ -151,13 +127,13 @@ func main() {
 	certManager := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
 		Cache:      autocert.DirCache("certs"),
-		HostPolicy: autocert.HostWhitelist(*HostnameFlag),
+		HostPolicy: autocert.HostWhitelist(Config.Hostname),
 	}
 
 	vueBox := rice.MustFindBox("../frontend/dist/").HTTPBox()
 
 	vuefs := http.FileServer(vueBox)
-	storageServer := http.FileServer(http.Dir(*WorkingDirFlag + "wakespace"))
+	storageServer := http.FileServer(http.Dir(Config.WorkDir + "wakespace"))
 	// Configure routes
 	router := httprouter.New()
 	// Assume that all unknown routes are vue-related files
@@ -191,7 +167,7 @@ func main() {
 	router.POST("/api/settings/", LogMi(CORSMi(AuthMi(HandleSettingsPost))))
 	router.GET("/api/settings/", LogMi(CORSMi(AuthMi(HandleSettingsGet))))
 
-	if *PortFlag == "443" {
+	if Config.Port == "443" {
 		go func() {
 			Logger.Println("Listening on port 80...")
 			err := http.ListenAndServe(":80", certManager.HTTPHandler(nil))
@@ -214,8 +190,8 @@ func main() {
 			Logger.Fatal(err)
 		}
 	} else {
-		Logger.Printf("Listening on port %s...\n", *PortFlag)
-		err := http.ListenAndServe(":"+*PortFlag, gziphandler.GzipHandler(router))
+		Logger.Printf("Listening on port %s...\n", Config.Port)
+		err := http.ListenAndServe(":"+Config.Port, gziphandler.GzipHandler(router))
 		if err != nil {
 			Logger.Fatal(err)
 		}

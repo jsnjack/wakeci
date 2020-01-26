@@ -174,7 +174,7 @@ func ScanAllJobs() error {
 	for _, entry := range C.Entries() {
 		C.Remove(entry.ID)
 	}
-	files, _ := filepath.Glob(*ConfigDirFlag + "*" + ConfigExt)
+	files, _ := filepath.Glob(Config.JobDir + "*" + ConfigExt)
 	for _, f := range files {
 		job, err := CreateJobFromFile(f)
 		if err != nil {
@@ -247,7 +247,7 @@ func RunJob(name string, params url.Values) (*Build, error) {
 		return nil, err
 	}
 
-	jobFile := *ConfigDirFlag + name + ".yaml"
+	jobFile := Config.JobDir + name + ".yaml"
 	job, err := CreateJobFromFile(jobFile)
 	if err != nil {
 		return nil, err

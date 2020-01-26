@@ -55,8 +55,8 @@ func CORSMi(next httprouter.Handle) httprouter.Handle {
 		// Call actuall handler
 		next(w, r, ps)
 		origin := "*"
-		if *HostnameFlag != "" {
-			origin = "https://" + *HostnameFlag
+		if Config.Hostname != "" {
+			origin = "https://" + Config.Hostname
 		}
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Access-Control-Max-Age", "86400")

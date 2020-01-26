@@ -47,11 +47,11 @@ func (cl *Cleaner) Clean() {
 				continue
 			}
 			cl.Logger.Printf("Cleaning up build %d...\n", id)
-			err = os.RemoveAll(filepath.Join(*WorkingDirFlag, "workspace/", fmt.Sprintf("%d", id)))
+			err = os.RemoveAll(filepath.Join(Config.WorkDir, "workspace/", fmt.Sprintf("%d", id)))
 			if err != nil {
 				cl.Logger.Println(err)
 			}
-			err = os.RemoveAll(filepath.Join(*WorkingDirFlag, "wakespace/", fmt.Sprintf("%d", id)))
+			err = os.RemoveAll(filepath.Join(Config.WorkDir, "wakespace/", fmt.Sprintf("%d", id)))
 			if err != nil {
 				cl.Logger.Println(err)
 			}
@@ -91,7 +91,7 @@ func CleanupJobsBucket() {
 		var toRemove [][]byte
 		for key, _ := c.First(); key != nil; key, _ = c.Next() {
 			name := string(key)
-			path := *ConfigDirFlag + name + ".yaml"
+			path := Config.JobDir + name + ".yaml"
 			_, err := os.Stat(path)
 			if err != nil {
 				Logger.Printf("Removing %s: %s\n", name, err.Error())

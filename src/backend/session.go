@@ -38,7 +38,7 @@ func (s *SessionStorage) New() (*http.Cookie, error) {
 		Path:     "/",
 		HttpOnly: true,
 	}
-	if *PortFlag == "443" {
+	if Config.Port == "443" {
 		c.Secure = true
 	}
 	return c, nil

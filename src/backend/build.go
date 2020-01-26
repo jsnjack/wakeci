@@ -230,12 +230,12 @@ func (b *Build) generateDefaultEnvVariables() []string {
 		fmt.Sprintf("WAKE_BUILD_ID=%d", b.ID),
 		fmt.Sprintf("WAKE_BUILD_WORKSPACE=%s", b.GetWorkspaceDir()),
 		fmt.Sprintf("WAKE_JOB_NAME=%s", b.Job.Name),
-		fmt.Sprintf("WAKE_CONFIG_DIR=%s", *ConfigDirFlag),
+		fmt.Sprintf("WAKE_CONFIG_DIR=%s", Config.JobDir),
 	}
-	if *PortFlag == "443" {
-		evs = append(evs, fmt.Sprintf("WAKE_URL=https://%s/", *HostnameFlag))
+	if Config.Port == "443" {
+		evs = append(evs, fmt.Sprintf("WAKE_URL=https://%s/", Config.Hostname))
 	} else {
-		evs = append(evs, fmt.Sprintf("WAKE_URL=http://localhost:%s/", *PortFlag))
+		evs = append(evs, fmt.Sprintf("WAKE_URL=http://localhost:%s/", Config.Port))
 	}
 	return evs
 }
@@ -354,13 +354,13 @@ func (b *Build) ProcessLogEntry(line string, buffer *bufio.Writer, taskID int, s
 // GetWorkspaceDir returns path to the workspace, where all user created files
 // are stored
 func (b *Build) GetWorkspaceDir() string {
-	return *WorkingDirFlag + "workspace/" + strconv.Itoa(b.ID) + "/"
+	return Config.WorkDir + "workspace/" + strconv.Itoa(b.ID) + "/"
 }
 
 // GetWakespaceDir returns path to the data dir - there all build+wake related data is
 // stored
 func (b *Build) GetWakespaceDir() string {
-	return *WorkingDirFlag + "wakespace/" + strconv.Itoa(b.ID) + "/"
+	return Config.WorkDir + "wakespace/" + strconv.Itoa(b.ID) + "/"
 }
 
 // GetArtifactsDir returns location of artifacts folder
