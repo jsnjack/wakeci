@@ -25,7 +25,7 @@
           </div>
         </div>
         <div class="modal-footer">
-          <a href="#" @click.prevent="run" class="btn btn-primary float-right">Add to queue</a>
+          <a data-cy="start-job-confirm" href="#" @click.prevent="run" class="btn btn-primary float-right">Add to queue</a>
         </div>
       </div>
     </div>

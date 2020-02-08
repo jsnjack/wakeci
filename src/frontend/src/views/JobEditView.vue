@@ -2,12 +2,12 @@
   <div class="container text-left">
     <h4 class="text-center title">Edit {{ name }}</h4>
     <div>
-      <codemirror :code="job.fileContent" :options="editorOptions" @input="onCodeChange"></codemirror>
+      <codemirror data-cy="editor" :code="job.fileContent" :options="editorOptions" @input="onCodeChange"></codemirror>
     </div>
     <div class="divider"></div>
     <div class="text-right">
       <button @click.prevent="toggleHelpModal" class="btn btn-link">Show description</button>
-      <a href="#" @click.prevent="save" class="btn btn-primary">Save</a>
+      <a data-cy="save-button" href="#" @click.prevent="save" class="btn btn-primary">Save</a>
     </div>
 
     <div class="modal modal-lg" v-bind:class="{active: helpModalOpen}">

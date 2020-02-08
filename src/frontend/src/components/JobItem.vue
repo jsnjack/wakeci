@@ -18,12 +18,19 @@
         :buttonTitle="'Start'"
         :jobName="job.name"
         class="item-action"
+        data-cy="start-job-button"
       ></RunJobButton>
       <router-link
         :to="{ name: 'jobEdit', params: { name: job.name}}"
         class="btn btn-primary item-action"
+        data-cy="edit-job-button"
       >Edit</router-link>
-      <a @click.prevent="toggleModalDelete" href="#" class="btn btn-error item-action">Delete</a>
+      <a
+        data-cy="delete-job-button"
+        @click.prevent="toggleModalDelete"
+        href="#"
+        class="btn btn-error item-action"
+      >Delete</a>
 
       <div class="modal" v-bind:class="{active: modalDelete}">
         <a href="#" @click.prevent="toggleModalDelete" class="modal-overlay" aria-label="Close"></a>
@@ -42,7 +49,12 @@
             <b>{{ job.name }}</b>
           </div>
           <div class="modal-footer">
-            <a href="#" @click.prevent="deleteJob" class="btn btn-error float-right">Delete</a>
+            <a
+              data-cy="delete-job-confirm"
+              href="#"
+              @click.prevent="deleteJob"
+              class="btn btn-error float-right"
+            >Delete</a>
           </div>
         </div>
       </div>

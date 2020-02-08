@@ -1,6 +1,6 @@
 describe("Feed page", function() {
-    it("should open Feed page", function() {
-        cy.visit("http://localhost:8080/settings");
+    it("should modify settings", function() {
+        cy.visit("/settings");
         cy.login();
         cy.get("input[type=password]").clear();
         cy.get("input[type=password]").type("secret");
@@ -15,7 +15,7 @@ describe("Feed page", function() {
 
         cy.login("secret");
 
-        cy.visit("http://localhost:8080/settings");
+        cy.visit("/settings");
         cy.get(".loading").should("not.exist");
         cy.get("input[type=password]").clear();
         cy.get("input[type=password]").type("admin");
