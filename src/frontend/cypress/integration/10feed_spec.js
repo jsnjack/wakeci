@@ -8,6 +8,7 @@ describe("Feed page", function() {
     });
 
     it("should filter jobs", function() {
+        cy.visit("/");
         const jobName = "myjob" + new Date().getTime();
         cy.request({
             url: "/api/jobs/create",
@@ -21,7 +22,6 @@ describe("Feed page", function() {
             },
             form: true,
         });
-        cy.visit("/");
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get(".empty").should("contain", "Empty");
