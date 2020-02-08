@@ -10,7 +10,7 @@
         <router-link to="/settings" class="btn btn-link text-light">Settings</router-link>
       </section>
       <section class="navbar-section">
-        <a href="#" @click.prevent="logOut" class="btn btn-link text-light">Log out</a>
+        <a data-cy="logout" href="#" @click.prevent="logOut" class="btn btn-link text-light">Log out</a>
       </section>
     </header>
     <router-view />

@@ -19,7 +19,7 @@
         </div>
       </div>
       <div class="card-footer">
-        <button type="submit" class="btn btn-primary">Save</button>
+        <button data-cy="save-settings" type="submit" class="btn btn-primary">Save</button>
       </div>
     </form>
   </div>
