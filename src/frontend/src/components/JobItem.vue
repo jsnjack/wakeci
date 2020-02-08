@@ -1,5 +1,5 @@
 <template>
-  <tr>
+  <tr :data-cy="job.name">
     <td>
       <div>{{ job.name }}</div>
       <small>{{ job.desc }}</small>

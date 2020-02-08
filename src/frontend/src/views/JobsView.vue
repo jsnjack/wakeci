@@ -16,7 +16,7 @@
       <p class="empty-title h5">Empty</p>
     </div>
     <div class="text-center create-section">
-      <a href="#" @click.prevent="toggle" class="btn btn-primary">Create new job</a>
+      <a data-cy="create-job" href="#" @click.prevent="toggle" class="btn btn-primary">Create new job</a>
       <!-- Modal to create new job -->
       <div class="modal" v-bind:class="{active: modalOpen}">
         <a href="#" @click.prevent="toggle" class="modal-overlay" aria-label="Close"></a>
@@ -48,6 +48,7 @@
           </div>
           <div class="modal-footer">
             <a
+              data-cy="create-job-button"
               href="#"
               @click.prevent="create"
               class="btn btn-primary float-right"
