@@ -1,4 +1,4 @@
-describe("Feed page", function() {
+describe("Settings page", function() {
     it("should modify settings", function() {
         cy.visit("/settings");
         cy.login();

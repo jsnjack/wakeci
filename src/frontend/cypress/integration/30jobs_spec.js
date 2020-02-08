@@ -1,4 +1,4 @@
-describe("Creating a new job", function() {
+describe("Jobs page", function() {
     it("should create a new job", function() {
         cy.visit("/jobs");
         cy.login();

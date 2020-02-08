@@ -1,13 +1,6 @@
-describe("Feed page", function() {
-    it("should open Feed page", function() {
-        cy.visit("/");
-        cy.login();
-        cy.get("a[href='/']").should("contain", "Feed");
-        cy.get("a[href='/jobs']").should("contain", "Jobs");
-        cy.get("a[href='/settings']").should("contain", "Settings");
-    });
-
-    it("should filter jobs", function() {
+describe("Build page", function() {
+    it("should show build page", function() {
+        // Create job
         const jobName = "myjob" + new Date().getTime();
         cy.request({
             url: "/api/jobs/create",
@@ -21,11 +14,7 @@ describe("Feed page", function() {
             },
             form: true,
         });
-        cy.visit("/");
-        cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get(".empty").should("contain", "Empty");
-        cy.get("[data-cy=filter]").clear();
+        // Create build
         cy.request({
             url: `/api/job/${jobName}/run`,
             method: "POST",
@@ -36,8 +25,16 @@ describe("Feed page", function() {
             body: {},
             form: true,
         });
+        cy.visit("/");
+        cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("tbody").should("have.length", 1);
+        cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
+            cy.get("[data-cy=open-build-button]").click();
+            cy.url().should("include", "/build/" + val);
+            cy.get("[data-cy=reload]").click();
+            cy.get(".notification-content").should("contain", "Log file has been reloaded");
+            cy.get("body").should("contain", "uname -a");
+        });
     });
 })
 ;

@@ -12,7 +12,7 @@
       <div class="column text-right">
         <div class="dropdown dropdown-right text-left">
           <div class="btn-group">
-            <button @click="reloadLogs" class="btn btn-sm btn-primary">Reload</button>
+            <button data-cy="reload" @click="reloadLogs" class="btn btn-sm btn-primary">Reload</button>
             <a class="btn btn-sm dropdown-toggle" tabindex="0">
               <i class="icon icon-caret"></i>
             </a>

@@ -7,6 +7,7 @@
         :value="filter"
         @input="evt=>filter=evt.target.value"
         title="Filter builds by ID, name, params and status"
+        data-cy="filter"
       />
       <button @click.prevent="clearFilter" class="btn btn-action" :class="{'loading': isFetching}">
         <i class="icon" :class="filterIconType"></i>

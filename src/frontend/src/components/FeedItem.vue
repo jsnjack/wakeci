@@ -1,5 +1,5 @@
 <template>
-  <tr>
+  <tr :data-cy-build="build.id">
     <td>
       <router-link :to="{ name: 'build', params: { id: build.id}}">{{ build.id }}</router-link>
     </td>
@@ -25,6 +25,7 @@
       <router-link
         :to="{ name: 'build', params: { id: build.id}}"
         class="btn btn-primary item-action"
+        data-cy="open-build-button"
       >Open</router-link>
       <a
         v-if="!isDone"
