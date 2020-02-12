@@ -36,6 +36,9 @@ runf:
 runb: src/backend/wakeci
 	./src/backend/wakeci
 
+test:
+	cd src/frontend && npm run test
+
 buildf:
 	cd src/frontend && npm run build
 
