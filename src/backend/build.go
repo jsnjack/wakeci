@@ -129,8 +129,6 @@ func (b *Build) runTask(task *Task) ItemStatus {
 		}
 	}
 
-	fwChannel := make(chan bool)
-
 	// Configure task logs
 	file, err := os.Create(b.GetWakespaceDir() + fmt.Sprintf("task_%d.log", task.ID))
 	bw := bufio.NewWriter(file)
@@ -152,16 +150,25 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	// Add executed command to logs
 	b.ProcessLogEntry(task.Command, bw, task.ID, task.startedAt)
 
-	// Print STDOUT and STDERR lines streaming from CmdLogger
+	// Print STDOUT and STDERR lines streaming from Cmd
+	// See example https://github.com/go-cmd/cmd/blob/master/examples/blocking-streaming/main.go
+	doneChan := make(chan struct{})
 	go func() {
-		for {
+		defer close(doneChan)
+		for taskCmd.Stdout != nil || taskCmd.Stderr != nil {
 			select {
-			case line := <-taskCmd.Stdout:
+			case line, open := <-taskCmd.Stdout:
+				if !open {
+					taskCmd.Stdout = nil
+					continue
+				}
 				b.ProcessLogEntry(line, bw, task.ID, task.startedAt)
-			case line := <-taskCmd.Stderr:
+			case line, open := <-taskCmd.Stderr:
+				if !open {
+					taskCmd.Stderr = nil
+					continue
+				}
 				b.ProcessLogEntry(line, bw, task.ID, task.startedAt)
-			case <-fwChannel:
-				return
 			case toAbort := <-b.abortedChannel:
 				b.Logger.Println("Aborting via abortedChannel")
 				b.ProcessLogEntry("Aborted.", bw, task.ID, task.startedAt)
@@ -181,9 +188,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	)
 
 	// Cmd has finished but wait for goroutine to print all lines
-	for len(taskCmd.Stdout) > 0 || len(taskCmd.Stderr) > 0 {
-		time.Sleep(10 * time.Millisecond)
-	}
+	<-doneChan
 
 	// Abort message was recieved via channel
 	if b.aborted {
