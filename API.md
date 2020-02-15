@@ -255,3 +255,18 @@ Updates application settings
 - _buildHistorySize_ - `number`
 
 ---
+
+
+## Internal endpoints
+Internal endpoints are allowed to be called only from localhost. They do not require credentials
+
+### POST /api/job/:name/run
+Schedules new build for a job. Returns build id
+
+#### Input (query parameters or form data)
+`params` to overwrite default values
+
+#### Output
+```
+32
+```
