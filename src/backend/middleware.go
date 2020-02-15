@@ -71,7 +71,7 @@ func CORSMi(next httprouter.Handle) httprouter.Handle {
 	})
 }
 
-// AuthMi adds CORS headers
+// AuthMi checks user credentials
 func AuthMi(next httprouter.Handle) httprouter.Handle {
 	return httprouter.Handle(func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		logger, ok := r.Context().Value(HL).(*log.Logger)
@@ -110,6 +110,30 @@ func AuthMi(next httprouter.Handle) httprouter.Handle {
 		err = S.Verify(sessionToken.Value)
 		if err != nil {
 			logger.Println(err)
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		next(w, r, ps)
+	})
+}
+
+// InternalAuthMi requires calls to be made from localhost only
+func InternalAuthMi(next httprouter.Handle) httprouter.Handle {
+	return httprouter.Handle(func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+		logger, ok := r.Context().Value(HL).(*log.Logger)
+		if !ok {
+			logger = Logger
+		}
+
+		// Get IP address of a user
+		ip, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			logger.Println(err)
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
+		if ip != "127.0.0.1" {
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}

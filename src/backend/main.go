@@ -167,6 +167,9 @@ func main() {
 	router.POST("/api/settings/", LogMi(CORSMi(AuthMi(HandleSettingsPost))))
 	router.GET("/api/settings/", LogMi(CORSMi(AuthMi(HandleSettingsGet))))
 
+	// Internal API
+	router.POST("/internal/api/job/:name/run", LogMi(InternalAuthMi(HandleRunJob)))
+
 	if Config.Port == "443" {
 		go func() {
 			Logger.Println("Listening on port 80...")
