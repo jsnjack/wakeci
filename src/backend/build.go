@@ -194,6 +194,8 @@ func (b *Build) runTask(task *Task) ItemStatus {
 		return StatusAborted
 	}
 
+	b.ProcessLogEntry(fmt.Sprintf("Exit code: %d\n", status.Exit), bw, task.ID, task.startedAt)
+
 	if !status.Complete || status.Exit != 0 || status.Error != nil {
 		return StatusFailed
 	}
