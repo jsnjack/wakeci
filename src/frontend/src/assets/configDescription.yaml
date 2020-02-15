@@ -43,5 +43,6 @@ on_pending:
 # WAKE_BUILD_ID - current build id, e.g. 169
 # WAKE_BUILD_WORKSPACE - path to the build's workspace, e.g. ~/workspace/
 # WAKE_JOB_NAME - name of the job, e.g. ask_a_cow
+# WAKE_JOB_PARAMS - URL encoded `params` of the job. Useful to start another job with the same params
 # WAKE_CONFIG_DIR - path to the directory with all job configuration files, e.g. ~/jobs/
 # WAKE_URL - URL of the service, e.g. https://myci.space/

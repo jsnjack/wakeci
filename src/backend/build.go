@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -206,10 +207,17 @@ func (b *Build) runTask(task *Task) ItemStatus {
 // Generate default set of environmental variables that are injected before
 // running a task, for example WAKE_BUILD_ID
 func (b *Build) generateDefaultEnvVariables() []string {
+	params := url.Values{}
+	for idx := range b.Params {
+		for pkey, pval := range b.Params[idx] {
+			params.Set(pkey, pval)
+		}
+	}
 	var evs = []string{
 		fmt.Sprintf("WAKE_BUILD_ID=%d", b.ID),
 		fmt.Sprintf("WAKE_BUILD_WORKSPACE=%s", b.GetWorkspaceDir()),
 		fmt.Sprintf("WAKE_JOB_NAME=%s", b.Job.Name),
+		fmt.Sprintf("WAKE_JOB_PARAMS=%s", params.Encode()),
 		fmt.Sprintf("WAKE_CONFIG_DIR=%s", Config.JobDir),
 	}
 	if Config.Port == "443" {
