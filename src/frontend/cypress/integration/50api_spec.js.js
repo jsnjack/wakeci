@@ -68,5 +68,4 @@ tasks:
         cy.get("[data-cy=filter]").clear().type(jobName2);
         cy.get("tbody").should("have.length", 1);
     });
-})
-;
+});
