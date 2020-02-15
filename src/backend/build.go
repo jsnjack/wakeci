@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -197,32 +196,6 @@ func (b *Build) runTask(task *Task) ItemStatus {
 
 	if !status.Complete || status.Exit != 0 || status.Error != nil {
 		return StatusFailed
-	}
-
-	// Start new job from this task
-	if task.QueueJob != "" {
-		// New job is going to be started with params from the current build
-		newParams := url.Values{}
-		for idx := range b.Params {
-			for pkey, pval := range b.Params[idx] {
-				newParams.Set(pkey, pval)
-			}
-		}
-		newParams.Set("WAKE_PARENT_BUILD_ID", strconv.Itoa(b.ID))
-
-		newBuild, err := RunJob(task.QueueJob, newParams)
-		if err != nil {
-			newBuildMsg := fmt.Sprintf("Unable to add job %s to the queue: %s\n", task.QueueJob, err)
-			b.Logger.Printf(newBuildMsg)
-			b.ProcessLogEntry(newBuildMsg, bw, task.ID, task.startedAt)
-			return StatusFailed
-		}
-		newBuildMsg := fmt.Sprintf(
-			"New job %s has been scheduled with build ID %d\n",
-			task.QueueJob, newBuild.ID,
-		)
-		b.Logger.Printf(newBuildMsg)
-		b.ProcessLogEntry(newBuildMsg, bw, task.ID, task.startedAt)
 	}
 
 	return StatusFinished

@@ -140,7 +140,6 @@ Returns status of the build
         "id": 0,
         "name": "Print content of job",
         "command": "cat ${WAKE_CONFIG_DIR}curious_cow.yaml",
-        "queue_job": "",
         "status": "pending",
         "kind": "pending",
         "logs": null
@@ -149,7 +148,6 @@ Returns status of the build
         "id": 1,
         "name": "Running logger on running",
         "command": "logger \"Running build ${WAKE_BUILD_ID}\"",
-        "queue_job": "",
         "status": "pending",
         "kind": "running",
         "logs": null
@@ -158,7 +156,6 @@ Returns status of the build
         "id": 2,
         "name": "Waking up a cow",
         "command": "sleep ${SLEEP}",
-        "queue_job": "",
         "status": "pending",
         "kind": "main",
         "logs": null
@@ -167,7 +164,6 @@ Returns status of the build
         "id": 3,
         "name": "Cow says",
         "command": "fortune | cowsay",
-        "queue_job": "",
         "status": "pending",
         "kind": "main",
         "logs": null

@@ -76,7 +76,6 @@ type Task struct {
 	ID        int         `json:"id"`
 	Name      string      `yaml:"name" json:"name"`
 	Command   string      `yaml:"command" json:"command"`
-	QueueJob  string      `yaml:"queue_job" json:"queue_job"`
 	Status    ItemStatus  `json:"status"`
 	Kind      string      `json:"kind"`
 	Logs      interface{} `json:"logs"` // used as a container for frontend
@@ -263,14 +262,6 @@ func RunJob(name string, params url.Values) (*Build, error) {
 				build.Logger.Printf("Updating key %s to %s", pkey, value)
 			}
 		}
-	}
-
-	parentBuild := params.Get("WAKE_PARENT_BUILD_ID")
-	if parentBuild != "" {
-		extra := make(map[string]string)
-		extra["WAKE_PARENT_BUILD_ID"] = parentBuild
-		build.Params = append(build.Params, extra)
-		build.Logger.Printf("Updating key %s to %s", "WAKE_PARENT_BUILD_ID", parentBuild)
 	}
 
 	Q.Add(build)
