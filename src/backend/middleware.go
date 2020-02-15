@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -30,8 +31,15 @@ func LogMi(next httprouter.Handle) httprouter.Handle {
 
 		logID := GenerateRandomString(5)
 
+		// Get IP address of a user
+		host, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			Logger.Println(err)
+			host = r.RemoteAddr
+		}
+
 		// Get the settings
-		handlerLogger := log.New(os.Stdout, "["+logID+"] ", log.Lmicroseconds|log.Lshortfile)
+		handlerLogger := log.New(os.Stdout, "["+logID+" "+host+"] ", log.Lmicroseconds|log.Lshortfile)
 
 		// Get new context with key-value "settings"
 		ctx = context.WithValue(ctx, HL, handlerLogger)
