@@ -26,4 +26,6 @@
 Cypress.Commands.add("login", (password="admin")=>{
     cy.get("input#password").type(password);
     cy.get("form").submit();
+    // FF: Allow browser to login
+    cy.wait(100);
 });
