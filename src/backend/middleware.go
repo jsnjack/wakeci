@@ -133,7 +133,10 @@ func InternalAuthMi(next httprouter.Handle) httprouter.Handle {
 			return
 		}
 
-		if ip != "127.0.0.1" {
+		err = EnsureLocalIP(ip)
+
+		if err != nil {
+			logger.Println(err)
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}

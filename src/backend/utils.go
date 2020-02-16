@@ -1,8 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"math/rand"
+	"net"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -42,4 +45,44 @@ var colorEscapeCodesRE = regexp.MustCompile(colorEscapeCodes)
 // StripColor removes color escape codes from string
 func StripColor(str string) string {
 	return colorEscapeCodesRE.ReplaceAllString(str, "")
+}
+
+// EnsureLocalIP returns error if IP address is not local
+func EnsureLocalIP(ip string) error {
+	ipObj := net.ParseIP(ip)
+
+	if ipObj.IsLoopback() {
+		return nil
+	}
+
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return err
+	}
+
+	// Create list of local IP addresses
+	localAddrs := []net.IP{}
+	for _, iface := range interfaces {
+		if strings.Contains(iface.Flags.String(), "up") {
+			addrs, err := iface.Addrs()
+			if err != nil {
+				return err
+			}
+			for _, addr := range addrs {
+				ip, _, err := net.ParseCIDR(addr.String())
+				if err != nil {
+					return err
+				}
+				localAddrs = append(localAddrs, ip)
+			}
+		}
+	}
+
+	// Verify if ip matched any
+	for _, item := range localAddrs {
+		if ipObj.Equal(item) {
+			return nil
+		}
+	}
+	return fmt.Errorf("Not a local IP: %s", ip)
 }
