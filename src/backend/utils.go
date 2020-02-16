@@ -5,7 +5,6 @@ import (
 	"math/rand"
 	"net"
 	"regexp"
-	"strings"
 	"time"
 )
 
@@ -53,36 +52,6 @@ func EnsureLocalIP(ip string) error {
 
 	if ipObj.IsLoopback() {
 		return nil
-	}
-
-	interfaces, err := net.Interfaces()
-	if err != nil {
-		return err
-	}
-
-	// Create list of local IP addresses
-	localAddrs := []net.IP{}
-	for _, iface := range interfaces {
-		if strings.Contains(iface.Flags.String(), "up") {
-			addrs, err := iface.Addrs()
-			if err != nil {
-				return err
-			}
-			for _, addr := range addrs {
-				ip, _, err := net.ParseCIDR(addr.String())
-				if err != nil {
-					return err
-				}
-				localAddrs = append(localAddrs, ip)
-			}
-		}
-	}
-
-	// Verify if ip matched any
-	for _, item := range localAddrs {
-		if ipObj.Equal(item) {
-			return nil
-		}
 	}
 	return fmt.Errorf("Not a local IP: %s", ip)
 }
