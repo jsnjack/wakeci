@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -20,10 +21,20 @@ type ClientList struct {
 
 // Append creates new Client and appends it to the list
 func (cl *ClientList) Append(ws *websocket.Conn) *Client {
+	// Get IP address of a user
+	addr := ws.RemoteAddr().String()
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		Logger.Println(err)
+		host = addr
+	}
+
+	logID := GenerateRandomString(5)
+
 	client := Client{
 		WS:           ws,
 		SubscribedTo: []string{},
-		Logger:       log.New(os.Stdout, "["+GenerateRandomString(5)+"] ", log.Lmicroseconds|log.Lshortfile),
+		Logger:       log.New(os.Stdout, "["+logID+" "+host+"] ", log.Lmicroseconds|log.Lshortfile),
 	}
 	cl.Lock()
 	defer cl.Unlock()
