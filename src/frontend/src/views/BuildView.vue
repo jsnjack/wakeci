@@ -39,10 +39,10 @@
       :ref="'task-'+item.id"
     ></TaskItem>
     <Artifacts :artifacts="getArtifacts" :buildID="statusUpdate.id"></Artifacts>
-    <div class="form-group float-right">
+    <div class="follow-logs form-group float-right">
       <label class="form-switch">
         <input type="checkbox" v-model="follow" />
-        <i class="form-icon"></i> Follow logs
+        <i class="form-icon"></i> Follow
       </label>
     </div>
   </div>
@@ -199,5 +199,11 @@ summary:hover {
 }
 .item-action {
     margin: 0.25em;
+}
+.follow-logs {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    opacity: 0.9;
 }
 </style>
