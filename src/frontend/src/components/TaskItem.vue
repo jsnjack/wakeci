@@ -40,6 +40,8 @@ import BuildStatus from "@/components/BuildStatus";
 import Duration from "@/components/Duration";
 import axios from "axios";
 
+const FlushContentPeriod = 500;
+
 export default {
     props: {
         buildID: {
@@ -58,9 +60,16 @@ export default {
     components: {BuildStatus, Duration},
     mounted() {
         this.$on("new:log", this.addLog);
+        this.onStatusChange(this.task.status);
     },
     destroyed() {
         this.$off(this.addLog);
+    },
+    beforeDestroy: function() {
+        clearInterval(this.flushInterval);
+    },
+    watch: {
+        "task.status": "onStatusChange",
     },
     computed: {
         getDividerText: function() {
@@ -104,20 +113,44 @@ export default {
                 .catch((error) => {});
         },
         addLog(log) {
-            this.content = this.content + log.data;
-            if (this.follow) {
-                this.$nextTick(() => {
-                    this.$el.scrollIntoView(false);
-                });
+            // It is better not to add logs directly as it may cause browser
+            // to render changes to often
+            this.cachedContent = this.cachedContent + log.data;
+        },
+        flushContent() {
+            if (this.cachedContent.length > 0) {
+                this.content = this.content + this.cachedContent;
+                this.cachedContent = "";
+                if (this.follow) {
+                    this.$nextTick(() => {
+                        this.$el.scrollIntoView(false);
+                    });
+                }
             }
         },
         clearLogs() {
+            this.cachedContent = "";
             this.content = "";
+        },
+        onStatusChange(value) {
+            if (value === "running") {
+                this.flushInterval = setInterval(
+                    function() {
+                        this.flushContent();
+                    }.bind(this),
+                    FlushContentPeriod
+                );
+            } else {
+                clearInterval(this.flushInterval);
+                this.flushContent();
+            }
         },
     },
     data: function() {
         return {
+            cachedContent: "",
             content: "",
+            flushInterval: null,
         };
     },
 };
