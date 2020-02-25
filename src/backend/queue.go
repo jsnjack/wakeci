@@ -102,9 +102,7 @@ func (q *Queue) Verify(id int) bool {
 func (q *Queue) Abort(id int) error {
 	for _, item := range q.running {
 		if item.ID == id {
-			go func() {
-				item.abortedChannel <- true
-			}()
+			item.abortedChannel <- true
 			return nil
 		}
 	}
