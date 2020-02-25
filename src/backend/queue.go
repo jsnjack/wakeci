@@ -117,8 +117,6 @@ func (q *Queue) Abort(id int) error {
 
 // FlushLogs instructs to flush logs
 func (q *Queue) FlushLogs(id int) error {
-	q.mutex.Lock()
-	defer q.mutex.Unlock()
 	for _, item := range q.running {
 		if item.ID == id {
 			item.flushChannel <- true
