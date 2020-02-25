@@ -46,6 +46,7 @@ type Build struct {
 	Status         ItemStatus
 	Logger         *log.Logger
 	abortedChannel chan bool
+	flushChannel   chan bool // Instructs to flush bw
 	pendingTasksWG sync.WaitGroup
 	aborted        bool
 	Params         []map[string]string
@@ -176,6 +177,9 @@ func (b *Build) runTask(task *Task) ItemStatus {
 					taskCmd.Stop()
 					b.aborted = true
 				}
+			case <-b.flushChannel:
+				b.Logger.Println("Flushing log file...")
+				bw.Flush()
 			}
 		}
 	}()
@@ -457,6 +461,7 @@ func CreateBuild(job *Job, jobPath string) (*Build, error) {
 		Job:            job,
 		ID:             counti,
 		abortedChannel: make(chan bool),
+		flushChannel:   make(chan bool),
 		Params:         job.DefaultParams,
 	}
 	build.Logger = log.New(os.Stdout, fmt.Sprintf("[build #%d] ", build.ID), log.Lmicroseconds|log.Lshortfile)

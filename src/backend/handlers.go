@@ -569,3 +569,27 @@ func HandleJobSetActive(w http.ResponseWriter, r *http.Request, ps httprouter.Pa
 	}
 	w.Write([]byte(activeStatus))
 }
+
+// HandleFlushTaskLogs signals to flush logs
+func HandleFlushTaskLogs(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	logger, ok := r.Context().Value(HL).(*log.Logger)
+	if !ok {
+		logger = Logger
+	}
+
+	buildID := ps.ByName("id")
+	id, err := strconv.Atoi(buildID)
+	if err != nil {
+		logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	err = Q.FlushLogs(id)
+	if err != nil {
+		logger.Println(err)
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+}

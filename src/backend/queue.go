@@ -117,6 +117,19 @@ func (q *Queue) Abort(id int) error {
 	return fmt.Errorf("Build %d not found in Q", id)
 }
 
+// FlushLogs instructs to flush logs
+func (q *Queue) FlushLogs(id int) error {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+	for _, item := range q.running {
+		if item.ID == id {
+			item.flushChannel <- true
+			return nil
+		}
+	}
+	return fmt.Errorf("Build is not running")
+}
+
 // SetConcurrency sets number of concurrent builds
 func (q *Queue) SetConcurrency(number int) {
 	err := DB.Update(func(tx *bolt.Tx) error {
