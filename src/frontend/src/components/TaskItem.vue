@@ -76,10 +76,10 @@ export default {
             return `task #${this.task.id}`;
         },
         isVisible: function() {
-            // Show only "main" tasks or tasks that were started. For example,
+            // Show only "main" and "finally" tasks or tasks that were started. For example,
             // there is no need to show "finished" tasks if build failed because
             // they won't be executed anyway
-            if (this.task.kind === "main") {
+            if (this.task.kind === "main" || this.task.kind === "finally") {
                 return true;
             }
             return !(
@@ -225,5 +225,8 @@ section {
 }
 .border-finished {
   border-left-color: $success-color;
+}
+.border-finally {
+  border-left-color: $dark-color;
 }
 </style>

@@ -21,7 +21,7 @@ import (
 )
 
 // ItemStatus handles information about the item status (currently is used for
-// both Builds and Tasks)
+// both Builds and Tasks) and type of OnStatus changed tasks
 type ItemStatus string
 
 // StatusRunning ...
@@ -38,6 +38,9 @@ const StatusPending = "pending"
 
 // StatusAborted ...
 const StatusAborted = "aborted"
+
+// FinalTask is the task that is executed no matter what is the result of the build
+const FinalTask = "finally"
 
 // Build ...
 type Build struct {
@@ -96,11 +99,13 @@ func (b *Build) runOnStatusTasks(status ItemStatus) {
 		if task.Kind == string(status) {
 			task.Status = StatusRunning
 			task.startedAt = time.Now()
+			b.BroadcastUpdate()
 
 			status := b.runTask(task)
 
 			task.Status = status
 			task.duration = time.Since(task.startedAt)
+			b.BroadcastUpdate()
 		}
 	}
 }
@@ -196,6 +201,8 @@ func (b *Build) runTask(task *Task) ItemStatus {
 
 	// Abort message was recieved via channel
 	if b.aborted {
+		// Toggle status back for OnStatus tasks
+		b.aborted = false
 		return StatusAborted
 	}
 
@@ -384,6 +391,7 @@ func (b *Build) GetTasksStatus() []*TaskStatus {
 func (b *Build) SetBuildStatus(status ItemStatus) {
 	b.Logger.Printf("Status: %s\n", status)
 	b.Status = status
+	b.BroadcastUpdate()
 	defer b.BroadcastUpdate()
 	// Wait for pending task to finish before running anything else
 	b.pendingTasksWG.Wait()
@@ -417,21 +425,25 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		break
 	case StatusAborted:
 		b.runOnStatusTasks(status)
+		b.runOnStatusTasks(FinalTask)
 		b.Duration = time.Since(b.StartedAt)
 		b.Cleanup()
 		break
 	case StatusFailed:
 		b.runOnStatusTasks(status)
+		b.runOnStatusTasks(FinalTask)
 		b.Duration = time.Since(b.StartedAt)
 		b.Cleanup()
 		break
 	case StatusFinished:
 		b.CollectArtifacts()
 		b.runOnStatusTasks(status)
+		b.runOnStatusTasks(FinalTask)
 		b.Duration = time.Since(b.StartedAt)
 		b.Cleanup()
 		break
 	}
+
 }
 
 // CreateBuild creates Build instance and all necessary files and folders in wakespace

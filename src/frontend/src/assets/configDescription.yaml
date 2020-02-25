@@ -13,6 +13,9 @@ tasks:
 
 # List of patterns according to https://golang.org/pkg/path/filepath/#Match
 # related to the workspace directory
+# Note:
+#  - artifacts are collected only for builds with status `finished`
+#  - `on_finished` and `finally` tasks are executed after artifacts are collected
 artifacts:
   - "*.tar.gz"
 
@@ -38,6 +41,11 @@ allow_parallel: no
 on_pending:
   - name: Log a call
     command: logger "Looking for a suitable cow"
+
+# List of tasks that are always executed
+finally:
+  - name: List all files
+    command: ls -alh
 
 # Available environmetal variables:
 # WAKE_BUILD_ID - current build id, e.g. 169

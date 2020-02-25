@@ -90,6 +90,7 @@ type OnTasks struct {
 	OnFailed   []*Task `yaml:"on_failed"`
 	OnAborted  []*Task `yaml:"on_aborted"`
 	OnFinished []*Task `yaml:"on_finished"`
+	Finally    []*Task `yaml:"finally"`
 }
 
 // CreateJobFromFile reads job from a file
@@ -148,6 +149,13 @@ func CreateJobFromFile(path string) (*Job, error) {
 			t.Kind = StatusFinished
 		}
 		job.Tasks = append(job.Tasks, ot.OnFinished...)
+	}
+
+	if ot.Finally != nil {
+		for _, t := range ot.Finally {
+			t.Kind = "finally"
+		}
+		job.Tasks = append(job.Tasks, ot.Finally...)
 	}
 
 	// Assign tasks ids and status
