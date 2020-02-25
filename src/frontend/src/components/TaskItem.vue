@@ -92,9 +92,20 @@ export default {
         getLogURL() {
             return `/storage/build/${this.buildID}/task_${this.task.id}.log`;
         },
+        getFlushURL() {
+            return `/api/build/${this.buildID}/flush`;
+        },
     },
     methods: {
-        reloadLogs() {
+        flushLogs() {
+            axios
+                .post(this.getFlushURL)
+                .then((response) => {
+                    this._reloadLogs();
+                })
+                .catch((error) => {});
+        },
+        _reloadLogs() {
             axios
                 .get(this.getLogURL)
                 .then((response) => {
@@ -111,6 +122,13 @@ export default {
                     }
                 })
                 .catch((error) => {});
+        },
+        reloadLogs() {
+            if (this.task.status === "running") {
+                this.flushLogs();
+            } else {
+                this._reloadLogs();
+            }
         },
         addLog(log) {
             // It is better not to add logs directly as it may cause browser
