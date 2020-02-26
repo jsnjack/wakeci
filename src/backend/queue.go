@@ -100,8 +100,6 @@ func (q *Queue) Verify(id int) bool {
 
 // Abort schedules build to be aborted
 func (q *Queue) Abort(id int) error {
-	q.mutex.Lock()
-	defer q.mutex.Unlock()
 	for _, item := range q.running {
 		if item.ID == id {
 			item.abortedChannel <- true
@@ -119,8 +117,6 @@ func (q *Queue) Abort(id int) error {
 
 // FlushLogs instructs to flush logs
 func (q *Queue) FlushLogs(id int) error {
-	q.mutex.Lock()
-	defer q.mutex.Unlock()
 	for _, item := range q.running {
 		if item.ID == id {
 			item.flushChannel <- true
