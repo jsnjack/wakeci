@@ -433,6 +433,8 @@ func HandleJobPost(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 		return
 	}
 
+	contentB = NormalizeNewlines(contentB)
+
 	path := Config.JobDir + ps.ByName("name") + Config.jobsExt
 
 	err = ioutil.WriteFile(path, contentB, 0644)
