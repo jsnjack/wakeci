@@ -14,7 +14,7 @@ import (
 	"github.com/NYTimes/gziphandler"
 	bolt "github.com/etcd-io/bbolt"
 	"github.com/julienschmidt/httprouter"
-	"github.com/robfig/cron"
+	"github.com/robfig/cron/v3"
 )
 
 // Logger is the main logger

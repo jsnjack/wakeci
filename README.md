@@ -76,10 +76,3 @@ jobdir: ./
 
 ### API documentation
 See full description [here](https://github.com/jsnjack/wakeci/blob/master/API.md)
-
-### For developers
-#### Build dependencies
-```bash
-go get github.com/golang/dep/cmd/dep
-go get github.com/GeertJohan/go.rice/rice
-```

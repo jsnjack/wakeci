@@ -17,14 +17,12 @@ export GOPATH = ${PWD}:/home/${USER}/go
 .ONESHELL:
 src/backend/wakeci: version src/backend/*.go
 	cd src/backend
-	dep ensure
 	rm -f rice-box.go
 	go build -ldflags="-X main.Version=${VERSION}" -o ${BINARY}
 
 .ONESHELL:
 bin/wakeci: version src/backend/*.go
 	cd src/backend
-	dep ensure || exit 1
 	rm -f rice-box.go
 	rice embed-go || exit 1
 	go build -ldflags="-X main.Version=${VERSION}" -o ${BINARY}

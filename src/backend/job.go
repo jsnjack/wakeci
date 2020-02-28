@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/robfig/cron"
+	"github.com/robfig/cron/v3"
 	yaml "gopkg.in/yaml.v2"
 
 	bolt "github.com/etcd-io/bbolt"
