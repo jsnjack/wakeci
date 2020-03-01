@@ -27,6 +27,9 @@ interval: "@daily"
 # Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
 timeout: 5m30s
 
+# Adjust build position in the queue
+priority: 10
+
 # Designates if parallel builds of the same job are allowed
 allow_parallel: no
 

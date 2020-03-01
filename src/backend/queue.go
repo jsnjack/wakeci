@@ -59,6 +59,19 @@ func (q *Queue) Add(b *Build) {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 	q.queued = append(q.queued, b)
+	// Possibly shift queue
+	if b.Job.Priority != 0 {
+		for id, qItem := range q.queued {
+			if b.Job.Priority > qItem.Job.Priority {
+				newQueue := make([]*Build, len(q.queued))
+				copy(newQueue, q.queued[:id])
+				newQueue[id] = q.queued[len(q.queued)-1]
+				copy(newQueue[id+1:], q.queued[id:len(q.queued)-1])
+				q.queued = newQueue
+				break
+			}
+		}
+	}
 	Logger.Printf("New build queued: %s %d\n", b.Job.Name, b.ID)
 }
 

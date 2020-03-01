@@ -39,6 +39,7 @@ type Job struct {
 	Interval      string              `yaml:"interval" json:"interval"`
 	Timeout       string              `yaml:"timeout" json:"timeout"`
 	AllowParallel bool                `yaml:"allow_parallel"`
+	Priority      int                 `yaml:"priority"`
 }
 
 // AddToCron adds a job to cron
