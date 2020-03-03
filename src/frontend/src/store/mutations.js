@@ -3,11 +3,13 @@ const mutations = {
     WS_CONNECTED(state, connection) {
         state.ws.obj = connection;
         state.ws.connected = true;
+        state.ws.failedAttempts = 0;
         while (state.ws.buffer.length > 0) {
             state.ws.obj.sendMessage(state.ws.buffer.shift());
         }
     },
     WS_DISCONNECTED(state) {
+        state.ws.failedAttempts +=1;
         state.ws.connected = false;
     },
     WS_SEND(state, msg) {

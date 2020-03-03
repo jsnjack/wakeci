@@ -47,7 +47,7 @@ export default {
         connect: function() {
             if (!this.$store.state.ws.connected) {
                 if (!this.auth.isLoggedIn) {
-                    setTimeout(this.connect, this.$store.state.ws.reconnectTimeout);
+                    setTimeout(this.connect, this.ws.reconnectTimeout);
                     return;
                 }
                 const ws = new WebSocket(getWSURL());
@@ -61,6 +61,10 @@ export default {
 
                 ws.addEventListener("close", (event) => {
                     this.$store.commit("WS_DISCONNECTED");
+                    if (this.ws.failedAttempts >= this.ws.maxFailedAttempts) {
+                        this.$store.commit("LOG_OUT");
+                        this.$router.push("/login");
+                    }
                     setTimeout(this.connect, this.$store.state.ws.reconnectTimeout);
                 });
 
@@ -81,7 +85,6 @@ export default {
                 .then((response) => {
                     this.$store.commit("LOG_OUT");
                     this.$router.push("/login");
-                    this.ws.obj.close();
                 })
                 .catch((error) => {});
         },
