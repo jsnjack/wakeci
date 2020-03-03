@@ -1,6 +1,6 @@
 <template>
   <div id="app">
-    <header class="navbar" :class="getHeaderClass">
+    <header class="navbar" :class="getHeaderClass" :data-hostname="getHostname">
       <section class="navbar-section">
         <small class="text-gray">v {{ getVesion }}</small>
       </section>
@@ -38,6 +38,9 @@ export default {
                 return "header-connected";
             }
             return "header-disconnected";
+        },
+        getHostname: function() {
+            return location.hostname;
         },
     },
     methods: {
@@ -103,6 +106,10 @@ export default {
 
 .header-connected {
   background: $primary-color;
+}
+
+.header-connected[data-hostname="mrt-wake.surfly.com"] {
+  background:#333;
 }
 
 .header-disconnected {
