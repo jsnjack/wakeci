@@ -24,6 +24,7 @@ export default {
     },
     watch: {
         "item.status": "onStatusChange",
+        "item.duration": "onStatusChange",
     },
     computed: {
         isDone() {
