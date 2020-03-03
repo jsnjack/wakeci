@@ -51,6 +51,9 @@ deploy: build
 	ssh wakeci sudo systemctl start ${BINARY}
 	ssh wakeci sudo systemctl status ${BINARY}
 
+release: build
+	python ~/lxdfs/cobro/ci/utils/release_on_github.py -f bin/${BINARY} -r jsnjack/wakeci -t "v`monova`"
+
 .ONESHELL:
 clean:
 	rm -rf example_wd/*
