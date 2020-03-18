@@ -5,7 +5,7 @@
       <div class="column">
         <div class="task-header text-left" :class="getBorderClass">
           <BuildStatus :status="task.status"></BuildStatus>
-          <span class="h5">{{ name }}</span>
+          <span class="h5 task-name" @click="reloadLogs">{{ name }}</span>
           <Duration v-show="task.status !== 'pending'" :item="task" class="text-small m-1"></Duration>
         </div>
       </div>
@@ -228,5 +228,8 @@ section {
 }
 .border-finally {
   border-left-color: $dark-color;
+}
+.task-name {
+    cursor: pointer;
 }
 </style>
