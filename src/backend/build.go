@@ -391,6 +391,9 @@ func (b *Build) GetTasksStatus() []*TaskStatus {
 func (b *Build) SetBuildStatus(status ItemStatus) {
 	b.Logger.Printf("Status: %s\n", status)
 	b.Status = status
+	if status == StatusRunning {
+		b.StartedAt = time.Now()
+	}
 	b.BroadcastUpdate()
 	defer b.BroadcastUpdate()
 	// Wait for pending task to finish before running anything else
@@ -403,7 +406,6 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		go b.runOnStatusTasks(status)
 		break
 	case StatusRunning:
-		b.StartedAt = time.Now()
 		// Start timeout if available
 		if b.Job.Timeout != "" {
 			duration, err := time.ParseDuration(b.Job.Timeout)
