@@ -1,5 +1,5 @@
 <template>
-  <div class="container">
+  <div class="container grid-xl">
     <div class="card build-header">
       <div class="card-header">
         <div class="card-title h5">{{ statusUpdate.name }} #{{ statusUpdate.id }}</div>
