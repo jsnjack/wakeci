@@ -32,7 +32,6 @@
           </div>
           <div class="modal-body">
             <div class="content text-left">
-              <form ref="form">
                 <div class="form-group">
                   <label class="form-label" for="new-job-name">Name</label>
                   <input
@@ -41,9 +40,10 @@
                     id="new-job-name"
                     name="new-job-name"
                     v-model="newJobName"
+                    @keyup.enter="enterClicked"
+                    ref="newJobInput"
                   />
                 </div>
-              </form>
             </div>
           </div>
           <div class="modal-footer">
@@ -53,6 +53,7 @@
               @click.prevent="create"
               class="btn btn-primary float-right"
               aria-label="Close"
+              ref="createButton"
             >Create</a>
           </div>
         </div>
@@ -87,6 +88,11 @@ export default {
         },
         toggle(event) {
             this.modalOpen = !this.modalOpen;
+            if (this.modalOpen) {
+                this.$nextTick(() => {
+                    this.$refs.newJobInput.focus();
+                });
+            }
         },
         create() {
             const data = new FormData();
@@ -102,6 +108,9 @@ export default {
                     this.fetch();
                 })
                 .catch((error) => {});
+        },
+        enterClicked() {
+            this.$refs.createButton.click();
         },
     },
     data: function() {
