@@ -73,7 +73,7 @@ export default {
     },
     computed: {
         getDividerText: function() {
-            return `task #${this.task.id}`;
+            return `task #${this.task.id} | ${this.task.kind}`;
         },
         isVisible: function() {
             // Show only "main" and "finally" tasks or tasks that were started. For example,
