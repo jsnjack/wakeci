@@ -10,9 +10,11 @@
 export default {
     props: {
         done: {
+            type: Number,
             required: true,
         },
         total: {
+            type: Number,
             required: true,
         },
     },

@@ -80,15 +80,19 @@ export default {
     components: {BuildStatus, Duration},
     props: {
         buildID: {
+            type: Number,
             required: true,
         },
         task: {
+            type: Object,
             required: true,
         },
         name: {
+            type: String,
             required: true,
         },
         follow: {
+            type: Boolean,
             required: true,
         },
     },
