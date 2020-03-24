@@ -1,13 +1,16 @@
 <template>
   <div class="form-group">
-    <label class="form-label" :for="getForValue">{{ getParamsKey }}</label>
+    <label
+      class="form-label"
+      :for="getForValue"
+    >{{ getParamsKey }}</label>
     <input
+      :id="getForValue"
       class="form-input"
       type="text"
-      :id="getForValue"
       :name="getParamsKey"
       :value="getParamsValue"
-    />
+    >
   </div>
 </template>
 

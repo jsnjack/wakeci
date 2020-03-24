@@ -5,37 +5,61 @@
         class="form-input"
         type="text"
         :value="filter"
-        @input="evt=>filter=evt.target.value"
         title="Filter builds by ID, name, params and status"
         data-cy="filter"
-      />
-      <button @click.prevent="clearFilter" class="btn btn-action" :class="{'loading': isFetching}">
-        <i class="icon" :class="filterIconType"></i>
+        @input="evt=>filter=evt.target.value"
+      >
+      <button
+        class="btn btn-action"
+        :class="{'loading': isFetching}"
+        @click.prevent="clearFilter"
+      >
+        <i
+          class="icon"
+          :class="filterIconType"
+        />
       </button>
     </div>
     <table class="table table-striped">
       <thead>
         <th>#</th>
         <th>Name</th>
-        <th class="hide-xs hide-sm">Params</th>
-        <th class="hide-xs hide-sm hide-md">Tasks</th>
+        <th class="hide-xs hide-sm">
+          Params
+        </th>
+        <th class="hide-xs hide-sm hide-md">
+          Tasks
+        </th>
         <th>Status</th>
-        <th class="hide-xs">Duration</th>
+        <th class="hide-xs">
+          Duration
+        </th>
         <th>Actions</th>
       </thead>
       <tbody>
-        <FeedItem v-for="item in sortedBuilds" :key="item.id" :build="item"></FeedItem>
+        <FeedItem
+          v-for="item in sortedBuilds"
+          :key="item.id"
+          :build="item"
+        />
       </tbody>
     </table>
-    <div class="empty" v-show="Object.keys(builds).length === 0">
-      <p class="empty-title h5">Empty</p>
+    <div
+      v-show="Object.keys(builds).length === 0"
+      class="empty"
+    >
+      <p class="empty-title h5">
+        Empty
+      </p>
     </div>
     <button
       v-show="moreEnabled"
-      @click.prevent="fetchNow(true)"
       class="btn btn-link float-right"
       :class="{'loading': isFetching}"
-    >more...</button>
+      @click.prevent="fetchNow(true)"
+    >
+      more...
+    </button>
   </div>
 </template>
 
@@ -49,6 +73,49 @@ const FetchItemsSize = 10;
 
 export default {
     components: {FeedItem},
+    data: function() {
+        return {
+            builds: [],
+            subscription: "build:update:",
+            isFetching: false, // request to the server is in progress
+            filterIsDirty: false, // when user is still typing
+            filter: "", // sent to the server, to filter builds out
+            moreEnabled: true, // if makes sense to load more builds from the server
+        };
+    },
+    computed: {
+        sortedBuilds: function() {
+            return [...this.builds].sort((a, b) => {
+                if (a.id < b.id) {
+                    return 1;
+                }
+                if (a.id > b.id) {
+                    return -1;
+                }
+                return 0;
+            });
+        },
+        filterIconType: function() {
+            if (this.isFetching) {
+                return "";
+            }
+            if (this.filterIsDirty) {
+                return "icon-more-horiz";
+            }
+            if (this.filter === "") {
+                return "icon-search";
+            }
+            return "icon-cross";
+        },
+    },
+    watch: {
+        filter: function() {
+            this.filterIsDirty = true;
+            // Reset builds if user starts to change filter
+            this.builds = [];
+            this.fetch();
+        },
+    },
     mounted() {
         document.title = "Feed - wakeci";
         this.fetchNow();
@@ -85,39 +152,6 @@ export default {
             this.filterIsDirty = false;
         }, 500);
     },
-    computed: {
-        sortedBuilds: function() {
-            return [...this.builds].sort((a, b) => {
-                if (a.id < b.id) {
-                    return 1;
-                }
-                if (a.id > b.id) {
-                    return -1;
-                }
-                return 0;
-            });
-        },
-        filterIconType: function() {
-            if (this.isFetching) {
-                return "";
-            }
-            if (this.filterIsDirty) {
-                return "icon-more-horiz";
-            }
-            if (this.filter === "") {
-                return "icon-search";
-            }
-            return "icon-cross";
-        },
-    },
-    watch: {
-        filter: function() {
-            this.filterIsDirty = true;
-            // Reset builds if user starts to change filter
-            this.builds = [];
-            this.fetch();
-        },
-    },
     methods: {
         subscribe() {
             this.$store.commit("WS_SEND", {
@@ -148,7 +182,7 @@ export default {
                 this.$set(
                     this.builds,
                     index,
-                    Object.assign({}, this.builds[index], ev)
+                    Object.assign({}, this.builds[index], ev),
                 );
             } else {
                 this.builds.push(ev);
@@ -161,16 +195,6 @@ export default {
                 this.fetchNow();
             }
         },
-    },
-    data: function() {
-        return {
-            builds: [],
-            subscription: "build:update:",
-            isFetching: false, // request to the server is in progress
-            filterIsDirty: false, // when user is still typing
-            filter: "", // sent to the server, to filter builds out
-            moreEnabled: true, // if makes sense to load more builds from the server
-        };
     },
 };
 </script>

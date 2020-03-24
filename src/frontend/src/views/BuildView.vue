@@ -2,47 +2,67 @@
   <div class="container grid-xl">
     <div class="card build-header">
       <div class="card-header">
-        <div class="card-title h5">{{ statusUpdate.name }} #{{ statusUpdate.id }}</div>
-        <div class="card-subtitle text-gray">{{ job.desc }}</div>
-        <BuildStatus :status="statusUpdate.status"></BuildStatus>
-        <Duration v-show="statusUpdate.status !== 'pending'" :item="statusUpdate"></Duration>
+        <div class="card-title h5">
+          {{ statusUpdate.name }} #{{ statusUpdate.id }}
+        </div>
+        <div class="card-subtitle text-gray">
+          {{ job.desc }}
+        </div>
+        <BuildStatus :status="statusUpdate.status" />
+        <Duration
+          v-show="statusUpdate.status !== 'pending'"
+          :item="statusUpdate"
+        />
         <div class="float-right">
-            <a
-                v-if="!isDone"
-                :href="getAbortURL"
-                @click.prevent="abort"
-                class="btn btn-error item-action"
-            >Abort</a>
-            <RunJobButton
+          <a
+            v-if="!isDone"
+            :href="getAbortURL"
+            class="btn btn-error item-action"
+            @click.prevent="abort"
+          >Abort</a>
+          <RunJobButton
             :params="statusUpdate.params"
-            :buttonTitle="'Rerun'"
-            :jobName="statusUpdate.name"
+            :button-title="'Rerun'"
+            :job-name="statusUpdate.name"
             class="item-action"
-            ></RunJobButton>
+          />
         </div>
       </div>
       <div class="card-footer">
-        <BuildProgress :done="getDoneTasks" :total="getTotalTasks"></BuildProgress>
+        <BuildProgress
+          :done="getDoneTasks"
+          :total="getTotalTasks"
+        />
       </div>
     </div>
     <div class="columns">
-      <ParamItem v-for="(item, index) in statusUpdate.params" :key="index+'param'" :param="item"></ParamItem>
+      <ParamItem
+        v-for="(item, index) in statusUpdate.params"
+        :key="index+'param'"
+        :param="item"
+      />
     </div>
     <TaskItem
       v-for="item in statusUpdate.tasks"
       :key="item.id"
+      :ref="'task-'+item.id"
       :task="item"
-      :buildID="id"
-      :buildStatus="statusUpdate.status"
+      :build-i-d="id"
+      :build-status="statusUpdate.status"
       :name="job.tasks[item.id].name"
       :follow="follow"
-      :ref="'task-'+item.id"
-    ></TaskItem>
-    <Artifacts :artifacts="getArtifacts" :buildID="statusUpdate.id"></Artifacts>
+    />
+    <Artifacts
+      :artifacts="getArtifacts"
+      :build-i-d="statusUpdate.id"
+    />
     <div class="follow-logs form-group float-right">
       <label class="form-switch">
-        <input type="checkbox" v-model="follow" />
-        <i class="form-icon"></i> Follow
+        <input
+          v-model="follow"
+          type="checkbox"
+        >
+        <i class="form-icon" /> Follow
       </label>
     </div>
   </div>
@@ -60,11 +80,6 @@ import Artifacts from "@/components/Artifacts";
 import {findInContainer} from "@/store/utils";
 
 export default {
-    props: {
-        id: {
-            required: true,
-        },
-    },
     components: {
         BuildStatus,
         BuildProgress,
@@ -73,6 +88,57 @@ export default {
         Artifacts,
         Duration,
         RunJobButton,
+    },
+    props: {
+        id: {
+            required: true,
+        },
+    },
+    data: function() {
+        return {
+            name: "",
+            job: {},
+            statusUpdate: {
+                tasks: [],
+                id: NaN,
+            },
+            buildLogSubscription: "build:log:" + this.id,
+            buildUpdateSubscription: "build:update:" + this.id,
+            follow: true,
+        };
+    },
+    computed: {
+        getProgressTooltip() {
+            return `${this.getDoneTasks} of ${this.getTotalTasks}`;
+        },
+        getMainTasks() {
+            return this.statusUpdate.tasks.filter((item) => {
+                return item.kind === "main";
+            });
+        },
+        getDoneTasks() {
+            return this.getMainTasks.filter((item) => {
+                return item.status !== "pending" && item.status !== "running";
+            }).length;
+        },
+        getTotalTasks() {
+            return this.getMainTasks.length;
+        },
+        getArtifacts() {
+            return this.statusUpdate.artifacts || [];
+        },
+        getAbortURL: function() {
+            return `/api/build/${this.id}/abort`;
+        },
+        isDone() {
+            switch (this.statusUpdate.status) {
+            case "failed":
+            case "finished":
+            case "aborted":
+                return true;
+            }
+            return false;
+        },
     },
     mounted() {
         document.title = `#${this.id} - wakeci`;
@@ -140,52 +206,6 @@ export default {
         updateTitle() {
             document.title = `#${this.id} - ${this.statusUpdate.status} - wakeci`;
         },
-    },
-    computed: {
-        getProgressTooltip() {
-            return `${this.getDoneTasks} of ${this.getTotalTasks}`;
-        },
-        getMainTasks() {
-            return this.statusUpdate.tasks.filter((item) => {
-                return item.kind === "main";
-            });
-        },
-        getDoneTasks() {
-            return this.getMainTasks.filter((item) => {
-                return item.status !== "pending" && item.status !== "running";
-            }).length;
-        },
-        getTotalTasks() {
-            return this.getMainTasks.length;
-        },
-        getArtifacts() {
-            return this.statusUpdate.artifacts || [];
-        },
-        getAbortURL: function() {
-            return `/api/build/${this.id}/abort`;
-        },
-        isDone() {
-            switch (this.statusUpdate.status) {
-            case "failed":
-            case "finished":
-            case "aborted":
-                return true;
-            }
-            return false;
-        },
-    },
-    data: function() {
-        return {
-            name: "",
-            job: {},
-            statusUpdate: {
-                tasks: [],
-                id: NaN,
-            },
-            buildLogSubscription: "build:log:" + this.id,
-            buildUpdateSubscription: "build:update:" + this.id,
-            follow: true,
-        };
     },
 };
 </script>

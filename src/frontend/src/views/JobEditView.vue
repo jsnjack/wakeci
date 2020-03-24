@@ -1,21 +1,53 @@
 <template>
   <div class="container text-left">
-    <h4 class="text-center title">Edit {{ name }}</h4>
+    <h4 class="text-center title">
+      Edit {{ name }}
+    </h4>
     <div>
-      <codemirror data-cy="editor" :code="job.fileContent" :options="editorOptions" @input="onCodeChange"></codemirror>
+      <codemirror
+        data-cy="editor"
+        :code="job.fileContent"
+        :options="editorOptions"
+        @input="onCodeChange"
+      />
     </div>
-    <div class="divider"></div>
+    <div class="divider" />
     <div class="text-right">
-      <button @click.prevent="toggleHelpModal" class="btn btn-link">Show description</button>
-      <a data-cy="save-button" href="#" @click.prevent="save" class="btn btn-primary">Save</a>
+      <button
+        class="btn btn-link"
+        @click.prevent="toggleHelpModal"
+      >
+        Show description
+      </button>
+      <a
+        data-cy="save-button"
+        href="#"
+        class="btn btn-primary"
+        @click.prevent="save"
+      >Save</a>
     </div>
 
-    <div class="modal modal-lg" v-bind:class="{active: helpModalOpen}">
-      <a href="#close" @click.prevent="toggleHelpModal" class="modal-overlay" aria-label="Close"></a>
+    <div
+      class="modal modal-lg"
+      :class="{active: helpModalOpen}"
+    >
+      <a
+        href="#close"
+        class="modal-overlay"
+        aria-label="Close"
+        @click.prevent="toggleHelpModal"
+      />
       <div class="modal-container">
         <div class="modal-header">
-          <a href="#close" @click.prevent="toggleHelpModal" class="btn btn-clear float-right" aria-label="Close"></a>
-          <div class="modal-title text-uppercase">Job format description</div>
+          <a
+            href="#close"
+            class="btn btn-clear float-right"
+            aria-label="Close"
+            @click.prevent="toggleHelpModal"
+          />
+          <div class="modal-title text-uppercase">
+            Job format description
+          </div>
         </div>
         <div class="modal-body">
           <div class="content">
@@ -24,11 +56,15 @@
               class="codemirror-viewer"
               :code="configFormatContent"
               :options="viewerOptions"
-            ></codemirror>
+            />
           </div>
         </div>
         <div class="modal-footer">
-          <a href="#close" @click.prevent="toggleHelpModal" class="btn btn-link">Close</a>
+          <a
+            href="#close"
+            class="btn btn-link"
+            @click.prevent="toggleHelpModal"
+          >Close</a>
         </div>
       </div>
     </div>
@@ -43,13 +79,34 @@ import "codemirror/mode/yaml/yaml.js";
 import description from "raw-loader!@/assets/configDescription.yaml";
 
 export default {
+    components: {
+        codemirror,
+    },
     props: {
         name: {
             required: true,
         },
     },
-    components: {
-        codemirror,
+    data: function() {
+        return {
+            job: {
+                fileContent: "",
+            },
+            editorOptions: {
+                tabSize: 2,
+                mode: "text/x-yaml",
+                lineNumbers: true,
+                line: true,
+            },
+            viewerOptions: {
+                tabSize: 2,
+                mode: "text/x-yaml",
+                lineNumbers: false,
+                readOnly: true,
+            },
+            configFormatContent: description,
+            helpModalOpen: false,
+        };
     },
     mounted() {
         document.title = `Edit ${this.name} - wakeci`;
@@ -89,27 +146,6 @@ export default {
             this.helpModalOpen = !this.helpModalOpen;
             this.$refs.codeViewer.refresh();
         },
-    },
-    data: function() {
-        return {
-            job: {
-                fileContent: "",
-            },
-            editorOptions: {
-                tabSize: 2,
-                mode: "text/x-yaml",
-                lineNumbers: true,
-                line: true,
-            },
-            viewerOptions: {
-                tabSize: 2,
-                mode: "text/x-yaml",
-                lineNumbers: false,
-                readOnly: true,
-            },
-            configFormatContent: description,
-            helpModalOpen: false,
-        };
     },
 };
 </script>

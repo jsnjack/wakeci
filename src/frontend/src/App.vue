@@ -1,20 +1,47 @@
 <template>
   <div id="app">
-    <header class="navbar" :class="getHeaderClass" :data-hostname="getHostname">
+    <header
+      class="navbar"
+      :class="getHeaderClass"
+      :data-hostname="getHostname"
+    >
       <section class="navbar-section">
         <small class="text-gray">v {{ getVesion }}</small>
       </section>
       <section class="navbar-center">
-        <router-link to="/" class="btn btn-link text-light">Feed</router-link>
-        <router-link to="/jobs" class="btn btn-link text-light">Jobs</router-link>
-        <router-link to="/settings" class="btn btn-link text-light">Settings</router-link>
+        <router-link
+          to="/"
+          class="btn btn-link text-light"
+        >
+          Feed
+        </router-link>
+        <router-link
+          to="/jobs"
+          class="btn btn-link text-light"
+        >
+          Jobs
+        </router-link>
+        <router-link
+          to="/settings"
+          class="btn btn-link text-light"
+        >
+          Settings
+        </router-link>
       </section>
       <section class="navbar-section">
-        <a data-cy="logout" href="#" @click.prevent="logOut" class="btn btn-link text-light">Log out</a>
+        <a
+          data-cy="logout"
+          href="#"
+          class="btn btn-link text-light"
+          @click.prevent="logOut"
+        >Log out</a>
       </section>
     </header>
     <router-view />
-    <notifications classes="my-noty" position="bottom right" />
+    <notifications
+      classes="my-noty"
+      position="bottom right"
+    />
   </div>
 </template>
 
@@ -25,9 +52,6 @@ import {getWSURL} from "@/store/communication";
 import wsMessageHandler from "./store/communication";
 
 export default {
-    mounted() {
-        this.connect();
-    },
     computed: {
         ...vuex.mapState(["ws", "auth"]),
         getVesion: function() {
@@ -42,6 +66,9 @@ export default {
         getHostname: function() {
             return location.hostname;
         },
+    },
+    mounted() {
+        this.connect();
     },
     methods: {
         connect: function() {

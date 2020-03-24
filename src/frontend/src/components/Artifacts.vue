@@ -1,8 +1,15 @@
 <template>
   <section>
-    <div class="divider" data-content="artifacts"></div>
-    <div class="label artifact" v-for="item in artifacts" :key="item">
-        <a :href="downloadURL(item)">{{ item }}</a>
+    <div
+      class="divider"
+      data-content="artifacts"
+    />
+    <div
+      v-for="item in artifacts"
+      :key="item"
+      class="label artifact"
+    >
+      <a :href="downloadURL(item)">{{ item }}</a>
     </div>
   </section>
 </template>

@@ -1,14 +1,34 @@
 <template>
-  <div class="container grid-xs" v-bind:class="{'loading loading-lg': fetching}">
-    <form v-show="!fetching" class="card" method="post" @submit.prevent="logIn">
+  <div
+    class="container grid-xs"
+    :class="{'loading loading-lg': fetching}"
+  >
+    <form
+      v-show="!fetching"
+      class="card"
+      method="post"
+      @submit.prevent="logIn"
+    >
       <div class="card-header">
-        <div class="card-title h5">Password</div>
+        <div class="card-title h5">
+          Password
+        </div>
       </div>
       <div class="card-body">
-        <input class="form-input text-center" type="password" id="password" v-model="password" />
+        <input
+          id="password"
+          v-model="password"
+          class="form-input text-center"
+          type="password"
+        >
       </div>
       <div class="card-footer">
-        <button type="submit" class="btn btn-primary">Log in</button>
+        <button
+          type="submit"
+          class="btn btn-primary"
+        >
+          Log in
+        </button>
       </div>
     </form>
   </div>
@@ -19,15 +39,21 @@ import axios from "axios";
 import vuex from "vuex";
 
 export default {
-    mounted() {
-        document.title = "Login - wakeci";
-        this.fetch();
+    data: function() {
+        return {
+            fetching: true,
+            password: "",
+        };
     },
     computed: {
         ...vuex.mapState(["auth"]),
         getRedirectURL: function() {
             return this.$route.query.redirect || "/";
         },
+    },
+    mounted() {
+        document.title = "Login - wakeci";
+        this.fetch();
     },
     methods: {
         fetch() {
@@ -59,12 +85,6 @@ export default {
                 })
                 .catch((error) => {});
         },
-    },
-    data: function() {
-        return {
-            fetching: true,
-            password: "",
-        };
     },
 };
 </script>

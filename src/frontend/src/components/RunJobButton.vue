@@ -1,31 +1,58 @@
 <template>
   <span>
-    <a href="#" @click.prevent="toggleModal" class="btn btn-success">{{ buttonTitle }}</a>
+    <a
+      href="#"
+      class="btn btn-success"
+      @click.prevent="toggleModal"
+    >{{ buttonTitle }}</a>
 
-    <div class="modal" v-bind:class="{active: modalOpen}">
-      <a href="#" @click.prevent="toggleModal" class="modal-overlay" aria-label="Close"></a>
+    <div
+      class="modal"
+      :class="{active: modalOpen}"
+    >
+      <a
+        href="#"
+        class="modal-overlay"
+        aria-label="Close"
+        @click.prevent="toggleModal"
+      />
       <div class="modal-container">
         <div class="modal-header">
           <a
             href="#"
-            @click.prevent="toggleModal"
             class="btn btn-clear float-right"
             aria-label="Close"
-          ></a>
+            @click.prevent="toggleModal"
+          />
           <div class="modal-title text-uppercase">{{ getModalTitle }}</div>
         </div>
         <div class="modal-body">
           <div class="content">
-            <form v-show="this.params" ref="form">
-              <RunFormItem v-for="item in params" :key="item.name" :params="item"></RunFormItem>
+            <form
+              v-show="this.params"
+              ref="form"
+            >
+              <RunFormItem
+                v-for="item in params"
+                :key="item.name"
+                :params="item"
+              />
             </form>
-            <div class="empty" v-show="!this.params">
+            <div
+              v-show="!this.params"
+              class="empty"
+            >
               <p class="empty-title h6 text-uppercase">Empty</p>
             </div>
           </div>
         </div>
         <div class="modal-footer">
-          <a data-cy="start-job-confirm" href="#" @click.prevent="run" class="btn btn-primary float-right">Add to queue</a>
+          <a
+            data-cy="start-job-confirm"
+            href="#"
+            class="btn btn-primary float-right"
+            @click.prevent="run"
+          >Add to queue</a>
         </div>
       </div>
     </div>
@@ -50,6 +77,11 @@ export default {
             required: true,
         },
     },
+    data: function() {
+        return {
+            modalOpen: false,
+        };
+    },
     computed: {
         getModalTitle: function() {
             return `${this.jobName} job parameters`;
@@ -61,7 +93,7 @@ export default {
             const url =
         `/api/job/${this.jobName}/run?` +
         new URLSearchParams(
-            Array.from(new FormData(this.$refs.form))
+            Array.from(new FormData(this.$refs.form)),
         ).toString();
             axios
                 .post(url)
@@ -76,11 +108,6 @@ export default {
         toggleModal(event) {
             this.modalOpen = !this.modalOpen;
         },
-    },
-    data: function() {
-        return {
-            modalOpen: false,
-        };
     },
 };
 </script>

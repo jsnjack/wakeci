@@ -1,5 +1,8 @@
 <template>
-  <span class="label tooltip tooltip-bottom" :data-tooltip="tooltipText">{{ durationText }}</span>
+  <span
+    class="label tooltip tooltip-bottom"
+    :data-tooltip="tooltipText"
+  >{{ durationText }}</span>
 </template>
 
 <script>
@@ -16,15 +19,11 @@ export default {
             type: Object,
         },
     },
-    mounted() {
-        this.onStatusChange();
-    },
-    beforeDestroy: function() {
-        clearInterval(this.updateInterval);
-    },
-    watch: {
-        "item.status": "onStatusChange",
-        "item.duration": "onStatusChange",
+    data: function() {
+        return {
+            updateInterval: null,
+            durationText: "",
+        };
     },
     computed: {
         isDone() {
@@ -40,6 +39,16 @@ export default {
             const d = new Date(this.item.startedAt).toLocaleString();
             return `Started at: ${d}`;
         },
+    },
+    watch: {
+        "item.status": "onStatusChange",
+        "item.duration": "onStatusChange",
+    },
+    mounted() {
+        this.onStatusChange();
+    },
+    beforeDestroy: function() {
+        clearInterval(this.updateInterval);
     },
     methods: {
         updateDuration() {
@@ -66,17 +75,11 @@ export default {
                     function() {
                         this.updateDuration();
                     }.bind(this),
-                    updateDurationPeriod
+                    updateDurationPeriod,
                 );
             }
             this.updateDuration();
         },
-    },
-    data: function() {
-        return {
-            updateInterval: null,
-            durationText: "",
-        };
     },
 };
 </script>

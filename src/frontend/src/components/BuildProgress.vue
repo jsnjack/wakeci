@@ -1,5 +1,9 @@
 <template>
-  <progress class="progress" :value="done" :max="total"></progress>
+  <progress
+    class="progress"
+    :value="done"
+    :max="total"
+  />
 </template>
 
 <script>

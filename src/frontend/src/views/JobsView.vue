@@ -3,57 +3,88 @@
     <table class="table table-striped">
       <thead>
         <th>Name</th>
-        <th class="hide-sm">Interval</th>
-        <th class="hide-sm">Active</th>
+        <th class="hide-sm">
+          Interval
+        </th>
+        <th class="hide-sm">
+          Active
+        </th>
         <th>Actions</th>
       </thead>
       <tbody>
-        <JobItem v-for="item in jobs" :key="item.name" :job="item"></JobItem>
+        <JobItem
+          v-for="item in jobs"
+          :key="item.name"
+          :job="item"
+        />
       </tbody>
     </table>
 
-    <div class="empty" v-show="jobs.length === 0">
-      <p class="empty-title h5">Empty</p>
+    <div
+      v-show="jobs.length === 0"
+      class="empty"
+    >
+      <p class="empty-title h5">
+        Empty
+      </p>
     </div>
     <div class="text-center create-section">
-      <a data-cy="create-job" href="#" @click.prevent="toggle" class="btn btn-primary">Create new job</a>
+      <a
+        data-cy="create-job"
+        href="#"
+        class="btn btn-primary"
+        @click.prevent="toggle"
+      >Create new job</a>
       <!-- Modal to create new job -->
-      <div class="modal" v-bind:class="{active: modalOpen}">
-        <a href="#" @click.prevent="toggle" class="modal-overlay" aria-label="Close"></a>
+      <div
+        class="modal"
+        :class="{active: modalOpen}"
+      >
+        <a
+          href="#"
+          class="modal-overlay"
+          aria-label="Close"
+          @click.prevent="toggle"
+        />
         <div class="modal-container">
           <div class="modal-header">
             <a
               href="#"
-              @click.prevent="toggle"
               class="btn btn-clear float-right"
               aria-label="Close"
-            ></a>
-            <div class="modal-title text-uppercase">Create new job</div>
+              @click.prevent="toggle"
+            />
+            <div class="modal-title text-uppercase">
+              Create new job
+            </div>
           </div>
           <div class="modal-body">
             <div class="content text-left">
-                <div class="form-group">
-                  <label class="form-label" for="new-job-name">Name</label>
-                  <input
-                    class="form-input"
-                    type="text"
-                    id="new-job-name"
-                    name="new-job-name"
-                    v-model="newJobName"
-                    @keyup.enter="enterClicked"
-                    ref="newJobInput"
-                  />
-                </div>
+              <div class="form-group">
+                <label
+                  class="form-label"
+                  for="new-job-name"
+                >Name</label>
+                <input
+                  id="new-job-name"
+                  ref="newJobInput"
+                  v-model="newJobName"
+                  class="form-input"
+                  type="text"
+                  name="new-job-name"
+                  @keyup.enter="enterClicked"
+                >
+              </div>
             </div>
           </div>
           <div class="modal-footer">
             <a
+              ref="createButton"
               data-cy="create-job-button"
               href="#"
-              @click.prevent="create"
               class="btn btn-primary float-right"
               aria-label="Close"
-              ref="createButton"
+              @click.prevent="create"
             >Create</a>
           </div>
         </div>
@@ -68,14 +99,21 @@ import axios from "axios";
 
 export default {
     components: {JobItem},
-    mounted() {
-        document.title = "Jobs - wakeci";
-        this.fetch();
+    data: function() {
+        return {
+            jobs: [],
+            modalOpen: false,
+            newJobName: "new_job",
+        };
     },
     computed: {
         isModalOpen: function() {
             return this.modalOpen;
         },
+    },
+    mounted() {
+        document.title = "Jobs - wakeci";
+        this.fetch();
     },
     methods: {
         fetch() {
@@ -112,13 +150,6 @@ export default {
         enterClicked() {
             this.$refs.createButton.click();
         },
-    },
-    data: function() {
-        return {
-            jobs: [],
-            modalOpen: false,
-            newJobName: "new_job",
-        };
     },
 };
 </script>

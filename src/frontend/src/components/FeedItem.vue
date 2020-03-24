@@ -1,37 +1,55 @@
 <template>
   <tr :data-cy-build="build.id">
     <td>
-      <router-link :to="{ name: 'build', params: { id: build.id}}">{{ build.id }}</router-link>
+      <router-link :to="{ name: 'build', params: { id: build.id}}">
+        {{ build.id }}
+      </router-link>
     </td>
     <td>
-        <div class="cell-name">{{ build.name }}</div>
+      <div class="cell-name">
+        {{ build.name }}
+      </div>
     </td>
     <td class="hide-xs hide-sm">
-        <div v-show="build.params" class="label param tooltip" :data-tooltip="getParamsTooltip">{{ getParamsText }}</div>
+      <div
+        v-show="build.params"
+        class="label param tooltip"
+        :data-tooltip="getParamsTooltip"
+      >
+        {{ getParamsText }}
+      </div>
     </td>
-    <td class="tooltip tooltip-right hide-xs hide-sm hide-md" :data-tooltip="getProgressTooltip">
-      <BuildProgress :done="getDoneTasks" :total="getTotalTasks" />
+    <td
+      class="tooltip tooltip-right hide-xs hide-sm hide-md"
+      :data-tooltip="getProgressTooltip"
+    >
+      <BuildProgress
+        :done="getDoneTasks"
+        :total="getTotalTasks"
+      />
     </td>
     <td>
-      <BuildStatus :status="build.status"></BuildStatus>
+      <BuildStatus :status="build.status" />
     </td>
     <td class="hide-xs">
       <Duration
         v-show="build.status !== 'pending'"
         :item="build"
-      ></Duration>
+      />
     </td>
     <td class="actions">
       <router-link
         :to="{ name: 'build', params: { id: build.id}}"
         class="btn btn-primary item-action"
         data-cy="open-build-button"
-      >Open</router-link>
+      >
+        Open
+      </router-link>
       <a
         v-if="!isDone"
         :href="getAbortURL"
-        @click.prevent="abort"
         class="btn btn-error item-action"
+        @click.prevent="abort"
       >Abort</a>
     </td>
   </tr>

@@ -1,5 +1,8 @@
 <template>
-    <span class="label" :class="getStatusClass">{{ status }}</span>
+  <span
+    class="label"
+    :class="getStatusClass"
+  >{{ status }}</span>
 </template>
 
 <script>

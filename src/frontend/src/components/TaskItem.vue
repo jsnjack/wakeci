@@ -1,36 +1,70 @@
 <template>
   <section v-show="isVisible">
-    <div class="divider" :data-content="getDividerText"></div>
+    <div
+      class="divider"
+      :data-content="getDividerText"
+    />
     <div class="columns">
       <div class="column">
         <div class="text-left">
-          <BuildStatus :status="task.status"></BuildStatus>
-          <span class="h5 task-name" @click="reloadLogs">{{ name }}</span>
-          <Duration v-show="task.status !== 'pending'" :item="task" class="text-small m-1"></Duration>
+          <BuildStatus :status="task.status" />
+          <span
+            class="h5 task-name"
+            @click="reloadLogs"
+          >{{ name }}</span>
+          <Duration
+            v-show="task.status !== 'pending'"
+            :item="task"
+            class="text-small m-1"
+          />
         </div>
       </div>
       <div class="column text-right">
         <div class="dropdown dropdown-right text-left">
           <div class="btn-group">
-            <button data-cy="reload" @click="reloadLogs" class="btn btn-sm btn-primary">Reload</button>
-            <a class="btn btn-sm dropdown-toggle" tabindex="0">
-              <i class="icon icon-caret"></i>
+            <button
+              data-cy="reload"
+              class="btn btn-sm btn-primary"
+              @click="reloadLogs"
+            >
+              Reload
+            </button>
+            <a
+              class="btn btn-sm dropdown-toggle"
+              tabindex="0"
+            >
+              <i class="icon icon-caret" />
             </a>
             <ul class="menu">
-              <li class="divider" data-content="ACTIONS"></li>
+              <li
+                class="divider"
+                data-content="ACTIONS"
+              />
               <li class="menu-item">
-                <a :href="getLogURL" target="_blank">Open</a>
+                <a
+                  :href="getLogURL"
+                  target="_blank"
+                >Open</a>
               </li>
               <li class="menu-item">
-                <a href="#" @click="clearLogs">Hide</a>
+                <a
+                  href="#"
+                  @click="clearLogs"
+                >Hide</a>
               </li>
             </ul>
           </div>
         </div>
       </div>
     </div>
-    <div class="log-container text-left code status-border" :class="getBorderClass">
-      <pre v-if="content" class="d-block log-line">{{ content }}</pre>
+    <div
+      class="log-container text-left code status-border"
+      :class="getBorderClass"
+    >
+      <pre
+        v-if="content"
+        class="d-block log-line"
+      >{{ content }}</pre>
     </div>
   </section>
 </template>
@@ -43,6 +77,7 @@ import axios from "axios";
 const FlushContentPeriod = 500;
 
 export default {
+    components: {BuildStatus, Duration},
     props: {
         buildID: {
             required: true,
@@ -57,19 +92,12 @@ export default {
             required: true,
         },
     },
-    components: {BuildStatus, Duration},
-    mounted() {
-        this.$on("new:log", this.addLog);
-        this.onStatusChange(this.task.status);
-    },
-    destroyed() {
-        this.$off(this.addLog);
-    },
-    beforeDestroy: function() {
-        clearInterval(this.flushInterval);
-    },
-    watch: {
-        "task.status": "onStatusChange",
+    data: function() {
+        return {
+            cachedContent: "",
+            content: "",
+            flushInterval: null,
+        };
     },
     computed: {
         getDividerText: function() {
@@ -95,6 +123,19 @@ export default {
         getFlushURL() {
             return `/api/build/${this.buildID}/flush`;
         },
+    },
+    watch: {
+        "task.status": "onStatusChange",
+    },
+    mounted() {
+        this.$on("new:log", this.addLog);
+        this.onStatusChange(this.task.status);
+    },
+    destroyed() {
+        this.$off(this.addLog);
+    },
+    beforeDestroy: function() {
+        clearInterval(this.flushInterval);
     },
     methods: {
         flushLogs() {
@@ -156,20 +197,13 @@ export default {
                     function() {
                         this.flushContent();
                     }.bind(this),
-                    FlushContentPeriod
+                    FlushContentPeriod,
                 );
             } else {
                 clearInterval(this.flushInterval);
                 this.flushContent();
             }
         },
-    },
-    data: function() {
-        return {
-            cachedContent: "",
-            content: "",
-            flushInterval: null,
-        };
     },
 };
 </script>

@@ -1,5 +1,7 @@
 <template>
-  <div class="label param">{{ getName }} = {{ getValue }}</div>
+  <div class="label param">
+    {{ getName }} = {{ getValue }}
+  </div>
 </template>
 
 <script>
