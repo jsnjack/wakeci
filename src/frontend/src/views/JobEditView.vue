@@ -25,6 +25,12 @@
         class="btn btn-primary"
         @click.prevent="save"
       >Save</a>
+      <a
+        data-cy="save-button"
+        href="#"
+        class="btn btn-primary"
+        @click.prevent="saveAndClose"
+      >Save & Close</a>
     </div>
 
     <div
@@ -142,6 +148,10 @@ export default {
                     });
                 })
                 .catch((error) => {});
+        },
+        saveAndClose() {
+            this.save();
+            this.$router.push("/jobs");
         },
         toggleHelpModal(event) {
             this.helpModalOpen = !this.helpModalOpen;
