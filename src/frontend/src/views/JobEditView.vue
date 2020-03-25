@@ -26,7 +26,7 @@
         @click.prevent="save"
       >Save</a>
       <a
-        data-cy="save-button"
+        data-cy="save-and-close-button"
         href="#"
         class="btn btn-primary"
         @click.prevent="saveAndClose"

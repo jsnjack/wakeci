@@ -69,5 +69,21 @@ describe("Jobs page", function() {
         cy.visit("/");
         cy.get("body").should("contain", jobName);
     });
+
+    it("should edit a job and navigate", function() {
+        cy.visit("/jobs");
+        cy.login();
+        cy.get("[data-cy=create-job]").click();
+        const jobName = "myjob" + new Date().getTime();
+        cy.get("input[name=new-job-name]").clear().type(jobName);
+        cy.get("[data-cy=create-job-button]").click();
+        cy.get(".notification-content").should("contain", "New job created");
+        cy.get(`tr[data-cy=${jobName}]`).should("be.visible");
+
+        cy.get(`tr[data-cy=${jobName}] [data-cy=edit-job-button]`).click();
+        cy.url().should("include", "/job/" + jobName);
+        cy.get("[data-cy=save-and-close-button]").click();
+        cy.location("pathname").should("eq", "/jobs");
+    });
 })
 ;
