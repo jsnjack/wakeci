@@ -445,6 +445,7 @@ func HandleJobPost(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 		return
 	}
 	logger.Printf("Job %s was updated\n", ps.ByName("name"))
+	CleanupJobsBucket()
 	err = ScanAllJobs()
 	if err != nil {
 		logger.Println(err)
@@ -484,6 +485,7 @@ func HandleJobsCreate(w http.ResponseWriter, r *http.Request, ps httprouter.Para
 			w.Write([]byte(err.Error()))
 			return
 		}
+		CleanupJobsBucket()
 		err = ScanAllJobs()
 		if err != nil {
 			logger.Println(err)
