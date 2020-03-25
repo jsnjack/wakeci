@@ -9,7 +9,7 @@
 export default {
     props: {
         status: {
-            type: String,
+            type: null,
             required: true,
         },
     },

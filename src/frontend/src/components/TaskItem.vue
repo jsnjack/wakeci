@@ -80,7 +80,7 @@ export default {
     components: {BuildStatus, Duration},
     props: {
         buildID: {
-            type: Number,
+            type: String,
             required: true,
         },
         task: {

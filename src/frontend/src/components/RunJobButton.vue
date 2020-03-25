@@ -67,7 +67,7 @@ export default {
     components: {RunFormItem},
     props: {
         params: {
-            type: Array,
+            type: null,
             required: true,
         },
         buttonTitle: {
@@ -75,7 +75,7 @@ export default {
             required: true,
         },
         jobName: {
-            type: String,
+            type: null,
             required: true,
         },
     },
