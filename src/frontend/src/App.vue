@@ -142,6 +142,10 @@ export default {
   background:#333;
 }
 
+.header-connected[data-hostname="build.surfly.com"] {
+  background:#b8662c;
+}
+
 .header-disconnected {
   background: #6f6f94;
 }
