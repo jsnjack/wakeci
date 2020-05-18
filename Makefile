@@ -52,7 +52,7 @@ deploy: build
 	ssh wakeci sudo systemctl status ${BINARY}
 
 release: build
-	python ~/lxdfs/cobro/ci/utils/release_on_github.py -f bin/${BINARY} -r jsnjack/wakeci -t "v`monova`"
+	grm release jsnjack/wakeci -f bin/${BINARY} -t "v`monova`"
 
 .ONESHELL:
 clean:
