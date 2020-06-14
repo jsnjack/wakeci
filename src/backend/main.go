@@ -26,14 +26,14 @@ var Version string
 // DB is the Bolt db
 var DB *bolt.DB
 
-// Q is a global queue object
-var Q *Queue
+// GlobalQueue is a global queue object
+var GlobalQueue *Queue
 
-// C is a global cron object
-var C *cron.Cron
+// GlobalCron is a global cron object
+var GlobalCron *cron.Cron
 
-// S is a global session storage object
-var S *SessionStorage
+// GlobalSessionStorage is a global session storage object
+var GlobalSessionStorage *SessionStorage
 
 // Config is a global configuration object
 var Config *WakeConfig
@@ -108,15 +108,15 @@ func main() {
 		Logger.Fatal(err)
 	}
 
-	S = CreateSessionStorage(SessionCleanupPeriod)
+	GlobalSessionStorage = CreateSessionStorage(SessionCleanupPeriod)
 
-	Q, err = CreateQueue()
+	GlobalQueue, err = CreateQueue()
 	if err != nil {
 		Logger.Fatal(err)
 	}
 
-	C = cron.New()
-	C.Start()
+	GlobalCron = cron.New()
+	GlobalCron.Start()
 
 	CleanupJobsBucket()
 	ScanAllJobs()

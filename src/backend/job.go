@@ -47,7 +47,7 @@ func (j *Job) AddToCron() error {
 	if j.Interval == "" {
 		return nil
 	}
-	_, err := C.AddJob(j.Interval, j)
+	_, err := GlobalCron.AddJob(j.Interval, j)
 	Logger.Printf("Add job %s to cron with interval %s\n", j.Name, j.Interval)
 	return err
 }
@@ -176,8 +176,8 @@ func CreateJobFromFile(path string) (*Job, error) {
 func ScanAllJobs() error {
 	// Clean Cron entries
 	Logger.Println("Cleaning all cron entries...")
-	for _, entry := range C.Entries() {
-		C.Remove(entry.ID)
+	for _, entry := range GlobalCron.Entries() {
+		GlobalCron.Remove(entry.ID)
 	}
 	files, _ := filepath.Glob(Config.JobDir + "*" + Config.jobsExt)
 	for _, f := range files {
@@ -273,8 +273,8 @@ func RunJob(name string, params url.Values) (*Build, error) {
 		}
 	}
 
-	Q.Add(build)
-	Q.Take()
+	GlobalQueue.Add(build)
+	GlobalQueue.Take()
 	build.BroadcastUpdate()
 	return build, nil
 }

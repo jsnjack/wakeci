@@ -158,7 +158,7 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 			} else {
 				switch msg.Status {
 				case StatusPending, StatusRunning:
-					if !Q.Verify(msg.ID) {
+					if !GlobalQueue.Verify(msg.ID) {
 						msg.Status = StatusAborted
 						updatedB, err := json.Marshal(msg)
 						if err != nil {
@@ -259,7 +259,7 @@ func HandleAbortBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Para
 		w.Write([]byte(err.Error()))
 		return
 	}
-	err = Q.Abort(id)
+	err = GlobalQueue.Abort(id)
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusNotFound)
@@ -307,7 +307,7 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request, ps httprouter.Pa
 		w.Write([]byte(err.Error()))
 		return
 	}
-	Q.SetConcurrency(cbInt)
+	GlobalQueue.SetConcurrency(cbInt)
 
 	// Build history size
 	bhs := r.FormValue("buildHistorySize")
@@ -590,7 +590,7 @@ func HandleFlushTaskLogs(w http.ResponseWriter, r *http.Request, ps httprouter.P
 		return
 	}
 
-	err = Q.FlushLogs(id)
+	err = GlobalQueue.FlushLogs(id)
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusNotFound)

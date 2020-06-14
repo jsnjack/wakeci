@@ -107,7 +107,7 @@ func AuthMi(next httprouter.Handle) httprouter.Handle {
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
-		err = S.Verify(sessionToken.Value)
+		err = GlobalSessionStorage.Verify(sessionToken.Value)
 		if err != nil {
 			logger.Println(err)
 			w.WriteHeader(http.StatusForbidden)

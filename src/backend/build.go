@@ -244,8 +244,8 @@ func (b *Build) Cleanup() {
 	if b.timer != nil {
 		b.timer.Stop()
 	}
-	Q.Remove(b.ID)
-	Q.Take()
+	GlobalQueue.Remove(b.ID)
+	GlobalQueue.Take()
 }
 
 // CollectArtifacts copies artifacts from workspace to wakespace
@@ -416,7 +416,7 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 				go func() {
 					<-b.timer.C
 					b.Logger.Printf("Build %d has timed out\n", b.ID)
-					err = Q.Abort(b.ID)
+					err = GlobalQueue.Abort(b.ID)
 					if err != nil {
 						b.Logger.Println(err)
 					}
