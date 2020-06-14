@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	bolt "github.com/etcd-io/bbolt"
+	bolt "go.etcd.io/bbolt"
 )
 
 // BuildCleanupPeriod is a period to clean up old builds

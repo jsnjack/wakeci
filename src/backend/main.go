@@ -12,9 +12,9 @@ import (
 
 	rice "github.com/GeertJohan/go.rice"
 	"github.com/NYTimes/gziphandler"
-	bolt "github.com/etcd-io/bbolt"
 	"github.com/julienschmidt/httprouter"
 	"github.com/robfig/cron/v3"
+	bolt "go.etcd.io/bbolt"
 )
 
 // Logger is the main logger

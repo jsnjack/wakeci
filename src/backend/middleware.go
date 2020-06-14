@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	bolt "github.com/etcd-io/bbolt"
 	"github.com/julienschmidt/httprouter"
+	bolt "go.etcd.io/bbolt"
 	"golang.org/x/crypto/bcrypt"
 )
 

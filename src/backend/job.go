@@ -12,7 +12,7 @@ import (
 	"github.com/robfig/cron/v3"
 	yaml "gopkg.in/yaml.v2"
 
-	bolt "github.com/etcd-io/bbolt"
+	bolt "go.etcd.io/bbolt"
 )
 
 // NewJobTemplate is a template for newly created jobs

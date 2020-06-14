@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	bolt "github.com/etcd-io/bbolt"
+	bolt "go.etcd.io/bbolt"
 )
 
 // Queue represents queued and running builds

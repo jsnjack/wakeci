@@ -7,8 +7,8 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	bolt "github.com/etcd-io/bbolt"
 	"github.com/julienschmidt/httprouter"
+	bolt "go.etcd.io/bbolt"
 )
 
 // HandleIsLoggedIn returns 200 if user is logged in

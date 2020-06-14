@@ -16,8 +16,8 @@ import (
 
 	"github.com/bmatcuk/doublestar"
 
-	bolt "github.com/etcd-io/bbolt"
 	"github.com/jsnjack/cmd"
+	bolt "go.etcd.io/bbolt"
 )
 
 // ItemStatus handles information about the item status (currently is used for
