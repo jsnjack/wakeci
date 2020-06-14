@@ -52,12 +52,12 @@ func (j *Job) AddToCron() error {
 	return err
 }
 
-// Run is used to add job to cron
+// Run is used to run a job via cron
 func (j *Job) Run() {
 	var params url.Values
-	build, err := RunJob(j.Name, params)
+	_, err := RunJob(j.Name, params)
 	if err != nil {
-		build.Logger.Printf("Unable to schedule the build via cron: %s\n", err.Error())
+		Logger.Printf("Unable to schedule a build via cron for job %s: %s\n", j.Name, err.Error())
 	}
 }
 
