@@ -10,5 +10,8 @@
     "editor.codeActionsOnSave": {
         "source.fixAll.eslint": true
     },
-    "eslint.workingDirectories": ["src/frontend/"]
+    "eslint.workingDirectories": ["src/frontend/"],
+    "go.languageServerExperimentalFeatures": {
+        "rename": true
+    },
 }
