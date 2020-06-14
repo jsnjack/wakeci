@@ -498,6 +498,23 @@ func HandleJobsCreate(w http.ResponseWriter, r *http.Request, ps httprouter.Para
 	}
 }
 
+// HandleJobsRefresh deletes all jobs and reads them again from config directory
+func HandleJobsRefresh(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	logger, ok := r.Context().Value(HL).(*log.Logger)
+	if !ok {
+		logger = Logger
+	}
+
+	CleanupJobsBucket()
+	err := ScanAllJobs()
+	if err != nil {
+		logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
+}
+
 // HandleDeleteJob deletes the job
 func HandleDeleteJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	logger, ok := r.Context().Value(HL).(*log.Logger)

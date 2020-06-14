@@ -75,6 +75,13 @@ Creates new empty job
 
 ---
 
+---
+
+### POST /api/jobs/refresh
+Refresh all jobs from the configuration folder; removes non-existing jobs
+
+---
+
 ### POST /api/job/:name/run
 Schedules new build for a job. Returns build id
 

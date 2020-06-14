@@ -32,7 +32,7 @@
       <a
         data-cy="create-job"
         href="#"
-        class="btn btn-primary"
+        class="btn btn-primary m-1"
         @click.prevent="toggle"
       >Create new job</a>
       <!-- Modal to create new job -->
@@ -89,6 +89,13 @@
           </div>
         </div>
       </div>
+      <a
+        data-cy="refresh-jobs"
+        href="#"
+        class="btn tooltip m-1"
+        data-tooltip="Refresh all jobs from the configuration folder"
+        @click.prevent="refreshJobs"
+      >Refresh jobs</a>
     </div>
   </div>
 </template>
@@ -149,6 +156,20 @@ export default {
         },
         enterClicked() {
             this.$refs.createButton.click();
+        },
+        refreshJobs() {
+            // Helps to hide the tooltip
+            document.documentElement.focus();
+            axios
+                .post("/api/jobs/refresh")
+                .then((response) => {
+                    this.$notify({
+                        text: "Jobs have been refreshed",
+                        type: "success",
+                    });
+                    this.fetch();
+                })
+                .catch((error) => {});
         },
     },
 };
