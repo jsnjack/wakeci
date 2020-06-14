@@ -58,6 +58,7 @@ func (j *Job) Run() {
 	build, err := RunJob(j.Name, params)
 	if err != nil {
 		Logger.Printf("Unable to schedule a build via cron for job %s: %s\n", j.Name, err.Error())
+		return
 	}
 	build.Logger.Printf("The build for job %s is scheduled via cron\n", j.Name)
 }
