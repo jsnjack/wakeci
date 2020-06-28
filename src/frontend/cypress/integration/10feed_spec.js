@@ -39,5 +39,75 @@ describe("Feed page", function() {
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("tbody").should("have.length", 1);
     });
+
+    it("should toggle params", function() {
+        // Create job
+        const jobName = "myjob" + new Date().getTime();
+        cy.request({
+            url: "/api/jobs/create",
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                "name": jobName,
+            },
+            form: true,
+        });
+
+        const jobContent = `
+desc: Test env variables
+params:
+  - pruzhany: pruzhany
+  - minsk: minsk
+tasks:
+- name: Print env
+command: env
+`;
+
+        cy.request({
+            url: "/api/job/" + jobName,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                "fileContent": jobContent,
+            },
+            form: true,
+        });
+
+        // Create build
+        cy.request({
+            url: `/api/job/${jobName}/run`,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {},
+            form: true,
+        });
+
+        cy.visit("/");
+        cy.login();
+        cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
+            // Default value
+            cy.get("[data-cy=params-text]").should("contain", "pruzhany");
+            // Next value
+            cy.get("[data-cy=params-index-button]").click();
+            cy.get("[data-cy=params-text]").should("contain", "minsk");
+            // Clear, back to the default one
+            cy.get("[data-cy=params-index-button-clean]").click();
+            cy.get("[data-cy=params-text]").should("contain", "pruzhany");
+            // Default value again (when not enough params)
+            cy.get("[data-cy=params-index-button]").click();
+            cy.get("[data-cy=params-index-button]").click();
+            cy.get("[data-cy=params-text]").should("contain", "pruzhany");
+        });
+    });
 })
 ;

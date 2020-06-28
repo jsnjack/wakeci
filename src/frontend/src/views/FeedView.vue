@@ -24,8 +24,23 @@
       <thead>
         <th>#</th>
         <th>Name</th>
-        <th class="hide-xs hide-sm">
-          Params
+        <th
+          class="hide-xs hide-sm"
+        >
+          <span
+            class="badge c-hand"
+            :data-badge="paramsIndex || ''"
+            data-cy="params-index-button"
+            @click.prevent="toggleParams(false)"
+          >
+            Params
+          </span>
+          <i
+            v-show="paramsIndex"
+            class="icon icon-cross c-hand"
+            data-cy="params-index-button-clean"
+            @click.prevent="toggleParams(true)"
+          />
         </th>
         <th class="hide-xs hide-sm hide-md">
           Tasks
@@ -41,6 +56,7 @@
           v-for="item in sortedBuilds"
           :key="item.id"
           :build="item"
+          :params-index="paramsIndex"
         />
       </tbody>
     </table>
@@ -81,6 +97,7 @@ export default {
             filterIsDirty: false, // when user is still typing
             filter: "", // sent to the server, to filter builds out
             moreEnabled: true, // if makes sense to load more builds from the server
+            paramsIndex: 0, // Params index to display on the feed page
         };
     },
     computed: {
@@ -193,6 +210,13 @@ export default {
             if (!this.isFetching && !this.filterIsDirty) {
                 this.filter = "";
                 this.fetchNow();
+            }
+        },
+        toggleParams(reset=false) {
+            if (reset) {
+                this.paramsIndex = 0;
+            } else {
+                this.paramsIndex++;
             }
         },
     },

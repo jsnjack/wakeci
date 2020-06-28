@@ -15,6 +15,7 @@
         v-show="build.params"
         class="label param tooltip"
         :data-tooltip="getParamsTooltip"
+        data-cy="params-text"
       >
         {{ getParamsText }}
       </div>
@@ -68,6 +69,10 @@ export default {
             type: Object,
             required: true,
         },
+        paramsIndex: {
+            type: Number,
+            required: true,
+        },
     },
     computed: {
         getProgressTooltip() {
@@ -100,7 +105,11 @@ export default {
         },
         getParamsText() {
             if (this.build.params) {
-                return Object.values(this.build.params[0])[0].substring(0, 20);
+                let index = 0;
+                if (this.build.params.length > this.paramsIndex) {
+                    index = this.paramsIndex;
+                }
+                return Object.values(this.build.params[index])[0].substring(0, 20);
             }
             return "";
         },
