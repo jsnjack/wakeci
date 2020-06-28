@@ -116,7 +116,7 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 		logger = Logger
 	}
 
-	const pageSize = 10
+	const pageSize = 15
 
 	offsetS := r.URL.Query().Get("offset")
 	offset, err := strconv.Atoi(offsetS)
