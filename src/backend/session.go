@@ -3,10 +3,10 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/gofrs/uuid"
+	"github.com/sasha-s/go-deadlock"
 )
 
 // SessionTTL is TTL for a session cookie
@@ -18,7 +18,7 @@ const SessionCleanupPeriod = 1 * time.Hour
 // SessionStorage is in-memory storage to keep active sessions
 type SessionStorage struct {
 	sessions map[string]time.Time
-	mu       sync.RWMutex
+	mu       deadlock.RWMutex
 }
 
 // New creates new session and returns a cookie

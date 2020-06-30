@@ -7,16 +7,16 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 
 	"github.com/gorilla/websocket"
 	"github.com/julienschmidt/httprouter"
+	"github.com/sasha-s/go-deadlock"
 )
 
 // ClientList is a list of connected clients
 type ClientList struct {
 	Clients []*Client
-	sync.Mutex
+	deadlock.Mutex
 }
 
 // Append creates new Client and appends it to the list

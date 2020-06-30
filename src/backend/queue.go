@@ -2,7 +2,8 @@ package main
 
 import (
 	"fmt"
-	"sync"
+
+	"github.com/sasha-s/go-deadlock"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -11,7 +12,7 @@ import (
 type Queue struct {
 	queued           []*Build
 	running          []*Build
-	mutex            sync.Mutex
+	mutex            deadlock.Mutex
 	concurrentBuilds int
 }
 
