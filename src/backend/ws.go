@@ -66,10 +66,13 @@ type Client struct {
 	WS           *websocket.Conn
 	SubscribedTo []string
 	Logger       *log.Logger
+	deadlock.Mutex
 }
 
 // IsSubscribed checks if a client is subscribed for this type of messages
 func (c *Client) IsSubscribed(tag string) (bool, int) {
+	c.Lock()
+	defer c.Unlock()
 	for i, v := range c.SubscribedTo {
 		if strings.HasPrefix(tag, v) {
 			return true, i
@@ -82,6 +85,8 @@ func (c *Client) IsSubscribed(tag string) (bool, int) {
 func (c *Client) Subscribe(mt string) {
 	ok, _ := c.IsSubscribed(mt)
 	if !ok {
+		c.Lock()
+		defer c.Unlock()
 		c.SubscribedTo = append(c.SubscribedTo, mt)
 		c.Logger.Printf("Has subscribed to %s\n", mt)
 	}
@@ -91,6 +96,8 @@ func (c *Client) Subscribe(mt string) {
 func (c *Client) Unsubscribe(mt string) {
 	ok, index := c.IsSubscribed(mt)
 	if ok {
+		c.Lock()
+		defer c.Unlock()
 		c.SubscribedTo[index] = ""
 		c.SubscribedTo = append(c.SubscribedTo[:index], c.SubscribedTo[index+1:]...)
 		c.Logger.Printf("Has unsubscribed from %s\n", mt)
@@ -144,6 +151,7 @@ func BroadcastMessage() {
 		if err != nil {
 			Logger.Println(err)
 		} else {
+			ConnectedClients.Lock()
 			for _, client := range ConnectedClients.Clients {
 				ok, _ := client.IsSubscribed(msg.Type)
 				if ok {
@@ -153,6 +161,7 @@ func BroadcastMessage() {
 					}
 				}
 			}
+			ConnectedClients.Unlock()
 		}
 	}
 }
