@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/bmatcuk/doublestar"
+	"github.com/sasha-s/go-deadlock"
 
 	"github.com/jsnjack/cmd"
 	bolt "go.etcd.io/bbolt"
@@ -57,6 +58,7 @@ type Build struct {
 	StartedAt      time.Time
 	Duration       time.Duration
 	timer          *time.Timer // A timer for Job.Timeout
+	mutex          deadlock.Mutex
 }
 
 // Start starts execution of tasks in job
@@ -315,6 +317,8 @@ func (b *Build) BroadcastUpdate() {
 
 // GenerateBuildUpdateData generates BuildUpdateData
 func (b *Build) GenerateBuildUpdateData() *BuildUpdateData {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	return &BuildUpdateData{
 		ID:        b.ID,
 		Name:      b.Job.Name,
