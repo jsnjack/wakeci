@@ -35,6 +35,7 @@ func (cl *ClientList) Append(ws *websocket.Conn) *Client {
 		WS:           ws,
 		SubscribedTo: []string{},
 		Logger:       log.New(os.Stdout, "["+logID+" "+host+"] ", log.Lmicroseconds|log.Lshortfile),
+		buffer:       make(chan []byte),
 	}
 	cl.Lock()
 	defer cl.Unlock()
@@ -66,6 +67,7 @@ type Client struct {
 	WS           *websocket.Conn
 	SubscribedTo []string
 	Logger       *log.Logger
+	buffer       chan []byte
 	deadlock.Mutex
 }
 
@@ -101,6 +103,19 @@ func (c *Client) Unsubscribe(mt string) {
 		c.SubscribedTo[index] = ""
 		c.SubscribedTo = append(c.SubscribedTo[:index], c.SubscribedTo[index+1:]...)
 		c.Logger.Printf("Has unsubscribed from %s\n", mt)
+	}
+}
+
+// Send listens on buffer channel for new messages and sends them over websocket
+func (c *Client) Send() {
+	for {
+		select {
+		case msg := <-c.buffer:
+			err := c.WS.WriteMessage(websocket.TextMessage, msg)
+			if err != nil {
+				c.Logger.Printf("error: %v\n", err)
+			}
+		}
 	}
 }
 
@@ -155,10 +170,7 @@ func BroadcastMessage() {
 			for _, client := range ConnectedClients.Clients {
 				ok, _ := client.IsSubscribed(msg.Type)
 				if ok {
-					err := client.WS.WriteMessage(websocket.TextMessage, msgB)
-					if err != nil {
-						Logger.Printf("error: %v\n", err)
-					}
+					client.buffer <- msgB
 				}
 			}
 			ConnectedClients.Unlock()
@@ -181,6 +193,7 @@ func handleWSConnection(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 	}()
 
 	client := ConnectedClients.Append(ws)
+	go client.Send()
 
 	for {
 		var msg MsgIncoming
