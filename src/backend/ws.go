@@ -200,7 +200,7 @@ func handleWSConnection(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 		err := ws.ReadJSON(&msg)
 		if err != nil {
 			Logger.Println(err)
-			ConnectedClients.Remove(ws)
+			// Connection will be  removed in defer
 			return
 		}
 		client.HandleIncomingMessage(&msg)
