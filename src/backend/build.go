@@ -299,7 +299,7 @@ func (b *Build) BroadcastUpdate() {
 		Type: "build:update:" + strconv.Itoa(b.ID),
 		Data: data,
 	}
-	BroadcastChannel <- &msg
+	WSHub.broadcast <- &msg
 
 	err := DB.Update(func(tx *bolt.Tx) error {
 		var err error
@@ -351,7 +351,7 @@ func (b *Build) ProcessLogEntry(line string, buffer *bufio.Writer, taskID int, s
 			Data:   pline,
 		},
 	}
-	BroadcastChannel <- &msg
+	WSHub.broadcast <- &msg
 }
 
 // GetWorkspaceDir returns path to the workspace, where all user created files

@@ -38,6 +38,9 @@ var GlobalSessionStorage *SessionStorage
 // Config is a global configuration object
 var Config *WakeConfig
 
+// WSHub is the websocket hub
+var WSHub *Hub
+
 func init() {
 	Logger = log.New(os.Stdout, "", log.Lmicroseconds|log.Lshortfile)
 
@@ -122,7 +125,8 @@ func main() {
 	ScanAllJobs()
 	CleanupOldBuilds(BuildCleanupPeriod)
 
-	go BroadcastMessage()
+	WSHub = newHub()
+	go WSHub.run()
 
 	certManager := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
@@ -143,7 +147,7 @@ func main() {
 	router.GET("/storage/build/*filepath", LogMi(AuthMi(WakespaceResourceMi(storageServer))))
 
 	// Websocket section
-	router.GET("/ws", AuthMi(handleWSConnection))
+	router.GET("/ws", AuthMi(HandleWS))
 
 	// Auth urls
 	router.GET("/auth/_isLoggedIn/", LogMi(CORSMi(AuthMi(HandleIsLoggedIn))))
