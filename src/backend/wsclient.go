@@ -11,6 +11,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/julienschmidt/httprouter"
+	"github.com/sasha-s/go-deadlock"
 )
 
 const (
@@ -52,6 +53,8 @@ type Client struct {
 
 	SubscribedTo []string
 	Logger       *log.Logger
+
+	mu deadlock.Mutex
 }
 
 // readPump pumps messages from the websocket connection to the hub.
@@ -128,6 +131,8 @@ func (c *Client) writePump() {
 
 // IsSubscribed checks if a client is subscribed for this type of messages
 func (c *Client) IsSubscribed(tag string) (bool, int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	for i, v := range c.SubscribedTo {
 		if strings.HasPrefix(tag, v) {
 			return true, i
@@ -140,6 +145,8 @@ func (c *Client) IsSubscribed(tag string) (bool, int) {
 func (c *Client) Subscribe(mt string) {
 	ok, _ := c.IsSubscribed(mt)
 	if !ok {
+		c.mu.Lock()
+		defer c.mu.Unlock()
 		c.SubscribedTo = append(c.SubscribedTo, mt)
 		c.Logger.Printf("Has subscribed to %s\n", mt)
 	}
@@ -149,6 +156,8 @@ func (c *Client) Subscribe(mt string) {
 func (c *Client) Unsubscribe(mt string) {
 	ok, index := c.IsSubscribed(mt)
 	if ok {
+		c.mu.Lock()
+		defer c.mu.Unlock()
 		c.SubscribedTo[index] = ""
 		c.SubscribedTo = append(c.SubscribedTo[:index], c.SubscribedTo[index+1:]...)
 		c.Logger.Printf("Has unsubscribed from %s\n", mt)
