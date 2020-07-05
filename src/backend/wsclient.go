@@ -218,7 +218,7 @@ func HandleWS(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	client := &Client{
 		hub:          WSHub,
 		conn:         conn,
-		send:         make(chan []byte, 2048),
+		send:         make(chan []byte, 1024),
 		SubscribedTo: []string{},
 		Logger:       log.New(os.Stdout, "["+logID+" "+host+"] ", log.Lmicroseconds|log.Lshortfile),
 	}
