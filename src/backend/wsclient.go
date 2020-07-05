@@ -99,13 +99,14 @@ func (c *Client) writePump() {
 		case message, ok := <-c.send:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
-				// The hub closed the channel.
+				c.Logger.Println("The hub closed the channel")
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
 
 			w, err := c.conn.NextWriter(websocket.TextMessage)
 			if err != nil {
+				c.Logger.Println(err)
 				return
 			}
 			w.Write(message)
@@ -118,11 +119,13 @@ func (c *Client) writePump() {
 			}
 
 			if err := w.Close(); err != nil {
+				c.Logger.Println(err)
 				return
 			}
 		case <-ticker.C:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				c.Logger.Println(err)
 				return
 			}
 		}
@@ -198,7 +201,7 @@ func (c *Client) HandleIncomingMessage(msg *MsgIncoming) {
 func HandleWS(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println(err)
+		Logger.Println(err)
 		return
 	}
 
@@ -215,7 +218,7 @@ func HandleWS(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	client := &Client{
 		hub:          WSHub,
 		conn:         conn,
-		send:         make(chan []byte, 256),
+		send:         make(chan []byte, 2048),
 		SubscribedTo: []string{},
 		Logger:       log.New(os.Stdout, "["+logID+" "+host+"] ", log.Lmicroseconds|log.Lshortfile),
 	}

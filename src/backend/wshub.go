@@ -31,9 +31,11 @@ func (h *Hub) run() {
 	for {
 		select {
 		case client := <-h.register:
+			client.Logger.Println("New ws connection registered")
 			h.clients[client] = true
 		case client := <-h.unregister:
 			if _, ok := h.clients[client]; ok {
+				client.Logger.Println("Connection unregistered")
 				delete(h.clients, client)
 				close(client.send)
 			}
@@ -48,6 +50,7 @@ func (h *Hub) run() {
 						select {
 						case client.send <- msgB:
 						default:
+							client.Logger.Println("Buffer is full")
 							close(client.send)
 							delete(h.clients, client)
 						}
