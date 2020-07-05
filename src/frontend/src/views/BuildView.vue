@@ -69,6 +69,7 @@
 </template>
 
 <script>
+import vuex from "vuex";
 import axios from "axios";
 import BuildStatus from "@/components/BuildStatus";
 import Duration from "@/components/Duration";
@@ -109,6 +110,7 @@ export default {
         };
     },
     computed: {
+        ...vuex.mapState(["ws"]),
         getProgressTooltip() {
             return `${this.getDoneTasks} of ${this.getTotalTasks}`;
         },
@@ -140,6 +142,9 @@ export default {
             }
             return false;
         },
+    },
+    watch: {
+        "ws.connected": "onWSChange",
     },
     mounted() {
         document.title = `#${this.id} - wakeci`;
@@ -206,6 +211,13 @@ export default {
         },
         updateTitle() {
             document.title = `#${this.id} - ${this.statusUpdate.status} - wakeci`;
+        },
+        onWSChange(value) {
+            if (value) {
+                this.subscribe();
+            } else {
+                this.unsubscribe();
+            }
         },
     },
 };

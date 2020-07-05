@@ -81,6 +81,7 @@
 
 <script>
 import FeedItem from "@/components/FeedItem";
+import vuex from "vuex";
 import axios from "axios";
 import {findInContainer} from "@/store/utils";
 import _ from "lodash";
@@ -101,6 +102,7 @@ export default {
         };
     },
     computed: {
+        ...vuex.mapState(["ws"]),
         sortedBuilds: function() {
             return [...this.builds].sort((a, b) => {
                 if (a.id < b.id) {
@@ -126,12 +128,13 @@ export default {
         },
     },
     watch: {
-        filter: function() {
+        "filter": function() {
             this.filterIsDirty = true;
             // Reset builds if user starts to change filter
             this.builds = [];
             this.fetch();
         },
+        "ws.connected": "onWSChange",
     },
     mounted() {
         document.title = "Feed - wakeci";
@@ -217,6 +220,13 @@ export default {
                 this.paramsIndex = 0;
             } else {
                 this.paramsIndex++;
+            }
+        },
+        onWSChange(value) {
+            if (value) {
+                this.subscribe();
+            } else {
+                this.unsubscribe();
             }
         },
     },
