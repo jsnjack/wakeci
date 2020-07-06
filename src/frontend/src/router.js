@@ -45,7 +45,15 @@ export default new Router({
             name: "build",
             component: BuildView,
             beforeEnter: requireAuth,
-            props: true,
+            props: function(route) {
+                let id = route.params.id;
+                if (typeof id !== "number") {
+                    id = Number(id);
+                }
+                return {
+                    id: id,
+                };
+            },
         },
         {
             path: "/settings",
