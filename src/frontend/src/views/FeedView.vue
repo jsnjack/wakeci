@@ -141,9 +141,11 @@ export default {
         this.fetchNow();
         this.subscribe();
         this.$on("new:log", this.applyNewLog);
+        this.$eventHub.$on(this.subscription, this.applyUpdate);
     },
     destroyed() {
         this.unsubscribe();
+        this.$eventHub.$off(this.subscription);
     },
     created() {
         this.fetch = _.debounce((more = false) => {
@@ -180,7 +182,6 @@ export default {
                     to: [this.subscription],
                 },
             });
-            this.$eventHub.$on(this.subscription, this.applyUpdate);
         },
         unsubscribe() {
             this.$store.commit("WS_SEND", {
@@ -189,7 +190,6 @@ export default {
                     to: [this.subscription],
                 },
             });
-            this.$eventHub.$off(this.subscription);
         },
         fetch() {},
         fetchNow(more=false) {

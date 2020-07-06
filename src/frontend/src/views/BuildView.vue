@@ -150,9 +150,13 @@ export default {
         document.title = `#${this.id} - wakeci`;
         this.fetch();
         this.subscribe();
+        this.$eventHub.$on(this.buildLogSubscription, this.applyBuildLog);
+        this.$eventHub.$on(this.buildUpdateSubscription, this.applyBuildUpdate);
     },
     destroyed() {
         this.unsubscribe();
+        this.$eventHub.$off(this.buildLogSubscription);
+        this.$eventHub.$off(this.buildUpdateSubscription);
     },
     methods: {
         subscribe() {
@@ -162,8 +166,6 @@ export default {
                     to: [this.buildLogSubscription, this.buildUpdateSubscription],
                 },
             });
-            this.$eventHub.$on(this.buildLogSubscription, this.applyBuildLog);
-            this.$eventHub.$on(this.buildUpdateSubscription, this.applyBuildUpdate);
         },
         unsubscribe() {
             this.$store.commit("WS_SEND", {
@@ -172,8 +174,6 @@ export default {
                     to: [this.buildLogSubscription, this.buildUpdateSubscription],
                 },
             });
-            this.$eventHub.$off(this.buildLogSubscription);
-            this.$eventHub.$off(this.buildUpdateSubscription);
         },
         fetch() {
             axios
