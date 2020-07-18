@@ -4,13 +4,11 @@ const wsMessageHandler = function(app, data) {
         const msg = JSON.parse(messages[i]);
         if (msg.type.startsWith("build:log:")) {
             app.$eventHub.$emit(msg.type, msg.data);
-            return;
         } else if (msg.type.startsWith("build:update:")) {
             // For build view
             app.$eventHub.$emit(msg.type, msg.data);
             // For feed view
             app.$eventHub.$emit("build:update:", msg.data);
-            return;
         }
         console.warn("Unhandled message", msg);
     }
