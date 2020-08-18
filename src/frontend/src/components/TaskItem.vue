@@ -222,6 +222,7 @@ export default {
   font-size: 90%;
   pre {
     padding-left: 1em;
+    padding-bottom: 1em;
     margin: 0;
   }
 }
