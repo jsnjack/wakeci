@@ -14,8 +14,8 @@ tasks:
 # List of patterns according to https://golang.org/pkg/path/filepath/#Match
 # related to the workspace directory
 # Note:
-#  - artifacts are collected only for builds with status `finished`
-#  - `on_finished` and `finally` tasks are executed after artifacts are collected
+#  - artifacts are collected only for builds with status `finished` or `failed`
+#  - `on_finished`, `on_failed` and `finally` tasks are executed after artifacts are collected
 artifacts:
   - "*.tar.gz"
 
