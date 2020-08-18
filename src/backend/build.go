@@ -436,15 +436,15 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		b.Cleanup()
 		break
 	case StatusFailed:
-		b.CollectArtifacts()
 		b.runOnStatusTasks(status)
+		b.CollectArtifacts()
 		b.runOnStatusTasks(FinalTask)
 		b.Duration = time.Since(b.StartedAt)
 		b.Cleanup()
 		break
 	case StatusFinished:
-		b.CollectArtifacts()
 		b.runOnStatusTasks(status)
+		b.CollectArtifacts()
 		b.runOnStatusTasks(FinalTask)
 		b.Duration = time.Since(b.StartedAt)
 		b.Cleanup()
