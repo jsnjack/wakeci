@@ -6,6 +6,7 @@ export function requireAuth(to, from, next) {
         next({
             path: "/login",
             query: {redirect: to.fullPath},
+            replace: true,
         });
     } else {
         next();

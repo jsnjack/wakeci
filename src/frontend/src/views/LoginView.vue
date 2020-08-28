@@ -61,7 +61,7 @@ export default {
                 .get("/auth/_isLoggedIn/")
                 .then((response) => {
                     this.$store.commit("LOG_IN");
-                    this.$router.push(this.getRedirectURL);
+                    this.$router.replace(this.getRedirectURL);
                     this.fetching = false;
                 })
                 .catch((error) => {
@@ -81,7 +81,7 @@ export default {
                 })
                 .then((response) => {
                     this.$store.commit("LOG_IN");
-                    this.$router.push(this.getRedirectURL);
+                    this.$router.replace(this.getRedirectURL);
                 })
                 .catch((error) => {});
         },
