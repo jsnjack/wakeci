@@ -398,18 +398,18 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 	if status == StatusRunning {
 		b.StartedAt = time.Now()
 	}
-	b.BroadcastUpdate()
-	defer b.BroadcastUpdate()
 	// Wait for pending task to finish before running anything else
 	b.pendingTasksWG.Wait()
 	switch status {
 	case StatusPending:
+		b.BroadcastUpdate()
 		// Run onStatusTasks of kind pending in separate goroutine so it doesn't
 		// slow down putting build into queue. Also it is expected to be something
 		// really simple, like setting commit status in VCS
 		go b.runOnStatusTasks(status)
 		break
 	case StatusRunning:
+		b.BroadcastUpdate()
 		// Start timeout if available
 		if b.Job.Timeout != "" {
 			duration, err := time.ParseDuration(b.Job.Timeout)
@@ -434,6 +434,7 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		b.runOnStatusTasks(FinalTask)
 		b.Duration = time.Since(b.StartedAt)
 		b.Cleanup()
+		b.BroadcastUpdate()
 		break
 	case StatusFailed:
 		b.runOnStatusTasks(status)
@@ -441,6 +442,7 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		b.runOnStatusTasks(FinalTask)
 		b.Duration = time.Since(b.StartedAt)
 		b.Cleanup()
+		b.BroadcastUpdate()
 		break
 	case StatusFinished:
 		b.runOnStatusTasks(status)
@@ -448,6 +450,7 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		b.runOnStatusTasks(FinalTask)
 		b.Duration = time.Since(b.StartedAt)
 		b.Cleanup()
+		b.BroadcastUpdate()
 		break
 	}
 
