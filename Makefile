@@ -24,7 +24,7 @@ bin/wakeci: version src/backend/*.go
 	cd src/backend
 	rm -f rice-box.go
 	rice embed-go || exit 1
-	go build -ldflags="-X main.Version=${VERSION}" -o ${BINARY}
+	CGO_ENABLED=0 go build -ldflags="-X main.Version=${VERSION}" -o ${BINARY}
 	mv wakeci ${PWD}/bin/
 
 runf:
