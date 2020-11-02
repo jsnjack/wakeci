@@ -3,3 +3,4 @@ pkg/
 example_cd/
 example_wd/
 Wakefile.yaml
+wakeci/
