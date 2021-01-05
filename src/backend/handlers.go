@@ -14,7 +14,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	bolt "go.etcd.io/bbolt"
 	"golang.org/x/crypto/bcrypt"
-	yaml "gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v3"
 )
 
 // HandleRunJob adds job to queue
