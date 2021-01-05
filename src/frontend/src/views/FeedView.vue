@@ -20,6 +20,11 @@
         />
       </button>
     </div>
+    <div class="clearfix" />
+    <span
+      v-show="filteredUpdates !== 0"
+      class="label label-warning"
+    >{{ filteredUpdates }} updates have been filtered</span>
     <table class="table table-striped">
       <thead>
         <th>#</th>
@@ -83,7 +88,7 @@
 import FeedItem from "@/components/FeedItem";
 import vuex from "vuex";
 import axios from "axios";
-import {findInContainer} from "@/store/utils";
+import {findInContainer, isFilteredUpdate} from "@/store/utils";
 import _ from "lodash";
 
 const FetchItemsSize = 10;
@@ -99,6 +104,7 @@ export default {
             filter: "", // sent to the server, to filter builds out
             moreEnabled: true, // if makes sense to load more builds from the server
             paramsIndex: 0, // Params index to display on the feed page
+            filteredUpdates: 0, // When `filter` is active, updates which do not much are counted here
         };
     },
     computed: {
@@ -160,7 +166,7 @@ export default {
                     this.isFetching = false;
                     const data = response.data || [];
                     data.forEach((element) => {
-                        this.applyUpdate(element);
+                        this.applyUpdate(element, true);
                     });
                     if (data.length < FetchItemsSize) {
                         // Server returned less than pageSize, so no more builds
@@ -196,7 +202,7 @@ export default {
             this.fetch(more);
             this.fetch.flush();
         },
-        applyUpdate(ev) {
+        applyUpdate(ev, fromFetch=false) {
             const index = findInContainer(this.builds, "id", ev.id)[1];
             if (index !== undefined) {
                 this.$set(
@@ -205,13 +211,22 @@ export default {
                     Object.assign({}, this.builds[index], ev),
                 );
             } else {
-                this.builds.push(ev);
-                this.$forceUpdate();
+                if (!isFilteredUpdate(ev, this.filter)) {
+                    this.builds.push(ev);
+                    this.$forceUpdate();
+                } else {
+                    // Do not increase counter if it comes from `fetch`. It is
+                    // API call, not the update event
+                    if (!fromFetch) {
+                        this.filteredUpdates ++;
+                    }
+                }
             }
         },
         clearFilter() {
             if (!this.isFetching && !this.filterIsDirty) {
                 this.filter = "";
+                this.filteredUpdates = 0;
                 this.fetchNow();
             }
         },
