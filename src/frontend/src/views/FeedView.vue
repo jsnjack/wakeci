@@ -57,7 +57,7 @@
         </th>
         <th>Actions</th>
       </thead>
-      <tbody>
+      <tbody data-cy="feed-tbody">
         <FeedItem
           v-for="item in sortedBuilds"
           :key="item.id"

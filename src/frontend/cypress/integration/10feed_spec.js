@@ -37,7 +37,7 @@ describe("Feed page", function() {
             form: true,
         });
         cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("tbody").should("have.length", 1);
+        cy.get("[data-cy=feed-tbody]").should("be.visible").should("have.length", 1);
         cy.get("[data-cy=filtered-updates]").should("not.be.visible");
     });
 
@@ -72,6 +72,16 @@ describe("Feed page", function() {
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.request({
+            url: `/api/job/${jobName}/run`,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {},
+            form: true,
+        });
+        cy.request({
             url: `/api/job/${filteredJobName}/run`,
             method: "POST",
             auth: {
@@ -79,6 +89,46 @@ describe("Feed page", function() {
                 pass: "admin",
             },
             body: {},
+            form: true,
+        });
+        cy.get("[data-cy=feed-tbody]").should("be.visible").should("have.length", 1);
+        cy.get("[data-cy=filtered-updates]").should("be.visible");
+    });
+
+    it("should filter jobs with params", function() {
+        cy.visit("/");
+        const jobName = "myjob" + new Date().getTime();
+        cy.request({
+            url: "/api/jobs/create",
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                "name": jobName,
+            },
+            form: true,
+        });
+        const jobContent = `
+desc: Test env variables
+params:
+  - bereza: brest
+tasks:
+- name: Print env
+command: env
+`;
+
+        cy.request({
+            url: "/api/job/" + jobName,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                "fileContent": jobContent,
+            },
             form: true,
         });
         cy.request({
@@ -91,8 +141,10 @@ describe("Feed page", function() {
             body: {},
             form: true,
         });
-        cy.get("tbody").should("have.length", 1);
-        cy.get("[data-cy=filtered-updates]").should("be.visible");
+
+        cy.login();
+        cy.get("[data-cy=filter]").clear().type("bereza");
+        cy.get("[data-cy=feed-tbody]").should("be.visible").should("have.length", 1);
     });
 
     it("should toggle params", function() {
