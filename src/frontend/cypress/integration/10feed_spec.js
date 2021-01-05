@@ -81,6 +81,17 @@ describe("Feed page", function() {
             body: {},
             form: true,
         });
+        // 2 times to be sure!
+        cy.request({
+            url: `/api/job/${filteredJobName}/run`,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {},
+            form: true,
+        });
         cy.request({
             url: `/api/job/${filteredJobName}/run`,
             method: "POST",
