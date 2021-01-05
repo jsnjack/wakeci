@@ -38,6 +38,61 @@ describe("Feed page", function() {
         });
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("tbody").should("have.length", 1);
+        cy.get("[data-cy=filtered-updates]").should("not.be.visible");
+    });
+
+    it("should hide updates when filter is active", function() {
+        cy.visit("/");
+        const jobName = "myjob" + new Date().getTime();
+        cy.request({
+            url: "/api/jobs/create",
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                "name": jobName,
+            },
+            form: true,
+        });
+        const filteredJobName = "myjob-filtered-" + new Date().getTime();
+        cy.request({
+            url: "/api/jobs/create",
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                "name": filteredJobName,
+            },
+            form: true,
+        });
+        cy.login();
+        cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.request({
+            url: `/api/job/${filteredJobName}/run`,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {},
+            form: true,
+        });
+        cy.request({
+            url: `/api/job/${jobName}/run`,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {},
+            form: true,
+        });
+        cy.get("tbody").should("have.length", 1);
+        cy.get("[data-cy=filtered-updates]").should("be.visible");
     });
 
     it("should toggle params", function() {

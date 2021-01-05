@@ -24,6 +24,7 @@
     <span
       v-show="filteredUpdates !== 0"
       class="label label-warning"
+      data-cy="filtered-updates"
     >{{ filteredUpdates }} updates have been filtered</span>
     <table class="table table-striped">
       <thead>
