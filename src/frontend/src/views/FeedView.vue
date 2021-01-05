@@ -212,16 +212,14 @@ export default {
                     Object.assign({}, this.builds[index], ev),
                 );
             } else {
-                if (!isFilteredUpdate(ev, this.filter)) {
-                    this.builds.push(ev);
-                    this.$forceUpdate();
-                } else {
-                    // Do not increase counter if it comes from `fetch`. It is
-                    // API call, not the update event
-                    if (!fromFetch) {
+                if (!fromFetch) {
+                    if (isFilteredUpdate(ev, this.filter)) {
                         this.filteredUpdates ++;
+                        return;
                     }
                 }
+                this.builds.push(ev);
+                this.$forceUpdate();
             }
         },
         clearFilter() {
