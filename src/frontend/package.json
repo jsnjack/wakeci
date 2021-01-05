@@ -25,13 +25,13 @@
     "@vue/cli-service": "^4.5.9",
     "@vue/eslint-config-airbnb": "^5.3.0",
     "babel-eslint": "^10.1.0",
-    "cypress": "^4.12.1",
+    "cypress": "^6.2.1",
     "eslint": "^7.17.0",
     "eslint-config-google": "^0.14.0",
-    "eslint-plugin-vue": "^6.2.2",
+    "eslint-plugin-vue": "^7.4.1",
     "minimist": ">=0.2.1",
-    "node-sass": "^4.14.1",
-    "sass-loader": "^8.0.2",
+    "node-sass": "^5.0.0",
+    "sass-loader": "^10.1.0",
     "vue-eslint-parser": "^7.3.0",
     "vue-template-compiler": "^2.6.12"
   }
