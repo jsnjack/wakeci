@@ -6,7 +6,6 @@
     ],
     "editor.detectIndentation": false,
     "go.autocompleteUnimportedPackages": true,
-    "go.gopath": "~/workspace/wakeci/",
     "editor.codeActionsOnSave": {
         "source.fixAll.eslint": true
     },
