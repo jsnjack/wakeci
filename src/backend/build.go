@@ -378,7 +378,7 @@ func (b *Build) GetBuildConfigFilename() string {
 
 // GetTasksStatus list of tasks with their status
 func (b *Build) GetTasksStatus() []*TaskStatus {
-	var info []*TaskStatus
+	info := make([]*TaskStatus, 0)
 	for _, t := range b.Job.Tasks {
 		info = append(info, &TaskStatus{
 			ID:        t.ID,
