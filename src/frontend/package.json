@@ -10,7 +10,7 @@
     "test:open": "cypress open"
   },
   "dependencies": {
-    "axios": "^0.19.2",
+    "axios": "^0.21.1",
     "lodash": "^4.17.20",
     "raw-loader": "^4.0.2",
     "spectre.css": "^0.5.9",
