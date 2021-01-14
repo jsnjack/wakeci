@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/robfig/cron/v3"
-	yaml "gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v2"
 
 	bolt "go.etcd.io/bbolt"
 )
