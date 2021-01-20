@@ -77,8 +77,3 @@ jobdir: ./
 ### API documentation
 See full description [here](https://github.com/jsnjack/wakeci/blob/master/API.md)
 
-### For developers
-#### Build dependencies
-```bash
-sudo dnf install golang-github-geertjohan-rice
-```
