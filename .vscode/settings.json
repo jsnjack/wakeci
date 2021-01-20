@@ -10,7 +10,8 @@
         "source.fixAll.eslint": true
     },
     "eslint.workingDirectories": ["src/frontend/"],
-    "go.languageServerExperimentalFeatures": {
-        "rename": true
-    },
+    "gopls": {
+        "buildFlags": ["-tags=wireinject"],
+        "experimentalWorkspaceModule": true
+      },
 }
