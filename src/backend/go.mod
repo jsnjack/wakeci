@@ -1,12 +1,11 @@
 module wakeci
 
-go 1.13
+go 1.16
 
 require (
-	github.com/GeertJohan/go.rice v1.0.2
 	github.com/NYTimes/gziphandler v1.1.1
 	github.com/bmatcuk/doublestar v1.3.4
-	github.com/daaku/go.zipexe v1.0.1 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-cmd/cmd v1.2.0 // indirect
 	github.com/gofrs/uuid v4.0.0+incompatible
 	github.com/gorilla/websocket v1.4.2
