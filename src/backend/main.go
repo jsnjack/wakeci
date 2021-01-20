@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"embed"
 	"flag"
 	"log"
 	"net/http"
@@ -10,7 +11,6 @@ import (
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/crypto/bcrypt"
 
-	rice "github.com/GeertJohan/go.rice"
 	"github.com/NYTimes/gziphandler"
 	"github.com/julienschmidt/httprouter"
 	"github.com/robfig/cron/v3"
@@ -134,9 +134,10 @@ func main() {
 		HostPolicy: autocert.HostWhitelist(Config.Hostname),
 	}
 
-	vueBox := rice.MustFindBox("../frontend/dist/").HTTPBox()
+	//go:embed assets/*
+	var assets embed.FS
 
-	vuefs := http.FileServer(vueBox)
+	vuefs := http.FileServer(http.FS(assets))
 	storageServer := http.FileServer(http.Dir(Config.WorkDir + "wakespace"))
 	// Configure routes
 	router := httprouter.New()

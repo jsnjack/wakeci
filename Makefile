@@ -16,16 +16,14 @@ export VUE_APP_VERSION = ${VERSION}-${VUE_VERSION_SUFFIX}
 .ONESHELL:
 src/backend/wakeci: version src/backend/*.go
 	cd src/backend
-	rm -f rice-box.go
-	go build -ldflags="-X main.Version=${VERSION}" -o ${BINARY}
+	rm -rf assets
+	cp -r ../frontend/dist/ assets
+	CGO_ENABLED=0 go build -ldflags="-X main.Version=${VERSION}" -o ${BINARY}
 
 .ONESHELL:
-bin/wakeci: version src/backend/*.go
+bin/wakeci: src/backend/wakeci
 	cd src/backend
-	rm -f rice-box.go
-	rice embed-go || exit 1
-	CGO_ENABLED=0 go build -ldflags="-X main.Version=${VERSION}" -o ${BINARY}
-	mv wakeci ${PWD}/bin/
+	cp wakeci ${PWD}/bin/
 
 runf:
 	cd src/frontend && npm run serve
@@ -40,16 +38,6 @@ buildf:
 	cd src/frontend && npm run build
 
 build: buildf bin/wakeci
-
-deploy: build
-	ssh wakeci mkdir wakedir
-	ssh wakeci mkdir wakeconfig
-	ssh wakeci sudo systemctl stop ${BINARY} || exit 0
-	ssh wakeci rm -f ${BINARY}
-	scp bin/${BINARY} wakeci:~/
-	ssh wakeci sudo setcap cap_net_bind_service=+ep ${BINARY}
-	ssh wakeci sudo systemctl start ${BINARY}
-	ssh wakeci sudo systemctl status ${BINARY}
 
 release: build
 	grm release jsnjack/wakeci -f bin/${BINARY} -t "v`monova`"

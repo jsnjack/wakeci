@@ -151,25 +151,29 @@ func VueResourcesMi(h http.Handler) http.Handler {
 		if !ok {
 			logger = Logger
 		}
-		// First check if it is any of API or AUTH calls
-		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/auth/") {
-			w.WriteHeader(http.StatusNotFound)
-			logger.Printf("vue 404 %s\n", r.URL.Path)
+		// First check if it is any of API, AUTH or STORAGE calls. This urls
+		// should never reach this point
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/api/"), strings.HasPrefix(r.URL.Path, "/auth/"), strings.HasPrefix(r.URL.Path, "/storage/"):
+			w.WriteHeader(http.StatusInternalServerError)
+			logger.Printf("vue 500 %s\n", r.URL.Path)
 			return
 		}
-		// Static file or root address
-		if strings.Contains(r.URL.Path, ".") || r.URL.Path == "/" {
-			logger.Printf("vue GET %s\n", r.URL.Path)
-			h.ServeHTTP(w, r)
-			return
-		}
-		// Most likely this is request to one of the dynamic URLs used by frontend,
-		// serve index.html (/) in this case
+
 		r2 := new(http.Request)
 		*r2 = *r
 		r2.URL = new(url.URL)
 		*r2.URL = *r.URL
-		r2.URL.Path = "/"
+		switch {
+		case strings.Contains(r.URL.Path, "."), r.URL.Path == "/":
+			// Static file or root address
+			r2.URL.Path = "/assets" + r.URL.Path
+			break
+		default:
+			// Most likely this is request to one of the dynamic URLs used by frontend,
+			// serve index.html (/assets/) in this case
+			r2.URL.Path = "/assets/"
+		}
 		logger.Printf("vue %s --> %s\n", r.URL.Path, r2.URL.Path)
 		h.ServeHTTP(w, r2)
 	})
