@@ -11,6 +11,7 @@ import {
     runningDuration,
     doneDuration,
     updateDurationPeriod,
+    toggleDurationMode,
 } from "@/duration";
 import vuex from "vuex";
 import {format} from "timeago.js";
@@ -22,11 +23,17 @@ export default {
             required: true,
             type: Object,
         },
+        useGlobalDurationModeState: {
+            required: false,
+            type: Boolean,
+            default: false,
+        },
     },
     data: function() {
         return {
             updateInterval: null,
             durationText: "",
+            localMode: "duration",
         };
     },
     computed: {
@@ -43,11 +50,17 @@ export default {
         tooltipText() {
             return "Click to toggle between different time modes";
         },
+        mode() {
+            if (this.useGlobalDurationModeState) {
+                return this.durationMode;
+            }
+            return this.localMode;
+        },
     },
     watch: {
         "item.status": "onStatusChange",
         "item.duration": "onStatusChange",
-        "durationMode": "onStatusChange",
+        "mode": "onStatusChange",
     },
     mounted() {
         this.onStatusChange();
@@ -63,7 +76,7 @@ export default {
                 return;
             }
             if (this.item.status === "running") {
-                switch (this.durationMode) {
+                switch (this.mode) {
                 case "duration":
                     this.durationText = runningDuration(this.item.startedAt);
                     return;
@@ -76,7 +89,7 @@ export default {
                 }
             }
             if (this.item.duration > 0) {
-                switch (this.durationMode) {
+                switch (this.mode) {
                 case "duration":
                     this.durationText = doneDuration(this.item.duration);
                     return;
@@ -91,10 +104,12 @@ export default {
             return "";
         },
         onStatusChange() {
-            console.log(this.durationMode);
-            if (this.isDone || this.durationMode === "started at") {
+            console.log("STATUS change", this.mode, this.item.status);
+            if ((this.isDone && this.mode !== "started") || this.mode === "started at") {
+                console.log("Clear interval");
                 clearInterval(this.updateInterval);
-            } else if (this.item.status === "running" && !this.updateInterval) {
+            } else if ((this.item.status === "running" || this.mode === "started") && !this.updateInterval) {
+                console.log("Start interval");
                 this.updateInterval = setInterval(
                     function() {
                         this.updateText();
@@ -105,7 +120,11 @@ export default {
             this.updateText();
         },
         toggleDurationMode() {
-            this.$store.commit("TOGGLE_DURATION_MODE");
+            if (this.useGlobalDurationModeState) {
+                this.$store.commit("TOGGLE_DURATION_MODE");
+            } else {
+                this.localMode = toggleDurationMode(this.localMode);
+            }
         },
     },
 };

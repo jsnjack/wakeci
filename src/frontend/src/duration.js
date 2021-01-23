@@ -15,4 +15,13 @@ export function doneDuration(duration) {
     }
 }
 
+export function toggleDurationMode(current) {
+    const modes = ["duration", "started", "started at"];
+    let idx = modes.indexOf(current) + 1;
+    if (idx > modes.length - 1) {
+        idx = 0;
+    }
+    return modes[idx];
+}
+
 export const updateDurationPeriod = 10000;

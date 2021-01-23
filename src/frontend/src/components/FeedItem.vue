@@ -36,6 +36,7 @@
       <Duration
         v-show="build.status !== 'pending'"
         :item="build"
+        :use-global-duration-mode-state="true"
       />
     </td>
     <td class="actions">

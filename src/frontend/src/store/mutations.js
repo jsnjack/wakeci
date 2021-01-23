@@ -1,3 +1,4 @@
+import {toggleDurationMode} from "@/duration";
 
 const mutations = {
     WS_CONNECTED(state, connection) {
@@ -29,12 +30,7 @@ const mutations = {
         }
     },
     TOGGLE_DURATION_MODE(state) {
-        const modes = ["duration", "started", "started at"];
-        let idx = modes.indexOf(state.durationMode) + 1;
-        if (idx > modes.length - 1) {
-            idx = 0;
-        }
-        state.durationMode = modes[idx];
+        state.durationMode = toggleDurationMode(state.durationMode);
     },
 };
 
