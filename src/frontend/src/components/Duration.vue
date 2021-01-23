@@ -14,7 +14,8 @@ import {
     toggleDurationMode,
 } from "@/duration";
 import vuex from "vuex";
-import {format} from "timeago.js";
+
+const ago = require("s-ago");
 
 
 export default {
@@ -84,7 +85,7 @@ export default {
                     this.durationText = new Date(this.item.startedAt).toLocaleString();
                     return;
                 case "started":
-                    this.durationText = format(new Date(this.item.startedAt));
+                    this.durationText = ago(new Date(this.item.startedAt));
                     return;
                 }
             }
@@ -97,19 +98,16 @@ export default {
                     this.durationText = new Date(this.item.startedAt).toLocaleString();
                     return;
                 case "started":
-                    this.durationText = format(new Date(this.item.startedAt));
+                    this.durationText = ago(new Date(this.item.startedAt));
                     return;
                 }
             }
             return "";
         },
         onStatusChange() {
-            console.log("STATUS change", this.mode, this.item.status);
             if ((this.isDone && this.mode !== "started") || this.mode === "started at") {
-                console.log("Clear interval");
                 clearInterval(this.updateInterval);
             } else if ((this.item.status === "running" || this.mode === "started") && !this.updateInterval) {
-                console.log("Start interval");
                 this.updateInterval = setInterval(
                     function() {
                         this.updateText();
