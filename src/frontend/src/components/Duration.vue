@@ -1,7 +1,8 @@
 <template>
   <span
-    class="label tooltip tooltip-bottom"
+    class="label tooltip tooltip-bottom c-hand"
     :data-tooltip="tooltipText"
+    @click.prevent="toggleDurationMode"
   >{{ durationText }}</span>
 </template>
 
@@ -40,8 +41,7 @@ export default {
             return false;
         },
         tooltipText() {
-            const d = new Date(this.item.startedAt).toLocaleString();
-            return `Started at: ${d}`;
+            return "Click to toggle between different time modes";
         },
     },
     watch: {
@@ -104,12 +104,12 @@ export default {
             }
             this.updateText();
         },
+        toggleDurationMode() {
+            this.$store.commit("TOGGLE_DURATION_MODE");
+        },
     },
 };
 </script>
 
 <style scoped lang="scss">
-span:hover {
-  cursor: default;
-}
 </style>

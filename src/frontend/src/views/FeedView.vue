@@ -54,8 +54,7 @@
         <th>Status</th>
         <th class="hide-xs">
           <span
-            class="badge c-hand text-capitalize"
-            @click.prevent="toggleDurationMode"
+            class="text-capitalize"
           >
             {{ durationMode }}
           </span>
@@ -247,9 +246,6 @@ export default {
             } else {
                 this.unsubscribe();
             }
-        },
-        toggleDurationMode() {
-            this.$store.commit("TOGGLE_DURATION_MODE");
         },
     },
 };
