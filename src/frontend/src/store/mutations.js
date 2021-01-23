@@ -29,8 +29,13 @@ const mutations = {
             state.ws.obj.close();
         }
     },
-    TOGGLE_DURATION_MODE(state) {
-        state.durationMode = toggleDurationMode(state.durationMode);
+    TOGGLE_DURATION_MODE(state, value) {
+        if (value) {
+            state.durationMode = value;
+        } else {
+            state.durationMode = toggleDurationMode(state.durationMode);
+        }
+        localStorage.setItem("durationMode", state.durationMode);
     },
 };
 

@@ -53,7 +53,7 @@ import wsMessageHandler from "./store/communication";
 
 export default {
     computed: {
-        ...vuex.mapState(["ws", "auth"]),
+        ...vuex.mapState(["ws", "auth", "durationMode"]),
         getVesion: function() {
             return process.env.VUE_APP_VERSION || "0.0.0";
         },
@@ -68,6 +68,10 @@ export default {
         },
     },
     mounted() {
+        // Restore global duration mode
+        if (localStorage.getItem("durationMode")) {
+            this.$store.commit("TOGGLE_DURATION_MODE", localStorage.getItem("durationMode"));
+        }
         this.connect();
     },
     methods: {

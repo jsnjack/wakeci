@@ -87,6 +87,10 @@ export default {
                 case "started":
                     this.durationText = ago(new Date(this.item.startedAt));
                     return;
+                default:
+                    console.log(`Unknown durationMode ${this.mode}`);
+                    this.toggleDurationMode();
+                    return;
                 }
             }
             if (this.item.duration > 0) {
@@ -99,6 +103,10 @@ export default {
                     return;
                 case "started":
                     this.durationText = ago(new Date(this.item.startedAt));
+                    return;
+                default:
+                    console.log(`Unknown durationMode ${this.mode}`);
+                    this.toggleDurationMode();
                     return;
                 }
             }
