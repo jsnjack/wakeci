@@ -227,5 +227,121 @@ command: env
             cy.get("[data-cy=params-text]").should("contain", "pruzhany");
         });
     });
+
+    it("should toggle duration", function() {
+        // Create job
+        const jobName = "myjob" + new Date().getTime();
+        cy.request({
+            url: "/api/jobs/create",
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                "name": jobName,
+            },
+            form: true,
+        });
+
+        const jobContent = `
+desc: Test env variables
+tasks:
+- name: Print env
+command: env
+`;
+
+        cy.request({
+            url: "/api/job/" + jobName,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                "fileContent": jobContent,
+            },
+            form: true,
+        });
+
+        // Create build
+        cy.request({
+            url: `/api/job/${jobName}/run`,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {},
+            form: true,
+        });
+
+        cy.visit("/");
+        cy.login();
+        cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
+            cy.get("[data-cy=duration]").should("contain", "sec").
+                click().should("contain", "just now").
+                click().should("contain", ":").
+                click().should("contain", "sec");
+        });
+    });
+
+    it("should preserve duration after reload", function() {
+        // Create job
+        const jobName = "myjob" + new Date().getTime();
+        cy.request({
+            url: "/api/jobs/create",
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                "name": jobName,
+            },
+            form: true,
+        });
+
+        const jobContent = `
+desc: Test env variables
+tasks:
+- name: Print env
+command: env
+`;
+
+        cy.request({
+            url: "/api/job/" + jobName,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                "fileContent": jobContent,
+            },
+            form: true,
+        });
+
+        // Create build
+        cy.request({
+            url: `/api/job/${jobName}/run`,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {},
+            form: true,
+        });
+
+        cy.visit("/");
+        cy.login();
+        cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=duration]").should("contain", "sec").click().should("contain", "just now");
+        cy.visit("/");
+        cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=duration]").should("contain", "just now").click().click().should("contain", "sec");
+    });
 })
 ;

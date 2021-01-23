@@ -2,6 +2,7 @@
   <span
     class="label tooltip tooltip-bottom c-hand"
     :data-tooltip="tooltipText"
+    data-cy="duration"
     @click.prevent="toggleDurationMode"
   >{{ durationText }}</span>
 </template>
