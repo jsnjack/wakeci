@@ -53,7 +53,12 @@
         </th>
         <th>Status</th>
         <th class="hide-xs">
-          Duration
+          <span
+            class="badge c-hand text-capitalize"
+            @click.prevent="toggleDurationMode"
+          >
+            {{ durationMode }}
+          </span>
         </th>
         <th>Actions</th>
       </thead>
@@ -109,7 +114,7 @@ export default {
         };
     },
     computed: {
-        ...vuex.mapState(["ws"]),
+        ...vuex.mapState(["ws", "durationMode"]),
         sortedBuilds: function() {
             return [...this.builds].sort((a, b) => {
                 if (a.id < b.id) {
@@ -242,6 +247,9 @@ export default {
             } else {
                 this.unsubscribe();
             }
+        },
+        toggleDurationMode() {
+            this.$store.commit("TOGGLE_DURATION_MODE");
         },
     },
 };

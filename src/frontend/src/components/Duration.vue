@@ -11,6 +11,9 @@ import {
     doneDuration,
     updateDurationPeriod,
 } from "@/duration";
+import vuex from "vuex";
+import {format} from "timeago.js";
+
 
 export default {
     props: {
@@ -26,6 +29,7 @@ export default {
         };
     },
     computed: {
+        ...vuex.mapState(["durationMode"]),
         isDone() {
             switch (this.item.status) {
             case "failed":
@@ -43,6 +47,7 @@ export default {
     watch: {
         "item.status": "onStatusChange",
         "item.duration": "onStatusChange",
+        "durationMode": "onStatusChange",
     },
     mounted() {
         this.onStatusChange();
@@ -51,34 +56,53 @@ export default {
         clearInterval(this.updateInterval);
     },
     methods: {
-        updateDuration() {
+        updateText() {
             if (this.item.startedAt && this.item.startedAt.indexOf("0001-") === 0) {
                 // Go's way of saying it is zero
                 this.durationText = "";
                 return;
             }
             if (this.item.status === "running") {
-                this.durationText = runningDuration(this.item.startedAt);
-                return;
+                switch (this.durationMode) {
+                case "duration":
+                    this.durationText = runningDuration(this.item.startedAt);
+                    return;
+                case "started at":
+                    this.durationText = new Date(this.item.startedAt).toLocaleString();
+                    return;
+                case "started":
+                    this.durationText = format(new Date(this.item.startedAt));
+                    return;
+                }
             }
             if (this.item.duration > 0) {
-                this.durationText = doneDuration(this.item.duration);
-                return;
+                switch (this.durationMode) {
+                case "duration":
+                    this.durationText = doneDuration(this.item.duration);
+                    return;
+                case "started at":
+                    this.durationText = new Date(this.item.startedAt).toLocaleString();
+                    return;
+                case "started":
+                    this.durationText = format(new Date(this.item.startedAt));
+                    return;
+                }
             }
             return "";
         },
         onStatusChange() {
-            if (this.isDone) {
+            console.log(this.durationMode);
+            if (this.isDone || this.durationMode === "started at") {
                 clearInterval(this.updateInterval);
             } else if (this.item.status === "running" && !this.updateInterval) {
                 this.updateInterval = setInterval(
                     function() {
-                        this.updateDuration();
+                        this.updateText();
                     }.bind(this),
                     updateDurationPeriod,
                 );
             }
-            this.updateDuration();
+            this.updateText();
         },
     },
 };

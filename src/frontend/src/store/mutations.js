@@ -28,6 +28,14 @@ const mutations = {
             state.ws.obj.close();
         }
     },
+    TOGGLE_DURATION_MODE(state) {
+        const modes = ["duration", "started", "started at"];
+        let idx = modes.indexOf(state.durationMode) + 1;
+        if (idx > modes.length - 1) {
+            idx = 0;
+        }
+        state.durationMode = modes[idx];
+    },
 };
 
 export default mutations;

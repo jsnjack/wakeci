@@ -10,6 +10,7 @@ const state = {
     auth: {
         isLoggedIn: false,
     },
+    durationMode: "duration", // See Duration component for details
 };
 
 export default state;
