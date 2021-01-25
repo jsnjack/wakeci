@@ -50,7 +50,7 @@ export default {
             return false;
         },
         tooltipText() {
-            return "Click to toggle between different time modes";
+            return "Toggle between different time modes";
         },
         mode() {
             if (this.useGlobalDurationModeState) {

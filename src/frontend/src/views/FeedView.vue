@@ -37,6 +37,7 @@
             class="badge c-hand"
             :data-badge="paramsIndex || ''"
             data-cy="params-index-button"
+            title="Toggle between different parameters"
             @click.prevent="toggleParams(false)"
           >
             Params
@@ -54,7 +55,9 @@
         <th>Status</th>
         <th class="hide-xs">
           <span
-            class="text-capitalize"
+            class="text-capitalize badge c-hand"
+            title="Toggle between different time modes"
+            @click.prevent="toggleDurationMode()"
           >
             {{ durationMode }}
           </span>
@@ -246,6 +249,9 @@ export default {
             } else {
                 this.unsubscribe();
             }
+        },
+        toggleDurationMode() {
+            this.$store.commit("TOGGLE_DURATION_MODE");
         },
     },
 };
