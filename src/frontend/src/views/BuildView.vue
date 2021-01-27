@@ -56,7 +56,7 @@
       :artifacts="getArtifacts"
       :build-i-d="statusUpdate.id"
     />
-    <div class="follow-logs form-group float-right">
+    <div class="follow-logs form-group float-right label">
       <label class="form-switch">
         <input
           v-model="follow"
@@ -237,6 +237,7 @@ summary:hover {
     position: fixed;
     bottom: 10px;
     right: 10px;
-    opacity: 0.9;
+    opacity: 0.8;
+    border-radius: 10px;
 }
 </style>
