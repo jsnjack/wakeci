@@ -104,5 +104,80 @@ tasks:
             cy.get("body").should("contain", "WAKE_JOB_PARAMS=minsk=4&pruzhany=5");
         });
     });
+
+    it("should collect artifacts", function() {
+        // Create job
+        const jobName = "myjob" + new Date().getTime();
+        cy.request({
+            url: "/api/jobs/create",
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                "name": jobName,
+            },
+            form: true,
+        });
+
+        const jobContent = `
+desc: Test env variables
+params:
+  - pruzhany: 5
+  - minsk: 4
+tasks:
+  - name: Create 1 file
+    command: journalctl -n 100 > big
+
+  - name: Create 2 file
+    command: journalctl -n 50 > small
+
+artifacts:
+  - "*"
+`;
+
+        cy.request({
+            url: "/api/job/" + jobName,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                "fileContent": jobContent,
+            },
+            form: true,
+        });
+
+        // Create build
+        cy.request({
+            url: `/api/job/${jobName}/run`,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {},
+            form: true,
+        });
+
+        cy.visit("/");
+        cy.login();
+        cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
+            cy.get("[data-cy=open-build-button]").click();
+
+            // Assert total nu,ber of artifacts
+            cy.get("[data-cy=artifacts-body-row]").should("have.length", 2);
+
+            // Assert order by name
+            cy.get("[data-cy=artifacts-body-row] > td:first").should("contain", "big");
+            cy.get("[data-cy=artifacts-header-file]").click();
+            cy.get("[data-cy=artifacts-body-row] > td:first").should("contain", "small");
+            cy.get("[data-cy=artifacts-header-file]").click();
+            cy.get("[data-cy=artifacts-body-row] > td:first").should("contain", "big");
+        });
+    });
 })
 ;

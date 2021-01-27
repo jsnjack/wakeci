@@ -10,12 +10,14 @@
         <tr>
           <th
             class="badge c-hand"
+            data-cy="artifacts-header-file"
             @click="sortBy('filename')"
           >
             File
           </th>
           <th
             class="badge c-hand"
+            data-cy="artifacts-header-size"
             @click="sortBy('size')"
           >
             Size
@@ -26,6 +28,7 @@
         <tr
           v-for="item in sortedArtifacts"
           :key="item.path"
+          data-cy="artifacts-body-row"
         >
           <td><a :href="downloadURL(item.filename)">{{ item.filename }}</a></td>
           <td>{{ getSize(item.size) }}</td>
