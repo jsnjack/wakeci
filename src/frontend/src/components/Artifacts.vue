@@ -4,17 +4,30 @@
       class="divider"
       data-content="artifacts"
     />
-    <div
-      v-for="item in artifacts"
-      :key="item"
-      class="label artifact"
-    >
-      <a :href="downloadURL(item)">{{ item }}</a>
-    </div>
+
+    <table class="table table-striped table-hover">
+      <thead>
+        <tr>
+          <th>File</th>
+          <th>Size</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr
+          v-for="item in artifacts"
+          :key="item.path"
+        >
+          <td><a :href="downloadURL(item.filename)">{{ item.filename }}</a></td>
+          <td>{{ getSize(item.size) }}</td>
+        </tr>
+      </tbody>
+    </table>
   </section>
 </template>
 
 <script>
+
+import {humanFileSize} from "@/store/utils";
 
 export default {
     props: {
@@ -32,6 +45,9 @@ export default {
     methods: {
         downloadURL(filename) {
             return `/storage/build/${this.buildID}/artifacts/${filename}`;
+        },
+        getSize(size) {
+            return humanFileSize(size);
         },
     },
 };

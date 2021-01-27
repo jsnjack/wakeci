@@ -53,7 +53,7 @@ type BuildUpdateData struct {
 	Status    ItemStatus          `json:"status"`
 	Tasks     []*TaskStatus       `json:"tasks"`
 	Params    []map[string]string `json:"params"`
-	Artifacts []string            `json:"artifacts"`
+	Artifacts []*BuildArtifact    `json:"artifacts"`
 	StartedAt time.Time           `json:"startedAt"`
 	Duration  time.Duration       `json:"duration"`
 }

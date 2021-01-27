@@ -54,7 +54,7 @@ type Build struct {
 	pendingTasksWG sync.WaitGroup
 	aborted        bool
 	Params         []map[string]string
-	Artifacts      []string
+	Artifacts      []*BuildArtifact
 	StartedAt      time.Time
 	Duration       time.Duration
 	timer          *time.Timer // A timer for Job.Timeout
@@ -285,7 +285,10 @@ func (b *Build) CollectArtifacts() {
 			if s.Exit != 0 {
 				b.Logger.Printf("Unable to copy %s, code %d\n", f, s.Exit)
 			} else {
-				b.Artifacts = append(b.Artifacts, relPath)
+				b.Artifacts = append(b.Artifacts, &BuildArtifact{
+					Size:     fi.Size(),
+					Filename: relPath,
+				})
 			}
 		}
 	}
@@ -527,4 +530,10 @@ func CreateBuild(job *Job, jobPath string) (*Build, error) {
 
 	build.SetBuildStatus(StatusPending)
 	return &build, nil
+}
+
+// BuildArtifact represents build artifacts
+type BuildArtifact struct {
+	Filename string `json:"filename"`
+	Size     int64  `json:"size"`
 }
