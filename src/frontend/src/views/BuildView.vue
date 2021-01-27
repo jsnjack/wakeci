@@ -128,7 +128,18 @@ export default {
             return this.getMainTasks.length;
         },
         getArtifacts() {
-            return this.statusUpdate.artifacts || [];
+            if (this.statusUpdate.build_artifacts) {
+                return this.statusUpdate.build_artifacts;
+            }
+
+            if (this.statusUpdate.artifacts) { // Deprecate
+                const data = [];
+                this.statusUpdate.artifacts.forEach((element) => {
+                    data.push({"filename": element});
+                });
+                return data;
+            }
+            return [];
         },
         getAbortURL: function() {
             return `/api/build/${this.id}/abort`;

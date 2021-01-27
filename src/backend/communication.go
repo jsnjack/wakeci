@@ -48,14 +48,15 @@ type TaskStatus struct {
 
 // BuildUpdateData is viewable on the feed page
 type BuildUpdateData struct {
-	ID        int                 `json:"id"`
-	Name      string              `json:"name"`
-	Status    ItemStatus          `json:"status"`
-	Tasks     []*TaskStatus       `json:"tasks"`
-	Params    []map[string]string `json:"params"`
-	Artifacts []*BuildArtifact    `json:"artifacts"`
-	StartedAt time.Time           `json:"startedAt"`
-	Duration  time.Duration       `json:"duration"`
+	ID             int                 `json:"id"`
+	Name           string              `json:"name"`
+	Status         ItemStatus          `json:"status"`
+	Tasks          []*TaskStatus       `json:"tasks"`
+	Params         []map[string]string `json:"params"`
+	Artifacts      []string            `json:"artifacts"` // Deprecate in favor of BuildArtifacts
+	BuildArtifacts []*ArtifactInfo     `json:"build_artifacts"`
+	StartedAt      time.Time           `json:"startedAt"`
+	Duration       time.Duration       `json:"duration"`
 }
 
 // CommandLogData ...

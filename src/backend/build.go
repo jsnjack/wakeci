@@ -54,7 +54,8 @@ type Build struct {
 	pendingTasksWG sync.WaitGroup
 	aborted        bool
 	Params         []map[string]string
-	Artifacts      []*BuildArtifact
+	Artifacts      []string // Deprecate
+	BuildArtifacts []*ArtifactInfo
 	StartedAt      time.Time
 	Duration       time.Duration
 	timer          *time.Timer // A timer for Job.Timeout
@@ -285,10 +286,11 @@ func (b *Build) CollectArtifacts() {
 			if s.Exit != 0 {
 				b.Logger.Printf("Unable to copy %s, code %d\n", f, s.Exit)
 			} else {
-				b.Artifacts = append(b.Artifacts, &BuildArtifact{
+				b.BuildArtifacts = append(b.BuildArtifacts, &ArtifactInfo{
 					Size:     fi.Size(),
 					Filename: relPath,
 				})
+				b.Artifacts = append(b.Artifacts, relPath) // Deprecate
 			}
 		}
 	}
@@ -323,14 +325,15 @@ func (b *Build) GenerateBuildUpdateData() *BuildUpdateData {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	return &BuildUpdateData{
-		ID:        b.ID,
-		Name:      b.Job.Name,
-		Status:    b.Status,
-		Tasks:     b.GetTasksStatus(),
-		Params:    b.Params,
-		Artifacts: b.Artifacts,
-		StartedAt: b.StartedAt,
-		Duration:  b.Duration,
+		ID:             b.ID,
+		Name:           b.Job.Name,
+		Status:         b.Status,
+		Tasks:          b.GetTasksStatus(),
+		Params:         b.Params,
+		Artifacts:      b.Artifacts, // Deprecate
+		BuildArtifacts: b.BuildArtifacts,
+		StartedAt:      b.StartedAt,
+		Duration:       b.Duration,
 	}
 }
 
@@ -532,8 +535,8 @@ func CreateBuild(job *Job, jobPath string) (*Build, error) {
 	return &build, nil
 }
 
-// BuildArtifact represents build artifacts
-type BuildArtifact struct {
+// ArtifactInfo represents build artifacts
+type ArtifactInfo struct {
 	Filename string `json:"filename"`
 	Size     int64  `json:"size"`
 }
