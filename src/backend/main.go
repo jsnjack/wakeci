@@ -146,6 +146,7 @@ func main() {
 
 	// For artifacts
 	router.GET("/storage/build/*filepath", LogMi(AuthMi(WakespaceResourceMi(storageServer))))
+	router.HEAD("/storage/build/*filepath", LogMi(AuthMi(WakespaceResourceMi(storageServer))))
 
 	// Websocket section
 	router.GET("/ws", AuthMi(HandleWS))
