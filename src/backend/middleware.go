@@ -165,12 +165,12 @@ func VueResourcesMi(h http.Handler) http.Handler {
 		r2.URL = new(url.URL)
 		*r2.URL = *r.URL
 		switch {
-		case strings.Contains(r.URL.Path, "."), r.URL.Path == "/":
-			// Static file or root address
+		case strings.Contains(r.URL.Path, "."):
+			// Static file
 			r2.URL.Path = "/assets" + r.URL.Path
-			break
+			w.Header().Set("cache-control", "public, max-age=604800, immutable")
 		default:
-			// Most likely this is request to one of the dynamic URLs used by frontend,
+			// This is "/" request or, most likely, request to one of the dynamic URLs used by frontend,
 			// serve index.html (/assets/) in this case
 			r2.URL.Path = "/assets/"
 		}
