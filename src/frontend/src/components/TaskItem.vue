@@ -65,19 +65,21 @@
         v-if="content"
         class="d-block log-line"
       >{{ content }}</pre>
+      <TextSpinner v-show="task.status === &quot;running&quot;" />
     </div>
   </section>
 </template>
 
 <script>
 import BuildStatus from "@/components/BuildStatus";
+import TextSpinner from "@/components/TextSpinner";
 import Duration from "@/components/Duration";
 import axios from "axios";
 
 const FlushContentPeriod = 500;
 
 export default {
-    components: {BuildStatus, Duration},
+    components: {BuildStatus, Duration, TextSpinner},
     props: {
         buildID: {
             type: Number,
@@ -222,7 +224,6 @@ export default {
   font-size: 90%;
   pre {
     padding-left: 1em;
-    padding-bottom: 1em;
     margin: 0;
   }
 }
