@@ -41,6 +41,9 @@ var Config *WakeConfig
 // WSHub is the websocket hub
 var WSHub *Hub
 
+//go:embed assets/*
+var Assets embed.FS
+
 func init() {
 	Logger = log.New(os.Stdout, "", log.Lmicroseconds|log.Lshortfile)
 
@@ -134,10 +137,7 @@ func main() {
 		HostPolicy: autocert.HostWhitelist(Config.Hostname),
 	}
 
-	//go:embed assets/*
-	var assets embed.FS
-
-	vuefs := http.FileServer(http.FS(assets))
+	vuefs := http.FileServer(http.FS(Assets))
 	storageServer := http.FileServer(http.Dir(Config.WorkDir + "wakespace"))
 	// Configure routes
 	router := httprouter.New()
