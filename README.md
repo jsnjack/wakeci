@@ -77,3 +77,32 @@ jobdir: ./
 ### API documentation
 See full description [here](https://github.com/jsnjack/wakeci/blob/master/API.md)
 
+### Development
+Requires golang 1.16+
+
+#### How to install golang 1.16+
+```bash
+go get golang.org/dl/go1.16.2
+/home/$USER/go/bin/go1.16.2 download
+# Manage different versions with `alternatives`
+sudo alternatives --install /usr/bin/go go /home/$USERNAME/go/bin/go1.16.2 10
+# Switch between different go versions
+sudo alternatives --config go
+```
+
+> Golang downloads page https://golang.org/dl/
+
+#### Install dependencies
+```bash
+# cd src/frontend
+npm install
+```
+
+#### Start application
+```bash
+# frontend
+make runf
+
+# backend
+make runb
+```
