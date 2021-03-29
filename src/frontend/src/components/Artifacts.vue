@@ -95,4 +95,8 @@ export default {
 .artifact {
     margin: 0.25em;
 }
+table {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
 </style>
