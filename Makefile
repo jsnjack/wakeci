@@ -47,12 +47,12 @@ release: build
 
 .ONESHELL:
 clean:
-	rm -rf example_wd/*
+	rm -rf workdir/*
 	rm -rf src/frontend/dist
 
 .ONESHELL:
 viewdb:
-	cd example_wd
+	cd workdir
 	rm -f view.db
 	cp wakeci.db view.db
 	bolter -f view.db
