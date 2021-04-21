@@ -58,6 +58,7 @@ type Build struct {
 	BuildArtifacts []*ArtifactInfo
 	StartedAt      time.Time
 	Duration       time.Duration
+	ETA            int         // seconds
 	timer          *time.Timer // A timer for Job.Timeout
 	mutex          deadlock.Mutex
 }
@@ -240,10 +241,14 @@ func (b *Build) generateDefaultEnvVariables() []string {
 	return evs
 }
 
-// Cleanup is called when a job finished or failed
+// Cleanup is called when a job finished, failed or aborted
 func (b *Build) Cleanup() {
 	if b.timer != nil {
 		b.timer.Stop()
+	}
+	err := RecordBuildDuration(b.Job.Name, int(b.Duration))
+	if err != nil {
+		b.Logger.Println(err)
 	}
 	GlobalQueue.Remove(b.ID)
 	GlobalQueue.Take()
@@ -332,6 +337,7 @@ func (b *Build) GenerateBuildUpdateData() *BuildUpdateData {
 		BuildArtifacts: b.BuildArtifacts,
 		StartedAt:      b.StartedAt,
 		Duration:       b.Duration,
+		ETA:            b.ETA,
 	}
 }
 
@@ -484,6 +490,7 @@ func CreateBuild(job *Job, jobPath string) (*Build, error) {
 		abortedChannel: make(chan bool),
 		flushChannel:   make(chan bool),
 		Params:         job.DefaultParams,
+		ETA:            GetJobETA(job.Name),
 	}
 	build.Logger = log.New(os.Stdout, fmt.Sprintf("[build #%d] ", build.ID), log.Lmicroseconds|log.Lshortfile)
 

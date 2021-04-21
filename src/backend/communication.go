@@ -57,6 +57,7 @@ type BuildUpdateData struct {
 	BuildArtifacts []*ArtifactInfo     `json:"build_artifacts"`
 	StartedAt      time.Time           `json:"startedAt"`
 	Duration       time.Duration       `json:"duration"`
+	ETA            int                 `json:"eta"`
 }
 
 // CommandLogData ...
