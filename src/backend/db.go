@@ -10,7 +10,12 @@ import (
 //   key `job_name`
 // 	- count
 
-// JobsBucket ...
+// JobsBucket contains all registered jobs
+// Schema (key is the name of the file):
+// | defaultParams | null    |
+// | desc          | New job |
+// | interval      |         |
+// | active        | true    |
 var JobsBucket = []byte("jobs")
 
 // GlobalBucket contains information about global configuration
