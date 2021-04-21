@@ -78,8 +78,6 @@ func (b *Build) Start() {
 		task.Status = status
 		task.duration = time.Since(task.startedAt)
 		switch status {
-		case StatusFinished:
-			break
 		case StatusFailed:
 			b.SetBuildStatus(StatusFailed)
 			return
@@ -413,7 +411,6 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		// slow down putting build into queue. Also it is expected to be something
 		// really simple, like setting commit status in VCS
 		go b.runOnStatusTasks(status)
-		break
 	case StatusRunning:
 		b.BroadcastUpdate()
 		// Start timeout if available
@@ -434,14 +431,12 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 			}
 		}
 		b.runOnStatusTasks(status)
-		break
 	case StatusAborted:
 		b.runOnStatusTasks(status)
 		b.runOnStatusTasks(FinalTask)
 		b.Duration = time.Since(b.StartedAt)
 		b.Cleanup()
 		b.BroadcastUpdate()
-		break
 	case StatusFailed:
 		b.runOnStatusTasks(status)
 		b.CollectArtifacts()
@@ -449,7 +444,6 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		b.Duration = time.Since(b.StartedAt)
 		b.Cleanup()
 		b.BroadcastUpdate()
-		break
 	case StatusFinished:
 		b.runOnStatusTasks(status)
 		b.CollectArtifacts()
@@ -457,7 +451,6 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		b.Duration = time.Since(b.StartedAt)
 		b.Cleanup()
 		b.BroadcastUpdate()
-		break
 	}
 
 }

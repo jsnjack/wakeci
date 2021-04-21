@@ -77,7 +77,7 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 		b := tx.Bucket([]byte(HistoryBucket))
 		ud := b.Get(Itob(buildID))
 		if ud == nil {
-			return fmt.Errorf("Not found")
+			return fmt.Errorf("not found")
 		}
 		return json.Unmarshal(ud, &buildStatusData)
 	})
@@ -166,7 +166,6 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 						}
 						b.Put(Itob(msg.ID), updatedB)
 					}
-					break
 				}
 				if filter != "" {
 					if strings.Contains(fmt.Sprintf("%v %v %v %v", msg.ID, msg.Name, msg.Status, msg.Params), filter) {
@@ -186,6 +185,12 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 		}
 		return nil
 	})
+	if err != nil {
+		logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
 	payloadB, err := json.Marshal(payload)
 	if err != nil {
 		logger.Println(err)
@@ -574,7 +579,7 @@ func HandleJobSetActive(w http.ResponseWriter, r *http.Request, ps httprouter.Pa
 		b := tx.Bucket([]byte(JobsBucket))
 		jb := b.Bucket([]byte(name))
 		if jb == nil {
-			return fmt.Errorf("Invalid job name: %s", name)
+			return fmt.Errorf("invalid job name: %s", name)
 		}
 		err := jb.Put([]byte("active"), []byte(activeStatus))
 		if err == nil {

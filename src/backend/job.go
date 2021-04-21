@@ -239,14 +239,14 @@ func RunJob(name string, params url.Values) (*Build, error) {
 		b := tx.Bucket([]byte(JobsBucket))
 		jb := b.Bucket([]byte(name))
 		if jb == nil {
-			return fmt.Errorf("Invalid job name: %s", name)
+			return fmt.Errorf("invalid job name: %s", name)
 		}
 		isActive := jb.Get([]byte("active"))
 		if isActive == nil {
-			return fmt.Errorf("Unknown if job %s is active", name)
+			return fmt.Errorf("unknown if job %s is active", name)
 		}
 		if string(isActive) != "true" {
-			return fmt.Errorf("Job %s is not enabled", name)
+			return fmt.Errorf("job %s is not enabled", name)
 		}
 		return nil
 	})

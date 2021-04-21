@@ -36,7 +36,7 @@ func EnsureLocalIP(ip string) error {
 	if ipObj.IsLoopback() {
 		return nil
 	}
-	return fmt.Errorf("Not a local IP: %s", ip)
+	return fmt.Errorf("not a local IP: %s", ip)
 }
 
 // NormalizeNewlines normalizes \r\n (windows) and \r (mac)

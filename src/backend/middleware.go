@@ -51,7 +51,7 @@ func LogMi(next httprouter.Handle) httprouter.Handle {
 		next(w, r, ps)
 
 		defer func() {
-			duration := time.Now().Sub(startTime)
+			duration := time.Since(startTime)
 			handlerLogger.Printf("%s %s [took %s]\n", r.Method, r.URL, duration)
 		}()
 	})
@@ -89,6 +89,12 @@ func AuthMi(next httprouter.Handle) httprouter.Handle {
 				hashedPassword = b.Get([]byte("password"))
 				return nil
 			})
+
+			if err != nil {
+				logger.Println(err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
 
 			err = bcrypt.CompareHashAndPassword(hashedPassword, []byte(password))
 			if err != nil {

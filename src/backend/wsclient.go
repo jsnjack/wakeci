@@ -30,7 +30,6 @@ const (
 
 var (
 	newline = []byte{'\n'}
-	space   = []byte{' '}
 )
 
 var upgrader = websocket.Upgrader{
@@ -180,7 +179,6 @@ func (c *Client) HandleIncomingMessage(msg *MsgIncoming) {
 		for _, item := range data.To {
 			c.Subscribe(item)
 		}
-		break
 	case MsgTypeInUnsubscribe:
 		var data InSubscribeData
 		err := json.Unmarshal(msg.Data, &data)
@@ -191,7 +189,6 @@ func (c *Client) HandleIncomingMessage(msg *MsgIncoming) {
 		for _, item := range data.To {
 			c.Unsubscribe(item)
 		}
-		break
 	default:
 		c.Logger.Printf("Unhandled msg: %v\n", msg)
 	}

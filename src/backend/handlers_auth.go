@@ -33,6 +33,11 @@ func HandleLogIn(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		hashedPassword = b.Get([]byte("password"))
 		return nil
 	})
+	if err != nil {
+		logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	err = bcrypt.CompareHashAndPassword(hashedPassword, []byte(password))
 	if err != nil {
