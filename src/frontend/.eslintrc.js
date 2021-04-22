@@ -29,5 +29,6 @@ module.exports = {
         "no-debugger": process.env.NODE_ENV === "production" ? "error" : "off",
         "require-jsdoc": "off",
         "indent": ["error", 4],
+        "vue/html-self-closing": "off",
     },
 };
