@@ -246,10 +246,6 @@ func (b *Build) Cleanup() {
 	if b.timer != nil {
 		b.timer.Stop()
 	}
-	err := RecordBuildDuration(b.Job.Name, int(b.Duration))
-	if err != nil {
-		b.Logger.Println(err)
-	}
 	GlobalQueue.Remove(b.ID)
 	GlobalQueue.Take()
 }
@@ -456,6 +452,10 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		b.runOnStatusTasks(FinalTask)
 		b.Duration = time.Since(b.StartedAt)
 		b.Cleanup()
+		err := RecordBuildDuration(b.Job.Name, int(b.Duration))
+		if err != nil {
+			b.Logger.Println(err)
+		}
 		b.BroadcastUpdate()
 	}
 
