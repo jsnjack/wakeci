@@ -7,6 +7,10 @@ export function runningDuration(time) {
 export function doneDuration(duration) {
     // Comes in ns
     const d = duration / 10**9;
+    return doneDurationSec(d);
+}
+
+export function doneDurationSec(d) {
     if (d < 60) {
         return Math.floor(d) + " sec";
     } else {

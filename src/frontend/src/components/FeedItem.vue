@@ -21,8 +21,7 @@
       </div>
     </td>
     <td
-      class="tooltip tooltip-right hide-xs hide-sm hide-md"
-      :data-tooltip="getProgressTooltip"
+      class="hide-xs hide-sm hide-md"
     >
       <BuildProgress
         v-if="build.eta === 0"
@@ -33,6 +32,7 @@
         v-if="build.eta !== 0"
         :eta="build.eta"
         :started-at="build.startedAt"
+        :build-duration="build.duration"
       />
     </td>
     <td>
@@ -83,9 +83,6 @@ export default {
         },
     },
     computed: {
-        getProgressTooltip() {
-            return `${this.getDoneTasks} of ${this.getTotalTasks}`;
-        },
         getMainTasks() {
             return this.build.tasks.filter((item) => {
                 return item.kind === "main";

@@ -1,12 +1,21 @@
 <template>
-  <progress
-    class="progress"
-    :value="donePercent"
-    max="100"
-  />
+  <div
+    class="tooltip tooltip-bottom"
+    :data-tooltip="getProgressTooltip()"
+  >
+    <progress
+      class="progress"
+      :value="donePercent"
+      max="100"
+    />
+  </div>
 </template>
 
 <script>
+import {
+    doneDurationSec,
+} from "@/duration";
+
 export default {
     props: {
         eta: {
@@ -15,6 +24,10 @@ export default {
         },
         startedAt: {
             type: String,
+            required: true,
+        },
+        buildDuration: {
+            type: Number,
             required: true,
         },
     },
@@ -27,6 +40,7 @@ export default {
     },
     watch: {
         "startedAt": "onUpdate",
+        "buildDuration": "onDone",
     },
     mounted() {
         this.etaInSec = Math.round(this.eta / 10**9);
@@ -44,6 +58,7 @@ export default {
             );
         }
         this.onUpdate();
+        this.onDone();
     },
     beforeDestroy: function() {
         clearInterval(this.updateInterval);
@@ -55,12 +70,35 @@ export default {
                 return;
             }
             const duration = (new Date().getTime() - new Date(this.startedAt).getTime()) / 1000;
-            if (duration <= this.etaInSec) {
-                this.donePercent = duration / this.etaInSec * 100;
-            } else {
+            let p = duration / this.etaInSec * 100;
+            if (p > 99) {
+                p = 99;
+                clearInterval(this.updateInterval);
+            }
+            this.donePercent = p;
+        },
+        onDone() {
+            if (this.buildDuration) {
                 this.donePercent = 100;
                 clearInterval(this.updateInterval);
             }
+        },
+        getProgressTooltip() {
+            if (this.startedAt && this.startedAt.indexOf("0001-") === 0) {
+                // Go's way of saying it is zero
+                const eta = doneDurationSec(this.etaInSec);
+                return `should take about ${eta}`;
+            }
+            if (this.donePercent !== 100) {
+                const duration = (new Date().getTime() - new Date(this.startedAt).getTime()) / 1000;
+                if (this.etaInSec > duration) {
+                    const eta = doneDurationSec(this.etaInSec - duration);
+                    return `eta ${eta}`;
+                } else {
+                    return "any moment";
+                }
+            }
+            return "completed";
         },
     },
 };

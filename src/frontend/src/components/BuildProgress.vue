@@ -1,9 +1,14 @@
 <template>
-  <progress
-    class="progress"
-    :value="done"
-    :max="total"
-  />
+  <div
+    class="tooltip tooltip-bottom"
+    :data-tooltip="getProgressTooltip()"
+  >
+    <progress
+      class="progress"
+      :value="done"
+      :max="total"
+    />
+  </div>
 </template>
 
 <script>
@@ -16,6 +21,14 @@ export default {
         total: {
             type: Number,
             required: true,
+        },
+    },
+    methods: {
+        getProgressTooltip() {
+            if (this.done === this.total) {
+                return "completed";
+            }
+            return `${this.done} of ${this.total} tasks`;
         },
     },
 };
