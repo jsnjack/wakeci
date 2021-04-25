@@ -30,8 +30,15 @@
       </div>
       <div class="card-footer">
         <BuildProgress
+          v-if="!statusUpdate.eta"
           :done="getDoneTasks"
           :total="getTotalTasks"
+        />
+        <BuildProgressETA
+          v-if="statusUpdate.eta"
+          :eta="statusUpdate.eta"
+          :started-at="statusUpdate.startedAt"
+          :build-duration="statusUpdate.duration"
         />
       </div>
     </div>
@@ -75,6 +82,7 @@ import BuildStatus from "@/components/BuildStatus";
 import Duration from "@/components/Duration";
 import ParamItem from "@/components/ParamItem";
 import BuildProgress from "@/components/BuildProgress";
+import BuildProgressETA from "@/components/BuildProgressETA";
 import RunJobButton from "@/components/RunJobButton";
 import TaskItem from "@/components/TaskItem";
 import Artifacts from "@/components/Artifacts";
@@ -84,6 +92,7 @@ export default {
     components: {
         BuildStatus,
         BuildProgress,
+        BuildProgressETA,
         TaskItem,
         ParamItem,
         Artifacts,
@@ -111,9 +120,6 @@ export default {
     },
     computed: {
         ...vuex.mapState(["ws"]),
-        getProgressTooltip() {
-            return `${this.getDoneTasks} of ${this.getTotalTasks}`;
-        },
         getMainTasks() {
             return this.statusUpdate.tasks.filter((item) => {
                 return item.kind === "main";
