@@ -25,8 +25,14 @@
       :data-tooltip="getProgressTooltip"
     >
       <BuildProgress
+        v-if="build.eta === 0"
         :done="getDoneTasks"
         :total="getTotalTasks"
+      />
+      <BuildProgressETA
+        v-if="build.eta !== 0"
+        :eta="build.eta"
+        :started-at="build.startedAt"
       />
     </td>
     <td>
@@ -60,11 +66,12 @@
 <script>
 import BuildStatus from "@/components/BuildStatus";
 import BuildProgress from "@/components/BuildProgress";
+import BuildProgressETA from "@/components/BuildProgressETA";
 import Duration from "@/components/Duration";
 import axios from "axios";
 
 export default {
-    components: {BuildStatus, BuildProgress, Duration},
+    components: {BuildStatus, BuildProgress, BuildProgressETA, Duration},
     props: {
         build: {
             type: Object,
