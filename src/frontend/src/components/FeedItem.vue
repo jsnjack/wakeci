@@ -24,12 +24,12 @@
       class="hide-xs hide-sm hide-md"
     >
       <BuildProgress
-        v-if="build.eta === 0"
+        v-if="!build.eta"
         :done="getDoneTasks"
         :total="getTotalTasks"
       />
       <BuildProgressETA
-        v-if="build.eta !== 0"
+        v-if="build.eta"
         :eta="build.eta"
         :started-at="build.startedAt"
         :build-duration="build.duration"
