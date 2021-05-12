@@ -30,7 +30,14 @@
           :key="item.path"
           data-cy="artifacts-body-row"
         >
-          <td><a :href="downloadURL(item.filename)">{{ item.filename }}</a></td>
+          <td>
+            <a
+              :href="downloadURL(item.filename)"
+              target="_blank"
+            >
+              {{ item.filename }}
+            </a>
+          </td>
           <td>{{ getSize(item.size) }}</td>
         </tr>
       </tbody>
