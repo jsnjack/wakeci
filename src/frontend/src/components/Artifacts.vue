@@ -5,6 +5,17 @@
       data-content="artifacts"
     />
 
+    <div
+      v-if="indexFile"
+      class="float-right"
+    >
+      <a
+        :href="indexFile"
+        target="_blank"
+        class="btn btn-sm"
+      >Open index.html</a>
+    </div>
+
     <table class="table table-striped table-hover">
       <thead>
         <tr>
@@ -77,6 +88,13 @@ export default {
                 }
                 return 0;
             });
+        },
+        indexFile: function() {
+            const indexEl = this.artifacts.find(({filename}) => filename.endsWith("index.html"));
+            if (indexEl) {
+                return this.downloadURL(indexEl.filename);
+            }
+            return "";
         },
     },
     methods: {
