@@ -127,7 +127,10 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 
 	offset, err := strconv.Atoi(offsetS)
 	if err != nil {
-		logger.Printf("Invalid offset %s", offsetS)
+		errMsg := fmt.Sprintf("Invalid offset: %q", offsetS)
+		logger.Printf(errMsg)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(errMsg))
 		return
 	}
 
