@@ -50,6 +50,9 @@ clean:
 	rm -rf workdir/*
 	rm -rf src/frontend/dist
 
+clean_jobs:
+	cd workdir && find . -name *.yaml -delete
+
 .ONESHELL:
 viewdb:
 	cd workdir
@@ -57,4 +60,4 @@ viewdb:
 	cp wakeci.db view.db
 	bolter -f view.db
 
-.PHONY: runb runf version
+.PHONY: runb runf version clean clean_jobs
