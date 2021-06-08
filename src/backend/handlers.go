@@ -119,6 +119,12 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 	const pageSize = 15
 
 	offsetS := r.URL.Query().Get("offset")
+
+	// Default value to simplify REST API usage
+	if offsetS == "" {
+		offsetS = "0"
+	}
+
 	offset, err := strconv.Atoi(offsetS)
 	if err != nil {
 		logger.Printf("Invalid offset %s", offsetS)
