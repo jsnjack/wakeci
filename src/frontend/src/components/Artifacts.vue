@@ -90,9 +90,13 @@ export default {
             });
         },
         indexFile: function() {
-            const indexEl = this.artifacts.find(({filename}) => filename.endsWith("index.html"));
-            if (indexEl) {
-                return this.downloadURL(indexEl.filename);
+            // Returns filename of index.html file with shortest filename (in hope that it will be the top-level one)
+            let indexEls = this.artifacts.filter(({filename}) => filename.endsWith("index.html"));
+            indexEls = indexEls.sort((a, b) => {
+                return a.filename.length - b.filename.length;
+            });
+            if (indexEls.length) {
+                return this.downloadURL(indexEls[0].filename);
             }
             return "";
         },
