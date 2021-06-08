@@ -13,6 +13,7 @@
         :href="indexFile"
         target="_blank"
         class="btn btn-sm"
+        data-cy="openIndexFile"
       >Open index.html</a>
     </div>
 
