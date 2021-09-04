@@ -51,7 +51,7 @@ clean:
 	rm -rf src/frontend/dist
 
 clean_jobs:
-	cd workdir && find . -name *.yaml -delete
+	cd workdir && find . -name "*.yaml" -delete
 
 .ONESHELL:
 viewdb:
