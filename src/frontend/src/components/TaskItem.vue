@@ -58,11 +58,16 @@
       </div>
     </div>
     <div
+      v-if="content"
       class="log-container text-left code status-border"
       :class="getBorderClass"
     >
+      <!-- Command itself -->
       <pre
-        v-if="content"
+        class="d-block log-line"
+      >{{ command }}</pre>
+      <!-- Command output -->
+      <pre
         class="d-block log-line"
       >{{ content }}</pre>
       <TextSpinner v-show="task.status === &quot;running&quot;" />
@@ -90,6 +95,10 @@ export default {
             required: true,
         },
         name: {
+            type: String,
+            required: true,
+        },
+        command: {
             type: String,
             required: true,
         },
