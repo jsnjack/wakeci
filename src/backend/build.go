@@ -156,7 +156,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	}
 
 	// Add executed command to logs
-	b.ProcessLogEntry(task.Command, bw, task.ID, task.startedAt)
+	b.ProcessLogEntry(os.Expand(task.Command, getEnvMapper(taskCmd.Env)), bw, task.ID, task.startedAt)
 
 	// Print STDOUT and STDERR lines streaming from Cmd
 	// See example https://github.com/go-cmd/cmd/blob/master/examples/blocking-streaming/main.go
@@ -539,4 +539,18 @@ func CreateBuild(job *Job, jobPath string) (*Build, error) {
 type ArtifactInfo struct {
 	Filename string `json:"filename"`
 	Size     int64  `json:"size"`
+}
+
+// Used to expand env variables in commands
+func getEnvMapper(env []string) func(string) string {
+	mapper := func(evar string) string {
+		for _, e := range env {
+			pair := strings.SplitN(e, "=", 2)
+			if pair[0] == evar {
+				return pair[1]
+			}
+		}
+		return ""
+	}
+	return mapper
 }
