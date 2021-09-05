@@ -34,7 +34,7 @@
     </div>
 
     <div
-      class="modal modal-lg"
+      class="modal"
       :class="{active: helpModalOpen}"
     >
       <a
@@ -43,7 +43,7 @@
         aria-label="Close"
         @click.prevent="toggleHelpModal"
       />
-      <div class="modal-container">
+      <div class="modal-container extra-wide-modal">
         <div class="modal-header">
           <a
             href="#close"
@@ -178,5 +178,8 @@ export default {
 }
 .btn {
   margin: 1em;
+}
+.extra-wide-modal {
+  max-width: 960px;
 }
 </style>
