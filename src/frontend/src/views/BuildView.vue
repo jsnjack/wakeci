@@ -57,7 +57,6 @@
       :build-i-d="id"
       :build-status="statusUpdate.status"
       :name="job.tasks[item.id].name"
-      :command="job.tasks[item.id].command"
       :follow="follow"
     />
     <Artifacts
