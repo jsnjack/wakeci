@@ -10,6 +10,9 @@ tasks:
 
   - name: Cow says
     command: fortune | cowsay
+    # `command` is executed when the condition in `when` evaluates to `true`
+    # The condition uses `[[` syntax from bash (https://devhints.io/bash#conditionals)
+    when: $USER == joe
 
 # List of patterns according to https://golang.org/pkg/path/filepath/#Match
 # related to the workspace directory

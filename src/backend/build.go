@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -155,8 +156,40 @@ func (b *Build) runTask(task *Task) ItemStatus {
 		return StatusFailed
 	}
 
+	// Checking condition in when
+	if task.When != "" {
+		condCmd := exec.Command("bash", "-c", fmt.Sprintf("[[ %s ]]", task.When))
+		condCmd.Env = taskCmd.Env
+		condCmd.Dir = taskCmd.Dir
+		b.ProcessLogEntry("> Checking `when` condition: "+task.When, bw, task.ID, task.startedAt)
+		b.ProcessLogEntry("> Expanded condition: "+os.Expand(task.When, getEnvMapper(condCmd.Env)), bw, task.ID, task.startedAt)
+		condErr := condCmd.Start()
+		if condErr != nil {
+			b.ProcessLogEntry(
+				fmt.Sprintf("> Unable to evaluate the condition: %s", condErr.Error()),
+				bw, task.ID, task.startedAt,
+			)
+			return StatusFailed
+		}
+		condTimer := time.AfterFunc(1*time.Second, func() {
+			condCmd.Process.Kill()
+		})
+		condErr = condCmd.Wait()
+		condTimer.Stop()
+		if condErr != nil {
+			b.ProcessLogEntry(
+				fmt.Sprintf("> Condition is false: %s. Skipping the task", condErr.Error()),
+				bw, task.ID, task.startedAt,
+			)
+			return StatusFinished
+		} else {
+			b.ProcessLogEntry("> Condition is true", bw, task.ID, task.startedAt)
+		}
+	}
+
 	// Add executed command to logs
-	b.ProcessLogEntry(os.Expand(task.Command, getEnvMapper(taskCmd.Env)), bw, task.ID, task.startedAt)
+	b.ProcessLogEntry("> Running command: "+task.Command, bw, task.ID, task.startedAt)
+	b.ProcessLogEntry("> Expanded command: "+os.Expand(task.Command, getEnvMapper(taskCmd.Env)), bw, task.ID, task.startedAt)
 
 	// Print STDOUT and STDERR lines streaming from Cmd
 	// See example https://github.com/go-cmd/cmd/blob/master/examples/blocking-streaming/main.go
@@ -179,7 +212,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 				b.ProcessLogEntry(line, bw, task.ID, task.startedAt)
 			case toAbort := <-b.abortedChannel:
 				b.Logger.Println("Aborting via abortedChannel")
-				b.ProcessLogEntry("Aborted.", bw, task.ID, task.startedAt)
+				b.ProcessLogEntry("> Aborted.", bw, task.ID, task.startedAt)
 				if toAbort {
 					taskCmd.Stop()
 					b.aborted = true
@@ -208,7 +241,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 		return StatusAborted
 	}
 
-	b.ProcessLogEntry(fmt.Sprintf("Exit code: %d", status.Exit), bw, task.ID, task.startedAt)
+	b.ProcessLogEntry(fmt.Sprintf("> Exit code: %d", status.Exit), bw, task.ID, task.startedAt)
 
 	if !status.Complete || status.Exit != 0 || status.Error != nil {
 		return StatusFailed
@@ -342,6 +375,8 @@ func (b *Build) ProcessLogEntry(line string, buffer *bufio.Writer, taskID int, s
 	// Format and clean up the log line:
 	// - add duration and a new line to the log entry
 	// - stip out color info
+	//
+	// Note: Internal logs start with `>`
 	pline := fmt.Sprintf("[%10s] ", time.Since(startedAt).Truncate(time.Millisecond).String()) + StripColor(line) + "\n"
 	// Write to the task's log file
 	_, err := buffer.WriteString(pline)
