@@ -162,7 +162,12 @@ func (b *Build) runTask(task *Task) ItemStatus {
 		condCmd.Env = taskCmd.Env
 		condCmd.Dir = taskCmd.Dir
 		b.ProcessLogEntry("> Checking `when` condition: "+task.When, bw, task.ID, task.startedAt)
-		b.ProcessLogEntry("> Expanded condition: "+os.Expand(task.When, getEnvMapper(condCmd.Env)), bw, task.ID, task.startedAt)
+		expandedCondCmd := os.Expand(task.When, getEnvMapper(condCmd.Env))
+		if expandedCondCmd != task.When {
+			b.ProcessLogEntry(
+				"> Expanded condition: "+os.Expand(task.When, getEnvMapper(condCmd.Env)), bw, task.ID, task.startedAt,
+			)
+		}
 		condErr := condCmd.Start()
 		if condErr != nil {
 			b.ProcessLogEntry(
@@ -189,7 +194,12 @@ func (b *Build) runTask(task *Task) ItemStatus {
 
 	// Add executed command to logs
 	b.ProcessLogEntry("> Running command: "+task.Command, bw, task.ID, task.startedAt)
-	b.ProcessLogEntry("> Expanded command: "+os.Expand(task.Command, getEnvMapper(taskCmd.Env)), bw, task.ID, task.startedAt)
+	expandedTaskCmd := os.Expand(task.Command, getEnvMapper(taskCmd.Env))
+	if expandedTaskCmd != task.Command {
+		b.ProcessLogEntry(
+			"> Expanded command: "+os.Expand(task.Command, getEnvMapper(taskCmd.Env)), bw, task.ID, task.startedAt,
+		)
+	}
 
 	// Print STDOUT and STDERR lines streaming from Cmd
 	// See example https://github.com/go-cmd/cmd/blob/master/examples/blocking-streaming/main.go
