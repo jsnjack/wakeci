@@ -44,6 +44,9 @@ const StatusAborted = "aborted"
 // FinalTask is the task that is executed no matter what is the result of the build
 const FinalTask = "finally"
 
+// WHEN_EVAL_TIMEOUT is the timeout for evaluating `when` condition in tasks
+const WHEN_EVAL_TIMEOUT = 3
+
 // Build ...
 type Build struct {
 	ID             int
@@ -176,11 +179,20 @@ func (b *Build) runTask(task *Task) ItemStatus {
 			)
 			return StatusFailed
 		}
-		condTimer := time.AfterFunc(1*time.Second, func() {
+		condKilled := false
+		condTimer := time.AfterFunc(WHEN_EVAL_TIMEOUT*time.Second, func() {
+			condKilled = true
 			condCmd.Process.Kill()
 		})
 		condErr = condCmd.Wait()
 		condTimer.Stop()
+		if condKilled {
+			b.ProcessLogEntry(
+				fmt.Sprintf("> Condition timeouted: %s", condErr.Error()),
+				bw, task.ID, task.startedAt,
+			)
+			return StatusFailed
+		}
 		if condErr != nil {
 			b.ProcessLogEntry(
 				fmt.Sprintf("> Condition is false: %s. Skipping the task", condErr.Error()),
