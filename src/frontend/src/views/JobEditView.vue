@@ -17,7 +17,7 @@
         class="btn btn-link"
         @click.prevent="toggleHelpModal"
       >
-        Show description
+        Show workflow syntax
       </button>
       <a
         data-cy="save-button"
