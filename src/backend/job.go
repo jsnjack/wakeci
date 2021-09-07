@@ -76,13 +76,14 @@ func (j *Job) verifyInterval() error {
 // .Kind - Possible values: `KindMain` for main tasks; one of `StatusRunning` (and etc) for tasks that are executed when
 //  job status has changed
 type Task struct {
-	ID        int         `json:"id"`
-	Name      string      `yaml:"name" json:"name"`
-	Command   string      `yaml:"command" json:"command"`
-	When      string      `yaml:"when" json:"when"`
-	Status    ItemStatus  `json:"status"`
-	Kind      string      `json:"kind"`
-	Logs      interface{} `json:"logs"` // used as a container for frontend
+	ID        int               `json:"id"`
+	Name      string            `yaml:"name" json:"name"`
+	Command   string            `yaml:"command" json:"command"`
+	When      string            `yaml:"when" json:"when"`
+	Env       map[string]string `yaml:"env" json:"env"`
+	Status    ItemStatus        `json:"status"`
+	Kind      string            `json:"kind"`
+	Logs      interface{}       `json:"logs"` // used as a container for frontend
 	startedAt time.Time
 	duration  time.Duration
 }

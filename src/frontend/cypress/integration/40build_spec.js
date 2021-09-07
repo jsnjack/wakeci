@@ -377,5 +377,69 @@ tasks:
             cy.get("body").should("contain", "WAKE_BUILD_ID=");
         });
     });
+
+    it("should inject env variables", function() {
+        // Create job
+        const jobName = "myjob" + new Date().getTime();
+        cy.request({
+            url: "/api/jobs/create",
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                "name": jobName,
+            },
+            form: true,
+        });
+
+        const jobContent = `
+desc: Env test
+tasks:
+  - name: Print env
+    command: env
+    env:
+      NAME: joe
+      SCORE: 5
+`;
+
+        cy.request({
+            url: "/api/job/" + jobName,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                "fileContent": jobContent,
+            },
+            form: true,
+        });
+
+        // Create build
+        cy.request({
+            url: `/api/job/${jobName}/run`,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {},
+            form: true,
+        });
+
+        cy.visit("/");
+        cy.login();
+        cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
+            cy.get("[data-cy=open-build-button]").click();
+            cy.url().should("include", "/build/" + val);
+            cy.get("[data-cy=reload]").click();
+            cy.get("body").should("contain", "NAME=joe");
+            cy.get("body").should("contain", "SCORE=5");
+            cy.get("body").should("contain", "WAKE_BUILD_ID=");
+        });
+    });
 })
 ;

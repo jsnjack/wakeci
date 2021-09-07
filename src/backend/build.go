@@ -141,6 +141,10 @@ func (b *Build) runTask(task *Task) ItemStatus {
 		}
 	}
 
+	for key, value := range task.Env {
+		taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", key, value))
+	}
+
 	// Configure task logs
 	file, err := os.Create(b.GetWakespaceDir() + fmt.Sprintf("task_%d.log", task.ID))
 	bw := bufio.NewWriter(file)
