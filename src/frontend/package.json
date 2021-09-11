@@ -12,7 +12,7 @@
     "test:open": "cypress open --config-file=cypress_dev.json"
   },
   "dependencies": {
-    "axios": "^0.21.1",
+    "axios": "^0.21.2",
     "lodash": "^4.17.21",
     "raw-loader": "^4.0.2",
     "s-ago": "^2.2.0",
