@@ -21,6 +21,31 @@ type HandlerLogger string
 // HL is a handle logger
 const HL HandlerLogger = "logger"
 
+// Middleware ...
+type Middleware func(httprouter.Handle) httprouter.Handle
+
+// MiddlewareChain is a chain of middlewares to apply to a handle
+type MiddlewareChain struct {
+	md []Middleware
+}
+
+// Add adds middleware to the chain
+func (c *MiddlewareChain) Add(m ...Middleware) {
+	c.md = append(c.md, m...)
+}
+
+func (c *MiddlewareChain) wrapper(handle httprouter.Handle, id int) httprouter.Handle {
+	if id == 0 {
+		return handle
+	}
+	return c.wrapper(c.md[id-1](handle), id-1)
+}
+
+// Handle applies middleware to the handle and returns it. Suitable for Router
+func (c *MiddlewareChain) Handle(handle httprouter.Handle) httprouter.Handle {
+	return c.wrapper(handle, len(c.md))
+}
+
 // LogMi is a middleware that creates a new logger per request and logs total time that took to process a request
 func LogMi(next httprouter.Handle) httprouter.Handle {
 	return httprouter.Handle(func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
