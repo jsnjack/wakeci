@@ -102,6 +102,10 @@ func SecurityMi(next httprouter.Handle) httprouter.Handle {
 		// Call actuall handler
 		w.Header().Set("referrer-policy", "no-referrer")
 		w.Header().Set("content-security-policy", "default-src 'self'; frame-ancestors 'none'")
+		w.Header().Set("x-content-type-options", "nosniff")
+		if Config.Hostname != "" {
+			w.Header().Set("strict-transport-security", "max-age=15768000;includeSubdomains")
+		}
 		next(w, r, ps)
 	})
 }
