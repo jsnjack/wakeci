@@ -144,39 +144,52 @@ func main() {
 	// Assume that all unknown routes are vue-related files
 	router.NotFound = VueResourcesMi(vuefs)
 
+	// Types of endpoints
+	privateEndpoints := MiddlewareChain{}
+	privateEndpoints.Add(LogMi, CORSMi, AuthMi)
+
+	privateStorageEndpoints := MiddlewareChain{}
+	privateStorageEndpoints.Add(LogMi, AuthMi)
+
+	internalEndpoints := MiddlewareChain{}
+	internalEndpoints.Add(LogMi, InternalAuthMi)
+
+	publicEndpoints := MiddlewareChain{}
+	publicEndpoints.Add(LogMi, CORSMi)
+
 	// For artifacts
-	router.GET("/storage/build/*filepath", LogMi(AuthMi(WakespaceResourceMi(storageServer))))
-	router.HEAD("/storage/build/*filepath", LogMi(AuthMi(WakespaceResourceMi(storageServer))))
+	router.GET("/storage/build/*filepath", privateStorageEndpoints.Handle(WakespaceResourceMi(storageServer)))
+	router.HEAD("/storage/build/*filepath", privateStorageEndpoints.Handle(WakespaceResourceMi(storageServer)))
 
 	// Websocket section
 	router.GET("/ws", AuthMi(HandleWS))
 
 	// Auth urls
-	router.GET("/auth/_isLoggedIn/", LogMi(CORSMi(AuthMi(HandleIsLoggedIn))))
-	router.POST("/auth/login/", LogMi(CORSMi(HandleLogIn)))
-	router.GET("/auth/logout/", LogMi(CORSMi(HandleLogOut)))
+	router.GET("/auth/_isLoggedIn/", privateEndpoints.Handle(HandleIsLoggedIn))
+	router.POST("/auth/login/", publicEndpoints.Handle(HandleLogIn))
+	router.GET("/auth/logout/", publicEndpoints.Handle(HandleLogOut))
 
 	// API calls used by client application
-	router.GET("/api/feed/", LogMi(CORSMi(AuthMi(HandleFeedView))))
+	router.GET("/api/feed/", privateEndpoints.Handle(HandleFeedView))
 
-	router.GET("/api/jobs/", LogMi(CORSMi(AuthMi(HandleJobsView))))
-	router.POST("/api/jobs/create", LogMi(CORSMi(AuthMi(HandleJobsCreate))))
-	router.POST("/api/jobs/refresh", LogMi(CORSMi(AuthMi(HandleJobsRefresh))))
-	router.POST("/api/job/:name/run", LogMi(CORSMi(AuthMi(HandleRunJob))))
-	router.DELETE("/api/job/:name/", LogMi(CORSMi(AuthMi(HandleDeleteJob))))
-	router.POST("/api/job/:name/", LogMi(CORSMi(AuthMi(HandleJobPost))))
-	router.GET("/api/job/:name/", LogMi(CORSMi(AuthMi(HandleJobGet))))
-	router.POST("/api/job/:name/set_active/", LogMi(CORSMi(AuthMi(HandleJobSetActive))))
+	router.GET("/api/jobs/", privateEndpoints.Handle(HandleJobsView))
+	router.POST("/api/jobs/create", privateEndpoints.Handle(HandleJobsCreate))
+	router.POST("/api/jobs/refresh", privateEndpoints.Handle(HandleJobsRefresh))
+	router.POST("/api/job/:name/run", privateEndpoints.Handle(HandleRunJob))
+	router.DELETE("/api/job/:name/", privateEndpoints.Handle(HandleDeleteJob))
+	router.POST("/api/job/:name/", privateEndpoints.Handle(HandleJobPost))
+	router.GET("/api/job/:name/", privateEndpoints.Handle(HandleJobGet))
+	router.POST("/api/job/:name/set_active/", privateEndpoints.Handle(HandleJobSetActive))
 
-	router.GET("/api/build/:id/", LogMi(CORSMi(AuthMi(HandleGetBuild))))
-	router.POST("/api/build/:id/abort", LogMi(CORSMi(AuthMi(HandleAbortBuild))))
-	router.POST("/api/build/:id/flush", LogMi(CORSMi(AuthMi(HandleFlushTaskLogs))))
+	router.GET("/api/build/:id/", privateEndpoints.Handle(HandleGetBuild))
+	router.POST("/api/build/:id/abort", privateEndpoints.Handle(HandleAbortBuild))
+	router.POST("/api/build/:id/flush", privateEndpoints.Handle(HandleFlushTaskLogs))
 
-	router.POST("/api/settings/", LogMi(CORSMi(AuthMi(HandleSettingsPost))))
-	router.GET("/api/settings/", LogMi(CORSMi(AuthMi(HandleSettingsGet))))
+	router.POST("/api/settings/", privateEndpoints.Handle(HandleSettingsPost))
+	router.GET("/api/settings/", privateEndpoints.Handle(HandleSettingsGet))
 
 	// Internal API
-	router.POST("/internal/api/job/:name/run", LogMi(InternalAuthMi(HandleRunJob)))
+	router.POST("/internal/api/job/:name/run", internalEndpoints.Handle(HandleRunJob))
 
 	if Config.Port == "443" {
 		go func() {
