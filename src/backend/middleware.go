@@ -91,8 +91,17 @@ func CORSMi(next httprouter.Handle) httprouter.Handle {
 		if Config.Hostname != "" {
 			origin = "https://" + Config.Hostname
 		}
-		w.Header().Set("Access-Control-Allow-Origin", origin)
-		w.Header().Set("Access-Control-Max-Age", "86400")
+		w.Header().Set("access-control-allow-origin", origin)
+		w.Header().Set("access-control-max-age", "86400")
+	})
+}
+
+// SecurityMi is a middleware which adds security headers
+func SecurityMi(next httprouter.Handle) httprouter.Handle {
+	return httprouter.Handle(func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+		// Call actuall handler
+		w.Header().Set("referrer-policy", "no-referrer")
+		next(w, r, ps)
 	})
 }
 

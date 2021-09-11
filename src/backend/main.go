@@ -146,16 +146,16 @@ func main() {
 
 	// Types of endpoints
 	privateEndpoints := MiddlewareChain{}
-	privateEndpoints.Add(LogMi, CORSMi, AuthMi)
+	privateEndpoints.Add(LogMi, SecurityMi, CORSMi, AuthMi)
 
 	privateStorageEndpoints := MiddlewareChain{}
-	privateStorageEndpoints.Add(LogMi, AuthMi)
+	privateStorageEndpoints.Add(LogMi, SecurityMi, AuthMi)
 
 	internalEndpoints := MiddlewareChain{}
-	internalEndpoints.Add(LogMi, InternalAuthMi)
+	internalEndpoints.Add(LogMi, SecurityMi, InternalAuthMi)
 
 	publicEndpoints := MiddlewareChain{}
-	publicEndpoints.Add(LogMi, CORSMi)
+	publicEndpoints.Add(LogMi, SecurityMi, CORSMi)
 
 	// For artifacts
 	router.GET("/storage/build/*filepath", privateStorageEndpoints.Handle(WakespaceResourceMi(storageServer)))
