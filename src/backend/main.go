@@ -11,6 +11,7 @@ import (
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/NYTimes/gziphandler"
 	"github.com/go-chi/chi/v5"
 	"github.com/robfig/cron/v3"
 	bolt "go.etcd.io/bbolt"
@@ -219,7 +220,7 @@ func main() {
 				},
 				GetCertificate: certManager.GetCertificate,
 			},
-			Handler: router,
+			Handler: gziphandler.GzipHandler(router),
 		}
 
 		err = server.ListenAndServeTLS("", "")
@@ -228,7 +229,7 @@ func main() {
 		}
 	} else {
 		Logger.Printf("Listening on port %s...\n", Config.Port)
-		err := http.ListenAndServe(":"+Config.Port, router)
+		err := http.ListenAndServe(":"+Config.Port, gziphandler.GzipHandler(router))
 		if err != nil {
 			Logger.Fatal(err)
 		}
