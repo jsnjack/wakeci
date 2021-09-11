@@ -101,7 +101,7 @@ func SecurityMi(next httprouter.Handle) httprouter.Handle {
 	return httprouter.Handle(func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		// Call actuall handler
 		w.Header().Set("referrer-policy", "no-referrer")
-		w.Header().Set("content-security-policy", "default-src 'self'")
+		w.Header().Set("content-security-policy", "default-src 'self'; frame-ancestors 'none'")
 		next(w, r, ps)
 	})
 }
