@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"path": "../src/backend"
+		}
+	],
+    "settings": {
+        "vetur.validation.template": false
+    }
+}
