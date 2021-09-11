@@ -101,7 +101,7 @@ export default {
     computed: {},
     methods: {
         deleteJob(event) {
-            const url = `/api/job/${this.job.name}/`;
+            const url = `/api/job/${this.job.name}`;
             axios
                 .delete(url)
                 .then((response) => {
@@ -118,7 +118,7 @@ export default {
             this.modalDelete = !this.modalDelete;
         },
         toggleIsActive() {
-            const url = `/api/job/${this.job.name}/set_active/`;
+            const url = `/api/job/${this.job.name}/set_active`;
             const data = new FormData();
             data.append("active", String(!this.isActive));
             axios

@@ -169,7 +169,7 @@ export default {
                 offset = this.builds.length;
             }
             axios
-                .get(`/api/feed/?offset=${offset}&filter=${this.filter}`)
+                .get(`/api/feed?offset=${offset}&filter=${this.filter}`)
                 .then((response) => {
                     this.isFetching = false;
                     const data = response.data || [];

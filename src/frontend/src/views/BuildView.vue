@@ -194,7 +194,7 @@ export default {
         },
         fetch() {
             axios
-                .get(`/api/build/${this.id}/`)
+                .get(`/api/build/${this.id}`)
                 .then((response) => {
                     this.statusUpdate = response.data.status_update;
                     this.job = response.data.job;

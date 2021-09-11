@@ -11,8 +11,7 @@ import (
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/NYTimes/gziphandler"
-	"github.com/julienschmidt/httprouter"
+	"github.com/go-chi/chi/v5"
 	"github.com/robfig/cron/v3"
 	bolt "go.etcd.io/bbolt"
 )
@@ -137,59 +136,62 @@ func main() {
 		HostPolicy: autocert.HostWhitelist(Config.Hostname),
 	}
 
+	router := chi.NewRouter()
+	router.Use(LogMi)
+	router.Use(SecurityMi)
+	router.Use(CORSMi)
+
+	router.With(AuthMi).Get("/ws", HandleWS)
+
+	router.Route("/auth", func(router chi.Router) {
+		router.With(AuthMi).Get("/_isLoggedIn", HandleIsLoggedIn)
+		router.Post("/login", HandleLogIn)
+		router.Get("/logout", HandleLogOut)
+	})
+
+	router.Route("/api", func(router chi.Router) {
+		router.Use(AuthMi)
+		router.Get("/feed", HandleFeedView)
+
+		router.Route("/jobs", func(router chi.Router) {
+			router.Get("/", HandleJobsView)
+			router.Post("/create", HandleJobsCreate)
+			router.Post("/refresh", HandleJobsRefresh)
+		})
+
+		router.Route("/job", func(router chi.Router) {
+			router.Post("/{name}/run", HandleRunJob)
+			router.Delete("/{name}", HandleDeleteJob)
+			router.Post("/{name}", HandleJobPost)
+			router.Get("/{name}", HandleJobGet)
+			router.Post("/{name}/set_active", HandleJobSetActive)
+		})
+
+		router.Route("/build", func(router chi.Router) {
+			router.Get("/{id}", HandleGetBuild)
+			router.Post("/{id}/abort", HandleAbortBuild)
+			router.Post("/{id}/flush", HandleFlushTaskLogs)
+		})
+
+		router.Get("/settings", HandleSettingsGet)
+		router.Post("/settings", HandleSettingsPost)
+	})
+
+	router.Route("/internal", func(router chi.Router) {
+		router.Use(InternalAuthMi)
+		router.Post("/api/job/{name}/run", HandleRunJob)
+	})
+
+	router.Route("/storage", func(router chi.Router) {
+		// Storage server
+		router.Use(AuthMi)
+		storageServer := http.FileServer(http.Dir(Config.WorkDir + "wakespace"))
+		router.Method("GET", "/build/*", HandleWakespaceResource(storageServer))
+		router.Method("HEAD", "/build/*", HandleWakespaceResource(storageServer))
+	})
+
 	vuefs := http.FileServer(http.FS(Assets))
-	storageServer := http.FileServer(http.Dir(Config.WorkDir + "wakespace"))
-	// Configure routes
-	router := httprouter.New()
-	// Assume that all unknown routes are vue-related files
-	router.NotFound = VueResourcesMi(vuefs)
-
-	// Types of endpoints
-	privateEndpoints := MiddlewareChain{}
-	privateEndpoints.Add(LogMi, SecurityMi, CORSMi, AuthMi)
-
-	privateStorageEndpoints := MiddlewareChain{}
-	privateStorageEndpoints.Add(LogMi, SecurityMi, AuthMi)
-
-	internalEndpoints := MiddlewareChain{}
-	internalEndpoints.Add(LogMi, SecurityMi, InternalAuthMi)
-
-	publicEndpoints := MiddlewareChain{}
-	publicEndpoints.Add(LogMi, SecurityMi, CORSMi)
-
-	// For artifacts
-	router.GET("/storage/build/*filepath", privateStorageEndpoints.Handle(WakespaceResourceMi(storageServer)))
-	router.HEAD("/storage/build/*filepath", privateStorageEndpoints.Handle(WakespaceResourceMi(storageServer)))
-
-	// Websocket section
-	router.GET("/ws", AuthMi(HandleWS))
-
-	// Auth urls
-	router.GET("/auth/_isLoggedIn/", privateEndpoints.Handle(HandleIsLoggedIn))
-	router.POST("/auth/login/", publicEndpoints.Handle(HandleLogIn))
-	router.GET("/auth/logout/", publicEndpoints.Handle(HandleLogOut))
-
-	// API calls used by client application
-	router.GET("/api/feed/", privateEndpoints.Handle(HandleFeedView))
-
-	router.GET("/api/jobs/", privateEndpoints.Handle(HandleJobsView))
-	router.POST("/api/jobs/create", privateEndpoints.Handle(HandleJobsCreate))
-	router.POST("/api/jobs/refresh", privateEndpoints.Handle(HandleJobsRefresh))
-	router.POST("/api/job/:name/run", privateEndpoints.Handle(HandleRunJob))
-	router.DELETE("/api/job/:name/", privateEndpoints.Handle(HandleDeleteJob))
-	router.POST("/api/job/:name/", privateEndpoints.Handle(HandleJobPost))
-	router.GET("/api/job/:name/", privateEndpoints.Handle(HandleJobGet))
-	router.POST("/api/job/:name/set_active/", privateEndpoints.Handle(HandleJobSetActive))
-
-	router.GET("/api/build/:id/", privateEndpoints.Handle(HandleGetBuild))
-	router.POST("/api/build/:id/abort", privateEndpoints.Handle(HandleAbortBuild))
-	router.POST("/api/build/:id/flush", privateEndpoints.Handle(HandleFlushTaskLogs))
-
-	router.POST("/api/settings/", privateEndpoints.Handle(HandleSettingsPost))
-	router.GET("/api/settings/", privateEndpoints.Handle(HandleSettingsGet))
-
-	// Internal API
-	router.POST("/internal/api/job/:name/run", internalEndpoints.Handle(HandleRunJob))
+	router.Method("GET", "/*", HandleVueResources(vuefs))
 
 	if Config.Port == "443" {
 		go func() {
@@ -217,7 +219,7 @@ func main() {
 				},
 				GetCertificate: certManager.GetCertificate,
 			},
-			Handler: gziphandler.GzipHandler(router),
+			Handler: router,
 		}
 
 		err = server.ListenAndServeTLS("", "")
@@ -226,7 +228,7 @@ func main() {
 		}
 	} else {
 		Logger.Printf("Listening on port %s...\n", Config.Port)
-		err := http.ListenAndServe(":"+Config.Port, gziphandler.GzipHandler(router))
+		err := http.ListenAndServe(":"+Config.Port, router)
 		if err != nil {
 			Logger.Fatal(err)
 		}

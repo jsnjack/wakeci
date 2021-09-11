@@ -85,7 +85,7 @@ export default {
             data.append("concurrentBuilds", this.concurrentBuilds);
             data.append("buildHistorySize", this.buildHistorySize);
             axios
-                .post("/api/settings/", data, {
+                .post("/api/settings", data, {
                     headers: {
                         "Content-type": "application/x-www-form-urlencoded",
                     },
@@ -99,7 +99,7 @@ export default {
                 .catch((error) => {});
         },
         fetch() {
-            axios.get("/api/settings/")
+            axios.get("/api/settings")
                 .then((response) => {
                     if (response.data.concurrentBuilds) {
                         this.concurrentBuilds = response.data.concurrentBuilds;

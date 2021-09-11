@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/julienschmidt/httprouter"
 	"github.com/sasha-s/go-deadlock"
 )
 
@@ -195,7 +194,7 @@ func (c *Client) HandleIncomingMessage(msg *MsgIncoming) {
 }
 
 // HandleWS handles ws connection
-func HandleWS(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func HandleWS(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		Logger.Println(err)

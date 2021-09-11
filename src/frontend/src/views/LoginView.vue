@@ -58,7 +58,7 @@ export default {
     methods: {
         fetch() {
             axios
-                .get("/auth/_isLoggedIn/")
+                .get("/auth/_isLoggedIn")
                 .then((response) => {
                     this.$store.commit("LOG_IN");
                     this.$router.replace(this.getRedirectURL);
@@ -74,7 +74,7 @@ export default {
                 data.append("password", this.password);
             }
             axios
-                .post("/auth/login/", data, {
+                .post("/auth/login", data, {
                     headers: {
                         "Content-type": "application/x-www-form-urlencoded",
                     },

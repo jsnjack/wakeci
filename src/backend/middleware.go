@@ -5,12 +5,9 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
-	"strings"
 	"time"
 
-	"github.com/julienschmidt/httprouter"
 	bolt "go.etcd.io/bbolt"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -21,38 +18,10 @@ type HandlerLogger string
 // HL is a handle logger
 const HL HandlerLogger = "logger"
 
-// Middleware ...
-type Middleware func(httprouter.Handle) httprouter.Handle
-
-// MiddlewareChain is a chain of middlewares to apply to a handle
-type MiddlewareChain struct {
-	md []Middleware
-}
-
-// Add adds middleware to the chain
-func (c *MiddlewareChain) Add(m ...Middleware) {
-	c.md = append(c.md, m...)
-}
-
-func (c *MiddlewareChain) wrapper(handle httprouter.Handle, id int) httprouter.Handle {
-	if id == 0 {
-		return handle
-	}
-	return c.wrapper(c.md[id-1](handle), id-1)
-}
-
-// Handle applies middleware to the handle and returns it. Suitable for Router
-func (c *MiddlewareChain) Handle(handle httprouter.Handle) httprouter.Handle {
-	return c.wrapper(handle, len(c.md))
-}
-
 // LogMi is a middleware that creates a new logger per request and logs total time that took to process a request
-func LogMi(next httprouter.Handle) httprouter.Handle {
-	return httprouter.Handle(func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func LogMi(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		startTime := time.Now()
-
-		// Take the context out from the request
-		ctx := r.Context()
 
 		logID := GenerateRandomString(5)
 
@@ -67,13 +36,13 @@ func LogMi(next httprouter.Handle) httprouter.Handle {
 		handlerLogger := log.New(os.Stdout, "["+logID+" "+host+"] ", log.Lmicroseconds|log.Lshortfile)
 
 		// Get new context with key-value "settings"
-		ctx = context.WithValue(ctx, HL, handlerLogger)
+		ctx := context.WithValue(r.Context(), HL, handlerLogger)
 
 		// Get new http.Request with the new context
 		r = r.WithContext(ctx)
 
 		// Call actuall handler
-		next(w, r, ps)
+		next.ServeHTTP(w, r.WithContext(ctx))
 
 		defer func() {
 			duration := time.Since(startTime)
@@ -83,10 +52,10 @@ func LogMi(next httprouter.Handle) httprouter.Handle {
 }
 
 // CORSMi adds CORS headers
-func CORSMi(next httprouter.Handle) httprouter.Handle {
-	return httprouter.Handle(func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func CORSMi(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Call actuall handler
-		next(w, r, ps)
+		next.ServeHTTP(w, r)
 		origin := "*"
 		if Config.Hostname != "" {
 			origin = "https://" + Config.Hostname
@@ -97,22 +66,22 @@ func CORSMi(next httprouter.Handle) httprouter.Handle {
 }
 
 // SecurityMi is a middleware which adds security headers
-func SecurityMi(next httprouter.Handle) httprouter.Handle {
-	return httprouter.Handle(func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func SecurityMi(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Call actuall handler
 		w.Header().Set("referrer-policy", "no-referrer")
-		w.Header().Set("content-security-policy", "default-src 'self'; frame-ancestors 'none'")
+		w.Header().Set("content-security-policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'")
 		w.Header().Set("x-content-type-options", "nosniff")
 		if Config.Hostname != "" {
 			w.Header().Set("strict-transport-security", "max-age=15768000;includeSubdomains")
 		}
-		next(w, r, ps)
+		next.ServeHTTP(w, r)
 	})
 }
 
 // AuthMi checks user credentials
-func AuthMi(next httprouter.Handle) httprouter.Handle {
-	return httprouter.Handle(func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func AuthMi(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger, ok := r.Context().Value(HL).(*log.Logger)
 		if !ok {
 			logger = Logger
@@ -141,7 +110,7 @@ func AuthMi(next httprouter.Handle) httprouter.Handle {
 				w.WriteHeader(http.StatusForbidden)
 				return
 			}
-			next(w, r, ps)
+			next.ServeHTTP(w, r)
 			return
 		}
 
@@ -158,13 +127,13 @@ func AuthMi(next httprouter.Handle) httprouter.Handle {
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
-		next(w, r, ps)
+		next.ServeHTTP(w, r)
 	})
 }
 
 // InternalAuthMi requires calls to be made from localhost only
-func InternalAuthMi(next httprouter.Handle) httprouter.Handle {
-	return httprouter.Handle(func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func InternalAuthMi(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger, ok := r.Context().Value(HL).(*log.Logger)
 		if !ok {
 			logger = Logger
@@ -185,59 +154,6 @@ func InternalAuthMi(next httprouter.Handle) httprouter.Handle {
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
-		next(w, r, ps)
-	})
-}
-
-// VueResourcesMi checks if path needs to be stripped out before serving the location
-func VueResourcesMi(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger, ok := r.Context().Value(HL).(*log.Logger)
-		if !ok {
-			logger = Logger
-		}
-		// First check if it is any of API, AUTH or STORAGE calls. This urls
-		// should never reach this point
-		switch {
-		case strings.HasPrefix(r.URL.Path, "/api/"), strings.HasPrefix(r.URL.Path, "/auth/"), strings.HasPrefix(r.URL.Path, "/storage/"):
-			w.WriteHeader(http.StatusInternalServerError)
-			logger.Printf("vue 500 %s\n", r.URL.Path)
-			return
-		}
-
-		r2 := new(http.Request)
-		*r2 = *r
-		r2.URL = new(url.URL)
-		*r2.URL = *r.URL
-		switch {
-		case strings.Contains(r.URL.Path, "."):
-			// Static file
-			r2.URL.Path = "/assets" + r.URL.Path
-			w.Header().Set("cache-control", "public, max-age=604800, immutable")
-		default:
-			// This is "/" request or, most likely, request to one of the dynamic URLs used by frontend,
-			// serve index.html (/assets/) in this case
-			r2.URL.Path = "/assets/"
-		}
-		logger.Printf("vue %s --> %s\n", r.URL.Path, r2.URL.Path)
-		h.ServeHTTP(w, r2)
-	})
-}
-
-// WakespaceResourceMi serves content of wakespace/ dir
-func WakespaceResourceMi(h http.Handler) httprouter.Handle {
-	return httprouter.Handle(func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-		logger, ok := r.Context().Value(HL).(*log.Logger)
-		if !ok {
-			logger = Logger
-		}
-
-		r2 := new(http.Request)
-		*r2 = *r
-		r2.URL = new(url.URL)
-		*r2.URL = *r.URL
-		r2.URL.Path = strings.TrimPrefix(r.URL.Path, "/storage/build/")
-		logger.Printf("storage %s --> %s\n", r.URL.Path, r2.URL.Path)
-		h.ServeHTTP(w, r2)
+		next.ServeHTTP(w, r)
 	})
 }

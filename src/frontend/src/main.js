@@ -24,7 +24,7 @@ axios.interceptors.response.use(function(response) {
     return response;
 }, function(error) {
     // Exclude special request to check if user is logged in
-    if (error.request.responseURL.indexOf("/_isLoggedIn/") === -1) {
+    if (error.request.responseURL.indexOf("/_isLoggedIn") === -1) {
         v.$notify({
             text: error.response && error.response.data || error,
             type: "error",

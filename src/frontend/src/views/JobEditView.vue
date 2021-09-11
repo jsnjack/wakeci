@@ -125,7 +125,7 @@ export default {
         },
         fetch() {
             axios
-                .get(`/api/job/${this.name}/`)
+                .get(`/api/job/${this.name}`)
                 .then((response) => {
                     this.job.fileContent = response.data.fileContent || "";
                 })
@@ -136,7 +136,7 @@ export default {
             data.append("name", this.job.name);
             data.append("fileContent", this.job.fileContent);
             axios
-                .post(`/api/job/${this.name}/`, data, {
+                .post(`/api/job/${this.name}`, data, {
                     headers: {
                         "Content-type": "application/x-www-form-urlencoded",
                     },

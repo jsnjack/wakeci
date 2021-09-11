@@ -7,17 +7,16 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/julienschmidt/httprouter"
 	bolt "go.etcd.io/bbolt"
 )
 
 // HandleIsLoggedIn returns 200 if user is logged in
-func HandleIsLoggedIn(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func HandleIsLoggedIn(w http.ResponseWriter, r *http.Request) {
 	// See AuthMi
 }
 
 // HandleLogIn verifies password and logs the user in
-func HandleLogIn(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func HandleLogIn(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*log.Logger)
 	if !ok {
 		logger = Logger
@@ -59,7 +58,7 @@ func HandleLogIn(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 }
 
 // HandleLogOut logs the user out
-func HandleLogOut(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func HandleLogOut(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*log.Logger)
 	if !ok {
 		logger = Logger

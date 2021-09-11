@@ -11,14 +11,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/julienschmidt/httprouter"
+	"github.com/go-chi/chi/v5"
 	bolt "go.etcd.io/bbolt"
 	"golang.org/x/crypto/bcrypt"
 	yaml "gopkg.in/yaml.v2"
 )
 
 // HandleRunJob adds job to queue
-func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func HandleRunJob(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*log.Logger)
 	if !ok {
 		logger = Logger
@@ -29,7 +29,7 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 		logger.Println(err)
 	}
 
-	build, err := RunJob(ps.ByName("name"), r.Form)
+	build, err := RunJob(chi.URLParam(r, "name"), r.Form)
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -40,13 +40,13 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 }
 
 // HandleGetBuild Returns information required to bootstrap build page
-func HandleGetBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func HandleGetBuild(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*log.Logger)
 	if !ok {
 		logger = Logger
 	}
 
-	idp := ps.ByName("id")
+	idp := chi.URLParam(r, "id")
 	buildID, err := strconv.Atoi(idp)
 	if err != nil {
 		logger.Println(err)
@@ -110,7 +110,7 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 }
 
 // HandleFeedView returns items in current feed - executed and queued jobs
-func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*log.Logger)
 	if !ok {
 		logger = Logger
@@ -211,7 +211,7 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 }
 
 // HandleJobsView returns all available jobs
-func HandleJobsView(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func HandleJobsView(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*log.Logger)
 	if !ok {
 		logger = Logger
@@ -260,12 +260,12 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 }
 
 // HandleAbortBuild aborts build
-func HandleAbortBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func HandleAbortBuild(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*log.Logger)
 	if !ok {
 		logger = Logger
 	}
-	buildID := ps.ByName("id")
+	buildID := chi.URLParam(r, "id")
 	id, err := strconv.Atoi(buildID)
 	if err != nil {
 		logger.Println(err)
@@ -282,7 +282,7 @@ func HandleAbortBuild(w http.ResponseWriter, r *http.Request, ps httprouter.Para
 }
 
 // HandleSettingsPost saves settings
-func HandleSettingsPost(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*log.Logger)
 	if !ok {
 		logger = Logger
@@ -349,7 +349,7 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request, ps httprouter.Pa
 }
 
 // HandleSettingsGet retrieves settings
-func HandleSettingsGet(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func HandleSettingsGet(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*log.Logger)
 	if !ok {
 		logger = Logger
@@ -390,13 +390,13 @@ func HandleSettingsGet(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 }
 
 // HandleJobGet returns content of a specific job file
-func HandleJobGet(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func HandleJobGet(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*log.Logger)
 	if !ok {
 		logger = Logger
 	}
 
-	path := Config.JobDir + ps.ByName("name") + Config.jobsExt
+	path := Config.JobDir + chi.URLParam(r, "name") + Config.jobsExt
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		logger.Println(err)
@@ -418,7 +418,7 @@ func HandleJobGet(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 }
 
 // HandleJobPost updates content of a specific job
-func HandleJobPost(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func HandleJobPost(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*log.Logger)
 	if !ok {
 		logger = Logger
@@ -449,7 +449,7 @@ func HandleJobPost(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 
 	contentB = NormalizeNewlines(contentB)
 
-	path := Config.JobDir + ps.ByName("name") + Config.jobsExt
+	path := Config.JobDir + chi.URLParam(r, "name") + Config.jobsExt
 
 	err = ioutil.WriteFile(path, contentB, 0644)
 	if err != nil {
@@ -458,7 +458,7 @@ func HandleJobPost(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 		w.Write([]byte(err.Error()))
 		return
 	}
-	logger.Printf("Job %s was updated\n", ps.ByName("name"))
+	logger.Printf("Job %s was updated\n", chi.URLParam(r, "name"))
 	CleanupJobsBucket()
 	err = ScanAllJobs()
 	if err != nil {
@@ -467,7 +467,7 @@ func HandleJobPost(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 }
 
 // HandleJobsCreate creates a new job file from default template
-func HandleJobsCreate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func HandleJobsCreate(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*log.Logger)
 	if !ok {
 		logger = Logger
@@ -513,7 +513,7 @@ func HandleJobsCreate(w http.ResponseWriter, r *http.Request, ps httprouter.Para
 }
 
 // HandleJobsRefresh deletes all jobs and reads them again from config directory
-func HandleJobsRefresh(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func HandleJobsRefresh(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*log.Logger)
 	if !ok {
 		logger = Logger
@@ -530,13 +530,13 @@ func HandleJobsRefresh(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 }
 
 // HandleDeleteJob deletes the job
-func HandleDeleteJob(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func HandleDeleteJob(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*log.Logger)
 	if !ok {
 		logger = Logger
 	}
 
-	name := ps.ByName("name")
+	name := chi.URLParam(r, "name")
 	path := Config.JobDir + name + Config.jobsExt
 
 	if _, err := os.Stat(path); err == nil {
@@ -563,13 +563,13 @@ func HandleDeleteJob(w http.ResponseWriter, r *http.Request, ps httprouter.Param
 }
 
 // HandleJobSetActive sets if job is active (enabled/disabled)
-func HandleJobSetActive(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func HandleJobSetActive(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*log.Logger)
 	if !ok {
 		logger = Logger
 	}
 
-	name := ps.ByName("name")
+	name := chi.URLParam(r, "name")
 
 	activeStatus := r.FormValue("active")
 
@@ -606,13 +606,13 @@ func HandleJobSetActive(w http.ResponseWriter, r *http.Request, ps httprouter.Pa
 }
 
 // HandleFlushTaskLogs signals to flush logs
-func HandleFlushTaskLogs(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func HandleFlushTaskLogs(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*log.Logger)
 	if !ok {
 		logger = Logger
 	}
 
-	buildID := ps.ByName("id")
+	buildID := chi.URLParam(r, "id")
 	id, err := strconv.Atoi(buildID)
 	if err != nil {
 		logger.Println(err)
