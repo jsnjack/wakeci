@@ -18,6 +18,22 @@ type HandlerLogger string
 // HL is a handle logger
 const HL HandlerLogger = "logger"
 
+// WriterWithStatus wraps a http.ResponseWriter and records the status
+type WriterWithStatus struct {
+	http.ResponseWriter
+	status int
+}
+
+func (wr *WriterWithStatus) Write(p []byte) (int, error) {
+	return wr.ResponseWriter.Write(p)
+}
+
+// WriteHeader overrides ResponseWriter.WriteHeader to keep track of the response code
+func (wr *WriterWithStatus) WriteHeader(status int) {
+	wr.status = status
+	wr.ResponseWriter.WriteHeader(status)
+}
+
 // LogMi is a middleware that creates a new logger per request and logs total time that took to process a request
 func LogMi(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -41,12 +57,17 @@ func LogMi(next http.Handler) http.Handler {
 		// Get new http.Request with the new context
 		r = r.WithContext(ctx)
 
+		wr := &WriterWithStatus{
+			ResponseWriter: w,
+			status:         200,
+		}
+
 		// Call actuall handler
-		next.ServeHTTP(w, r.WithContext(ctx))
+		next.ServeHTTP(wr, r.WithContext(ctx))
 
 		defer func() {
 			duration := time.Since(startTime)
-			handlerLogger.Printf("%s %s [took %s]\n", r.Method, r.URL, duration)
+			handlerLogger.Printf("%s %s %d [took %s]\n", r.Method, r.URL, wr.status, duration)
 		}()
 	})
 }
