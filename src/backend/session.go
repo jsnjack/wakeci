@@ -37,6 +37,7 @@ func (s *SessionStorage) New() (*http.Cookie, error) {
 		Expires:  expires,
 		Path:     "/",
 		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
 	}
 	if Config.Port == "443" {
 		c.Secure = true
