@@ -22,7 +22,7 @@ var NewJobTemplate = strings.Trim(`
 desc: New job
 tasks:
   - name: Print kernel information
-    command: uname -a
+    run: uname -a
 `, "\n ")
 
 // KindMain is a kind for main tasks - the ones which actually do the job
@@ -78,7 +78,7 @@ func (j *Job) verifyInterval() error {
 type Task struct {
 	ID        int               `json:"id"`
 	Name      string            `yaml:"name" json:"name"`
-	Command   string            `yaml:"command" json:"command"`
+	Command   string            `yaml:"run" json:"run"`
 	When      string            `yaml:"when" json:"when"`
 	Env       map[string]string `yaml:"env" json:"env"`
 	Status    ItemStatus        `json:"status"`

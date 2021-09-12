@@ -60,7 +60,7 @@ params:
   - minsk: 4
 tasks:
   - name: Print env
-    command: env
+    run: env
 `;
 
         cy.request({
@@ -128,10 +128,10 @@ params:
   - minsk: 4
 tasks:
   - name: Create 1 file
-    command: journalctl -n 100 > big
+    run: journalctl -n 100 > big
 
   - name: Create 2 file
-    command: journalctl -n 50 > small
+    run: journalctl -n 50 > small
 
 artifacts:
   - "*"
@@ -206,10 +206,10 @@ params:
   - minsk: 4
 tasks:
   - name: Create 1 file
-    command: mkdir -p bb && journalctl -n 100 > bb/index.html
+    run: mkdir -p bb && journalctl -n 100 > bb/index.html
 
   - name: Create 2 file
-    command: mkdir -p aa/cc && journalctl -n 50 > aa/cc/index.html
+    run: mkdir -p aa/cc && journalctl -n 50 > aa/cc/index.html
 
 artifacts:
   - "**"
@@ -272,7 +272,7 @@ artifacts:
 desc: Condition test
 tasks:
   - name: Print env
-    command: env
+    run: env
     when: 1 == 2
 `;
 
@@ -336,7 +336,7 @@ params:
  - NAME: joe
 tasks:
   - name: Print env
-    command: env
+    run: env
     when: $NAME == joe
 `;
 
@@ -398,7 +398,7 @@ tasks:
 desc: Env test
 tasks:
   - name: Print env
-    command: env
+    run: env
     env:
       NAME: joe
       SCORE: 5

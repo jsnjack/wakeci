@@ -127,7 +127,7 @@ params:
   - bereza: brest
 tasks:
 - name: Print env
-command: env
+run: env
 `;
 
         cy.request({
@@ -181,7 +181,7 @@ params:
   - minsk: minsk
 tasks:
 - name: Print env
-command: env
+run: env
 `;
 
         cy.request({
@@ -248,7 +248,7 @@ command: env
 desc: Test env variables
 tasks:
 - name: Print env
-command: env
+run: env
 `;
 
         cy.request({
@@ -307,7 +307,7 @@ command: env
 desc: Test env variables
 tasks:
 - name: Print env
-command: env
+run: env
 `;
 
         cy.request({

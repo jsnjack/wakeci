@@ -21,32 +21,32 @@ params:
 
 tasks:
   - name: Clone repository
-    command: git clone git@github.com:jsnjack/wakeci.git --recursive
+    run: git clone git@github.com:jsnjack/wakeci.git --recursive
 
   - name: Checkout version
-    command: sh ${WAKE_CONFIG_DIR}utils/checkout.sh wakeci ${VERSION}
+    run: sh ${WAKE_CONFIG_DIR}utils/checkout.sh wakeci ${VERSION}
 
   - name: Install npm dependencies
-    command: cd wakeci/src/frontend && npm install
+    run: cd wakeci/src/frontend && npm install
 
   - name: Build application
-    command: cd wakeci && make build
+    run: cd wakeci && make build
 
   - name: Create a release on github
-    command: python ${WAKE_CONFIG_DIR}utils/release_on_github.py -f wakeci/bin/wakeci -r jsnjack/wakeci -t "v`cd wakeci && monova`"
+    run: python ${WAKE_CONFIG_DIR}utils/release_on_github.py -f wakeci/bin/wakeci -r jsnjack/wakeci -t "v`cd wakeci && monova`"
 
 timeout: 10m
 
 on_failed:
   - name: Send notification to Slack
-    command: >-
+    run: >-
       python ${WAKE_CONFIG_DIR}utils/notify_slack.py
       -t "Job ${WAKE_JOB_NAME} has failed <${WAKE_URL}build/${WAKE_BUILD_ID}|#${WAKE_BUILD_ID}>"
       -k error
 
 on_finished:
   - name: Send notification to Slack
-    command: >-
+    run: >-
       python ${WAKE_CONFIG_DIR}utils/notify_slack.py
       -t "New wake version `cd wakeci && monova` <${WAKE_URL}build/${WAKE_BUILD_ID}|#${WAKE_BUILD_ID}>"
       -k ok

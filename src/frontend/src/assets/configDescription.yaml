@@ -6,11 +6,11 @@ params:
 
 tasks:
   - name: Waking up a cow
-    command: sleep ${SLEEP}
+    run: sleep ${SLEEP}
 
   - name: Cow says
-    command: fortune | cowsay
-    # `command` is executed when the condition in `when` evaluates to `true`
+    run: fortune | cowsay
+    # `run` is executed when the condition in `when` evaluates to `true`
     # The condition uses `[[` syntax from bash (https://devhints.io/bash#conditionals)
     when: $USER == joe
     env:
@@ -50,12 +50,12 @@ allow_parallel: no
 # Note: If one of the commands failed, it doesn't fail the whole build
 on_pending:
   - name: Log a call
-    command: logger "Looking for a suitable cow"
+    run: logger "Looking for a suitable cow"
 
 # List of tasks that are always executed
 finally:
   - name: List all files
-    command: ls -alh
+    run: ls -alh
 
 # Available environmetal variables:
 # "WAKE_BUILD_ID" - current build id, e.g. 169
