@@ -26,6 +26,7 @@ func ExpandInclude(tasks *[]*Task) error {
 					// Copy environment and conditions
 					(*tasks)[idx+tiidx].Env = t.Env
 					(*tasks)[idx+tiidx].When = t.When
+					(*tasks)[idx+tiidx].Kind = t.Kind
 				}
 				break
 			}

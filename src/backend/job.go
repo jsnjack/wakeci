@@ -111,12 +111,6 @@ func CreateJobFromFile(path string) (*Job, error) {
 		return nil, err
 	}
 
-	// Expand included tasks
-	err = ExpandInclude(&job.Tasks)
-	if err != nil {
-		return nil, err
-	}
-
 	// Assign main kind to all tasks
 	for _, t := range job.Tasks {
 		t.Kind = KindMain
@@ -168,6 +162,12 @@ func CreateJobFromFile(path string) (*Job, error) {
 			t.Kind = "finally"
 		}
 		job.Tasks = append(job.Tasks, ot.Finally...)
+	}
+
+	// Expand included tasks
+	err = ExpandInclude(&job.Tasks)
+	if err != nil {
+		return nil, err
 	}
 
 	// Assign tasks ids and status
