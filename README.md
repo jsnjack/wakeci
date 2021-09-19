@@ -14,6 +14,8 @@ wakeci is an automation tool which helps to execute repetitive tasks
  - no plugins, no extensive configuration - focus on your project instead!
 
 ### Job configuration example
+> See full description [here](https://github.com/jsnjack/wakeci/blob/master/src/frontend/src/assets/configDescription.yaml)
+
 ```yaml
 desc: Build and release wake application
 params:
@@ -51,7 +53,6 @@ on_finished:
       -t "New wake version `cd wakeci && monova` <${WAKE_URL}build/${WAKE_BUILD_ID}|#${WAKE_BUILD_ID}>"
       -k ok
 ```
-See full description [here](https://github.com/jsnjack/wakeci/blob/master/src/frontend/src/assets/configDescription.yaml)
 
 ### How to use it?
 ```
