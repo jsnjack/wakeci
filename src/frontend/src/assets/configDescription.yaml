@@ -14,8 +14,14 @@ tasks:
     # The condition uses `[[` syntax from bash (https://devhints.io/bash#conditionals)
     when: $USER == joe
     env:
-      KEY: SECRET
+      KEY: secret
       HTTPS: true
+
+  # `include` adds tasks from external file. The path is relative to WAKE_CONFIG_DIR
+  # If `when` or `env` is specified, all included tasks inherit it
+  - include: includes/notifications.yml
+    env:
+      KEY: secret
 
 # List of patterns according to https://golang.org/pkg/path/filepath/#Match
 # related to the workspace directory

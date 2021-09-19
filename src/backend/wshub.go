@@ -19,6 +19,7 @@ type Hub struct {
 }
 
 func newHub() *Hub {
+	Logger.Println("Starting wshub...")
 	return &Hub{
 		broadcast:  make(chan *MsgBroadcast),
 		register:   make(chan *Client),

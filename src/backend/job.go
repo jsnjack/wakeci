@@ -76,16 +76,17 @@ func (j *Job) verifyInterval() error {
 // .Kind - Possible values: `KindMain` for main tasks; one of `StatusRunning` (and etc) for tasks that are executed when
 //  job status has changed
 type Task struct {
-	ID        int               `json:"id"`
-	Name      string            `yaml:"name" json:"name"`
-	Command   string            `yaml:"run" json:"run"`
-	When      string            `yaml:"when" json:"when"`
-	Env       map[string]string `yaml:"env" json:"env"`
-	Status    ItemStatus        `json:"status"`
-	Kind      string            `json:"kind"`
-	Logs      interface{}       `json:"logs"` // used as a container for frontend
-	startedAt time.Time
-	duration  time.Duration
+	ID          int               `json:"id"`
+	Name        string            `yaml:"name" json:"name"`
+	Command     string            `yaml:"run" json:"run"`
+	When        string            `yaml:"when" json:"when"`
+	Env         map[string]string `yaml:"env" json:"env"`
+	Status      ItemStatus        `json:"status"`
+	Kind        string            `json:"kind"`
+	Logs        interface{}       `json:"logs"` // used as a container for frontend
+	IncludePath string            `yaml:"include"`
+	startedAt   time.Time
+	duration    time.Duration
 }
 
 // OnTasks is a list of tasks that should be ran on status change
@@ -106,6 +107,12 @@ func CreateJobFromFile(path string) (*Job, error) {
 	}
 	job := Job{}
 	err = yaml.Unmarshal(data, &job)
+	if err != nil {
+		return nil, err
+	}
+
+	// Expand included tasks
+	err = ExpandInclude(&job.Tasks)
 	if err != nil {
 		return nil, err
 	}
