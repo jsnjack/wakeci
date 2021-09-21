@@ -24,8 +24,12 @@ func ExpandInclude(tasks *[]*Task) error {
 				for tiidx, ti := range toInclude {
 					*tasks = append((*tasks)[:idx+tiidx], append([]*Task{ti}, (*tasks)[idx+tiidx:]...)...)
 					// Copy environment and conditions
-					(*tasks)[idx+tiidx].Env = t.Env
-					(*tasks)[idx+tiidx].When = t.When
+					if t.Env != nil {
+						(*tasks)[idx+tiidx].Env = t.Env
+					}
+					if t.When != "" {
+						(*tasks)[idx+tiidx].When = t.When
+					}
 					(*tasks)[idx+tiidx].Kind = t.Kind
 				}
 				break
