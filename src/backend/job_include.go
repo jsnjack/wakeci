@@ -38,7 +38,11 @@ func ExpandInclude(tasks *[]*Task) error {
 
 // ReadTasks returns parsed tasks from the file
 func ReadTasks(path string) ([]*Task, error) {
-	data, err := ioutil.ReadFile(filepath.Join(Config.JobDir, path))
+	includePath := filepath.Join(Config.JobDir, path)
+	if filepath.IsAbs(path) {
+		includePath = path
+	}
+	data, err := ioutil.ReadFile(includePath)
 	if err != nil {
 		return nil, err
 	}

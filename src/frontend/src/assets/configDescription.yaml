@@ -17,7 +17,8 @@ tasks:
       KEY: secret
       HTTPS: true
 
-  # `include` adds tasks from external file. The path is relative to WAKE_CONFIG_DIR
+  # `include` adds tasks from external file. The value can be an absolute path or
+  # a path relative to WAKE_CONFIG_DIR.
   # If `when` or `env` is specified, all included tasks inherit it
   - include: includes/notifications.yml
     env:
