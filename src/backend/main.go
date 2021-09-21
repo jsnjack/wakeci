@@ -185,6 +185,7 @@ func main() {
 
 	router.Route("/storage", func(router chi.Router) {
 		// Storage server
+		router.Use(StorageSecurityMi)
 		router.Use(AuthMi)
 		storageServer := http.FileServer(http.Dir(Config.WorkDir + "wakespace"))
 		router.Method("GET", "/build/*", HandleWakespaceResource(storageServer))

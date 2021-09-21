@@ -41,7 +41,7 @@ func LogMi(next http.Handler) http.Handler {
 		// Get new http.Request with the new context
 		r = r.WithContext(ctx)
 
-		// Call actuall handler
+		// Call actual handler
 		next.ServeHTTP(w, r.WithContext(ctx))
 
 		defer func() {
@@ -54,7 +54,7 @@ func LogMi(next http.Handler) http.Handler {
 // CORSMi adds CORS headers
 func CORSMi(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Call actuall handler
+		// Call actual handler
 		next.ServeHTTP(w, r)
 		origin := "*"
 		if Config.Hostname != "" {
@@ -68,9 +68,22 @@ func CORSMi(next http.Handler) http.Handler {
 // SecurityMi is a middleware which adds security headers
 func SecurityMi(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Call actuall handler
 		w.Header().Set("referrer-policy", "no-referrer")
 		w.Header().Set("content-security-policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'")
+		w.Header().Set("x-content-type-options", "nosniff")
+		if Config.Hostname != "" {
+			w.Header().Set("strict-transport-security", "max-age=15768000;includeSubdomains")
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// StorageSecurityMi is a middleware which adds security headers specifically for storage endpoints
+// It is more relaxed than the normal one, as we want to be able to preview html pages
+func StorageSecurityMi(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("referrer-policy", "no-referrer")
+		w.Header().Set("content-security-policy", "frame-ancestors 'none'")
 		w.Header().Set("x-content-type-options", "nosniff")
 		if Config.Hostname != "" {
 			w.Header().Set("strict-transport-security", "max-age=15768000;includeSubdomains")
