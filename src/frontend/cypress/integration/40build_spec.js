@@ -441,5 +441,4 @@ tasks:
             cy.get("body").should("contain", "WAKE_BUILD_ID=");
         });
     });
-})
-;
+});
