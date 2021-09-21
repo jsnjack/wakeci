@@ -270,6 +270,10 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	b.ProcessLogEntry(fmt.Sprintf("> Exit code: %d", status.Exit), bw, task.ID, task.startedAt)
 
 	if !status.Complete || status.Exit != 0 || status.Error != nil {
+		if task.IgnoreErrors {
+			b.ProcessLogEntry("> Ignorring exit code", bw, task.ID, task.startedAt)
+			return StatusFinished
+		}
 		return StatusFailed
 	}
 

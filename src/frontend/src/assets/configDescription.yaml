@@ -16,6 +16,8 @@ tasks:
     env:
       KEY: secret
       HTTPS: true
+    # Set task status to `finished` even if exit code is not 0
+    ignore_errors: yes
 
   # `include` adds tasks from external file. The value can be an absolute path or
   # a path relative to WAKE_CONFIG_DIR.

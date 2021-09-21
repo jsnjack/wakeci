@@ -76,17 +76,18 @@ func (j *Job) verifyInterval() error {
 // .Kind - Possible values: `KindMain` for main tasks; one of `StatusRunning` (and etc) for tasks that are executed when
 //  job status has changed
 type Task struct {
-	ID          int               `json:"id"`
-	Name        string            `yaml:"name" json:"name"`
-	Command     string            `yaml:"run" json:"run"`
-	When        string            `yaml:"when" json:"when"`
-	Env         map[string]string `yaml:"env" json:"env"`
-	Status      ItemStatus        `json:"status"`
-	Kind        string            `json:"kind"`
-	Logs        interface{}       `json:"logs"` // used as a container for frontend
-	IncludePath string            `yaml:"include"`
-	startedAt   time.Time
-	duration    time.Duration
+	ID           int               `json:"id"`
+	Name         string            `yaml:"name" json:"name"`
+	Command      string            `yaml:"run" json:"run"`
+	When         string            `yaml:"when" json:"when"`
+	Env          map[string]string `yaml:"env" json:"env"`
+	Status       ItemStatus        `json:"status"`
+	Kind         string            `json:"kind"`
+	Logs         interface{}       `json:"logs"` // used as a container for frontend
+	IncludePath  string            `yaml:"include"`
+	IgnoreErrors bool              `yaml:"ignore_errors"`
+	startedAt    time.Time
+	duration     time.Duration
 }
 
 // OnTasks is a list of tasks that should be ran on status change
