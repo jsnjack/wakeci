@@ -85,6 +85,7 @@ type Task struct {
 	Kind         string            `json:"kind"`
 	Logs         interface{}       `json:"logs"` // used as a container for frontend
 	IncludePath  string            `yaml:"include"`
+	Block        []*Task           `yaml:"block"`
 	IgnoreErrors bool              `yaml:"ignore_errors"`
 	startedAt    time.Time
 	duration     time.Duration
@@ -165,8 +166,8 @@ func CreateJobFromFile(path string) (*Job, error) {
 		job.Tasks = append(job.Tasks, ot.Finally...)
 	}
 
-	// Expand included tasks
-	err = ExpandInclude(&job.Tasks)
+	// Expand included and blocks
+	err = ExpandTasks(&job.Tasks)
 	if err != nil {
 		return nil, err
 	}

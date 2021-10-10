@@ -26,6 +26,18 @@ tasks:
     env:
       KEY: secret
 
+  # `block` statement allows to group multiple tasks together
+  # If `when` or `env` is specified, all tasks inside `block` statement inherit it
+  - name: Install application
+    block:
+      - name: Install application with dnf
+        run: dnf install wget
+
+      - name: Print all installed packages
+        run: dnf List
+    env:
+      KEY: secret
+
 # List of patterns according to https://golang.org/pkg/path/filepath/#Match
 # related to the workspace directory
 # Note:
