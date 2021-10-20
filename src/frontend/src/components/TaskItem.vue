@@ -1,5 +1,8 @@
 <template>
-  <section v-show="isVisible">
+  <section
+    v-show="isVisible"
+    :data-cy="getCyText"
+  >
     <div
       class="divider"
       :data-content="getDividerText"
@@ -108,6 +111,9 @@ export default {
     computed: {
         getDividerText: function() {
             return `task #${this.task.id} | ${this.task.kind}`;
+        },
+        getCyText: function() {
+            return `task_section_${this.task.id}`;
         },
         isVisible: function() {
             // Show only "main" and "finally" tasks or tasks that were started. For example,
