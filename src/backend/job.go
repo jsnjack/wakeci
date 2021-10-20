@@ -79,8 +79,8 @@ type Task struct {
 	ID           int               `json:"id"`
 	Name         string            `yaml:"name" json:"name"`
 	Command      string            `yaml:"run" json:"run"`
-	When         string            `yaml:"when" json:"when"`
-	Env          map[string]string `yaml:"env" json:"env"`
+	When         string            `yaml:"when"`
+	Env          map[string]string `yaml:"env"`
 	Status       ItemStatus        `json:"status"`
 	Kind         string            `json:"kind"`
 	Logs         interface{}       `json:"logs"` // used as a container for frontend
