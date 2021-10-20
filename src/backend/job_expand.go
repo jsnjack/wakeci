@@ -59,7 +59,10 @@ func injectExpandedTasks(t *Task, pos int, toInject []*Task, tasks *[]*Task) {
 			(*tasks)[pos+i].Env = t.Env
 		}
 		if t.When != "" {
-			(*tasks)[pos+i].When = t.When
+			if (*tasks)[pos+i].When != "" {
+				(*tasks)[pos+i].When += " && "
+			}
+			(*tasks)[pos+i].When += t.When
 		}
 		(*tasks)[pos+i].Kind = t.Kind
 	}
