@@ -56,7 +56,13 @@ func injectExpandedTasks(t *Task, pos int, toInject []*Task, tasks *[]*Task) {
 		*tasks = append((*tasks)[:pos+i], append([]*Task{ti}, (*tasks)[pos+i:]...)...)
 		// Copy environment and conditions
 		if t.Env != nil {
-			(*tasks)[pos+i].Env = t.Env
+			// Initialize empty map if needed
+			if (*tasks)[pos+i].Env == nil {
+				(*tasks)[pos+i].Env = map[string]string{}
+			}
+			for k, v := range t.Env {
+				(*tasks)[pos+i].Env[k] = v
+			}
 		}
 		if t.When != "" {
 			if (*tasks)[pos+i].When != "" {
