@@ -10,13 +10,10 @@ Vue.prototype.$eventHub = new Vue();
 Vue.config.productionTip = false;
 Vue.use(Notifications);
 
-const v = new Vue({
-    router,
-    store,
-    render(h) {
-        return h(App);
-    },
-}).$mount("#app");
+const app = Vue.createApp(App);
+app.use(router);
+app.use(store);
+app.mount("#app");
 
 // Global axios handler to show error messages and redirect to the login page
 // in case of error is 403
