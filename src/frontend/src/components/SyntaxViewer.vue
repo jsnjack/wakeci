@@ -1,8 +1,9 @@
 <template>
-  <div class="content text-left">
+  <div class="content">
+    <h5>Job syntax</h5>
     <codemirror
       :ref="'codeViewer'"
-      class="codemirror-viewer"
+      class="codemirror-viewer text-left"
       :code="configFormatContent"
       :options="viewerOptions"
     />
