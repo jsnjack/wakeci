@@ -95,6 +95,9 @@ sudo alternatives --config go
 
 #### Install dependencies
 ```bash
+sudo dnf install entr
+go install github.com/swaggo/swag/cmd/swag@latest
+
 # cd src/frontend
 npm install
 ```
