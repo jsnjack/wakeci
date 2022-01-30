@@ -4,6 +4,7 @@ import (
 	"net/http"
 )
 
+// HandleAPIDocsView renders swagger UI
 func HandleAPIDocsView(w http.ResponseWriter, r *http.Request) {
 	indexDoc := `
 <!DOCTYPE html>

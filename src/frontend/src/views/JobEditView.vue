@@ -13,12 +13,6 @@
     </div>
     <div class="divider" />
     <div class="text-right">
-      <button
-        class="btn btn-link"
-        @click.prevent="toggleHelpModal"
-      >
-        Show workflow syntax
-      </button>
       <a
         data-cy="save-button"
         href="#"
@@ -32,48 +26,6 @@
         @click.prevent="saveAndClose"
       >Save & Close</a>
     </div>
-
-    <div
-      class="modal"
-      :class="{active: helpModalOpen}"
-    >
-      <a
-        href="#close"
-        class="modal-overlay"
-        aria-label="Close"
-        @click.prevent="toggleHelpModal"
-      />
-      <div class="modal-container extra-wide-modal">
-        <div class="modal-header">
-          <a
-            href="#close"
-            class="btn btn-clear float-right"
-            aria-label="Close"
-            @click.prevent="toggleHelpModal"
-          />
-          <div class="modal-title text-uppercase">
-            Job format description
-          </div>
-        </div>
-        <div class="modal-body">
-          <div class="content">
-            <codemirror
-              :ref="'codeViewer'"
-              class="codemirror-viewer"
-              :code="configFormatContent"
-              :options="viewerOptions"
-            />
-          </div>
-        </div>
-        <div class="modal-footer">
-          <a
-            href="#close"
-            class="btn btn-link"
-            @click.prevent="toggleHelpModal"
-          >Close</a>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -82,7 +34,6 @@ import axios from "axios";
 import {codemirror} from "vue-codemirror";
 import "codemirror/lib/codemirror.css";
 import "codemirror/mode/yaml/yaml.js";
-import description from "raw-loader!@/assets/configDescription.yaml";
 
 export default {
     components: {
@@ -105,14 +56,6 @@ export default {
                 lineNumbers: true,
                 line: true,
             },
-            viewerOptions: {
-                tabSize: 2,
-                mode: "text/x-yaml",
-                lineNumbers: false,
-                readOnly: true,
-            },
-            configFormatContent: description,
-            helpModalOpen: false,
         };
     },
     mounted() {
@@ -152,10 +95,6 @@ export default {
         saveAndClose() {
             this.save();
             this.$router.push("/jobs");
-        },
-        toggleHelpModal(event) {
-            this.helpModalOpen = !this.helpModalOpen;
-            this.$refs.codeViewer.refresh();
         },
     },
 };

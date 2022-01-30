@@ -16,7 +16,7 @@
       </li>
       <li class="menu-item">
         <a
-          href="/docs/syntax/"
+          href="/syntax/"
           target="_blank"
         >Job syntax</a>
       </li>

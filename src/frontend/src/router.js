@@ -6,6 +6,7 @@ import JobsView from "./views/JobsView.vue";
 import BuildView from "./views/BuildView.vue";
 import SettingsView from "./views/SettingsView.vue";
 import JobEditView from "./views/JobEditView.vue";
+import SyntaxView from "./views/SyntaxView.vue";
 
 
 import {requireAuth} from "./auth";
@@ -59,6 +60,12 @@ export default new Router({
             path: "/settings",
             name: "settings",
             component: SettingsView,
+            beforeEnter: requireAuth,
+        },
+        {
+            path: "/syntax",
+            name: "syntax",
+            component: SyntaxView,
             beforeEnter: requireAuth,
         },
     ],
