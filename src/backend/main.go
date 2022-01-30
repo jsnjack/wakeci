@@ -202,7 +202,11 @@ func main() {
 		router.Method("HEAD", "/build/*", HandleWakespaceResource(storageServer))
 	})
 
-	router.Method("GET", "/docs/swagger.json", http.FileServer(http.FS(APIDocs)))
+	router.Route("/docs", func(router chi.Router) {
+		router.Use(StorageSecurityMi)
+		router.Get("/api/", HandleAPIDocsView)
+		router.Method("GET", "/swagger.json", http.FileServer(http.FS(APIDocs)))
+	})
 
 	vuefs := http.FileServer(http.FS(Assets))
 	router.Method("GET", "/*", HandleVueResources(vuefs))

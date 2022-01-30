@@ -27,6 +27,7 @@
         >
           Settings
         </router-link>
+        <DocsMenu />
       </section>
       <section class="navbar-section">
         <a
@@ -50,8 +51,10 @@ import vuex from "vuex";
 import axios from "axios";
 import {getWSURL} from "@/store/communication";
 import wsMessageHandler from "./store/communication";
+import DocsMenu from "@/components/DocsMenu";
 
 export default {
+    components: {DocsMenu},
     computed: {
         ...vuex.mapState(["ws", "auth", "durationMode"]),
         getVesion: function() {
