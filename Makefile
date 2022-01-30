@@ -18,6 +18,9 @@ src/backend/wakeci: version src/backend/*.go
 	cd src/backend
 	rm -rf assets
 	cp -r ../frontend/dist/ assets
+	mkdir -p docs
+	touch docs/swagger.json
+	~/go/bin/swag init --parseDependency --parseInternal --parseDepth 1
 	CGO_ENABLED=0 go build -ldflags="-X main.Version=${VERSION}" -o ${BINARY}
 
 .ONESHELL:
@@ -29,7 +32,8 @@ runf:
 	cd src/frontend && npm run serve
 
 runb: src/backend/wakeci
-	./src/backend/wakeci
+	cd src/backend
+	ls *.go | entr -sr "cd ../../ && make src/backend/wakeci && ./src/backend/wakeci"
 
 testprod:
 	cd src/frontend && npm run test:prod
