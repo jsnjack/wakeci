@@ -13,6 +13,10 @@ module.exports = {
                 target: "http://localhost:8081/",
                 changeOrigin: true,
             },
+            "^/docs": {
+                target: "http://localhost:8081/",
+                changeOrigin: true,
+            },
         },
     },
 };
