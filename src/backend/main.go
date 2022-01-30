@@ -204,11 +204,14 @@ func main() {
 		router.Method("HEAD", "/build/*", HandleWakespaceResource(storageServer))
 	})
 
-	router.Get("/docs/api/*", httpSwagger.Handler(
-		httpSwagger.URL("/docs/swagger.json"), //The url pointing to API definition)
-	))
-
-	router.Method("GET", "/docs/swagger.json", http.FileServer(http.FS(APIDocs)))
+	// Swagger docs
+	router.Route("/docs", func(router chi.Router) {
+		router.Use(StorageSecurityMi)
+		router.Get("/api/*", httpSwagger.Handler(
+			httpSwagger.URL("/docs/swagger.json"), //The url pointing to API definition)
+		))
+		router.Method("GET", "/swagger.json", http.FileServer(http.FS(APIDocs)))
+	})
 
 	vuefs := http.FileServer(http.FS(Assets))
 	router.Method("GET", "/*", HandleVueResources(vuefs))
