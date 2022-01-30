@@ -63,9 +63,6 @@ func init() {
 // @title wakeci REST API documentation
 // @version 1.0
 
-// @contact.name Yauhen Shulitski
-// @contact.url https://github.com/jsnjack/wakeci
-
 // @BasePath /api
 func main() {
 	var err error
