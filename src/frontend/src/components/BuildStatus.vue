@@ -2,6 +2,7 @@
   <span
     class="label"
     :class="getStatusClass"
+    data-cy="build-status-label"
   >{{ status }}</span>
 </template>
 

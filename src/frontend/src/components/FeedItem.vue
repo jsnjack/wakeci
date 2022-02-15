@@ -57,6 +57,7 @@
         v-if="!isDone"
         :href="getAbortURL"
         class="btn btn-error item-action"
+        data-cy="abort-build-button"
         @click.prevent="abort"
       >Abort</a>
     </td>
