@@ -104,6 +104,7 @@ export default {
             case "failed":
             case "finished":
             case "aborted":
+            case "timed out":
                 return true;
             }
             return false;

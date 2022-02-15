@@ -115,7 +115,7 @@ func HandleAbortBuild(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(err.Error()))
 		return
 	}
-	err = GlobalQueue.Abort(id)
+	err = GlobalQueue.Abort(id, StatusAborted)
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusNotFound)

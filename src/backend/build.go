@@ -26,20 +26,24 @@ import (
 // both Builds and Tasks) and type of OnStatus changed tasks
 type ItemStatus string
 
-// StatusRunning ...
+// StatusRunning indicates the the build is in progress
 const StatusRunning = "running"
 
-// StatusFailed ...
+// StatusFailed indicates that the build failed
 const StatusFailed = "failed"
 
-// StatusFinished ...
+// StatusFinished indicates that the build is finished and is a success!
 const StatusFinished = "finished"
 
-// StatusPending ...
+// StatusPending indicates that the build is in the queue
 const StatusPending = "pending"
 
-// StatusAborted ...
+// StatusAborted indicates that a build was manually aborted by user
 const StatusAborted = "aborted"
+
+// StatusTimedOut indicates that a build was automatically aborted because the
+// `timeout` value was reached
+const StatusTimedOut = "timed out"
 
 // FinalTask is the task that is executed no matter what is the result of the build
 const FinalTask = "finally"
@@ -53,10 +57,10 @@ type Build struct {
 	Job            *Job
 	Status         ItemStatus
 	Logger         *log.Logger
-	abortedChannel chan bool
+	abortedChannel chan string
 	flushChannel   chan bool // Instructs to flush bw
 	pendingTasksWG sync.WaitGroup
-	aborted        bool
+	abortedReason  string
 	Params         []map[string]string
 	Artifacts      []string // Deprecate
 	BuildArtifacts []*ArtifactInfo
@@ -88,6 +92,9 @@ func (b *Build) Start() {
 			return
 		case StatusAborted:
 			b.SetBuildStatus(StatusAborted)
+			return
+		case StatusTimedOut:
+			b.SetBuildStatus(StatusTimedOut)
 			return
 		}
 		b.BroadcastUpdate()
@@ -236,13 +243,18 @@ func (b *Build) runTask(task *Task) ItemStatus {
 					continue
 				}
 				b.ProcessLogEntry(line, bw, task.ID, task.startedAt)
-			case toAbort := <-b.abortedChannel:
-				b.Logger.Println("Aborting via abortedChannel")
-				b.ProcessLogEntry("> Aborted.", bw, task.ID, task.startedAt)
-				if toAbort {
-					taskCmd.Stop()
-					b.aborted = true
+			case abortedDetails := <-b.abortedChannel:
+				b.abortedReason = abortedDetails
+				b.Logger.Printf("Aborting via abortedChannel: %s\n", abortedDetails)
+				switch abortedDetails {
+				case StatusTimedOut:
+					b.ProcessLogEntry("> Timed out.", bw, task.ID, task.startedAt)
+				case StatusAborted:
+					b.ProcessLogEntry("> Aborted by a user.", bw, task.ID, task.startedAt)
+				default:
+					b.Logger.Printf("Unhandled abort method: %s\n", abortedDetails)
 				}
+				taskCmd.Stop()
 			case <-b.flushChannel:
 				b.Logger.Println("Flushing log file...")
 				bw.Flush()
@@ -261,10 +273,11 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	<-doneChan
 
 	// Abort message was recieved via channel
-	if b.aborted {
+	if b.abortedReason != "" {
+		reason := b.abortedReason
 		// Toggle status back for OnStatus tasks
-		b.aborted = false
-		return StatusAborted
+		b.abortedReason = ""
+		return ItemStatus(reason)
 	}
 
 	b.ProcessLogEntry(fmt.Sprintf("> Exit code: %d", status.Exit), bw, task.ID, task.startedAt)
@@ -490,7 +503,7 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 				go func() {
 					<-b.timer.C
 					b.Logger.Printf("Build %d has timed out\n", b.ID)
-					err = GlobalQueue.Abort(b.ID)
+					err = GlobalQueue.Abort(b.ID, StatusTimedOut)
 					if err != nil {
 						b.Logger.Println(err)
 					}
@@ -498,8 +511,9 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 			}
 		}
 		b.runOnStatusTasks(status)
-	case StatusAborted:
-		b.runOnStatusTasks(status)
+	case StatusAborted, StatusTimedOut:
+		// We run on_aborted handlers for builds aborted by a user or timed out
+		b.runOnStatusTasks(StatusAborted)
 		b.runOnStatusTasks(FinalTask)
 		b.Duration = time.Since(b.StartedAt)
 		b.Cleanup()
@@ -552,7 +566,7 @@ func CreateBuild(job *Job, jobPath string) (*Build, error) {
 	build := Build{
 		Job:            job,
 		ID:             counti,
-		abortedChannel: make(chan bool),
+		abortedChannel: make(chan string),
 		flushChannel:   make(chan bool),
 		Params:         job.DefaultParams,
 		ETA:            GetJobETA(job.Name),

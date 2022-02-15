@@ -113,12 +113,12 @@ func (q *Queue) Verify(id int) bool {
 }
 
 // Abort schedules build to be aborted
-func (q *Queue) Abort(id int) error {
+func (q *Queue) Abort(id int, reason string) error {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 	for _, item := range q.running {
 		if item.ID == id {
-			item.abortedChannel <- true
+			item.abortedChannel <- reason
 			return nil
 		}
 	}

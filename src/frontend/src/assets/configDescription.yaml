@@ -63,11 +63,11 @@ allow_parallel: no
 
 # List of tasks executed on build's status change
 # Available handlers:
-#  - on_pending
-#  - on_running
-#  - on_aborted
-#  - on_failed
-#  - on_finished
+#  - `on_pending` - when the status of the build changes to `pending`
+#  - `on_running` - when the status of the build changes to `running`
+#  - `on_aborted` - when the status of the build changes to `aborted` or `timed out`
+#  - `on_failed` - when the status of the build changes to `failed`
+#  - `on_finished` - when the status of the build changes to `finished`
 # Note: If one of the commands failed, it doesn't fail the whole build
 on_pending:
   - name: Log a call

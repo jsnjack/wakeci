@@ -23,6 +23,7 @@ export default {
             case "finished":
                 return "label-success";
             case "aborted":
+            case "timed out":
                 return "label-primary";
             }
             // pending
