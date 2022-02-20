@@ -152,7 +152,9 @@ export default {
                     });
                     this.fetch();
                 })
-                .catch((error) => {});
+                .catch((error) => {
+                    console.log(error);
+                });
         },
         enterClicked() {
             this.$refs.createButton.click();

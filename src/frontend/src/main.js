@@ -22,13 +22,13 @@ axios.interceptors.response.use(function(response) {
 }, function(error) {
     // Exclude special request to check if user is logged in
     if (error.request.responseURL.indexOf("/_isLoggedIn") === -1) {
-        v.$notify({
+        app.prototype.$notify({
             text: error.response && error.response.data || error,
             type: "error",
         });
         if (error.response.status === 403) {
-            v.$store.commit("LOG_OUT");
-            v.$router.push("/login");
+            app.prototype.$store.commit("LOG_OUT");
+            app.prototype.$router.push("/login");
         }
     }
     return Promise.reject(error);
