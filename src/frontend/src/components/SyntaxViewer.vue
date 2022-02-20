@@ -33,9 +33,3 @@ export default {
     },
 };
 </script>
-
-<style lang="scss">
-.CodeMirror {
-  height: auto;
-}
-</style>

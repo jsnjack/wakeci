@@ -55,6 +55,7 @@ export default {
                 mode: "text/x-yaml",
                 lineNumbers: true,
                 line: true,
+                indentUnit: 2,
             },
         };
     },
@@ -99,12 +100,6 @@ export default {
     },
 };
 </script>
-
-<style lang="scss">
-.CodeMirror {
-  height: auto;
-}
-</style>
 
 <style lang="scss" scoped>
 @import "@/assets/colors.scss";
