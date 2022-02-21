@@ -127,7 +127,7 @@ export default {
             );
         },
         getBorderClass() {
-            return `border-${this.task.status}`;
+            return `border-${this.task.status}`.replaceAll(" ", "");
         },
         getLogURL() {
             return `/storage/build/${this.buildID}/task_${this.task.id}.log`;
@@ -260,7 +260,7 @@ section {
 .border-running {
   border-left-color: $warning-color;
 }
-.border-aborted {
+.border-aborted, .border-timedout {
   border-left-color: $primary-color;
 }
 .border-failed {
