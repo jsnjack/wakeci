@@ -4,7 +4,7 @@
     <Codemirror
       :ref="'codeViewer'"
       class="codemirror-viewer text-left"
-      :code="configFormatContent"
+      v-model="configFormatContent"
       :options="viewerOptions"
     />
   </div>
