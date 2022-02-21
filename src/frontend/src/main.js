@@ -10,13 +10,10 @@ Vue.prototype.$eventHub = new Vue();
 Vue.config.productionTip = false;
 Vue.use(Notifications);
 
-const v = new Vue({
-    router,
-    store,
-    render(h) {
-        return h(App);
-    },
-}).$mount("#app");
+const app = Vue.createApp(App);
+app.use(router);
+app.use(store);
+app.mount("#app");
 
 // Global axios handler to show error messages and redirect to the login page
 // in case of error is 403
@@ -25,13 +22,13 @@ axios.interceptors.response.use(function(response) {
 }, function(error) {
     // Exclude special request to check if user is logged in
     if (error.request.responseURL.indexOf("/_isLoggedIn") === -1) {
-        v.$notify({
+        app.prototype.$notify({
             text: error.response && error.response.data || error,
             type: "error",
         });
         if (error.response.status === 403) {
-            v.$store.commit("LOG_OUT");
-            v.$router.push("/login");
+            app.prototype.$store.commit("LOG_OUT");
+            app.prototype.$router.push("/login");
         }
     }
     return Promise.reject(error);

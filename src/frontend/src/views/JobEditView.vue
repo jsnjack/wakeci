@@ -4,9 +4,9 @@
       Edit {{ name }}
     </h4>
     <div>
-      <codemirror
+      <Codemirror
+        v-model="job.fileContent"
         data-cy="editor"
-        :code="job.fileContent"
         :options="editorOptions"
         @input="onCodeChange"
       />
@@ -31,13 +31,13 @@
 
 <script>
 import axios from "axios";
-import {codemirror} from "vue-codemirror";
+import Codemirror from "codemirror-editor-vue3";
 import "codemirror/lib/codemirror.css";
 import "codemirror/mode/yaml/yaml.js";
 
 export default {
     components: {
-        codemirror,
+        Codemirror,
     },
     props: {
         name: {

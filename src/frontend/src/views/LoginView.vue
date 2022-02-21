@@ -62,9 +62,9 @@ export default {
                 .then((response) => {
                     this.$store.commit("LOG_IN");
                     this.$router.replace(this.getRedirectURL);
-                    this.fetching = false;
                 })
-                .catch((error) => {
+                .catch((error) => {})
+                .finally(() => {
                     this.fetching = false;
                 });
         },
