@@ -28,7 +28,7 @@
     "@vue/cli-plugin-eslint": "^5.0.1",
     "@vue/cli-service": "^5.0.3",
     "@vue/compiler-sfc": "^3.2.26",
-    "@vue/eslint-config-airbnb": "^5.3.0",
+    "@vue/eslint-config-airbnb": "^6.0.0",
     "cypress": "^8.4.1",
     "eslint": "^8.9.0",
     "eslint-config-google": "^0.14.0",
