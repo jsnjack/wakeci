@@ -4,12 +4,13 @@ import router from "./router";
 import store from "./store/index";
 import Notifications from "@kyvg/vue3-notification";
 import axios from "axios";
+import {createApp} from "vue";
 
-
-Vue.prototype.$eventHub = new Vue();
 Vue.config.productionTip = false;
+Vue.configureCompat({WATCH_ARRAY: false});
 
-const app = Vue.createApp(App);
+const app = createApp(App);
+app.config.globalProperties.$eventHub = new Vue();
 app.use(router);
 app.use(store);
 app.use(Notifications);
