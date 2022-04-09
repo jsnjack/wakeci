@@ -87,7 +87,6 @@ import BuildProgressETA from "@/components/BuildProgressETA";
 import RunJobButton from "@/components/RunJobButton";
 import TaskItem from "@/components/TaskItem";
 import Artifacts from "@/components/Artifacts";
-import {findInContainer} from "@/store/utils";
 
 export default {
     components: {
@@ -169,13 +168,11 @@ export default {
         document.title = `#${this.id} - wakeci`;
         this.fetch();
         this.subscribe();
-        this.$eventHub.$on(this.buildLogSubscription, this.applyBuildLog);
-        this.$eventHub.$on(this.buildUpdateSubscription, this.applyBuildUpdate);
+        this.emitter.on(this.buildUpdateSubscription, this.applyBuildUpdate);
     },
     unmounted() {
         this.unsubscribe();
-        this.$eventHub.$off(this.buildLogSubscription);
-        this.$eventHub.$off(this.buildUpdateSubscription);
+        this.emitter.off(this.buildUpdateSubscription, this.applyBuildUpdate);
     },
     methods: {
         subscribe() {
@@ -214,15 +211,6 @@ export default {
                     });
                 })
                 .catch((error) => {});
-        },
-        applyBuildLog(ev) {
-            // Get index of a task
-            const index = findInContainer(this.job.tasks, "id", ev.taskID)[1];
-            if (index !== undefined) {
-                this.$refs["task-" + index][0].$emit("new:log", ev);
-            } else {
-                console.log("Unable to find task:", ev);
-            }
         },
         applyBuildUpdate(ev) {
             this.statusUpdate = Object.assign({}, this.statusUpdate, ev);

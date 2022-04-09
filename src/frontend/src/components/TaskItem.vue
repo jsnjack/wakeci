@@ -140,11 +140,11 @@ export default {
         "task.status": "onStatusChange",
     },
     mounted() {
-        this.$on("new:log", this.addLog);
+        this.emitter.on(`build:log:${this.buildID}:task-${this.task.id}`, this.addLog);
         this.onStatusChange(this.task.status);
     },
     unmounted() {
-        this.$off(this.addLog);
+        this.emitter.off(`build:log:${this.buildID}:task-${this.task.id}`, this.addLog);
     },
     beforeDestroy: function() {
         clearInterval(this.flushInterval);

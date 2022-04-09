@@ -17,6 +17,7 @@
     "axios": "^0.21.4",
     "codemirror-editor-vue3": "^1.0.1",
     "lodash": "^4.17.21",
+    "mitt": "^3.0.0",
     "raw-loader": "^4.0.2",
     "s-ago": "^2.2.0",
     "spectre.css": "^0.5.9",

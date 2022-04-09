@@ -154,12 +154,11 @@ export default {
         document.title = "Feed - wakeci";
         this.fetchNow();
         this.subscribe();
-        this.$on("new:log", this.applyNewLog);
-        this.$eventHub.$on(this.subscription, this.applyUpdate);
+        this.emitter.on(this.subscription, this.applyUpdate);
     },
     unmounted() {
         this.unsubscribe();
-        this.$eventHub.$off(this.subscription);
+        this.emitter.off(this.subscription, this.applyUpdate);
     },
     created() {
         this.fetch = _.debounce((more = false) => {

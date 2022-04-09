@@ -5,12 +5,15 @@ import store from "./store/index";
 import Notifications from "@kyvg/vue3-notification";
 import axios from "axios";
 import {createApp} from "vue";
+import mitt from "mitt";
 
 Vue.config.productionTip = false;
 Vue.configureCompat({WATCH_ARRAY: false});
 
+const emitter = mitt();
+
 const app = createApp(App);
-app.config.globalProperties.$eventHub = new Vue();
+app.config.globalProperties.emitter = emitter;
 app.use(router);
 app.use(store);
 app.use(Notifications);

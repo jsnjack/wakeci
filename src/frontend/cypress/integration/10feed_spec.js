@@ -71,6 +71,7 @@ describe("Feed page", function() {
         });
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.wait(1);
         cy.request({
             url: `/api/job/${jobName}/run`,
             method: "POST",
