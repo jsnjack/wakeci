@@ -172,7 +172,7 @@ export default {
         this.$eventHub.$on(this.buildLogSubscription, this.applyBuildLog);
         this.$eventHub.$on(this.buildUpdateSubscription, this.applyBuildUpdate);
     },
-    destroyed() {
+    unmounted() {
         this.unsubscribe();
         this.$eventHub.$off(this.buildLogSubscription);
         this.$eventHub.$off(this.buildUpdateSubscription);

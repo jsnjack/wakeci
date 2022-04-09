@@ -143,7 +143,7 @@ export default {
         this.$on("new:log", this.addLog);
         this.onStatusChange(this.task.status);
     },
-    destroyed() {
+    unmounted() {
         this.$off(this.addLog);
     },
     beforeDestroy: function() {

@@ -157,7 +157,7 @@ export default {
         this.$on("new:log", this.applyNewLog);
         this.$eventHub.$on(this.subscription, this.applyUpdate);
     },
-    destroyed() {
+    unmounted() {
         this.unsubscribe();
         this.$eventHub.$off(this.subscription);
     },
