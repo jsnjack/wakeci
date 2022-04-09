@@ -33,7 +33,7 @@ export default {
             interval,
         );
     },
-    beforeDestroy: function() {
+    beforeUnmount: function() {
         clearInterval(this.frameInterval);
     },
 };

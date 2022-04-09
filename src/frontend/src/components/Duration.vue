@@ -68,7 +68,7 @@ export default {
     mounted() {
         this.onStatusChange();
     },
-    beforeDestroy: function() {
+    beforeUnmount: function() {
         clearInterval(this.updateInterval);
     },
     methods: {

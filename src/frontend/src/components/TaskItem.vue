@@ -146,7 +146,7 @@ export default {
     unmounted() {
         this.emitter.off(`build:log:${this.buildID}:task-${this.task.id}`, this.addLog);
     },
-    beforeDestroy: function() {
+    beforeUnmount: function() {
         clearInterval(this.flushInterval);
     },
     methods: {

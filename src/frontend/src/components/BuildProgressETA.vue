@@ -60,7 +60,7 @@ export default {
         this.onUpdate();
         this.onDone();
     },
-    beforeDestroy: function() {
+    beforeUnmount: function() {
         clearInterval(this.updateInterval);
     },
     methods: {
