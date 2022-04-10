@@ -6,9 +6,9 @@
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
     "lint": "vue-cli-service lint",
-    "test": "cypress run --browser=firefox --headless --config-file=cypress_prod.json",
-    "test:prod": "cypress run --browser=firefox --headless --config-file=cypress_prod.json",
-    "test:dev": "cypress run --browser=firefox --headless --config-file=cypress_dev.json",
+    "test": "cypress run --browser=chrome --headless --config-file=cypress_prod.json",
+    "test:prod": "cypress run --browser=chrome --headless --config-file=cypress_prod.json",
+    "test:dev": "cypress run --browser=chrome --headless --config-file=cypress_dev.json",
     "test:open": "cypress open --config-file=cypress_dev.json"
   },
   "dependencies": {
