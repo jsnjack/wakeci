@@ -1,4 +1,4 @@
-import {defineConfig} from "vite";
+import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 
 const path = require("path");
@@ -30,6 +30,6 @@ export default defineConfig({
                 target: "http://localhost:8081/",
                 changeOrigin: true,
             },
-        }
-    }
+        },
+    },
 });
