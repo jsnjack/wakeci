@@ -4,7 +4,7 @@ import actions from "./actions";
 import getters from "./getters";
 import mutations from "./mutations";
 
-const debug = import.meta.env.NODE_ENV !== "production";
+const debug = import.meta.env.DEV;
 
 export const store = createStore({
     state: state,
