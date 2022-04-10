@@ -39,7 +39,7 @@
       <BuildStatus :status="build.status" />
     </td>
     <td class="hide-xs">
-      <Duration
+      <DurationElement
         v-show="build.status !== 'pending'"
         :item="build"
         :use-global-duration-mode-state="true"
@@ -68,11 +68,11 @@
 import BuildStatus from "@/components/BuildStatus";
 import BuildProgress from "@/components/BuildProgress";
 import BuildProgressETA from "@/components/BuildProgressETA";
-import Duration from "@/components/Duration";
+import DurationElement from "@/components/DurationElement";
 import axios from "axios";
 
 export default {
-    components: {BuildStatus, BuildProgress, BuildProgressETA, Duration},
+    components: {BuildStatus, BuildProgress, BuildProgressETA, DurationElement},
     props: {
         build: {
             type: Object,

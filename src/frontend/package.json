@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@kyvg/vue3-notification": "^2.3.4",
-    "axios": "^0.21.4",
+    "axios": "^0.26.1",
     "codemirror-editor-vue3": "^2.0.6",
     "lodash": "^4.17.21",
     "mitt": "^3.0.0",
@@ -29,14 +29,14 @@
     "@vue/cli-service": "^5.0.3",
     "@vue/compiler-sfc": "^3.2.26",
     "@vue/eslint-config-airbnb": "^6.0.0",
-    "cypress": "^8.4.1",
+    "cypress": "^9.5.3",
     "eslint": "^8.9.0",
     "eslint-config-google": "^0.14.0",
-    "eslint-plugin-vue": "^7.18.0",
+    "eslint-plugin-vue": "^8.6.0",
     "minimist": ">=0.2.1",
     "node-sass": "^7.0.1",
     "sass-loader": "^12.6.0",
-    "vue-eslint-parser": "^7.11.0",
+    "vue-eslint-parser": "^8.3.0",
     "vue-template-compiler": "^2.6.14"
   }
 }

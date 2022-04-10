@@ -15,7 +15,7 @@
             class="h5 task-name"
             @click="reloadLogs"
           >{{ name }}</span>
-          <Duration
+          <DurationElement
             v-show="task.status !== 'pending'"
             :item="task"
             class="text-small m-1"
@@ -76,13 +76,13 @@
 <script>
 import BuildStatus from "@/components/BuildStatus";
 import TextSpinner from "@/components/TextSpinner";
-import Duration from "@/components/Duration";
+import DurationElement from "@/components/DurationElement";
 import axios from "axios";
 
 const FlushContentPeriod = 500;
 
 export default {
-    components: {BuildStatus, Duration, TextSpinner},
+    components: {BuildStatus, DurationElement, TextSpinner},
     props: {
         buildID: {
             type: Number,

@@ -36,6 +36,7 @@ tasks:
         cy.visit("/");
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=open-build-button]").should("have.length", 1);
         cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
             cy.get("[data-cy=build-status-label]").should("contain", "running");
             cy.get("[data-cy=abort-build-button]").click();
@@ -91,6 +92,7 @@ on_aborted:
         cy.visit("/");
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=open-build-button]").should("have.length", 1);
         cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
             cy.get("[data-cy=build-status-label]").should("contain", "running");
             cy.get("[data-cy=open-build-button]").click();
@@ -149,6 +151,7 @@ timeout: 1s
         cy.visit("/");
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=open-build-button]").should("have.length", 1);
         cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
             cy.get("[data-cy=build-status-label]").should("contain", "timed out");
             cy.get("[data-cy=open-build-button]").click();

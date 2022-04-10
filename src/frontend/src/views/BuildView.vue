@@ -9,7 +9,7 @@
           {{ job.desc }}
         </div>
         <BuildStatus :status="statusUpdate.status" />
-        <Duration
+        <DurationElement
           v-show="statusUpdate.status !== 'pending'"
           :item="statusUpdate"
         />
@@ -60,7 +60,7 @@
       :name="job.tasks[item.id].name"
       :follow="follow"
     />
-    <Artifacts
+    <ArtifactItem
       :artifacts="getArtifacts"
       :build-i-d="statusUpdate.id"
     />
@@ -80,13 +80,13 @@
 import vuex from "vuex";
 import axios from "axios";
 import BuildStatus from "@/components/BuildStatus";
-import Duration from "@/components/Duration";
+import DurationElement from "@/components/DurationElement";
 import ParamItem from "@/components/ParamItem";
 import BuildProgress from "@/components/BuildProgress";
 import BuildProgressETA from "@/components/BuildProgressETA";
 import RunJobButton from "@/components/RunJobButton";
 import TaskItem from "@/components/TaskItem";
-import Artifacts from "@/components/Artifacts";
+import ArtifactItem from "@/components/ArtifactItem";
 
 export default {
     components: {
@@ -95,8 +95,8 @@ export default {
         BuildProgressETA,
         TaskItem,
         ParamItem,
-        Artifacts,
-        Duration,
+        ArtifactItem,
+        DurationElement,
         RunJobButton,
     },
     props: {

@@ -28,6 +28,7 @@ describe("Build page", function() {
         cy.visit("/");
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=open-build-button]").should("have.length", 1);
         cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
             cy.get("[data-cy=open-build-button]").click();
             cy.url().should("include", "/build/" + val);
@@ -91,6 +92,7 @@ tasks:
         cy.visit("/");
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=open-build-button]").should("have.length", 1);
         cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
             cy.get("[data-cy=open-build-button]").click();
             cy.url().should("include", "/build/" + val);
@@ -165,6 +167,7 @@ artifacts:
         cy.visit("/");
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=open-build-button]").should("have.length", 1);
         cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
             cy.get("[data-cy=open-build-button]").click();
 
@@ -243,6 +246,7 @@ artifacts:
         cy.visit("/");
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=open-build-button]").should("have.length", 1);
         cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
             cy.get("[data-cy=open-build-button]").click();
 
@@ -304,6 +308,7 @@ tasks:
         cy.visit("/");
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=open-build-button]").should("have.length", 1);
         cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
             cy.get("[data-cy=open-build-button]").click();
             cy.url().should("include", "/build/" + val);
@@ -368,6 +373,7 @@ tasks:
         cy.visit("/");
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=open-build-button]").should("have.length", 1);
         cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
             cy.get("[data-cy=open-build-button]").click();
             cy.url().should("include", "/build/" + val);
@@ -432,6 +438,7 @@ tasks:
         cy.visit("/");
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=open-build-button]").should("have.length", 1);
         cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
             cy.get("[data-cy=open-build-button]").click();
             cy.url().should("include", "/build/" + val);
