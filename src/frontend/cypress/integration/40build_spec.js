@@ -1,5 +1,5 @@
-describe("Build page", function() {
-    it("should show build page", function() {
+describe("Build page", function () {
+    it("should show build page", function () {
         // Create job
         const jobName = "myjob" + new Date().getTime();
         cy.request({
@@ -10,7 +10,7 @@ describe("Build page", function() {
                 pass: "admin",
             },
             body: {
-                "name": jobName,
+                name: jobName,
             },
             form: true,
         });
@@ -29,16 +29,18 @@ describe("Build page", function() {
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
-            cy.get("[data-cy=open-build-button]").click();
-            cy.url().should("include", "/build/" + val);
-            cy.get("[data-cy=reload]").click();
-            cy.get(".notification-content").should("contain", "Log file has been reloaded");
-            cy.get("body").should("contain", "uname -a");
-        });
+        cy.get("tr")
+            .invoke("attr", "data-cy-build")
+            .then((val) => {
+                cy.get("[data-cy=open-build-button]").click();
+                cy.url().should("include", "/build/" + val);
+                cy.get("[data-cy=reload]").click();
+                cy.get(".notification-content").should("contain", "Log file has been reloaded");
+                cy.get("body").should("contain", "uname -a");
+            });
     });
 
-    it("should inject wake env variables", function() {
+    it("should inject wake env variables", function () {
         // Create job
         const jobName = "myjob" + new Date().getTime();
         cy.request({
@@ -49,7 +51,7 @@ describe("Build page", function() {
                 pass: "admin",
             },
             body: {
-                "name": jobName,
+                name: jobName,
             },
             form: true,
         });
@@ -72,7 +74,7 @@ tasks:
                 pass: "admin",
             },
             body: {
-                "fileContent": jobContent,
+                fileContent: jobContent,
             },
             form: true,
         });
@@ -93,21 +95,23 @@ tasks:
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
-            cy.get("[data-cy=open-build-button]").click();
-            cy.url().should("include", "/build/" + val);
-            cy.get("[data-cy=reload]").click();
-            cy.get(".notification-content").should("contain", "Log file has been reloaded");
-            cy.get("body").should("contain", `WAKE_JOB_NAME=${jobName}`);
-            cy.get("body").should("contain", "WAKE_URL=http://localhost:8081/");
-            cy.get("body").should("contain", "WAKE_CONFIG_DIR=");
-            cy.get("body").should("contain", "WAKE_BUILD_WORKSPACE=");
-            cy.get("body").should("contain", "WAKE_BUILD_ID=");
-            cy.get("body").should("contain", "WAKE_JOB_PARAMS=minsk=4&pruzhany=5");
-        });
+        cy.get("tr")
+            .invoke("attr", "data-cy-build")
+            .then((val) => {
+                cy.get("[data-cy=open-build-button]").click();
+                cy.url().should("include", "/build/" + val);
+                cy.get("[data-cy=reload]").click();
+                cy.get(".notification-content").should("contain", "Log file has been reloaded");
+                cy.get("body").should("contain", `WAKE_JOB_NAME=${jobName}`);
+                cy.get("body").should("contain", "WAKE_URL=http://localhost:8081/");
+                cy.get("body").should("contain", "WAKE_CONFIG_DIR=");
+                cy.get("body").should("contain", "WAKE_BUILD_WORKSPACE=");
+                cy.get("body").should("contain", "WAKE_BUILD_ID=");
+                cy.get("body").should("contain", "WAKE_JOB_PARAMS=minsk=4&pruzhany=5");
+            });
     });
 
-    it("should collect artifacts", function() {
+    it("should collect artifacts", function () {
         // Create job
         const jobName = "myjob" + new Date().getTime();
         cy.request({
@@ -118,7 +122,7 @@ tasks:
                 pass: "admin",
             },
             body: {
-                "name": jobName,
+                name: jobName,
             },
             form: true,
         });
@@ -147,7 +151,7 @@ artifacts:
                 pass: "admin",
             },
             body: {
-                "fileContent": jobContent,
+                fileContent: jobContent,
             },
             form: true,
         });
@@ -168,25 +172,27 @@ artifacts:
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
-            cy.get("[data-cy=open-build-button]").click();
+        cy.get("tr")
+            .invoke("attr", "data-cy-build")
+            .then((val) => {
+                cy.get("[data-cy=open-build-button]").click();
 
-            // Assert total number of artifacts
-            cy.get("[data-cy=artifacts-body-row]").should("have.length", 2);
+                // Assert total number of artifacts
+                cy.get("[data-cy=artifacts-body-row]").should("have.length", 2);
 
-            // Assert order by name
-            cy.get("[data-cy=artifacts-body-row] > td:first").should("contain", "big");
-            cy.get("[data-cy=artifacts-header-file]").click();
-            cy.get("[data-cy=artifacts-body-row] > td:first").should("contain", "small");
-            cy.get("[data-cy=artifacts-header-file]").click();
-            cy.get("[data-cy=artifacts-body-row] > td:first").should("contain", "big");
+                // Assert order by name
+                cy.get("[data-cy=artifacts-body-row] > td:first").should("contain", "big");
+                cy.get("[data-cy=artifacts-header-file]").click();
+                cy.get("[data-cy=artifacts-body-row] > td:first").should("contain", "small");
+                cy.get("[data-cy=artifacts-header-file]").click();
+                cy.get("[data-cy=artifacts-body-row] > td:first").should("contain", "big");
 
-            // Make sure Open index.html button is not present
-            cy.get("[data-cy=openIndexFile]").should("not.exist");
-        });
+                // Make sure Open index.html button is not present
+                cy.get("[data-cy=openIndexFile]").should("not.exist");
+            });
     });
 
-    it("should display Open index.html button", function() {
+    it("should display Open index.html button", function () {
         // Create job
         const jobName = "myjob" + new Date().getTime();
         cy.request({
@@ -197,7 +203,7 @@ artifacts:
                 pass: "admin",
             },
             body: {
-                "name": jobName,
+                name: jobName,
             },
             form: true,
         });
@@ -226,7 +232,7 @@ artifacts:
                 pass: "admin",
             },
             body: {
-                "fileContent": jobContent,
+                fileContent: jobContent,
             },
             form: true,
         });
@@ -247,16 +253,18 @@ artifacts:
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
-            cy.get("[data-cy=open-build-button]").click();
+        cy.get("tr")
+            .invoke("attr", "data-cy-build")
+            .then((val) => {
+                cy.get("[data-cy=open-build-button]").click();
 
-            // Make sure Open index.html button is present
-            cy.get("[data-cy=openIndexFile]").should("contain", "Open index.html");
-            cy.get("[data-cy=openIndexFile]").should("have.attr", "href").and("contain", "bb");
-        });
+                // Make sure Open index.html button is present
+                cy.get("[data-cy=openIndexFile]").should("contain", "Open index.html");
+                cy.get("[data-cy=openIndexFile]").should("have.attr", "href").and("contain", "bb");
+            });
     });
 
-    it("should skip task when condition is false", function() {
+    it("should skip task when condition is false", function () {
         // Create job
         const jobName = "myjob" + new Date().getTime();
         cy.request({
@@ -267,7 +275,7 @@ artifacts:
                 pass: "admin",
             },
             body: {
-                "name": jobName,
+                name: jobName,
             },
             form: true,
         });
@@ -288,7 +296,7 @@ tasks:
                 pass: "admin",
             },
             body: {
-                "fileContent": jobContent,
+                fileContent: jobContent,
             },
             form: true,
         });
@@ -309,17 +317,19 @@ tasks:
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
-            cy.get("[data-cy=open-build-button]").click();
-            cy.url().should("include", "/build/" + val);
-            cy.get("[data-cy=reload]").click();
-            cy.get(".notification-content").should("contain", "Log file has been reloaded");
-            cy.get("body").should("contain", "Condition is false");
-            cy.get("body").should("not.contain", "WAKE_BUILD_ID=");
-        });
+        cy.get("tr")
+            .invoke("attr", "data-cy-build")
+            .then((val) => {
+                cy.get("[data-cy=open-build-button]").click();
+                cy.url().should("include", "/build/" + val);
+                cy.get("[data-cy=reload]").click();
+                cy.get(".notification-content").should("contain", "Log file has been reloaded");
+                cy.get("body").should("contain", "Condition is false");
+                cy.get("body").should("not.contain", "WAKE_BUILD_ID=");
+            });
     });
 
-    it("should run task when condition is true", function() {
+    it("should run task when condition is true", function () {
         // Create job
         const jobName = "myjob" + new Date().getTime();
         cy.request({
@@ -330,7 +340,7 @@ tasks:
                 pass: "admin",
             },
             body: {
-                "name": jobName,
+                name: jobName,
             },
             form: true,
         });
@@ -353,7 +363,7 @@ tasks:
                 pass: "admin",
             },
             body: {
-                "fileContent": jobContent,
+                fileContent: jobContent,
             },
             form: true,
         });
@@ -374,17 +384,19 @@ tasks:
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
-            cy.get("[data-cy=open-build-button]").click();
-            cy.url().should("include", "/build/" + val);
-            cy.get("[data-cy=reload]").click();
-            cy.get(".notification-content").should("contain", "Log file has been reloaded");
-            cy.get("body").should("contain", "Condition is true");
-            cy.get("body").should("contain", "WAKE_BUILD_ID=");
-        });
+        cy.get("tr")
+            .invoke("attr", "data-cy-build")
+            .then((val) => {
+                cy.get("[data-cy=open-build-button]").click();
+                cy.url().should("include", "/build/" + val);
+                cy.get("[data-cy=reload]").click();
+                cy.get(".notification-content").should("contain", "Log file has been reloaded");
+                cy.get("body").should("contain", "Condition is true");
+                cy.get("body").should("contain", "WAKE_BUILD_ID=");
+            });
     });
 
-    it("should inject env variables", function() {
+    it("should inject env variables", function () {
         // Create job
         const jobName = "myjob" + new Date().getTime();
         cy.request({
@@ -395,7 +407,7 @@ tasks:
                 pass: "admin",
             },
             body: {
-                "name": jobName,
+                name: jobName,
             },
             form: true,
         });
@@ -418,7 +430,7 @@ tasks:
                 pass: "admin",
             },
             body: {
-                "fileContent": jobContent,
+                fileContent: jobContent,
             },
             form: true,
         });
@@ -439,13 +451,15 @@ tasks:
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
-            cy.get("[data-cy=open-build-button]").click();
-            cy.url().should("include", "/build/" + val);
-            cy.get("[data-cy=reload]").click();
-            cy.get("body").should("contain", "NAME=joe");
-            cy.get("body").should("contain", "SCORE=5");
-            cy.get("body").should("contain", "WAKE_BUILD_ID=");
-        });
+        cy.get("tr")
+            .invoke("attr", "data-cy-build")
+            .then((val) => {
+                cy.get("[data-cy=open-build-button]").click();
+                cy.url().should("include", "/build/" + val);
+                cy.get("[data-cy=reload]").click();
+                cy.get("body").should("contain", "NAME=joe");
+                cy.get("body").should("contain", "SCORE=5");
+                cy.get("body").should("contain", "WAKE_BUILD_ID=");
+            });
     });
 });

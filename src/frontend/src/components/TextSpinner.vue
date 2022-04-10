@@ -1,7 +1,7 @@
 <template>
-  <div class="text-center">
-    {{ getText }}
-  </div>
+    <div class="text-center">
+        {{ getText }}
+    </div>
 </template>
 
 <script>
@@ -9,20 +9,20 @@ const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "
 const interval = 130;
 
 export default {
-    data: function() {
+    data: function () {
         return {
             step: 0,
             frameInterval: null,
         };
     },
     computed: {
-        getText: function() {
+        getText: function () {
             return frames[this.step];
         },
     },
     mounted() {
         this.frameInterval = setInterval(
-            function() {
+            function () {
                 const s = this.step + 1;
                 if (this.step >= frames.length - 1) {
                     this.step = 0;
@@ -30,14 +30,16 @@ export default {
                     this.step = s;
                 }
             }.bind(this),
-            interval,
+            interval
         );
     },
-    beforeUnmount: function() {
+    beforeUnmount: function () {
         clearInterval(this.frameInterval);
     },
 };
 </script>
 
-<style scoped lang="scss">
-</style>
+<style
+    scoped
+    lang="scss"
+></style>

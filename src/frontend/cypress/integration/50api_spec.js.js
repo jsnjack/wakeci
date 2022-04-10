@@ -1,5 +1,5 @@
-describe("API", function() {
-    it("should use internal API", function() {
+describe("API", function () {
+    it("should use internal API", function () {
         // Create job
         const jobName = "myjob" + new Date().getTime();
         const jobName2 = "@" + jobName;
@@ -12,7 +12,7 @@ describe("API", function() {
                 pass: "admin",
             },
             body: {
-                "name": jobName,
+                name: jobName,
             },
             form: true,
         });
@@ -25,7 +25,7 @@ describe("API", function() {
                 pass: "admin",
             },
             body: {
-                "name": jobName2,
+                name: jobName2,
             },
             form: true,
         });
@@ -45,7 +45,7 @@ tasks:
                 pass: "admin",
             },
             body: {
-                "fileContent": jobContent,
+                fileContent: jobContent,
             },
             form: true,
         });

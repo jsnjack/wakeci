@@ -77,7 +77,6 @@ on_pending:
 finally:
   - name: List all files
     run: ls -alh
-
 # Available environmetal variables:
 # "WAKE_BUILD_ID" - current build id, e.g. 169
 # "WAKE_BUILD_WORKSPACE" - path to the build's workspace, e.g. ~/workspace/

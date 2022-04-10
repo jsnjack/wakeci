@@ -1,5 +1,5 @@
-describe("Build page - Block", function() {
-    it("should handle block statement", function() {
+describe("Build page - Block", function () {
+    it("should handle block statement", function () {
         const jobName = "myjob" + new Date().getTime();
         const jobContent = `
 desc: Env test
@@ -23,7 +23,7 @@ tasks:
                 pass: "admin",
             },
             body: {
-                "fileContent": jobContent,
+                fileContent: jobContent,
             },
             form: true,
         });
@@ -44,17 +44,19 @@ tasks:
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
-            cy.get("[data-cy=open-build-button]").click();
-            cy.url().should("include", "/build/" + val);
-            // Verify number of tasks
-            cy.get("[data-cy=reload]").should("have.length", 3);
-            cy.get("[data-cy=reload]").eq(1).click();
-            cy.get("body").should("contain", "JOE");
-        });
+        cy.get("tr")
+            .invoke("attr", "data-cy-build")
+            .then((val) => {
+                cy.get("[data-cy=open-build-button]").click();
+                cy.url().should("include", "/build/" + val);
+                // Verify number of tasks
+                cy.get("[data-cy=reload]").should("have.length", 3);
+                cy.get("[data-cy=reload]").eq(1).click();
+                cy.get("body").should("contain", "JOE");
+            });
     });
 
-    it("should handle nested blocks", function() {
+    it("should handle nested blocks", function () {
         const jobName = "myjob" + new Date().getTime();
         const jobContent = `
 desc: Env test
@@ -85,7 +87,7 @@ tasks:
                 pass: "admin",
             },
             body: {
-                "fileContent": jobContent,
+                fileContent: jobContent,
             },
             form: true,
         });
@@ -106,17 +108,19 @@ tasks:
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
-            cy.get("[data-cy=open-build-button]").click();
-            cy.url().should("include", "/build/" + val);
-            // Verify number of tasks
-            cy.get("[data-cy=reload]").should("have.length", 3);
-            cy.get("[data-cy=reload]").eq(2).click();
-            cy.get("body").should("contain", "SUPER");
-        });
+        cy.get("tr")
+            .invoke("attr", "data-cy-build")
+            .then((val) => {
+                cy.get("[data-cy=open-build-button]").click();
+                cy.url().should("include", "/build/" + val);
+                // Verify number of tasks
+                cy.get("[data-cy=reload]").should("have.length", 3);
+                cy.get("[data-cy=reload]").eq(2).click();
+                cy.get("body").should("contain", "SUPER");
+            });
     });
 
-    it("should combine well include and block", function() {
+    it("should combine well include and block", function () {
         // Create a file with tasks to include
         const filePath = "/tmp/tasks.inc";
         const includeContent = `
@@ -136,7 +140,7 @@ tasks:
                 pass: "admin",
             },
             body: {
-                "name": jobName,
+                name: jobName,
             },
             form: true,
         });
@@ -162,7 +166,7 @@ tasks:
                 pass: "admin",
             },
             body: {
-                "fileContent": jobContent,
+                fileContent: jobContent,
             },
             form: true,
         });
@@ -183,17 +187,19 @@ tasks:
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
-            cy.get("[data-cy=open-build-button]").click();
-            cy.url().should("include", "/build/" + val);
-            // Verify number of tasks
-            cy.get("[data-cy=reload]").should("have.length", 2);
-            cy.get("[data-cy=reload]").eq(1).click();
-            cy.get("body").should("contain", "BAD");
-        });
+        cy.get("tr")
+            .invoke("attr", "data-cy-build")
+            .then((val) => {
+                cy.get("[data-cy=open-build-button]").click();
+                cy.url().should("include", "/build/" + val);
+                // Verify number of tasks
+                cy.get("[data-cy=reload]").should("have.length", 2);
+                cy.get("[data-cy=reload]").eq(1).click();
+                cy.get("body").should("contain", "BAD");
+            });
     });
 
-    it("should combine nested when", function() {
+    it("should combine nested when", function () {
         const jobName = "myjob" + new Date().getTime();
         cy.request({
             url: "/api/jobs/create",
@@ -203,7 +209,7 @@ tasks:
                 pass: "admin",
             },
             body: {
-                "name": jobName,
+                name: jobName,
             },
             form: true,
         });
@@ -234,7 +240,7 @@ tasks:
                 pass: "admin",
             },
             body: {
-                "fileContent": jobContent,
+                fileContent: jobContent,
             },
             form: true,
         });
@@ -255,14 +261,16 @@ tasks:
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
-            cy.get("[data-cy=open-build-button]").click();
-            cy.url().should("include", "/build/" + val);
-            cy.get("[data-cy=reload]").eq(0).click();
-            cy.get("[data-cy=task_section_0]").should("contain", "> Condition is true");
+        cy.get("tr")
+            .invoke("attr", "data-cy-build")
+            .then((val) => {
+                cy.get("[data-cy=open-build-button]").click();
+                cy.url().should("include", "/build/" + val);
+                cy.get("[data-cy=reload]").eq(0).click();
+                cy.get("[data-cy=task_section_0]").should("contain", "> Condition is true");
 
-            cy.get("[data-cy=reload]").eq(1).click();
-            cy.get("[data-cy=task_section_1]").should("contain", "> Condition is false");
-        });
+                cy.get("[data-cy=reload]").eq(1).click();
+                cy.get("[data-cy=task_section_1]").should("contain", "> Condition is false");
+            });
     });
 });

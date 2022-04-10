@@ -1,4 +1,4 @@
-const wsMessageHandler = function(app, data) {
+const wsMessageHandler = function (app, data) {
     const messages = data.split("\n");
     for (let i = 0; i < messages.length; i++) {
         const msg = JSON.parse(messages[i]);
@@ -16,8 +16,9 @@ const wsMessageHandler = function(app, data) {
     }
 };
 
-export const getWSURL = function() {
-    let protocol; let hostname;
+export const getWSURL = function () {
+    let protocol;
+    let hostname;
     if (location.protocol === "https:") {
         protocol = "wss://";
     } else {

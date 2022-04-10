@@ -1,7 +1,5 @@
 <template>
-  <div class="label param">
-    {{ getName }} = {{ getValue }}
-  </div>
+    <div class="label param">{{ getName }} = {{ getValue }}</div>
 </template>
 
 <script>
@@ -23,11 +21,14 @@ export default {
 };
 </script>
 
-<style scoped lang="scss">
+<style
+    scoped
+    lang="scss"
+>
 .param {
-  margin: 0.25em;
+    margin: 0.25em;
 }
-.param:hover{
+.param:hover {
     cursor: default;
 }
 </style>

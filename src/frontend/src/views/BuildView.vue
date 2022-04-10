@@ -1,79 +1,78 @@
 <template>
-  <div class="container grid-xl">
-    <div class="card build-header">
-      <div class="card-header">
-        <div class="card-title h5">
-          {{ statusUpdate.name }} #{{ statusUpdate.id }}
+    <div class="container grid-xl">
+        <div class="card build-header">
+            <div class="card-header">
+                <div class="card-title h5">{{ statusUpdate.name }} #{{ statusUpdate.id }}</div>
+                <div class="card-subtitle text-gray">
+                    {{ job.desc }}
+                </div>
+                <BuildStatus :status="statusUpdate.status" />
+                <DurationElement
+                    v-show="statusUpdate.status !== 'pending'"
+                    :item="statusUpdate"
+                />
+                <div class="float-right">
+                    <a
+                        v-if="!isDone"
+                        :href="getAbortURL"
+                        class="btn btn-error item-action"
+                        data-cy="abort-build-button"
+                        @click.prevent="abort"
+                        >Abort</a
+                    >
+                    <RunJobButton
+                        :params="statusUpdate.params"
+                        :button-title="'Rerun'"
+                        :job-name="statusUpdate.name"
+                        class="item-action"
+                    />
+                </div>
+            </div>
+            <div class="card-footer">
+                <BuildProgress
+                    v-if="!statusUpdate.eta"
+                    :done="getDoneTasks"
+                    :total="getTotalTasks"
+                />
+                <BuildProgressETA
+                    v-if="statusUpdate.eta"
+                    :eta="statusUpdate.eta"
+                    :started-at="statusUpdate.startedAt"
+                    :build-duration="statusUpdate.duration"
+                />
+            </div>
         </div>
-        <div class="card-subtitle text-gray">
-          {{ job.desc }}
+        <div class="columns">
+            <ParamItem
+                v-for="(item, index) in statusUpdate.params"
+                :key="index + 'param'"
+                :param="item"
+            />
         </div>
-        <BuildStatus :status="statusUpdate.status" />
-        <DurationElement
-          v-show="statusUpdate.status !== 'pending'"
-          :item="statusUpdate"
+        <TaskItem
+            v-for="item in statusUpdate.tasks"
+            :key="item.id"
+            :ref="'task-' + item.id"
+            :task="item"
+            :build-i-d="id"
+            :build-status="statusUpdate.status"
+            :name="job.tasks[item.id].name"
+            :follow="follow"
         />
-        <div class="float-right">
-          <a
-            v-if="!isDone"
-            :href="getAbortURL"
-            class="btn btn-error item-action"
-            data-cy="abort-build-button"
-            @click.prevent="abort"
-          >Abort</a>
-          <RunJobButton
-            :params="statusUpdate.params"
-            :button-title="'Rerun'"
-            :job-name="statusUpdate.name"
-            class="item-action"
-          />
+        <ArtifactItem
+            :artifacts="getArtifacts"
+            :build-i-d="statusUpdate.id"
+        />
+        <div class="follow-logs form-group float-right label">
+            <label class="form-switch">
+                <input
+                    v-model="follow"
+                    type="checkbox"
+                />
+                <i class="form-icon" /> Follow
+            </label>
         </div>
-      </div>
-      <div class="card-footer">
-        <BuildProgress
-          v-if="!statusUpdate.eta"
-          :done="getDoneTasks"
-          :total="getTotalTasks"
-        />
-        <BuildProgressETA
-          v-if="statusUpdate.eta"
-          :eta="statusUpdate.eta"
-          :started-at="statusUpdate.startedAt"
-          :build-duration="statusUpdate.duration"
-        />
-      </div>
     </div>
-    <div class="columns">
-      <ParamItem
-        v-for="(item, index) in statusUpdate.params"
-        :key="index+'param'"
-        :param="item"
-      />
-    </div>
-    <TaskItem
-      v-for="item in statusUpdate.tasks"
-      :key="item.id"
-      :ref="'task-'+item.id"
-      :task="item"
-      :build-i-d="id"
-      :build-status="statusUpdate.status"
-      :name="job.tasks[item.id].name"
-      :follow="follow"
-    />
-    <ArtifactItem
-      :artifacts="getArtifacts"
-      :build-i-d="statusUpdate.id"
-    />
-    <div class="follow-logs form-group float-right label">
-      <label class="form-switch">
-        <input
-          v-model="follow"
-          type="checkbox"
-        >
-        <i class="form-icon" /> Follow
-      </label>
-    </div>
-  </div>
 </template>
 
 <script>
@@ -105,7 +104,7 @@ export default {
             required: true,
         },
     },
-    data: function() {
+    data: function () {
         return {
             name: "",
             job: {},
@@ -138,25 +137,26 @@ export default {
                 return this.statusUpdate.build_artifacts;
             }
 
-            if (this.statusUpdate.artifacts) { // Deprecate
+            if (this.statusUpdate.artifacts) {
+                // Deprecate
                 const data = [];
                 this.statusUpdate.artifacts.forEach((element) => {
-                    data.push({"filename": element});
+                    data.push({ filename: element });
                 });
                 return data;
             }
             return [];
         },
-        getAbortURL: function() {
+        getAbortURL: function () {
             return `/api/build/${this.id}/abort`;
         },
         isDone() {
             switch (this.statusUpdate.status) {
-            case "failed":
-            case "finished":
-            case "aborted":
-            case "timed out":
-                return true;
+                case "failed":
+                case "finished":
+                case "aborted":
+                case "timed out":
+                    return true;
             }
             return false;
         },
@@ -230,12 +230,15 @@ export default {
 };
 </script>
 
-<style scoped lang="scss">
+<style
+    scoped
+    lang="scss"
+>
 .build-header {
-  margin-bottom: 1em;
+    margin-bottom: 1em;
 }
 summary:hover {
-  cursor: pointer;
+    cursor: pointer;
 }
 .item-action {
     margin: 0.25em;

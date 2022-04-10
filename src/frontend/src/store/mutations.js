@@ -1,4 +1,4 @@
-import {toggleDurationMode} from "@/duration";
+import { toggleDurationMode } from "@/duration";
 
 const mutations = {
     WS_CONNECTED(state, connection) {
@@ -10,7 +10,7 @@ const mutations = {
         }
     },
     WS_DISCONNECTED(state) {
-        state.ws.failedAttempts +=1;
+        state.ws.failedAttempts += 1;
         state.ws.connected = false;
     },
     WS_SEND(state, msg) {

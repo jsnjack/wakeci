@@ -1,109 +1,104 @@
 <template>
-  <div class="container grid-xl">
-    <div class="input-group input-inline float-right py-1">
-      <input
-        class="form-input"
-        type="text"
-        :value="filter"
-        title="Filter builds by ID, name, params and status"
-        data-cy="filter"
-        @input="evt=>filter=evt.target.value"
-      >
-      <button
-        class="btn btn-action"
-        :class="{'loading': isFetching}"
-        @click.prevent="clearFilter"
-      >
-        <i
-          class="icon"
-          :class="filterIconType"
-        />
-      </button>
-    </div>
-    <div class="clearfix" />
-    <span
-      v-show="filteredUpdates !== 0"
-      class="label label-warning"
-      data-cy="filtered-updates"
-    >{{ filteredUpdates }} updates have been filtered</span>
-    <table class="table table-striped">
-      <thead>
-        <th>#</th>
-        <th>Name</th>
-        <th
-          class="hide-xs hide-sm"
+    <div class="container grid-xl">
+        <div class="input-group input-inline float-right py-1">
+            <input
+                class="form-input"
+                type="text"
+                :value="filter"
+                title="Filter builds by ID, name, params and status"
+                data-cy="filter"
+                @input="(evt) => (filter = evt.target.value)"
+            />
+            <button
+                class="btn btn-action"
+                :class="{ loading: isFetching }"
+                @click.prevent="clearFilter"
+            >
+                <i
+                    class="icon"
+                    :class="filterIconType"
+                />
+            </button>
+        </div>
+        <div class="clearfix" />
+        <span
+            v-show="filteredUpdates !== 0"
+            class="label label-warning"
+            data-cy="filtered-updates"
+            >{{ filteredUpdates }} updates have been filtered</span
         >
-          <span
-            class="badge c-hand"
-            :data-badge="paramsIndex || ''"
-            data-cy="params-index-button"
-            title="Toggle between different parameters"
-            @click.prevent="toggleParams(false)"
-          >
-            Params
-          </span>
-          <i
-            v-show="paramsIndex"
-            class="icon icon-cross c-hand"
-            data-cy="params-index-button-clean"
-            @click.prevent="toggleParams(true)"
-          />
-        </th>
-        <th class="hide-xs hide-sm hide-md">
-          Tasks
-        </th>
-        <th>Status</th>
-        <th class="hide-xs">
-          <span
-            class="text-capitalize badge c-hand"
-            title="Toggle between different time modes"
-            @click.prevent="toggleDurationMode()"
-          >
-            {{ durationMode }}
-          </span>
-        </th>
-        <th>Actions</th>
-      </thead>
-      <tbody data-cy="feed-tbody">
-        <FeedItem
-          v-for="item in sortedBuilds"
-          :key="item.id"
-          :build="item"
-          :params-index="paramsIndex"
-        />
-      </tbody>
-    </table>
-    <div
-      v-show="Object.keys(builds).length === 0"
-      class="empty"
-    >
-      <p class="empty-title h5">
-        Empty
-      </p>
+        <table class="table table-striped">
+            <thead>
+                <th>#</th>
+                <th>Name</th>
+                <th class="hide-xs hide-sm">
+                    <span
+                        class="badge c-hand"
+                        :data-badge="paramsIndex || ''"
+                        data-cy="params-index-button"
+                        title="Toggle between different parameters"
+                        @click.prevent="toggleParams(false)"
+                    >
+                        Params
+                    </span>
+                    <i
+                        v-show="paramsIndex"
+                        class="icon icon-cross c-hand"
+                        data-cy="params-index-button-clean"
+                        @click.prevent="toggleParams(true)"
+                    />
+                </th>
+                <th class="hide-xs hide-sm hide-md">Tasks</th>
+                <th>Status</th>
+                <th class="hide-xs">
+                    <span
+                        class="text-capitalize badge c-hand"
+                        title="Toggle between different time modes"
+                        @click.prevent="toggleDurationMode()"
+                    >
+                        {{ durationMode }}
+                    </span>
+                </th>
+                <th>Actions</th>
+            </thead>
+            <tbody data-cy="feed-tbody">
+                <FeedItem
+                    v-for="item in sortedBuilds"
+                    :key="item.id"
+                    :build="item"
+                    :params-index="paramsIndex"
+                />
+            </tbody>
+        </table>
+        <div
+            v-show="Object.keys(builds).length === 0"
+            class="empty"
+        >
+            <p class="empty-title h5">Empty</p>
+        </div>
+        <button
+            v-show="moreEnabled"
+            class="btn btn-link float-right"
+            :class="{ loading: isFetching }"
+            @click.prevent="fetchNow(true)"
+        >
+            more...
+        </button>
     </div>
-    <button
-      v-show="moreEnabled"
-      class="btn btn-link float-right"
-      :class="{'loading': isFetching}"
-      @click.prevent="fetchNow(true)"
-    >
-      more...
-    </button>
-  </div>
 </template>
 
 <script>
 import FeedItem from "@/components/FeedItem.vue";
 import vuex from "vuex";
 import axios from "axios";
-import {findInContainer, isFilteredUpdate} from "@/store/utils.js";
+import { findInContainer, isFilteredUpdate } from "@/store/utils.js";
 import _ from "lodash";
 
 const FetchItemsSize = 10;
 
 export default {
-    components: {FeedItem},
-    data: function() {
+    components: { FeedItem },
+    data: function () {
         return {
             builds: [],
             subscription: "build:update:",
@@ -117,7 +112,7 @@ export default {
     },
     computed: {
         ...vuex.mapState(["ws", "durationMode"]),
-        sortedBuilds: function() {
+        sortedBuilds: function () {
             return [...this.builds].sort((a, b) => {
                 if (a.id < b.id) {
                     return 1;
@@ -128,7 +123,7 @@ export default {
                 return 0;
             });
         },
-        filterIconType: function() {
+        filterIconType: function () {
             if (this.isFetching) {
                 return "";
             }
@@ -142,7 +137,7 @@ export default {
         },
     },
     watch: {
-        "filter": function() {
+        filter: function () {
             this.filterIsDirty = true;
             // Reset builds if user starts to change filter
             this.builds = [];
@@ -205,18 +200,18 @@ export default {
             });
         },
         fetch() {},
-        fetchNow(more=false) {
+        fetchNow(more = false) {
             this.fetch(more);
             this.fetch.flush();
         },
-        applyUpdate(ev, fromFetch=false) {
+        applyUpdate(ev, fromFetch = false) {
             const index = findInContainer(this.builds, "id", ev.id)[1];
             if (index !== undefined) {
                 this.builds[index] = ev;
             } else {
                 if (!fromFetch) {
                     if (isFilteredUpdate(ev, this.filter)) {
-                        this.filteredUpdates ++;
+                        this.filteredUpdates++;
                         return;
                     }
                 }
@@ -231,7 +226,7 @@ export default {
                 this.fetchNow();
             }
         },
-        toggleParams(reset=false) {
+        toggleParams(reset = false) {
             if (reset) {
                 this.paramsIndex = 0;
             } else {
@@ -252,5 +247,7 @@ export default {
 };
 </script>
 
-<style scoped lang="scss">
-</style>
+<style
+    scoped
+    lang="scss"
+></style>

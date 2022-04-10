@@ -1,32 +1,32 @@
 <template>
-  <div class="container text-left">
-    <h4 class="text-center title">
-      Edit {{ name }}
-    </h4>
-    <div>
-      <Codemirror
-        :value="job.fileContent"
-        data-cy="editor"
-        :options="editorOptions"
-        @input="onCodeChange"
-      />
+    <div class="container text-left">
+        <h4 class="text-center title">Edit {{ name }}</h4>
+        <div>
+            <Codemirror
+                :value="job.fileContent"
+                data-cy="editor"
+                :options="editorOptions"
+                @input="onCodeChange"
+            />
+        </div>
+        <div class="divider" />
+        <div class="text-right">
+            <a
+                data-cy="save-button"
+                href="#"
+                class="btn btn-primary"
+                @click.prevent="save"
+                >Save</a
+            >
+            <a
+                data-cy="save-and-close-button"
+                href="#"
+                class="btn btn-primary"
+                @click.prevent="saveAndClose"
+                >Save & Close</a
+            >
+        </div>
     </div>
-    <div class="divider" />
-    <div class="text-right">
-      <a
-        data-cy="save-button"
-        href="#"
-        class="btn btn-primary"
-        @click.prevent="save"
-      >Save</a>
-      <a
-        data-cy="save-and-close-button"
-        href="#"
-        class="btn btn-primary"
-        @click.prevent="saveAndClose"
-      >Save & Close</a>
-    </div>
-  </div>
 </template>
 
 <script>
@@ -45,7 +45,7 @@ export default {
             required: true,
         },
     },
-    data: function() {
+    data: function () {
         return {
             job: {
                 fileContent: "",
@@ -101,19 +101,22 @@ export default {
 };
 </script>
 
-<style lang="scss" scoped>
+<style
+    lang="scss"
+    scoped
+>
 @import "@/assets/colors.scss";
 
 .form-input {
-  width: 30%;
+    width: 30%;
 }
 .title {
-  margin-top: 1em;
+    margin-top: 1em;
 }
 .btn {
-  margin: 1em;
+    margin: 1em;
 }
 .extra-wide-modal {
-  max-width: 960px;
+    max-width: 960px;
 }
 </style>

@@ -23,7 +23,7 @@
 //
 // -- This will overwrite an existing command --
 // Cypress.Commands.overwrite("visit", (originalFn, url, options) => { ... })
-Cypress.Commands.add("login", (password="admin")=>{
+Cypress.Commands.add("login", (password = "admin") => {
     cy.get("input#password").type(password);
     cy.get("form").submit();
     // FF: Allow browser to login

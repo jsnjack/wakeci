@@ -1,83 +1,83 @@
 <template>
-  <tr :data-cy="job.name">
-    <td>
-      <div>{{ job.name }}</div>
-      <small>{{ job.desc }}</small>
-    </td>
-    <td class="hide-sm">
-      {{ job.interval }}
-    </td>
-    <td class="hide-sm">
-      <label class="form-switch">
-        <input
-          v-model="isActive"
-          type="checkbox"
-          @click.prevent="toggleIsActive"
-        >
-        <i class="form-icon" />
-      </label>
-    </td>
-    <td class="actions">
-      <RunJobButton
-        v-show="isActive"
-        :params="job.defaultParams"
-        :button-title="'Start'"
-        :job-name="job.name"
-        class="item-action"
-        data-cy="start-job-button"
-      />
-      <router-link
-        :to="{ name: 'jobEdit', params: { name: job.name}}"
-        class="btn btn-primary item-action"
-        data-cy="edit-job-button"
-      >
-        Edit
-      </router-link>
-      <a
-        data-cy="delete-job-button"
-        href="#"
-        class="btn btn-error item-action"
-        @click.prevent="toggleModalDelete"
-      >Delete</a>
-
-      <div
-        class="modal"
-        :class="{active: modalDelete}"
-      >
-        <a
-          href="#"
-          class="modal-overlay"
-          aria-label="Close"
-          @click.prevent="toggleModalDelete"
-        />
-        <div class="modal-container">
-          <div class="modal-header">
-            <a
-              href="#"
-              class="btn btn-clear float-right"
-              aria-label="Close"
-              @click.prevent="toggleModalDelete"
+    <tr :data-cy="job.name">
+        <td>
+            <div>{{ job.name }}</div>
+            <small>{{ job.desc }}</small>
+        </td>
+        <td class="hide-sm">
+            {{ job.interval }}
+        </td>
+        <td class="hide-sm">
+            <label class="form-switch">
+                <input
+                    v-model="isActive"
+                    type="checkbox"
+                    @click.prevent="toggleIsActive"
+                />
+                <i class="form-icon" />
+            </label>
+        </td>
+        <td class="actions">
+            <RunJobButton
+                v-show="isActive"
+                :params="job.defaultParams"
+                :button-title="'Start'"
+                :job-name="job.name"
+                class="item-action"
+                data-cy="start-job-button"
             />
-            <div class="modal-title text-uppercase">
-              Delete
-            </div>
-          </div>
-          <div class="modal-body">
-            Confirm to delete
-            <b>{{ job.name }}</b>
-          </div>
-          <div class="modal-footer">
+            <router-link
+                :to="{ name: 'jobEdit', params: { name: job.name } }"
+                class="btn btn-primary item-action"
+                data-cy="edit-job-button"
+            >
+                Edit
+            </router-link>
             <a
-              data-cy="delete-job-confirm"
-              href="#"
-              class="btn btn-error float-right"
-              @click.prevent="deleteJob"
-            >Delete</a>
-          </div>
-        </div>
-      </div>
-    </td>
-  </tr>
+                data-cy="delete-job-button"
+                href="#"
+                class="btn btn-error item-action"
+                @click.prevent="toggleModalDelete"
+                >Delete</a
+            >
+
+            <div
+                class="modal"
+                :class="{ active: modalDelete }"
+            >
+                <a
+                    href="#"
+                    class="modal-overlay"
+                    aria-label="Close"
+                    @click.prevent="toggleModalDelete"
+                />
+                <div class="modal-container">
+                    <div class="modal-header">
+                        <a
+                            href="#"
+                            class="btn btn-clear float-right"
+                            aria-label="Close"
+                            @click.prevent="toggleModalDelete"
+                        />
+                        <div class="modal-title text-uppercase">Delete</div>
+                    </div>
+                    <div class="modal-body">
+                        Confirm to delete
+                        <b>{{ job.name }}</b>
+                    </div>
+                    <div class="modal-footer">
+                        <a
+                            data-cy="delete-job-confirm"
+                            href="#"
+                            class="btn btn-error float-right"
+                            @click.prevent="deleteJob"
+                            >Delete</a
+                        >
+                    </div>
+                </div>
+            </div>
+        </td>
+    </tr>
 </template>
 
 <script>
@@ -85,14 +85,14 @@ import axios from "axios";
 import RunJobButton from "@/components/RunJobButton.vue";
 
 export default {
-    components: {RunJobButton},
+    components: { RunJobButton },
     props: {
         job: {
             type: Object,
             required: true,
         },
     },
-    data: function() {
+    data: function () {
         return {
             modalDelete: false,
             isActive: this.job.active === "true",
@@ -125,9 +125,7 @@ export default {
                 .post(url, data)
                 .then((response) => {
                     this.$notify({
-                        text:
-              `Job ${this.job.name} is ` +
-              (response.data ? "enabled" : "disabled"),
+                        text: `Job ${this.job.name} is ` + (response.data ? "enabled" : "disabled"),
                         type: "success",
                     });
                     this.isActive = response.data;
@@ -139,8 +137,11 @@ export default {
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped lang="scss">
+<style
+    scoped
+    lang="scss"
+>
 .item-action {
-  margin: 0.25em;
+    margin: 0.25em;
 }
 </style>

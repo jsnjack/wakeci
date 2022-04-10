@@ -1,18 +1,27 @@
 {
     "eslint.validate": [
-        "javascriptreact",
         "vue",
         "javascript",
     ],
     "editor.detectIndentation": false,
     "go.autocompleteUnimportedPackages": true,
+    "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
         "source.fixAll.eslint": true
     },
-    "eslint.workingDirectories": ["src/frontend/"],
+    "eslint.workingDirectories": [
+        "src/frontend/"
+    ],
     "gopls": {
-        "buildFlags": ["-tags=wireinject"],
+        "buildFlags": [
+            "-tags=wireinject"
+        ],
         "experimentalWorkspaceModule": true
     },
-    "vetur.validation.template": false
+    "[vue]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[javascript]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
 }

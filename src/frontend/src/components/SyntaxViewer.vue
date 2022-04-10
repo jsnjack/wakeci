@@ -1,13 +1,13 @@
 <template>
-  <div class="content">
-    <h5>Job syntax</h5>
-    <Codemirror
-      :ref="'codeViewer'"
-      :value="configFormatContent"
-      class="codemirror-viewer text-left"
-      :options="viewerOptions"
-    />
-  </div>
+    <div class="content">
+        <h5>Job syntax</h5>
+        <Codemirror
+            :ref="'codeViewer'"
+            :value="configFormatContent"
+            class="codemirror-viewer text-left"
+            :options="viewerOptions"
+        />
+    </div>
 </template>
 
 <script>
@@ -20,7 +20,7 @@ export default {
     components: {
         Codemirror,
     },
-    data: function() {
+    data: function () {
         return {
             viewerOptions: {
                 tabSize: 2,

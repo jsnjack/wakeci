@@ -1,67 +1,66 @@
 <template>
-  <tr :data-cy-build="build.id">
-    <td>
-      <router-link :to="{ name: 'build', params: { id: build.id}}">
-        {{ build.id }}
-      </router-link>
-    </td>
-    <td>
-      <div class="cell-name">
-        {{ build.name }}
-      </div>
-    </td>
-    <td class="hide-xs hide-sm">
-      <div
-        v-show="build.params"
-        class="label param tooltip"
-        :data-tooltip="getParamsTooltip"
-        data-cy="params-text"
-      >
-        {{ getParamsText }}
-      </div>
-    </td>
-    <td
-      class="hide-xs hide-sm hide-md"
-    >
-      <BuildProgress
-        v-if="!build.eta"
-        :done="getDoneTasks"
-        :total="getTotalTasks"
-      />
-      <BuildProgressETA
-        v-if="build.eta"
-        :eta="build.eta"
-        :started-at="build.startedAt"
-        :build-duration="build.duration"
-      />
-    </td>
-    <td>
-      <BuildStatus :status="build.status" />
-    </td>
-    <td class="hide-xs">
-      <DurationElement
-        v-show="build.status !== 'pending'"
-        :item="build"
-        :use-global-duration-mode-state="true"
-      />
-    </td>
-    <td class="actions">
-      <router-link
-        :to="{ name: 'build', params: { id: build.id}}"
-        class="btn btn-primary item-action"
-        data-cy="open-build-button"
-      >
-        Open
-      </router-link>
-      <a
-        v-if="!isDone"
-        :href="getAbortURL"
-        class="btn btn-error item-action"
-        data-cy="abort-build-button"
-        @click.prevent="abort"
-      >Abort</a>
-    </td>
-  </tr>
+    <tr :data-cy-build="build.id">
+        <td>
+            <router-link :to="{ name: 'build', params: { id: build.id } }">
+                {{ build.id }}
+            </router-link>
+        </td>
+        <td>
+            <div class="cell-name">
+                {{ build.name }}
+            </div>
+        </td>
+        <td class="hide-xs hide-sm">
+            <div
+                v-show="build.params"
+                class="label param tooltip"
+                :data-tooltip="getParamsTooltip"
+                data-cy="params-text"
+            >
+                {{ getParamsText }}
+            </div>
+        </td>
+        <td class="hide-xs hide-sm hide-md">
+            <BuildProgress
+                v-if="!build.eta"
+                :done="getDoneTasks"
+                :total="getTotalTasks"
+            />
+            <BuildProgressETA
+                v-if="build.eta"
+                :eta="build.eta"
+                :started-at="build.startedAt"
+                :build-duration="build.duration"
+            />
+        </td>
+        <td>
+            <BuildStatus :status="build.status" />
+        </td>
+        <td class="hide-xs">
+            <DurationElement
+                v-show="build.status !== 'pending'"
+                :item="build"
+                :use-global-duration-mode-state="true"
+            />
+        </td>
+        <td class="actions">
+            <router-link
+                :to="{ name: 'build', params: { id: build.id } }"
+                class="btn btn-primary item-action"
+                data-cy="open-build-button"
+            >
+                Open
+            </router-link>
+            <a
+                v-if="!isDone"
+                :href="getAbortURL"
+                class="btn btn-error item-action"
+                data-cy="abort-build-button"
+                @click.prevent="abort"
+                >Abort</a
+            >
+        </td>
+    </tr>
 </template>
 
 <script>
@@ -72,7 +71,7 @@ import DurationElement from "@/components/DurationElement.vue";
 import axios from "axios";
 
 export default {
-    components: {BuildStatus, BuildProgress, BuildProgressETA, DurationElement},
+    components: { BuildStatus, BuildProgress, BuildProgressETA, DurationElement },
     props: {
         build: {
             type: Object,
@@ -97,16 +96,16 @@ export default {
         getTotalTasks() {
             return this.getMainTasks.length;
         },
-        getAbortURL: function() {
+        getAbortURL: function () {
             return `/api/build/${this.build.id}/abort`;
         },
         isDone() {
             switch (this.build.status) {
-            case "failed":
-            case "finished":
-            case "aborted":
-            case "timed out":
-                return true;
+                case "failed":
+                case "finished":
+                case "aborted":
+                case "timed out":
+                    return true;
             }
             return false;
         },
@@ -122,9 +121,7 @@ export default {
         },
         getParamsTooltip() {
             if (this.build.params) {
-                return this.build.params
-                    .map((v) => v[Object.keys(v)[0]])
-                    .join("\n");
+                return this.build.params.map((v) => v[Object.keys(v)[0]]).join("\n");
             }
             return "";
         },
@@ -134,10 +131,7 @@ export default {
             axios
                 .post(event.target.href)
                 .then((response) => {
-                    this.$notify({
-                        text: `${this.build.id} has been aborted`,
-                        type: "success",
-                    });
+                    this.$notify({ text: `${this.build.id} has been aborted`, type: "success" });
                 })
                 .catch((error) => {});
         },
@@ -146,24 +140,27 @@ export default {
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped lang="scss">
+<style
+    scoped
+    lang="scss"
+>
 .item-action {
-  margin: 0.25em;
+    margin: 0.25em;
 }
 .param {
-  margin: 0.25em;
+    margin: 0.25em;
 }
-.param:hover{
+.param:hover {
     cursor: default;
 }
-.cell-name{
+.cell-name {
     max-width: 20ch;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 @media (max-width: 480px) {
-    .cell-name{
+    .cell-name {
         max-width: 15ch;
     }
 }

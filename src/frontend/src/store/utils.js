@@ -1,5 +1,5 @@
 export function findInContainer(container, key, value) {
-    for (let i=0; i<container.length; i++) {
+    for (let i = 0; i < container.length; i++) {
         if (container[i][key] === value) {
             return [container[i], i];
         }
@@ -17,11 +17,10 @@ export function isFilteredUpdate(ev, filter) {
     return info.indexOf(filter) === -1;
 }
 
-
 export function humanFileSize(size) {
     if (isNaN(parseInt(size, 10))) {
         return "";
     }
-    const i = size === 0 ? 0 : Math.floor( Math.log(size) / Math.log(1024) );
-    return ( size / Math.pow(1024, i) ).toFixed(2) * 1 + " " + ["B", "kB", "MB", "GB", "TB"][i];
-};
+    const i = size === 0 ? 0 : Math.floor(Math.log(size) / Math.log(1024));
+    return (size / Math.pow(1024, i)).toFixed(2) * 1 + " " + ["B", "kB", "MB", "GB", "TB"][i];
+}

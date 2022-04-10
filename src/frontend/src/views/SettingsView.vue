@@ -1,73 +1,74 @@
 <template>
-  <div class="container grid-sm">
-    <form
-      class="card"
-      method="post"
-      @submit.prevent="save"
-    >
-      <div class="card-header">
-        <div class="card-title h5">
-          Settings
-        </div>
-      </div>
-      <div class="card-body text-left">
-        <div class="form-group">
-          <label
-            class="form-label"
-            for="password"
-          >Password</label>
-          <input
-            id="password"
-            v-model="password"
-            class="form-input"
-            type="password"
-          >
-        </div>
-        <div class="form-group">
-          <label
-            class="form-label"
-            for="concurrent-builds"
-          >Number of concurrent builds</label>
-          <input
-            id="concurrent-builds"
-            v-model="concurrentBuilds"
-            class="form-input"
-            type="number"
-            min="1"
-          >
-        </div>
-        <div class="form-group">
-          <label
-            class="form-label"
-            for="build-history-size"
-          >Number of builds to preserve</label>
-          <input
-            id="build-history-size"
-            v-model="buildHistorySize"
-            class="form-input"
-            type="number"
-            min="1"
-          >
-        </div>
-      </div>
-      <div class="card-footer">
-        <button
-          data-cy="save-settings"
-          type="submit"
-          class="btn btn-primary"
+    <div class="container grid-sm">
+        <form
+            class="card"
+            method="post"
+            @submit.prevent="save"
         >
-          Save
-        </button>
-      </div>
-    </form>
-  </div>
+            <div class="card-header">
+                <div class="card-title h5">Settings</div>
+            </div>
+            <div class="card-body text-left">
+                <div class="form-group">
+                    <label
+                        class="form-label"
+                        for="password"
+                        >Password</label
+                    >
+                    <input
+                        id="password"
+                        v-model="password"
+                        class="form-input"
+                        type="password"
+                    />
+                </div>
+                <div class="form-group">
+                    <label
+                        class="form-label"
+                        for="concurrent-builds"
+                        >Number of concurrent builds</label
+                    >
+                    <input
+                        id="concurrent-builds"
+                        v-model="concurrentBuilds"
+                        class="form-input"
+                        type="number"
+                        min="1"
+                    />
+                </div>
+                <div class="form-group">
+                    <label
+                        class="form-label"
+                        for="build-history-size"
+                        >Number of builds to preserve</label
+                    >
+                    <input
+                        id="build-history-size"
+                        v-model="buildHistorySize"
+                        class="form-input"
+                        type="number"
+                        min="1"
+                    />
+                </div>
+            </div>
+            <div class="card-footer">
+                <button
+                    data-cy="save-settings"
+                    type="submit"
+                    class="btn btn-primary"
+                >
+                    Save
+                </button>
+            </div>
+        </form>
+    </div>
 </template>
 
 <script>
 import axios from "axios";
 
 export default {
-    data: function() {
+    data: function () {
         return {
             password: "",
             concurrentBuilds: 2,
@@ -99,7 +100,8 @@ export default {
                 .catch((error) => {});
         },
         fetch() {
-            axios.get("/api/settings")
+            axios
+                .get("/api/settings")
                 .then((response) => {
                     if (response.data.concurrentBuilds) {
                         this.concurrentBuilds = response.data.concurrentBuilds;
@@ -115,8 +117,11 @@ export default {
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped lang="scss">
+<style
+    scoped
+    lang="scss"
+>
 .card {
-  margin-top: 1em;
+    margin-top: 1em;
 }
 </style>

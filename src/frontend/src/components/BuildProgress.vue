@@ -1,14 +1,14 @@
 <template>
-  <div
-    class="tooltip tooltip-bottom"
-    :data-tooltip="getProgressTooltip()"
-  >
-    <progress
-      class="progress"
-      :value="done"
-      :max="total"
-    />
-  </div>
+    <div
+        class="tooltip tooltip-bottom"
+        :data-tooltip="getProgressTooltip()"
+    >
+        <progress
+            class="progress"
+            :value="done"
+            :max="total"
+        />
+    </div>
 </template>
 
 <script>
@@ -34,5 +34,7 @@ export default {
 };
 </script>
 
-<style scoped lang="scss">
-</style>
+<style
+    scoped
+    lang="scss"
+></style>

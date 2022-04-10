@@ -1,22 +1,19 @@
 <template>
-  <span
-    class="label tooltip tooltip-bottom c-hand"
-    :data-tooltip="tooltipText"
-    data-cy="duration"
-    @click.prevent="toggleDurationMode"
-  >{{ durationText }}</span>
+    <span
+        class="label tooltip tooltip-bottom c-hand"
+        :data-tooltip="tooltipText"
+        data-cy="duration"
+        @click.prevent="toggleDurationMode"
+        >{{ durationText }}</span
+    >
 </template>
 
 <script>
-import {
-    runningDuration,
-    doneDuration,
-    updateDurationPeriod,
-    toggleDurationMode,
-} from "@/duration";
+import { runningDuration, doneDuration, updateDurationPeriod, toggleDurationMode } from "@/duration";
 import vuex from "vuex";
-import TimeAgo from 'javascript-time-ago';
-import en from 'javascript-time-ago/locale/en.json';
+import TimeAgo from "javascript-time-ago";
+
+import en from "javascript-time-ago/locale/en.json";
 
 TimeAgo.addDefaultLocale(en);
 const ago = new TimeAgo("en-US");
@@ -33,7 +30,7 @@ export default {
             default: false,
         },
     },
-    data: function() {
+    data: function () {
         return {
             updateInterval: null,
             durationText: "",
@@ -44,11 +41,11 @@ export default {
         ...vuex.mapState(["durationMode"]),
         isDone() {
             switch (this.item.status) {
-            case "failed":
-            case "finished":
-            case "aborted":
-            case "timed out":
-                return true;
+                case "failed":
+                case "finished":
+                case "aborted":
+                case "timed out":
+                    return true;
             }
             return false;
         },
@@ -65,12 +62,12 @@ export default {
     watch: {
         "item.status": "onStatusChange",
         "item.duration": "onStatusChange",
-        "mode": "onStatusChange",
+        mode: "onStatusChange",
     },
     mounted() {
         this.onStatusChange();
     },
-    beforeUnmount: function() {
+    beforeUnmount: function () {
         clearInterval(this.updateInterval);
     },
     methods: {
@@ -82,36 +79,36 @@ export default {
             }
             if (this.item.status === "running") {
                 switch (this.mode) {
-                case "duration":
-                    this.durationText = runningDuration(this.item.startedAt);
-                    return;
-                case "started at":
-                    this.durationText = new Date(this.item.startedAt).toLocaleString();
-                    return;
-                case "started":
-                    this.durationText = ago.format(new Date(this.item.startedAt));
-                    return;
-                default:
-                    console.log(`Unknown durationMode ${this.mode}`);
-                    this.toggleDurationMode();
-                    return;
+                    case "duration":
+                        this.durationText = runningDuration(this.item.startedAt);
+                        return;
+                    case "started at":
+                        this.durationText = new Date(this.item.startedAt).toLocaleString();
+                        return;
+                    case "started":
+                        this.durationText = ago.format(new Date(this.item.startedAt));
+                        return;
+                    default:
+                        console.log(`Unknown durationMode ${this.mode}`);
+                        this.toggleDurationMode();
+                        return;
                 }
             }
             if (this.item.duration > 0) {
                 switch (this.mode) {
-                case "duration":
-                    this.durationText = doneDuration(this.item.duration);
-                    return;
-                case "started at":
-                    this.durationText = new Date(this.item.startedAt).toLocaleString();
-                    return;
-                case "started":
-                    this.durationText = ago.format(new Date(this.item.startedAt));
-                    return;
-                default:
-                    console.log(`Unknown durationMode ${this.mode}`);
-                    this.toggleDurationMode();
-                    return;
+                    case "duration":
+                        this.durationText = doneDuration(this.item.duration);
+                        return;
+                    case "started at":
+                        this.durationText = new Date(this.item.startedAt).toLocaleString();
+                        return;
+                    case "started":
+                        this.durationText = ago.format(new Date(this.item.startedAt));
+                        return;
+                    default:
+                        console.log(`Unknown durationMode ${this.mode}`);
+                        this.toggleDurationMode();
+                        return;
                 }
             }
             return "";
@@ -121,10 +118,10 @@ export default {
                 clearInterval(this.updateInterval);
             } else if ((this.item.status === "running" || this.mode === "started") && !this.updateInterval) {
                 this.updateInterval = setInterval(
-                    function() {
+                    function () {
                         this.updateText();
                     }.bind(this),
-                    updateDurationPeriod,
+                    updateDurationPeriod
                 );
             }
             this.updateText();
@@ -140,5 +137,7 @@ export default {
 };
 </script>
 
-<style scoped lang="scss">
-</style>
+<style
+    scoped
+    lang="scss"
+></style>

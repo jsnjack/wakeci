@@ -1,20 +1,18 @@
 <template>
-  <div
-    class="tooltip tooltip-bottom"
-    :data-tooltip="getProgressTooltip()"
-  >
-    <progress
-      class="progress"
-      :value="donePercent"
-      max="100"
-    />
-  </div>
+    <div
+        class="tooltip tooltip-bottom"
+        :data-tooltip="getProgressTooltip()"
+    >
+        <progress
+            class="progress"
+            :value="donePercent"
+            max="100"
+        />
+    </div>
 </template>
 
 <script>
-import {
-    doneDurationSec,
-} from "@/duration";
+import { doneDurationSec } from "@/duration";
 
 export default {
     props: {
@@ -31,7 +29,7 @@ export default {
             required: true,
         },
     },
-    data: function() {
+    data: function () {
         return {
             donePercent: 0,
             updateInterval: null,
@@ -39,28 +37,28 @@ export default {
         };
     },
     watch: {
-        "startedAt": "onUpdate",
-        "buildDuration": "onDone",
+        startedAt: "onUpdate",
+        buildDuration: "onDone",
     },
     mounted() {
-        this.etaInSec = Math.round(this.eta / 10**9);
+        this.etaInSec = Math.round(this.eta / 10 ** 9);
         const numberOfDataPoints = 200;
-        let refreshPeriod = this.etaInSec / numberOfDataPoints * 1000;
+        let refreshPeriod = (this.etaInSec / numberOfDataPoints) * 1000;
         if (refreshPeriod < 1000) {
             refreshPeriod = 1000;
         }
         if (!this.updateInterval) {
             this.updateInterval = setInterval(
-                function() {
+                function () {
                     this.onUpdate();
                 }.bind(this),
-                refreshPeriod,
+                refreshPeriod
             );
         }
         this.onUpdate();
         this.onDone();
     },
-    beforeUnmount: function() {
+    beforeUnmount: function () {
         clearInterval(this.updateInterval);
     },
     methods: {
@@ -70,7 +68,7 @@ export default {
                 return;
             }
             const duration = (new Date().getTime() - new Date(this.startedAt).getTime()) / 1000;
-            let p = duration / this.etaInSec * 100;
+            let p = (duration / this.etaInSec) * 100;
             if (p > 99) {
                 p = 99;
                 clearInterval(this.updateInterval);
@@ -104,5 +102,7 @@ export default {
 };
 </script>
 
-<style scoped lang="scss">
-</style>
+<style
+    scoped
+    lang="scss"
+></style>

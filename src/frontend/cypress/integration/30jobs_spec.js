@@ -1,5 +1,5 @@
-describe("Jobs page", function() {
-    it("should create a new job", function() {
+describe("Jobs page", function () {
+    it("should create a new job", function () {
         cy.visit("/jobs");
         cy.login();
         cy.get("[data-cy=create-job]").click();
@@ -16,7 +16,7 @@ describe("Jobs page", function() {
         cy.get(".notification-content").should("contain", "Job with this name already exists");
     });
 
-    it("should delete a job", function() {
+    it("should delete a job", function () {
         cy.visit("/jobs");
         cy.login();
         cy.get("[data-cy=create-job]").click();
@@ -31,7 +31,7 @@ describe("Jobs page", function() {
         cy.get(`tr[data-cy=${jobName}]`).should("not.exist");
     });
 
-    it("should edit a job", function() {
+    it("should edit a job", function () {
         cy.visit("/jobs");
         cy.login();
         cy.get("[data-cy=create-job]").click();
@@ -53,7 +53,7 @@ describe("Jobs page", function() {
         cy.get(`tr[data-cy=${jobName}]`).should("contain", "Empty job");
     });
 
-    it("should start a job", function() {
+    it("should start a job", function () {
         cy.visit("/jobs");
         cy.login();
         cy.get("[data-cy=create-job]").click();
@@ -70,7 +70,7 @@ describe("Jobs page", function() {
         cy.get("body").should("contain", jobName);
     });
 
-    it("should edit a job and navigate", function() {
+    it("should edit a job and navigate", function () {
         cy.visit("/jobs");
         cy.login();
         cy.get("[data-cy=create-job]").click();
@@ -85,5 +85,4 @@ describe("Jobs page", function() {
         cy.get("[data-cy=save-and-close-button]").click();
         cy.location("pathname").should("eq", "/jobs");
     });
-})
-;
+});

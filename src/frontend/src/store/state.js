@@ -1,6 +1,6 @@
 const state = {
     ws: {
-        obj: {sendMessage: function() {}},
+        obj: { sendMessage: function () {} },
         connected: false,
         reconnectTimeout: 1000, // ms
         buffer: [],

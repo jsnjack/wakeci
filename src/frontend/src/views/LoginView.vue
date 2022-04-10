@@ -1,37 +1,35 @@
 <template>
-  <div
-    class="container grid-xs"
-    :class="{'loading loading-lg': fetching}"
-  >
-    <form
-      v-show="!fetching"
-      class="card"
-      method="post"
-      @submit.prevent="logIn"
+    <div
+        class="container grid-xs"
+        :class="{ 'loading loading-lg': fetching }"
     >
-      <div class="card-header">
-        <div class="card-title h5">
-          Password
-        </div>
-      </div>
-      <div class="card-body">
-        <input
-          id="password"
-          v-model="password"
-          class="form-input text-center"
-          type="password"
+        <form
+            v-show="!fetching"
+            class="card"
+            method="post"
+            @submit.prevent="logIn"
         >
-      </div>
-      <div class="card-footer">
-        <button
-          type="submit"
-          class="btn btn-primary"
-        >
-          Log in
-        </button>
-      </div>
-    </form>
-  </div>
+            <div class="card-header">
+                <div class="card-title h5">Password</div>
+            </div>
+            <div class="card-body">
+                <input
+                    id="password"
+                    v-model="password"
+                    class="form-input text-center"
+                    type="password"
+                />
+            </div>
+            <div class="card-footer">
+                <button
+                    type="submit"
+                    class="btn btn-primary"
+                >
+                    Log in
+                </button>
+            </div>
+        </form>
+    </div>
 </template>
 
 <script>
@@ -39,7 +37,7 @@ import axios from "axios";
 import vuex from "vuex";
 
 export default {
-    data: function() {
+    data: function () {
         return {
             fetching: true,
             password: "",
@@ -47,7 +45,7 @@ export default {
     },
     computed: {
         ...vuex.mapState(["auth"]),
-        getRedirectURL: function() {
+        getRedirectURL: function () {
             return this.$route.query.redirect || "/";
         },
     },
@@ -90,9 +88,12 @@ export default {
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped lang="scss">
+<style
+    scoped
+    lang="scss"
+>
 .card {
-  margin-top: 1em;
+    margin-top: 1em;
 }
 .loading {
     min-height: 80vh;

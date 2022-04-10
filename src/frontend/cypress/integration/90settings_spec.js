@@ -1,5 +1,5 @@
-describe("Settings page", function() {
-    it("should modify settings", function() {
+describe("Settings page", function () {
+    it("should modify settings", function () {
         cy.visit("/settings");
         cy.login();
         cy.location("pathname").should("eq", "/settings");
@@ -29,5 +29,4 @@ describe("Settings page", function() {
 
         cy.get("[data-cy=save-settings]").click();
     });
-})
-;
+});

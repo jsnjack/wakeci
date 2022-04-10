@@ -1,5 +1,5 @@
-describe("Feed page", function() {
-    it("should open Feed page", function() {
+describe("Feed page", function () {
+    it("should open Feed page", function () {
         cy.visit("/");
         cy.login();
         cy.get("a[href='/']").should("contain", "Feed");
@@ -7,7 +7,7 @@ describe("Feed page", function() {
         cy.get("a[href='/settings']").should("contain", "Settings");
     });
 
-    it("should filter jobs", function() {
+    it("should filter jobs", function () {
         cy.visit("/");
         const jobName = "myjob" + new Date().getTime();
         cy.request({
@@ -18,7 +18,7 @@ describe("Feed page", function() {
                 pass: "admin",
             },
             body: {
-                "name": jobName,
+                name: jobName,
             },
             form: true,
         });
@@ -41,7 +41,7 @@ describe("Feed page", function() {
         cy.get("[data-cy=filtered-updates]").should("not.be.visible");
     });
 
-    it("should hide updates when filter is active", function() {
+    it("should hide updates when filter is active", function () {
         cy.visit("/");
         const jobName = "myjob" + new Date().getTime();
         cy.request({
@@ -52,7 +52,7 @@ describe("Feed page", function() {
                 pass: "admin",
             },
             body: {
-                "name": jobName,
+                name: jobName,
             },
             form: true,
         });
@@ -65,7 +65,7 @@ describe("Feed page", function() {
                 pass: "admin",
             },
             body: {
-                "name": filteredJobName,
+                name: filteredJobName,
             },
             form: true,
         });
@@ -107,7 +107,7 @@ describe("Feed page", function() {
         cy.get("[data-cy=filtered-updates]").should("be.visible");
     });
 
-    it("should filter jobs with params", function() {
+    it("should filter jobs with params", function () {
         cy.visit("/");
         const jobName = "myjob" + new Date().getTime();
         cy.request({
@@ -118,7 +118,7 @@ describe("Feed page", function() {
                 pass: "admin",
             },
             body: {
-                "name": jobName,
+                name: jobName,
             },
             form: true,
         });
@@ -139,7 +139,7 @@ run: env
                 pass: "admin",
             },
             body: {
-                "fileContent": jobContent,
+                fileContent: jobContent,
             },
             form: true,
         });
@@ -159,7 +159,7 @@ run: env
         cy.get("[data-cy=feed-tbody]").should("be.visible").should("have.length", 1);
     });
 
-    it("should toggle params", function() {
+    it("should toggle params", function () {
         // Create job
         const jobName = "myjob" + new Date().getTime();
         cy.request({
@@ -170,7 +170,7 @@ run: env
                 pass: "admin",
             },
             body: {
-                "name": jobName,
+                name: jobName,
             },
             form: true,
         });
@@ -193,7 +193,7 @@ run: env
                 pass: "admin",
             },
             body: {
-                "fileContent": jobContent,
+                fileContent: jobContent,
             },
             form: true,
         });
@@ -213,23 +213,25 @@ run: env
         cy.visit("/");
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
-            // Default value
-            cy.get("[data-cy=params-text]").should("contain", "pruzhany");
-            // Next value
-            cy.get("[data-cy=params-index-button]").click();
-            cy.get("[data-cy=params-text]").should("contain", "minsk");
-            // Clear, back to the default one
-            cy.get("[data-cy=params-index-button-clean]").click();
-            cy.get("[data-cy=params-text]").should("contain", "pruzhany");
-            // Default value again (when not enough params)
-            cy.get("[data-cy=params-index-button]").click();
-            cy.get("[data-cy=params-index-button]").click();
-            cy.get("[data-cy=params-text]").should("contain", "pruzhany");
-        });
+        cy.get("tr")
+            .invoke("attr", "data-cy-build")
+            .then((val) => {
+                // Default value
+                cy.get("[data-cy=params-text]").should("contain", "pruzhany");
+                // Next value
+                cy.get("[data-cy=params-index-button]").click();
+                cy.get("[data-cy=params-text]").should("contain", "minsk");
+                // Clear, back to the default one
+                cy.get("[data-cy=params-index-button-clean]").click();
+                cy.get("[data-cy=params-text]").should("contain", "pruzhany");
+                // Default value again (when not enough params)
+                cy.get("[data-cy=params-index-button]").click();
+                cy.get("[data-cy=params-index-button]").click();
+                cy.get("[data-cy=params-text]").should("contain", "pruzhany");
+            });
     });
 
-    it("should toggle duration", function() {
+    it("should toggle duration", function () {
         // Create job
         const jobName = "myjob" + new Date().getTime();
         cy.request({
@@ -240,7 +242,7 @@ run: env
                 pass: "admin",
             },
             body: {
-                "name": jobName,
+                name: jobName,
             },
             form: true,
         });
@@ -260,7 +262,7 @@ run: env
                 pass: "admin",
             },
             body: {
-                "fileContent": jobContent,
+                fileContent: jobContent,
             },
             form: true,
         });
@@ -280,15 +282,21 @@ run: env
         cy.visit("/");
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("tr").invoke("attr", "data-cy-build").then((val) => {
-            cy.get("[data-cy=duration]").should("contain", "sec").
-                click().should("contain", "just now").
-                click().should("contain", ":").
-                click().should("contain", "sec");
-        });
+        cy.get("tr")
+            .invoke("attr", "data-cy-build")
+            .then((val) => {
+                cy.get("[data-cy=duration]")
+                    .should("contain", "sec")
+                    .click()
+                    .should("contain", "just now")
+                    .click()
+                    .should("contain", ":")
+                    .click()
+                    .should("contain", "sec");
+            });
     });
 
-    it("should preserve duration after reload", function() {
+    it("should preserve duration after reload", function () {
         // Create job
         const jobName = "myjob" + new Date().getTime();
         cy.request({
@@ -299,7 +307,7 @@ run: env
                 pass: "admin",
             },
             body: {
-                "name": jobName,
+                name: jobName,
             },
             form: true,
         });
@@ -319,7 +327,7 @@ run: env
                 pass: "admin",
             },
             body: {
-                "fileContent": jobContent,
+                fileContent: jobContent,
             },
             form: true,
         });
@@ -344,5 +352,4 @@ run: env
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("[data-cy=duration]").should("contain", "just now").click().click().should("contain", "sec");
     });
-})
-;
+});
