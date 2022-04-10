@@ -5,7 +5,7 @@
     </h4>
     <div>
       <Codemirror
-        v-model="job.fileContent"
+        :value="job.fileContent"
         data-cy="editor"
         :options="editorOptions"
         @input="onCodeChange"

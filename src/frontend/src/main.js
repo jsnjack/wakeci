@@ -1,14 +1,11 @@
-import Vue from "vue";
+import {createApp} from "vue";
 import App from "./App.vue";
 import router from "./router";
-import store from "./store/index";
+import {store} from "./store/index";
 import Notifications from "@kyvg/vue3-notification";
+import {notify} from "@kyvg/vue3-notification";
 import axios from "axios";
-import {createApp} from "vue";
 import mitt from "mitt";
-
-Vue.config.productionTip = false;
-Vue.configureCompat({WATCH_ARRAY: false});
 
 const emitter = mitt();
 
@@ -26,13 +23,13 @@ axios.interceptors.response.use(function(response) {
 }, function(error) {
     // Exclude special request to check if user is logged in
     if (error.request.responseURL.indexOf("/_isLoggedIn") === -1) {
-        app.prototype.$notify({
+        notify({
             text: error.response && error.response.data || error,
             type: "error",
         });
         if (error.response.status === 403) {
-            app.prototype.$store.commit("LOG_OUT");
-            app.prototype.$router.push("/login");
+            store.commit("LOG_OUT");
+            router.push("/login");
         }
     }
     return Promise.reject(error);

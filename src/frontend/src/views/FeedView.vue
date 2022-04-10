@@ -212,11 +212,7 @@ export default {
         applyUpdate(ev, fromFetch=false) {
             const index = findInContainer(this.builds, "id", ev.id)[1];
             if (index !== undefined) {
-                this.$set(
-                    this.builds,
-                    index,
-                    Object.assign({}, this.builds[index], ev),
-                );
+                this.builds[index] = ev;
             } else {
                 if (!fromFetch) {
                     if (isFilteredUpdate(ev, this.filter)) {

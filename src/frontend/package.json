@@ -13,9 +13,8 @@
   },
   "dependencies": {
     "@kyvg/vue3-notification": "^2.3.4",
-    "@vue/compat": "^3.2.26",
     "axios": "^0.21.4",
-    "codemirror-editor-vue3": "^1.0.1",
+    "codemirror-editor-vue3": "^2.0.6",
     "lodash": "^4.17.21",
     "mitt": "^3.0.0",
     "raw-loader": "^4.0.2",

@@ -3,7 +3,7 @@
     <h5>Job syntax</h5>
     <Codemirror
       :ref="'codeViewer'"
-      v-model="configFormatContent"
+      :value="configFormatContent"
       class="codemirror-viewer text-left"
       :options="viewerOptions"
     />
