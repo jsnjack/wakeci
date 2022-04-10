@@ -5,7 +5,7 @@
 </template>
 
 <script>
-import SyntaxViewer from "@/components/SyntaxViewer";
+import SyntaxViewer from "@/components/SyntaxViewer.vue";
 
 export default {
     components: {

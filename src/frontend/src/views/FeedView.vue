@@ -93,10 +93,10 @@
 </template>
 
 <script>
-import FeedItem from "@/components/FeedItem";
+import FeedItem from "@/components/FeedItem.vue";
 import vuex from "vuex";
 import axios from "axios";
-import {findInContainer, isFilteredUpdate} from "@/store/utils";
+import {findInContainer, isFilteredUpdate} from "@/store/utils.js";
 import _ from "lodash";
 
 const FetchItemsSize = 10;

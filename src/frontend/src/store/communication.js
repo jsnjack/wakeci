@@ -24,7 +24,7 @@ export const getWSURL = function() {
         protocol = "ws://";
     }
 
-    if (process.env.NODE_ENV === "production") {
+    if (import.meta.env.NODE_ENV === "production") {
         hostname = location.host;
     } else {
         hostname = "localhost:8081";

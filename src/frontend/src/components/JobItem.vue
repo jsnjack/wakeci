@@ -82,7 +82,7 @@
 
 <script>
 import axios from "axios";
-import RunJobButton from "@/components/RunJobButton";
+import RunJobButton from "@/components/RunJobButton.vue";
 
 export default {
     components: {RunJobButton},

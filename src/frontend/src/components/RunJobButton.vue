@@ -60,7 +60,7 @@
 </template>
 
 <script>
-import RunFormItem from "@/components/RunFormItem";
+import RunFormItem from "@/components/RunFormItem.vue";
 import axios from "axios";
 
 export default {

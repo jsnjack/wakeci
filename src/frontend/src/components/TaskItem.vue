@@ -74,9 +74,9 @@
 </template>
 
 <script>
-import BuildStatus from "@/components/BuildStatus";
-import TextSpinner from "@/components/TextSpinner";
-import DurationElement from "@/components/DurationElement";
+import BuildStatus from "@/components/BuildStatus.vue";
+import TextSpinner from "@/components/TextSpinner.vue";
+import DurationElement from "@/components/DurationElement.vue";
 import axios from "axios";
 
 const FlushContentPeriod = 500;

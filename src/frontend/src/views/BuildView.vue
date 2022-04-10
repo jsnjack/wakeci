@@ -79,14 +79,14 @@
 <script>
 import vuex from "vuex";
 import axios from "axios";
-import BuildStatus from "@/components/BuildStatus";
-import DurationElement from "@/components/DurationElement";
-import ParamItem from "@/components/ParamItem";
-import BuildProgress from "@/components/BuildProgress";
-import BuildProgressETA from "@/components/BuildProgressETA";
-import RunJobButton from "@/components/RunJobButton";
-import TaskItem from "@/components/TaskItem";
-import ArtifactItem from "@/components/ArtifactItem";
+import BuildStatus from "@/components/BuildStatus.vue";
+import DurationElement from "@/components/DurationElement.vue";
+import ParamItem from "@/components/ParamItem.vue";
+import BuildProgress from "@/components/BuildProgress.vue";
+import BuildProgressETA from "@/components/BuildProgressETA.vue";
+import RunJobButton from "@/components/RunJobButton.vue";
+import TaskItem from "@/components/TaskItem.vue";
+import ArtifactItem from "@/components/ArtifactItem.vue";
 
 export default {
     components: {

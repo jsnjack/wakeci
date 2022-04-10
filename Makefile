@@ -11,7 +11,7 @@ else
 	$(info "Install monova (https://github.com/jsnjack/monova) to calculate version")
 endif
 
-export VUE_APP_VERSION = ${VERSION}-${VUE_VERSION_SUFFIX}
+export VITE_VERSION = ${VERSION}-${VUE_VERSION_SUFFIX}
 
 .ONESHELL:
 src/backend/wakeci: version src/backend/*.go

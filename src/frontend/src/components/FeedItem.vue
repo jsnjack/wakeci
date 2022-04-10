@@ -65,10 +65,10 @@
 </template>
 
 <script>
-import BuildStatus from "@/components/BuildStatus";
-import BuildProgress from "@/components/BuildProgress";
-import BuildProgressETA from "@/components/BuildProgressETA";
-import DurationElement from "@/components/DurationElement";
+import BuildStatus from "@/components/BuildStatus.vue";
+import BuildProgress from "@/components/BuildProgress.vue";
+import BuildProgressETA from "@/components/BuildProgressETA.vue";
+import DurationElement from "@/components/DurationElement.vue";
 import axios from "axios";
 
 export default {

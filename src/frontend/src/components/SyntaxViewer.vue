@@ -14,7 +14,7 @@
 import Codemirror from "codemirror-editor-vue3";
 import "codemirror/lib/codemirror.css";
 import "codemirror/mode/yaml/yaml.js";
-import description from "raw-loader!@/assets/configDescription.yaml";
+import description from "@/assets/configDescription.yaml?raw";
 
 export default {
     components: {

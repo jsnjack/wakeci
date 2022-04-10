@@ -4,7 +4,7 @@ module.exports = {
     root: true,
     parser: "vue-eslint-parser",
     env: {
-        browser: true,
+        es2021: true,
     },
     extends: [
     // https://github.com/vuejs/eslint-plugin-vue#priority-a-essential-error-prevention
@@ -23,7 +23,7 @@ module.exports = {
         "quotes": ["error", "double"],
         "max-len": ["error", 140],
         // allow debugger during development
-        "no-debugger": process.env.NODE_ENV === "production" ? "error" : "off",
+        "no-debugger": import.meta.env.NODE_ENV === "production" ? "error" : "off",
         "require-jsdoc": "off",
         "indent": ["error", 4],
         "vue/html-self-closing": "off",

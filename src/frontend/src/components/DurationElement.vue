@@ -15,9 +15,11 @@ import {
     toggleDurationMode,
 } from "@/duration";
 import vuex from "vuex";
+import TimeAgo from 'javascript-time-ago';
+import en from 'javascript-time-ago/locale/en.json';
 
-const ago = require("s-ago");
-
+TimeAgo.addDefaultLocale(en);
+const ago = new TimeAgo("en-US");
 
 export default {
     props: {
@@ -87,7 +89,7 @@ export default {
                     this.durationText = new Date(this.item.startedAt).toLocaleString();
                     return;
                 case "started":
-                    this.durationText = ago(new Date(this.item.startedAt));
+                    this.durationText = ago.format(new Date(this.item.startedAt));
                     return;
                 default:
                     console.log(`Unknown durationMode ${this.mode}`);
@@ -104,7 +106,7 @@ export default {
                     this.durationText = new Date(this.item.startedAt).toLocaleString();
                     return;
                 case "started":
-                    this.durationText = ago(new Date(this.item.startedAt));
+                    this.durationText = ago.format(new Date(this.item.startedAt));
                     return;
                 default:
                     console.log(`Unknown durationMode ${this.mode}`);

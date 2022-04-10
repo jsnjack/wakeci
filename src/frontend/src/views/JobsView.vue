@@ -101,7 +101,7 @@
 </template>
 
 <script>
-import JobItem from "@/components/JobItem";
+import JobItem from "@/components/JobItem.vue";
 import axios from "axios";
 
 export default {
