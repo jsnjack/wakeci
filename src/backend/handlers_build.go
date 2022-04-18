@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -10,7 +11,47 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	bolt "go.etcd.io/bbolt"
+	"gopkg.in/yaml.v2"
 )
+
+// getBuildConfig returns job instance of already executed build
+func getBuildConfig(buildID int) (*Job, error) {
+	// Collect tasks info by reconstructing job object
+	buildConfigDir := Config.WorkDir + "wakespace/" + strconv.Itoa(buildID)
+	newConfigFilename := buildConfigDir + "/build_plan" + Config.jobsExt
+	oldConfigFilename := buildConfigDir + "/build" + Config.jobsExt
+
+	job := &Job{}
+
+	// Check if a config file with new format exists
+	_, err := os.Stat(newConfigFilename)
+	if os.IsNotExist(err) {
+		// Check if a config file with old format exists
+		_, err = os.Stat(oldConfigFilename)
+		if os.IsNotExist(err) {
+			return nil, err
+		}
+
+		job, err = CreateJobFromFile(oldConfigFilename)
+		if err != nil {
+			return nil, err
+		}
+	} else if err != nil {
+		// Config file with new format might existsm but an error occured
+		return nil, err
+	} else {
+		// Config file with new forma exists
+		data, err := ioutil.ReadFile(newConfigFilename)
+		if err != nil {
+			return nil, err
+		}
+		err = yaml.Unmarshal(data, job)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return job, nil
+}
 
 // HandleGetBuild Returns information required to bootstrap build page
 // @Summary      Return status of the build
@@ -36,16 +77,8 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(err.Error()))
 		return
 	}
-	// Collect tasks info by reconstructing job object
-	buildConfigFilename := Config.WorkDir + "wakespace/" + strconv.Itoa(buildID) + "/build" + Config.jobsExt
-	if _, err := os.Stat(buildConfigFilename); os.IsNotExist(err) {
-		logger.Println(err)
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(err.Error()))
-		return
-	}
 
-	job, err := CreateJobFromFile(buildConfigFilename)
+	job, err := getBuildConfig(buildID)
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)

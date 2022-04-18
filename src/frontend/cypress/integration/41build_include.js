@@ -28,7 +28,7 @@ describe("Build page - Include", function () {
         });
 
         const jobContent = `
-desc: Env test
+desc: Include test
 tasks:
   - name: Check parameters
     run: uname -a
@@ -65,6 +65,8 @@ tasks:
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
+        // Reset include file content
+        cy.writeFile(filePath, "");
         cy.get("tr")
             .invoke("attr", "data-cy-build")
             .then((val) => {
@@ -108,7 +110,7 @@ tasks:
         });
 
         const jobContent = `
-desc: Env test
+desc: Include test
 tasks:
   - name: Check parameters
     run: uname -a
@@ -190,7 +192,7 @@ tasks:
         });
 
         const jobContent = `
-desc: Env test
+desc: Include test
 tasks:
   - name: Check parameters
     run: uname -a
@@ -268,7 +270,7 @@ tasks:
         });
 
         const jobContent = `
-desc: Env test
+desc: Include test
 params:
   - NAME: joe
 tasks:
@@ -341,7 +343,7 @@ tasks:
         });
 
         const jobContent = `
-desc: Env test
+desc: Include test
 params:
   - NAME: tim
 tasks:

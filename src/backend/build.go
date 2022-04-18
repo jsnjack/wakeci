@@ -17,6 +17,7 @@ import (
 
 	"github.com/bmatcuk/doublestar"
 	"github.com/sasha-s/go-deadlock"
+	"gopkg.in/yaml.v2"
 
 	"github.com/jsnjack/cmd"
 	bolt "go.etcd.io/bbolt"
@@ -457,7 +458,7 @@ func (b *Build) GetArtifactsDir() string {
 
 // GetBuildConfigFilename returns build config filename (copy of the original job file)
 func (b *Build) GetBuildConfigFilename() string {
-	return b.GetWakespaceDir() + "build" + Config.jobsExt
+	return b.GetWakespaceDir() + "build_plan" + Config.jobsExt
 }
 
 // GetTasksStatus list of tasks with their status
@@ -596,8 +597,7 @@ func CreateBuild(job *Job, jobPath string) (*Build, error) {
 		return nil, err
 	}
 
-	// Copy job config
-	input, err := ioutil.ReadFile(jobPath)
+	input, err := yaml.Marshal(build.Job)
 	if err != nil {
 		build.Logger.Println(err)
 		return nil, err
