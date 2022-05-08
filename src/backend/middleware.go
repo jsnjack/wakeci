@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
@@ -87,6 +88,10 @@ func StorageSecurityMi(next http.Handler) http.Handler {
 		w.Header().Set("x-content-type-options", "nosniff")
 		if Config.Hostname != "" {
 			w.Header().Set("strict-transport-security", "max-age=15768000;includeSubdomains")
+		}
+		// Force content-type on .log requests to prevent browsers from downloading it
+		if strings.HasSuffix(r.URL.Path, ".log") {
+			w.Header().Set("content-type", "text/plain")
 		}
 		next.ServeHTTP(w, r)
 	})
