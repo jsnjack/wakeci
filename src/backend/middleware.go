@@ -119,6 +119,7 @@ func AuthMi(next http.Handler) http.Handler {
 			if err != nil {
 				logger.Println(err)
 				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("Another triumph"))
 				return
 			}
 
@@ -126,6 +127,7 @@ func AuthMi(next http.Handler) http.Handler {
 			if err != nil {
 				logger.Println(err)
 				w.WriteHeader(http.StatusForbidden)
+				w.Write([]byte("Forbidden"))
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -137,12 +139,14 @@ func AuthMi(next http.Handler) http.Handler {
 		if err != nil {
 			logger.Println(err)
 			w.WriteHeader(http.StatusForbidden)
+			w.Write([]byte("Forbidden"))
 			return
 		}
 		err = GlobalSessionStorage.Verify(sessionToken.Value)
 		if err != nil {
 			logger.Println(err)
 			w.WriteHeader(http.StatusForbidden)
+			w.Write([]byte("Forbidden"))
 			return
 		}
 		next.ServeHTTP(w, r)
