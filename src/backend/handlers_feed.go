@@ -18,7 +18,7 @@ import (
 // @Tags         feed
 // @Produce      json
 // @Param        offset   query      integer   false  "Skip `offset` latest builds"
-// @Param        filter   query      string    false  "Returns only builds which ID, name, params or status contains provided string"
+// @Param        filter   query      string    false  "Returns only builds which ID, name, params or status contains any of the space-separated words. Requires presence of the prefixed with `+` words. Requires absence of the prefixed with `-` words. Phrases can be wrapped in single or double quotes"
 // @Success      200      {array}    BuildUpdateData
 // @Failure      400      {string}   string
 // @Failure      500      {string}   string
