@@ -267,3 +267,92 @@ func TestCreateFilterRequest_Include4(t *testing.T) {
 		return
 	}
 }
+
+func TestCreateFilterRequest_Empty1(t *testing.T) {
+	input := ""
+	result := CreateFilterRequest(input)
+	if result != nil {
+		t.Errorf("Expected nil, got %s", result)
+		return
+	}
+}
+
+func TestCreateFilterRequest_Empty2(t *testing.T) {
+	input := " "
+	result := CreateFilterRequest(input)
+	if result != nil {
+		t.Errorf("Expected nil, got %s", result)
+		return
+	}
+}
+
+func TestCreateFilterRequest_Empty3(t *testing.T) {
+	input := " \n\t"
+	result := CreateFilterRequest(input)
+	if result != nil {
+		t.Errorf("Expected nil, got %s", result)
+		return
+	}
+}
+
+func TestMatchesFilter_1(t *testing.T) {
+	input := "123 hello zorro pruzhany"
+	result := matchesFilter(input, nil)
+	if !result {
+		t.Errorf("Expected to match")
+	}
+}
+
+func TestMatchesFilter_2(t *testing.T) {
+	input := "123 hello zorro pruzhany"
+	filter := FilterRequest{ContainsAny: []string{"hello"}}
+	result := matchesFilter(input, &filter)
+	if !result {
+		t.Errorf("Expected to match")
+	}
+}
+
+func TestMatchesFilter_3(t *testing.T) {
+	input := "123 hello zorro pruzhany"
+	filter := FilterRequest{ContainsAny: []string{"zorro", "hello", "bingo"}}
+	result := matchesFilter(input, &filter)
+	if !result {
+		t.Errorf("Expected to match")
+	}
+}
+
+func TestMatchesFilter_4(t *testing.T) {
+	input := "123 hello zorro pruzhany"
+	filter := FilterRequest{MustInclude: []string{"hello"}}
+	result := matchesFilter(input, &filter)
+	if !result {
+		t.Errorf("Expected to match")
+	}
+}
+
+func TestMatchesFilter_5(t *testing.T) {
+	input := "123 hello zorro pruzhany"
+	filter := FilterRequest{MustInclude: []string{"zombie"}}
+	result := matchesFilter(input, &filter)
+	if result {
+		t.Errorf("Expected to not match")
+	}
+}
+
+func TestMatchesFilter_6(t *testing.T) {
+	input := "123 hello zorro pruzhany"
+	filter := FilterRequest{MustInclude: []string{"123"}, MustExclude: []string{"zorro"}}
+	result := matchesFilter(input, &filter)
+	if result {
+		t.Errorf("Expected to not match")
+	}
+}
+
+func TestMatchesFilter_7(t *testing.T) {
+	input := "1293 @myjob1652038289063 finished"
+	filter := FilterRequest{ContainsAny: []string{"joe"}}
+	result := matchesFilter(input, &filter)
+	if result {
+		t.Errorf("Expected to not match")
+	}
+}

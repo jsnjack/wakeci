@@ -12,6 +12,9 @@ type FilterRequest struct {
 
 // CreateFilterRequest parses query and returns FilterRequest object
 func CreateFilterRequest(query string) *FilterRequest {
+	if strings.Trim(query, " \n\t") == "" {
+		return nil
+	}
 	data := SplitFilterQuery(query)
 	result := FilterRequest{}
 	for _, el := range data {
@@ -61,4 +64,31 @@ func unquote(query string) string {
 		return query[1 : len(query)-1]
 	}
 	return query
+}
+
+func matchesFilter(s string, filter *FilterRequest) bool {
+	if filter == nil {
+		return true
+	}
+
+	for _, item := range filter.MustInclude {
+		if !strings.Contains(s, item) {
+			return false
+		}
+	}
+	for _, item := range filter.MustExclude {
+		if strings.Contains(s, item) {
+			return false
+		}
+	}
+
+	// If the are no ContainsAny filters, match string
+	contains := len(filter.ContainsAny) == 0
+	for _, item := range filter.ContainsAny {
+		if strings.Contains(s, item) {
+			contains = true
+			break
+		}
+	}
+	return contains
 }
