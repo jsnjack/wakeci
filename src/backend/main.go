@@ -47,7 +47,7 @@ var Assets embed.FS
 //go:embed docs/swagger.json
 var APIDocs embed.FS
 
-func init() {
+func initApp() {
 	Logger = log.New(os.Stdout, "", log.Lmicroseconds|log.Lshortfile)
 
 	configFlag := flag.String("config", "Wakefile.yaml", "Configuration file location")
@@ -65,6 +65,7 @@ func init() {
 
 // @BasePath /api
 func main() {
+	initApp()
 	var err error
 	err = os.MkdirAll(Config.WorkDir, os.ModePerm)
 	if err != nil {
