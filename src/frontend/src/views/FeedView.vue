@@ -22,12 +22,12 @@
                         />
                     </button>
                     <a
-                        class="btn dropdown-toggle"
+                        class="btn dropdown-toggle hide-xs hide-sm"
                         tabindex="0"
                     >
                         <i class="icon icon-caret" />
                     </a>
-                    <ul class="menu">
+                    <ul class="menu hide-xs hide-sm">
                         <li class="menu-item">
                             <a
                                 href="#"
