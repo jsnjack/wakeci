@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -51,7 +50,7 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 		offset = 1
 	}
 
-	filter := r.URL.Query().Get("filter")
+	filter := CreateFilterRequest(r.URL.Query().Get("filter"))
 
 	var payload []*BuildUpdateData
 	err = DB.Update(func(tx *bolt.Tx) error {
@@ -65,7 +64,7 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 		}
 		// Find starting point
 		fromB := make([]byte, 8)
-		if filter == "" {
+		if filter == nil {
 			binary.BigEndian.PutUint64(fromB, binary.BigEndian.Uint64(lastK)-uint64(offset))
 		} else {
 			// If interval is specified, always iterate from the beginning to take
@@ -89,8 +88,8 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 						b.Put(Itob(msg.ID), updatedB)
 					}
 				}
-				if filter != "" {
-					if strings.Contains(fmt.Sprintf("%v %v %v %v", msg.ID, msg.Name, msg.Status, msg.Params), filter) {
+				if filter != nil {
+					if matchesFilter(fmt.Sprintf("%v %s %s %s", msg.ID, msg.Name, msg.Status, msg.Params), filter) {
 						count++
 						if count <= offset {
 							continue
