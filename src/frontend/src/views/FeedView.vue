@@ -9,16 +9,35 @@
                 data-cy="filter"
                 @input="(evt) => (filter = evt.target.value)"
             />
-            <button
-                class="btn btn-action"
-                :class="{ loading: isFetching }"
-                @click.prevent="clearFilter"
-            >
-                <i
-                    class="icon"
-                    :class="filterIconType"
-                />
-            </button>
+            <div class="dropdown dropdown-right text-left">
+                <div class="btn-group">
+                    <button
+                        class="btn btn-action"
+                        :class="{ loading: isFetching }"
+                        @click.prevent="clearFilter"
+                    >
+                        <i
+                            class="icon"
+                            :class="filterIconType"
+                        />
+                    </button>
+                    <a
+                        class="btn dropdown-toggle"
+                        tabindex="0"
+                    >
+                        <i class="icon icon-caret" />
+                    </a>
+                    <ul class="menu">
+                        <li class="menu-item">
+                            <a
+                                href="#"
+                                @click.prevent="toggleAdvancedSyntaxModal"
+                                >View search syntax</a
+                            >
+                        </li>
+                    </ul>
+                </div>
+            </div>
         </div>
         <div class="clearfix" />
         <span
@@ -85,6 +104,43 @@
             more...
         </button>
     </div>
+    <div
+        class="modal"
+        :class="{ active: showAdvancedSyntaxModal }"
+    >
+        <a
+            href="#"
+            class="modal-overlay"
+            aria-label="Close"
+            @click.prevent="toggleAdvancedSyntaxModal"
+        ></a>
+        <div class="modal-container">
+            <div class="modal-header">
+                <a
+                    href="#"
+                    class="btn btn-clear float-right"
+                    aria-label="Close"
+                    @click.prevent="toggleAdvancedSyntaxModal"
+                ></a>
+                <div class="modal-title h5">Search syntax</div>
+            </div>
+            <div class="modal-body">
+                <div class="content text-left">
+                    <ul>
+                        <li>
+                            Returns only builds which <span class="text-italic">ID</span>, <span class="text-italic">name</span>,
+                            <span class="text-italic">params</span> or <span class="text-italic">status</span> contains <span class="text-bold">any</span> of
+                            the space-separated words
+                        </li>
+                        <li>Requires presence of the prefixed with <code>+</code> words</li>
+                        <li>Requires absence of the prefixed with <code>-</code> words</li>
+                        <li>Phrases can be wrapped in single or double quotes</li>
+                    </ul>
+                    <span> Example: <code>aborted "timed out" -yesterday +'cpu info'</code></span>
+                </div>
+            </div>
+        </div>
+    </div>
 </template>
 
 <script>
@@ -108,6 +164,7 @@ export default {
             moreEnabled: true, // if makes sense to load more builds from the server
             paramsIndex: 0, // Params index to display on the feed page
             filteredUpdates: 0, // When `filter` is active, updates which do not much are counted here
+            showAdvancedSyntaxModal: false,
         };
     },
     computed: {
@@ -242,6 +299,9 @@ export default {
         },
         toggleDurationMode() {
             this.$store.commit("TOGGLE_DURATION_MODE");
+        },
+        toggleAdvancedSyntaxModal() {
+            this.showAdvancedSyntaxModal = !this.showAdvancedSyntaxModal;
         },
     },
 };
