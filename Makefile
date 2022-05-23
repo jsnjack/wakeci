@@ -35,10 +35,13 @@ runb: src/backend/wakeci
 	cd src/backend
 	ls *.go | entr -sr "cd ../../ && make src/backend/wakeci && ./src/backend/wakeci"
 
-testprod:
+test_go:
+	cd src/backend && go test
+
+testprod: test_go
 	cd src/frontend && npm run test:prod
 
-testdev:
+testdev: test_go
 	cd src/frontend && npm run test:dev
 
 buildf:
@@ -64,4 +67,4 @@ viewdb:
 	cp wakeci.db view.db
 	bolter -f view.db
 
-.PHONY: runb runf version clean clean_jobs
+.PHONY: runb runf version clean clean_jobs testprod testdev test_go
