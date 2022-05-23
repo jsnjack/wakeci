@@ -85,15 +85,15 @@ See full description [here](https://github.com/jsnjack/wakeci/blob/master/API.md
 
 ### Development
 
-Requires golang 1.16+
+Requires golang 1.18+
 
-#### How to install golang 1.16+
+#### How to install golang 1.18+
 
 ```bash
-go get golang.org/dl/go1.16.2
-/home/$USER/go/bin/go1.16.2 download
+go get golang.org/dl/go1.18.2
+/home/$USER/go/bin/go1.18.2 download
 # Manage different versions with `alternatives`
-sudo alternatives --install /usr/bin/go go /home/$USERNAME/go/bin/go1.16.2 10
+sudo alternatives --install /usr/bin/go go /home/$USERNAME/go/bin/go1.18.2 10
 # Switch between different go versions
 sudo alternatives --config go
 ```
