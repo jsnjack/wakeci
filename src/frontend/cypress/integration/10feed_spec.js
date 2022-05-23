@@ -355,7 +355,7 @@ run: env
 
     it("should preserve filter after reload", function () {
         cy.visit("/");
-        const jobName = "myjob" + new Date().getTime();
+        const jobName = "myjob " + new Date().getTime();
         cy.request({
             url: "/api/jobs/create",
             method: "POST",
@@ -379,7 +379,9 @@ run: env
             form: true,
         });
         cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=filter]")
+            .clear()
+            .type('"' + jobName + '"');
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
         cy.get("tr")
             .invoke("attr", "data-cy-build")
@@ -388,7 +390,7 @@ run: env
                 cy.url().should("include", "/build/" + val);
                 cy.go("back");
                 cy.get("[data-cy=open-build-button]").should("have.length", 1);
-                cy.get("[data-cy=filter]").should("have.value", jobName);
+                cy.get("[data-cy=filter]").should("have.value", '"' + jobName + '"');
             });
     });
 });

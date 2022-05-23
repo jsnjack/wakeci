@@ -211,7 +211,7 @@ export default {
             const param = new URLSearchParams(url.hash.substring(1, url.hash.length));
             for (const [key, value] of param) {
                 if (key === "filter") {
-                    this.filter = value;
+                    this.filter = decodeURIComponent(value);
                     break;
                 }
             }
