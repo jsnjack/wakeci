@@ -204,6 +204,19 @@ export default {
     },
     mounted() {
         document.title = "Feed - wakeci";
+
+        // Restore filter from URL in address bar
+        const url = new URL(window.location.href);
+        if (url.hash !== "") {
+            const param = new URLSearchParams(url.hash.substring(1, url.hash.length));
+            for (const [key, value] of param) {
+                if (key === "filter") {
+                    this.filter = value;
+                    break;
+                }
+            }
+        }
+
         this.fetchNow();
         this.subscribe();
         this.emitter.on(this.subscription, this.applyUpdate);
@@ -223,6 +236,16 @@ export default {
                 .get(`/api/feed?offset=${offset}&filter=${encodeURIComponent(this.filter)}`)
                 .then((response) => {
                     this.isFetching = false;
+
+                    // Put filter value in address bar to allow copying and link sharing
+                    const url = new URL(window.location.href);
+                    if (this.filter === "") {
+                        url.hash = "";
+                    } else {
+                        url.hash = `#filter=${encodeURIComponent(this.filter)}`;
+                    }
+                    this.$router.replace(url.toString());
+
                     const data = response.data || [];
                     data.forEach((element) => {
                         this.applyUpdate(element, true);
