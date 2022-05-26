@@ -1,21 +1,11 @@
 <template>
-    <section
-        v-show="isVisible"
-        :data-cy="getCyText"
-    >
-        <div
-            class="divider"
-            :data-content="getDividerText"
-        />
+    <section v-show="isVisible" :data-cy="getCyText">
+        <div class="divider" :data-content="getDividerText" />
         <div class="columns">
             <div class="column">
                 <div class="text-left">
                     <BuildStatus :status="task.status" />
-                    <span
-                        class="h5 task-name"
-                        @click="reloadLogs"
-                        >{{ name }}</span
-                    >
+                    <span class="h5 task-name" @click="reloadLogs">{{ name }}</span>
                     <DurationElement
                         v-show="task.status !== 'pending'"
                         :item="task"
@@ -26,62 +16,37 @@
             <div class="column text-right">
                 <div class="dropdown dropdown-right text-left">
                     <div class="btn-group">
-                        <button
-                            data-cy="reload"
-                            class="btn btn-sm btn-primary"
-                            @click="reloadLogs"
-                        >
+                        <button data-cy="reload" class="btn btn-sm btn-primary" @click="reloadLogs">
                             Reload
                         </button>
-                        <a
-                            class="btn btn-sm dropdown-toggle"
-                            tabindex="0"
-                        >
+                        <a class="btn btn-sm dropdown-toggle" tabindex="0">
                             <i class="icon icon-caret" />
                         </a>
                         <ul class="menu">
-                            <li
-                                class="divider"
-                                data-content="ACTIONS"
-                            />
+                            <li class="divider" data-content="ACTIONS" />
                             <li class="menu-item">
-                                <a
-                                    :href="getLogURL"
-                                    target="_blank"
-                                    >Open</a
-                                >
+                                <a :href="getLogURL" target="_blank">Open</a>
                             </li>
                             <li class="menu-item">
-                                <a
-                                    href="#"
-                                    @click="clearLogs"
-                                    >Hide</a
-                                >
+                                <a href="#" @click="clearLogs">Hide</a>
                             </li>
                         </ul>
                     </div>
                 </div>
             </div>
         </div>
-        <div
-            class="log-container text-left code status-border"
-            :class="getBorderClass"
-        >
-            <pre
-                v-if="content"
-                class="d-block log-line"
-                >{{ content }}</pre
-            >
+        <div class="log-container text-left code status-border" :class="getBorderClass">
+            <pre v-if="content" class="d-block log-line">{{ content }}</pre>
             <TextSpinner v-show="task.status === 'running'" />
         </div>
     </section>
 </template>
 
 <script>
-import BuildStatus from "@/components/BuildStatus.vue";
-import TextSpinner from "@/components/TextSpinner.vue";
-import DurationElement from "@/components/DurationElement.vue";
-import axios from "axios";
+import BuildStatus from '@/components/BuildStatus.vue';
+import TextSpinner from '@/components/TextSpinner.vue';
+import DurationElement from '@/components/DurationElement.vue';
+import axios from 'axios';
 
 const FlushContentPeriod = 500;
 
@@ -107,8 +72,8 @@ export default {
     },
     data: function () {
         return {
-            cachedContent: "",
-            content: "",
+            cachedContent: '',
+            content: '',
             flushInterval: null,
         };
     },
@@ -123,13 +88,13 @@ export default {
             // Show only "main" and "finally" tasks or tasks that were started. For example,
             // there is no need to show "finished" tasks if build failed because
             // they won't be executed anyway
-            if (this.task.kind === "main" || this.task.kind === "finally") {
+            if (this.task.kind === 'main' || this.task.kind === 'finally') {
                 return true;
             }
-            return !(this.task.startedAt && this.task.startedAt.indexOf("0001-") === 0);
+            return !(this.task.startedAt && this.task.startedAt.indexOf('0001-') === 0);
         },
         getBorderClass() {
-            return `border-${this.task.status}`.replaceAll(" ", "");
+            return `border-${this.task.status}`.replaceAll(' ', '');
         },
         getLogURL() {
             return `/storage/build/${this.buildID}/task_${this.task.id}.log`;
@@ -139,7 +104,7 @@ export default {
         },
     },
     watch: {
-        "task.status": "onStatusChange",
+        'task.status': 'onStatusChange',
     },
     mounted() {
         this.emitter.on(`build:log:${this.buildID}:task-${this.task.id}`, this.addLog);
@@ -165,8 +130,8 @@ export default {
                 .get(this.getLogURL)
                 .then((response) => {
                     this.$notify({
-                        text: "Log file has been reloaded",
-                        type: "success",
+                        text: 'Log file has been reloaded',
+                        type: 'success',
                         duration: 1000,
                     });
                     this.content = response.data;
@@ -179,7 +144,7 @@ export default {
                 .catch((error) => {});
         },
         reloadLogs() {
-            if (this.task.status === "running") {
+            if (this.task.status === 'running') {
                 this.flushLogs();
             } else {
                 this._reloadLogs();
@@ -193,7 +158,7 @@ export default {
         flushContent() {
             if (this.cachedContent.length > 0) {
                 this.content = this.content + this.cachedContent;
-                this.cachedContent = "";
+                this.cachedContent = '';
                 if (this.follow) {
                     this.$nextTick(() => {
                         this.$el.scrollIntoView(false);
@@ -202,16 +167,16 @@ export default {
             }
         },
         clearLogs() {
-            this.cachedContent = "";
-            this.content = "";
+            this.cachedContent = '';
+            this.content = '';
         },
         onStatusChange(value) {
-            if (value === "running") {
+            if (value === 'running') {
                 this.flushInterval = setInterval(
                     function () {
                         this.flushContent();
                     }.bind(this),
-                    FlushContentPeriod
+                    FlushContentPeriod,
                 );
             } else {
                 clearInterval(this.flushInterval);
@@ -221,63 +186,3 @@ export default {
     },
 };
 </script>
-
-<style lang="scss" scoped>
-@import "@/assets/colors.scss";
-
-.log-container {
-    background: $bg-color;
-    margin-left: 0.4em;
-    overflow: auto;
-    font-size: 90%;
-    pre {
-        padding-left: 1em;
-        margin: 0;
-    }
-}
-
-@media (max-width: 600px) {
-    .log-container {
-        font-size: 60%;
-    }
-}
-
-.log-line {
-    white-space: pre-wrap;
-    word-break: break-word;
-}
-
-section {
-    margin-top: 2em;
-    margin-bottom: 2em;
-}
-
-.status-border {
-    border-left: 0.25em solid;
-}
-
-.border-pending {
-    border-left-color: $gray-color;
-}
-.border-running {
-    border-left-color: $warning-color;
-}
-.border-aborted,
-.border-timedout {
-    border-left-color: $primary-color;
-}
-.border-failed {
-    border-left-color: $error-color;
-}
-.border-finished {
-    border-left-color: $success-color;
-}
-
-.border-skipped {
-    border-left-color: rgb(169, 207, 185);
-}
-
-.task-name {
-    cursor: pointer;
-}
-</style>

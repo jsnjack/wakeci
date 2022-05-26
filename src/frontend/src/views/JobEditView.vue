@@ -11,13 +11,7 @@
         </div>
         <div class="divider" />
         <div class="text-right">
-            <a
-                data-cy="save-button"
-                href="#"
-                class="btn btn-primary"
-                @click.prevent="save"
-                >Save</a
-            >
+            <a data-cy="save-button" href="#" class="btn btn-primary" @click.prevent="save">Save</a>
             <a
                 data-cy="save-and-close-button"
                 href="#"
@@ -30,11 +24,10 @@
 </template>
 
 <script>
-import axios from "axios";
-import Codemirror from "codemirror-editor-vue3";
-import "codemirror/lib/codemirror.css";
-import "codemirror/mode/yaml/yaml.js";
-
+import axios from 'axios';
+import Codemirror from 'codemirror-editor-vue3';
+import 'codemirror/lib/codemirror.css';
+import 'codemirror/mode/yaml/yaml.js';
 
 export default {
     components: {
@@ -49,11 +42,11 @@ export default {
     data: function () {
         return {
             job: {
-                fileContent: "",
+                fileContent: '',
             },
             editorOptions: {
                 tabSize: 2,
-                mode: "text/x-yaml",
+                mode: 'text/x-yaml',
                 lineNumbers: true,
                 line: true,
                 indentUnit: 2,
@@ -72,42 +65,40 @@ export default {
             axios
                 .get(`/api/job/${this.name}`)
                 .then((response) => {
-                    this.job.fileContent = response.data.fileContent || "";
+                    this.job.fileContent = response.data.fileContent || '';
                 })
                 .catch((error) => {});
         },
         save() {
             const data = new FormData();
-            data.append("name", this.job.name);
-            data.append("fileContent", this.job.fileContent);
+            data.append('name', this.job.name);
+            data.append('fileContent', this.job.fileContent);
             axios
                 .post(`/api/job/${this.name}`, data, {
                     headers: {
-                        "Content-type": "application/x-www-form-urlencoded",
+                        'Content-type': 'application/x-www-form-urlencoded',
                     },
                 })
                 .then((response) => {
                     this.$notify({
-                        text: "Saved",
-                        type: "success",
+                        text: 'Saved',
+                        type: 'success',
                     });
                 })
                 .catch((error) => {});
         },
         saveAndClose() {
             this.save();
-            this.$router.push("/jobs");
+            this.$router.push('/jobs');
         },
     },
 };
 </script>
 
-<style
-    lang="scss"
-    scoped
->
-@import "@/assets/colors.scss";
-
+<style lang="scss" scoped>
+.CodeMirror {
+    height: auto;
+}
 .form-input {
     width: 30%;
 }
