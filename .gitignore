@@ -4,3 +4,6 @@ example_cd/
 example_wd/
 workdir/
 *.mp4
+.vscode
+src/backend/docs/
+src/frontend/cypress/screenshots/*

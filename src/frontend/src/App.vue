@@ -58,7 +58,7 @@ export default {
     components: { DocsMenu },
     computed: {
         ...vuex.mapState(["ws", "auth", "durationMode"]),
-        getVesion: function () {
+        getVesion: function() {
             return import.meta.env.VITE_VERSION || "0.0.0";
         },
         getHeaderClass: function () {

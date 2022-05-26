@@ -35,6 +35,7 @@ import Codemirror from "codemirror-editor-vue3";
 import "codemirror/lib/codemirror.css";
 import "codemirror/mode/yaml/yaml.js";
 
+
 export default {
     components: {
         Codemirror,
