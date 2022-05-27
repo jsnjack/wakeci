@@ -1,31 +1,15 @@
 <template>
     <div id="app">
-        <Sidebar />
-        <main class="main-content">
-            <header class="navbar" :class="getHeaderClass" :data-hostname="getHostname">
-                <section class="navbar-section">
-                    <small class="text-gray">v {{ getVesion }}</small>
-                </section>
-                <section class="navbar-center">
-                    <router-link to="/" class="btn btn-link text-light"> Feed </router-link>
-                    <router-link to="/jobs" class="btn btn-link text-light"> Jobs </router-link>
-                    <router-link to="/settings" class="btn btn-link text-light">
-                        Settings
-                    </router-link>
-                </section>
-                <section class="navbar-section">
-                    <a
-                        data-cy="logout"
-                        href="#"
-                        class="btn btn-link text-light"
-                        @click.prevent="logOut"
-                        >Log out</a
-                    >
-                </section>
-            </header>
-            <router-view />
+        <Sidebar v-if="auth.isLoggedIn" :collapsed="toggleSidebar" />
+        <div class="content">
+            <AppBar v-if="auth.isLoggedIn" @menu-clicked="toggleSidebar = !toggleSidebar" />
+
+            <main class="main-content">
+                <router-view />
+            </main>
+
             <notifications classes="my-noty" position="bottom right" />
-        </main>
+        </div>
     </div>
 </template>
 
@@ -36,16 +20,20 @@ import { getWSURL } from '@/store/communication';
 import wsMessageHandler from './store/communication';
 
 import Sidebar from './components/ui/Sidebar.vue';
+import AppBar from './components/ui/AppBar.vue';
 
 export default {
     components: {
         Sidebar,
+        AppBar,
+    },
+    data() {
+        return {
+            toggleSidebar: false,
+        };
     },
     computed: {
         ...vuex.mapState(['ws', 'auth', 'durationMode']),
-        getVesion: function () {
-            return import.meta.env.VITE_VERSION || '0.0.0';
-        },
         getHeaderClass: function () {
             if (this.$store.state.ws.connected) {
                 return 'header-connected';
@@ -153,9 +141,12 @@ export default {
 @import '@/assets/wakeci.scss';
 
 #app {
-    @apply bg-gray-light dark:bg-secondary-dark flex flex-nowrap;
-    & .main-content {
+    @apply bg-gray-extra-light dark:bg-secondary-dark flex flex-nowrap;
+    & .content {
         @apply flex-1;
+    }
+    .main-content {
+        @apply p-6;
     }
 }
 
