@@ -1,33 +1,33 @@
-import { defineConfig } from "vite";
-import vue from "@vitejs/plugin-vue";
+import { defineConfig } from 'vite';
+import vue from '@vitejs/plugin-vue';
 
-const path = require("path");
+const path = require('path');
 
 // https://vitejs.dev/config/
 export default defineConfig({
     plugins: [vue()],
     resolve: {
         alias: {
-            "@": path.resolve(__dirname, "./src"),
+            '@': path.resolve(__dirname, './src'),
         },
     },
     server: {
         port: 8080,
         proxy: {
-            "/api": {
-                target: "http://localhost:8081/",
+            '/api': {
+                target: 'http://localhost:8081/',
                 changeOrigin: true,
             },
-            "/auth": {
-                target: "http://localhost:8081/",
+            '/auth': {
+                target: 'http://localhost:8081/',
                 changeOrigin: true,
             },
-            "/storage": {
-                target: "http://localhost:8081/",
+            '/storage': {
+                target: 'http://localhost:8081/',
                 changeOrigin: true,
             },
-            "/docs": {
-                target: "http://localhost:8081/",
+            '/docs': {
+                target: 'http://localhost:8081/',
                 changeOrigin: true,
             },
         },

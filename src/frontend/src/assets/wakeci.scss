@@ -7,11 +7,14 @@
   font-family: monospace;
 }
 .btn {
-    @apply px-2 py-1 rounded;
+    @apply px-2 py-1 rounded cursor-pointer;
     &.primary {
-        @apply bg-primary text-white;
+        @apply bg-primary text-white hover:bg-primary-dark;
     }
     &.small {
         @apply px-2 py-1 rounded;
+    }
+    &.secondary {
+        @apply bg-secondary text-white hover:bg-secondary-dark;
     }
 }

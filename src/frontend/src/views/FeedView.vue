@@ -1,5 +1,5 @@
 <template>
-    <div class="container grid-xl">
+    <div>
         <div class="input-group input-inline float-right py-1">
             <input
                 class="form-input"
@@ -9,92 +9,19 @@
                 data-cy="filter"
                 @input="(evt) => (filter = evt.target.value)"
             />
-            <div class="dropdown dropdown-right text-left">
-                <div class="btn-group">
-                    <button
-                        class="btn btn-action"
-                        :class="{ loading: isFetching }"
-                        @click.prevent="clearFilter"
-                    >
-                        <i
-                            class="icon"
-                            :class="filterIconType"
-                        />
-                    </button>
-                    <a
-                        class="btn dropdown-toggle hide-xs hide-sm"
-                        tabindex="0"
-                    >
-                        <i class="icon icon-caret" />
-                    </a>
-                    <ul class="menu hide-xs hide-sm">
-                        <li class="menu-item">
-                            <a
-                                href="#"
-                                @click.prevent="toggleAdvancedSyntaxModal"
-                                >View search syntax</a
-                            >
-                        </li>
-                    </ul>
-                </div>
-            </div>
+            <button
+                class="btn btn-action"
+                :class="{ loading: isFetching }"
+                @click.prevent="clearFilter"
+            >
+                <i class="icon" :class="filterIconType" />
+            </button>
         </div>
-        <div class="clearfix" />
-        <span
-            v-show="filteredUpdates !== 0"
-            class="label label-warning"
-            data-cy="filtered-updates"
-            >{{ filteredUpdates }} updates have been filtered</span
-        >
-        <table class="table table-striped">
-            <thead>
-                <th>#</th>
-                <th>Name</th>
-                <th class="hide-xs hide-sm">
-                    <span
-                        class="badge c-hand"
-                        :data-badge="paramsIndex || ''"
-                        data-cy="params-index-button"
-                        title="Toggle between different parameters"
-                        @click.prevent="toggleParams(false)"
-                    >
-                        Params
-                    </span>
-                    <i
-                        v-show="paramsIndex"
-                        class="icon icon-cross c-hand"
-                        data-cy="params-index-button-clean"
-                        @click.prevent="toggleParams(true)"
-                    />
-                </th>
-                <th class="hide-xs hide-sm hide-md">Tasks</th>
-                <th>Status</th>
-                <th class="hide-xs">
-                    <span
-                        class="text-capitalize badge c-hand"
-                        title="Toggle between different time modes"
-                        @click.prevent="toggleDurationMode()"
-                    >
-                        {{ durationMode }}
-                    </span>
-                </th>
-                <th>Actions</th>
-            </thead>
-            <tbody data-cy="feed-tbody">
-                <FeedItem
-                    v-for="item in sortedBuilds"
-                    :key="item.id"
-                    :build="item"
-                    :params-index="paramsIndex"
-                />
-            </tbody>
-        </table>
-        <div
-            v-show="Object.keys(builds).length === 0"
-            class="empty"
-        >
-            <p class="empty-title h5">Empty</p>
+
+        <div class="feed-items">
+            <FeedItem v-for="build in builds" :build="build" :key="build.id" />
         </div>
+
         <button
             v-show="moreEnabled"
             class="btn btn-link float-right"
@@ -104,63 +31,28 @@
             more...
         </button>
     </div>
-    <div
-        class="modal"
-        :class="{ active: showAdvancedSyntaxModal }"
-    >
-        <a
-            href="#"
-            class="modal-overlay"
-            aria-label="Close"
-            @click.prevent="toggleAdvancedSyntaxModal"
-        ></a>
-        <div class="modal-container">
-            <div class="modal-header">
-                <a
-                    href="#"
-                    class="btn btn-clear float-right"
-                    aria-label="Close"
-                    @click.prevent="toggleAdvancedSyntaxModal"
-                ></a>
-                <div class="modal-title h5">Search syntax</div>
-            </div>
-            <div class="modal-body">
-                <div class="content text-left">
-                    <ul>
-                        <li>
-                            Returns only builds which <span class="text-italic">ID</span>, <span class="text-italic">name</span>,
-                            <span class="text-italic">params</span> or <span class="text-italic">status</span> contains <span class="text-bold">any</span> of
-                            the space-separated words
-                        </li>
-                        <li>Requires presence of the prefixed with <code>+</code> words</li>
-                        <li>Requires absence of the prefixed with <code>-</code> words</li>
-                        <li>Phrases can be wrapped in single or double quotes</li>
-                    </ul>
-                    <span> Example: <code>aborted "timed out" -yesterday +'cpu info'</code></span>
-                </div>
-            </div>
-        </div>
-    </div>
 </template>
 
 <script>
-import FeedItem from "@/components/FeedItem.vue";
-import vuex from "vuex";
-import axios from "axios";
-import { findInContainer, isFilteredUpdate } from "@/store/utils.js";
-import _ from "lodash";
+import FeedItem from '@/components/FeedItem.vue';
+import vuex from 'vuex';
+import axios from 'axios';
+import { findInContainer, isFilteredUpdate } from '@/store/utils.js';
+import _ from 'lodash';
 
 const FetchItemsSize = 10;
 
 export default {
-    components: { FeedItem },
+    components: {
+        FeedItem,
+    },
     data: function () {
         return {
             builds: [],
-            subscription: "build:update:",
+            subscription: 'build:update:',
             isFetching: false, // request to the server is in progress
             filterIsDirty: false, // when user is still typing
-            filter: "", // sent to the server, to filter builds out
+            filter: '', // sent to the server, to filter builds out
             moreEnabled: true, // if makes sense to load more builds from the server
             paramsIndex: 0, // Params index to display on the feed page
             filteredUpdates: 0, // When `filter` is active, updates which do not much are counted here
@@ -168,7 +60,7 @@ export default {
         };
     },
     computed: {
-        ...vuex.mapState(["ws", "durationMode"]),
+        ...vuex.mapState(['ws', 'durationMode']),
         sortedBuilds: function () {
             return [...this.builds].sort((a, b) => {
                 if (a.id < b.id) {
@@ -182,15 +74,15 @@ export default {
         },
         filterIconType: function () {
             if (this.isFetching) {
-                return "";
+                return '';
             }
             if (this.filterIsDirty) {
-                return "icon-more-horiz";
+                return 'icon-more-horiz';
             }
-            if (this.filter === "") {
-                return "icon-search";
+            if (this.filter === '') {
+                return 'icon-search';
             }
-            return "icon-cross";
+            return 'icon-cross';
         },
     },
     watch: {
@@ -200,10 +92,10 @@ export default {
             this.builds = [];
             this.fetch();
         },
-        "ws.connected": "onWSChange",
+        'ws.connected': 'onWSChange',
     },
     mounted() {
-        document.title = "Feed - wakeci";
+        document.title = 'Feed - wakeci';
 
         // Restore filter from URL in address bar
         const url = new URL(window.location.href);
@@ -234,8 +126,13 @@ export default {
 
                     // Put filter value in address bar to allow copying and link sharing
                     const url = new URL(window.location.href);
+<<<<<<< HEAD
                     if (this.filter === "") {
                         url.searchParams.delete("filter");
+=======
+                    if (this.filter === '') {
+                        url.hash = '';
+>>>>>>> 2820fe0 (Add partial FeedItem new card)
                     } else {
                         const newSearch = url.searchParams;
                         newSearch.set("filter", encodeURIComponent(this.filter));
@@ -261,16 +158,16 @@ export default {
     },
     methods: {
         subscribe() {
-            this.$store.commit("WS_SEND", {
-                type: "in:subscribe",
+            this.$store.commit('WS_SEND', {
+                type: 'in:subscribe',
                 data: {
                     to: [this.subscription],
                 },
             });
         },
         unsubscribe() {
-            this.$store.commit("WS_SEND", {
-                type: "in:unsubscribe",
+            this.$store.commit('WS_SEND', {
+                type: 'in:unsubscribe',
                 data: {
                     to: [this.subscription],
                 },
@@ -282,7 +179,7 @@ export default {
             this.fetch.flush();
         },
         applyUpdate(ev, fromFetch = false) {
-            const index = findInContainer(this.builds, "id", ev.id)[1];
+            const index = findInContainer(this.builds, 'id', ev.id)[1];
             if (index !== undefined) {
                 this.builds[index] = ev;
             } else {
@@ -298,7 +195,7 @@ export default {
         },
         clearFilter() {
             if (!this.isFetching && !this.filterIsDirty) {
-                this.filter = "";
+                this.filter = '';
                 this.filteredUpdates = 0;
                 this.fetchNow();
             }
@@ -318,7 +215,7 @@ export default {
             }
         },
         toggleDurationMode() {
-            this.$store.commit("TOGGLE_DURATION_MODE");
+            this.$store.commit('TOGGLE_DURATION_MODE');
         },
         toggleAdvancedSyntaxModal() {
             this.showAdvancedSyntaxModal = !this.showAdvancedSyntaxModal;
@@ -327,4 +224,8 @@ export default {
 };
 </script>
 
-<style scoped lang="scss"></style>
+<style scoped lang="scss">
+.feed-items {
+    @apply flex flex-col gap-4 w-full;
+}
+</style>

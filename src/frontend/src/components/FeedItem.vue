@@ -1,9 +1,14 @@
 <template>
-    <tr :data-cy-build="build.id">
-        <td>
-            <router-link :to="{ name: 'build', params: { id: build.id } }">
-                {{ build.id }}
+    <Card>
+        <ProgressBar :type="buildStatus" :progress="getDoneTasks / getTotalTasks" />
+
+        <div class="feed-item-content">
+            <router-link class="feed-head" :to="{ name: 'build', params: { id: build.id } }">
+                <span># {{ build.id }}</span>
+                <span>{{ build.name }}</span>
+                <Badge :text="build.status" :type="buildStatus" />
             </router-link>
+<<<<<<< HEAD
         </td>
         <td>
             <div class="cell-name">
@@ -73,24 +78,27 @@
             </div>
         </td>
     </tr>
+=======
+
+            <p><b>Params:</b> {{ build.params }}</p>
+            <p><b>Tasks:</b> {{ getDoneTasks }}/{{ getTotalTasks }}</p>
+            <router-link :to="{ name: 'build', params: { id: build.id } }" class="btn btn-secondary small" data-cy="open-build-button"> Open </router-link>
+        </div>
+    </Card>
+>>>>>>> 2820fe0 (Add partial FeedItem new card)
 </template>
 
 <script>
-import BuildStatus from "@/components/BuildStatus.vue";
-import BuildProgress from "@/components/BuildProgress.vue";
-import BuildProgressETA from "@/components/BuildProgressETA.vue";
-import DurationElement from "@/components/DurationElement.vue";
 import axios from "axios";
+import Card from "./ui/Card.vue";
+import Badge from "./ui/Badge.vue";
+import ProgressBar from "./ui/ProgressBar.vue";
 
 export default {
-    components: { BuildStatus, BuildProgress, BuildProgressETA, DurationElement },
+    components: { Card, Badge, ProgressBar },
     props: {
         build: {
             type: Object,
-            required: true,
-        },
-        paramsIndex: {
-            type: Number,
             required: true,
         },
     },
@@ -114,6 +122,15 @@ export default {
         getStartURL: function () {
             return `/api/build/${this.build.id}/start`;
         },
+        buildStatus() {
+            const status = {
+                running: "warning",
+                finished: "success",
+                failed: "danger",
+                aborted: "danger",
+            };
+            return status[this.build.status];
+        },
         isDone() {
             switch (this.build.status) {
                 case "failed":
@@ -124,16 +141,6 @@ export default {
                     return true;
             }
             return false;
-        },
-        getParamsText() {
-            if (this.build.params) {
-                let index = 0;
-                if (this.build.params.length > this.paramsIndex) {
-                    index = this.paramsIndex;
-                }
-                return Object.values(this.build.params[index])[0].substring(0, 20);
-            }
-            return "";
         },
         getParamsTooltip() {
             if (this.build.params) {
@@ -163,7 +170,6 @@ export default {
 };
 </script>
 
-<!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="scss">
 .param {
     margin: 0.25em;
@@ -177,9 +183,15 @@ export default {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+.feed-item-content {
+    @apply p-3;
+    .feed-head {
+        @apply flex items-center gap-2 w-full;
+    }
+}
+
 @media (max-width: 480px) {
     .cell-name {
         max-width: 15ch;
-    }
 }
 </style>

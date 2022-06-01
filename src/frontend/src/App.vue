@@ -141,12 +141,13 @@ export default {
 @import '@/assets/wakeci.scss';
 
 #app {
-    @apply bg-gray-extra-light dark:bg-secondary-dark flex flex-nowrap;
+    @apply bg-gray-extra-light dark:bg-secondary-dark flex flex-nowrap w-full;
     & .content {
         @apply flex-1;
     }
     .main-content {
-        @apply p-6;
+        @apply p-6 overflow-y-auto;
+        max-height: calc(100vh - 48px);
     }
 }
 

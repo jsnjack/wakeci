@@ -1,19 +1,23 @@
 <template>
     <aside :class="['sidebar', { collapsed }]">
-        <img :src="logo" alt="logo" class="logo"/>
+        <img :src="logo" alt="logo" class="logo" />
 
         <nav class="sidebar-links">
             <router-link to="/" class="sidebar-link" exact-active-class="sidebar-link-active">
                 <span class="material-icons">playlist_play</span>
                 <span class="sidebar-link-label">Feed</span>
             </router-link>
-            
+
             <router-link to="/jobs" class="sidebar-link" exact-active-class="sidebar-link-active">
                 <span class="material-icons">build</span>
                 <span class="sidebar-link-label">Jobs</span>
             </router-link>
 
-            <router-link to="/settings" class="sidebar-link" exact-active-class="sidebar-link-active">
+            <router-link
+                to="/settings"
+                class="sidebar-link"
+                exact-active-class="sidebar-link-active"
+            >
                 <span class="material-icons">settings</span>
                 <span class="sidebar-link-label">Settings</span>
             </router-link>
@@ -25,7 +29,7 @@
 
 <script>
 import logo from '@/assets/WKCI.svg';
-import Toggle from './Toggle';
+import Toggle from './Toggle.vue';
 
 export default {
     name: 'Sidebar',
@@ -54,7 +58,7 @@ export default {
             localStorage.setItem('darkMode', `${this.darkMode}`);
         },
     },
-}
+};
 </script>
 
 <style lang="scss" scoped>
@@ -65,9 +69,10 @@ export default {
     transition-timing-function: ease-in-out;
     &.collapsed {
         @apply w-6 items-center;
-        .logo, .sidebar-link-label {
+        .logo,
+        .sidebar-link-label {
             @apply hidden;
-        } 
+        }
     }
     .logo {
         @apply text-center mb-8;
@@ -82,5 +87,4 @@ export default {
         }
     }
 }
-
 </style>
