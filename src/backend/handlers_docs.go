@@ -25,6 +25,6 @@ func HandleAPIDocsView(w http.ResponseWriter, r *http.Request) {
 </body>
 </html>
 `
-	w.Header().Set("content-security-policy", "default-src 'self'; script-src 'self' https://unpkg.com 'sha256-vRXqJZN28RidhIcwjq/UDO9cWHiPP1H4fdwi42L1TOM='; style-src 'self' https://unpkg.com; img-src 'self' data:; frame-ancestors 'none'")
+	w.Header().Set("content-security-policy", "default-src 'self'; script-src 'self' https://unpkg.com 'sha256-vRXqJZN28RidhIcwjq/UDO9cWHiPP1H4fdwi42L1TOM='; style-src 'self' https://unpkg.com; img-src 'self' data:; frame-ancestors 'self'")
 	w.Write([]byte(indexDoc))
 }
