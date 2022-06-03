@@ -8,13 +8,23 @@
 }
 .btn {
     @apply px-2 py-1 rounded cursor-pointer;
-    &.primary {
+    &.btn-primary {
         @apply bg-primary text-white hover:bg-primary-dark;
     }
     &.small {
         @apply px-2 py-1 rounded;
     }
-    &.secondary {
+    &.btn-secondary {
         @apply bg-secondary text-white hover:bg-secondary-dark;
+    }
+    &.btn-danger {
+        @apply bg-danger text-white hover:bg-danger-dark;
+    }
+}
+
+input {
+    @apply px-2 py-1 rounded ring-1 ring-gray-border focus:ring-gray-border-dark text-base dark:text-primary-light dark:ring-primary-light dark:focus:ring-primary;
+    &::placeholder {
+        @apply text-gray-border dark:text-primary-light;
     }
 }

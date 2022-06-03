@@ -1,7 +1,12 @@
 <template>
-  <span class="progress-bar">
-    <span :class="['progress', type]" :style="{width: progress + '%'}"/>
-  </span>
+    <div class="progress-bar">
+        <span
+            role="progressbar"
+            max="100"
+            :class="['progress', type]"
+            :style="{ width: progress + '%' }"
+        />
+    </div>
 </template>
 
 <script>
@@ -16,15 +21,15 @@ export default {
             type: String,
             required: false,
             default: 'succes',
-            validate: val => ['success', 'warning', 'danger'].includes(val),
+            validate: (val) => ['success', 'warning', 'danger', 'info'].includes(val),
         },
     },
-}
+};
 </script>
 
 <style lang="scss" scoped>
 .progress-bar {
-    @apply rounded h-1 bg-gray-light w-full;
+    @apply rounded h-1 bg-gray-light w-full flex;
     .progress {
         @apply rounded h-1;
         &.success {
@@ -35,6 +40,9 @@ export default {
         }
         &.danger {
             @apply bg-danger;
+        }
+        &.info {
+            @apply bg-info;
         }
     }
 }

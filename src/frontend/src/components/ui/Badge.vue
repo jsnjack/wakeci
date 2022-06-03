@@ -1,7 +1,7 @@
 <template>
-  <span :class="['badge', type]">
-      {{ text }}
-  </span>
+    <span :class="['badge', type]">
+        {{ text }}
+    </span>
 </template>
 
 <script>
@@ -16,10 +16,10 @@ export default {
             type: String,
             required: false,
             default: 'success',
-            validate: val => ['success', 'danger', 'warning'].includes(val),
+            validate: (val) => ['success', 'danger', 'warning', 'info'].includes(val),
         },
     },
-}
+};
 </script>
 
 <style lang="scss" scoped>
@@ -33,6 +33,9 @@ export default {
     }
     &.warning {
         @apply bg-warning;
+    }
+    &.info {
+        @apply bg-info;
     }
 }
 </style>

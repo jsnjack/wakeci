@@ -1,4 +1,4 @@
-import { toggleDurationMode } from "@/duration";
+import { toggleDurationMode } from '@/utils/duration';
 
 const mutations = {
     WS_CONNECTED(state, connection) {
@@ -35,7 +35,7 @@ const mutations = {
         } else {
             state.durationMode = toggleDurationMode(state.durationMode);
         }
-        localStorage.setItem("durationMode", state.durationMode);
+        localStorage.setItem('durationMode', state.durationMode);
     },
 };
 

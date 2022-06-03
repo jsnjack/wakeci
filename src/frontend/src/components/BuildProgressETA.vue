@@ -1,18 +1,11 @@
 <template>
-    <div
-        class="tooltip tooltip-bottom"
-        :data-tooltip="getProgressTooltip()"
-    >
-        <progress
-            class="progress"
-            :value="donePercent"
-            max="100"
-        />
+    <div class="tooltip tooltip-bottom" :data-tooltip="getProgressTooltip()">
+        <progress class="progress" :value="donePercent" max="100" />
     </div>
 </template>
 
 <script>
-import { doneDurationSec } from "@/duration";
+import { doneDurationSec } from '@/utils/duration';
 
 export default {
     props: {
@@ -37,8 +30,8 @@ export default {
         };
     },
     watch: {
-        startedAt: "onUpdate",
-        buildDuration: "onDone",
+        startedAt: 'onUpdate',
+        buildDuration: 'onDone',
     },
     mounted() {
         this.etaInSec = Math.round(this.eta / 10 ** 9);
@@ -52,7 +45,7 @@ export default {
                 function () {
                     this.onUpdate();
                 }.bind(this),
-                refreshPeriod
+                refreshPeriod,
             );
         }
         this.onUpdate();
@@ -63,7 +56,7 @@ export default {
     },
     methods: {
         onUpdate() {
-            if (this.startedAt && this.startedAt.indexOf("0001-") === 0) {
+            if (this.startedAt && this.startedAt.indexOf('0001-') === 0) {
                 // Go's way of saying it is zero
                 return;
             }
@@ -82,7 +75,7 @@ export default {
             }
         },
         getProgressTooltip() {
-            if (this.startedAt && this.startedAt.indexOf("0001-") === 0) {
+            if (this.startedAt && this.startedAt.indexOf('0001-') === 0) {
                 // Go's way of saying it is zero
                 const eta = doneDurationSec(this.etaInSec);
                 return `should take about ${eta}`;
@@ -93,16 +86,13 @@ export default {
                     const eta = doneDurationSec(this.etaInSec - duration);
                     return `eta ${eta}`;
                 } else {
-                    return "any moment";
+                    return 'any moment';
                 }
             }
-            return "completed";
+            return 'completed';
         },
     },
 };
 </script>
 
-<style
-    scoped
-    lang="scss"
-></style>
+<style scoped lang="scss"></style>
