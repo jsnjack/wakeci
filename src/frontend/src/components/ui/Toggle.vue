@@ -1,13 +1,18 @@
 <template>
-    <div :class="['switch', { on: value }, { off: !value }]" @click="$emit('input', !value)">
-        <span class="switch-toggle"/>
+    <div
+        role="switch"
+        :aria-label="`Dark mode ${modelValue ? 'on' : 'off'}`"
+        :class="['switch', { on: modelValue }, { off: !modelValue }]"
+        @click="$emit('update:modelValue', !modelValue)"
+    >
+        <span class="switch-toggle" />
     </div>
 </template>
 
 <script>
 export default {
     props: {
-        value: {
+        modelValue: {
             type: Boolean,
             required: true,
         },
@@ -17,20 +22,24 @@ export default {
 
 <style lang="scss">
 .switch {
-    @apply h-3 w-5 ring-1 ring-gray-border transition-colors rounded-lg relative duration-200;
+    @apply ring-1 ring-gray-border transition-colors rounded-full relative duration-200 z-10;
+    height: 18px;
+    width: 30px;
     & > .switch-toggle {
-        @apply h-3 w-3 transition-all absolute rounded-full top-1/2 -translate-y-1/2 duration-300;
+        @apply h-4 w-4 transition-all absolute rounded-full top-1/2 -translate-y-1/2 duration-500 z-20;
     }
     &.on {
         @apply bg-primary-light;
         & > .switch-toggle {
-            @apply bg-primary left-0;
+            @apply bg-primary;
+            right: 1px;
         }
     }
     &.off {
         @apply bg-gray-light;
         & > .switch-toggle {
-            @apply bg-primary translate-x-2;
+            @apply bg-primary;
+            --tw-translate-x: 1px;
         }
     }
 }

@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+* {
+    @apply transition-colors duration-300;
+}
+
 .CodeMirror * {
   font-size: 1.05em;
   font-family: monospace;
@@ -23,7 +27,7 @@
 }
 
 input {
-    @apply px-2 py-1 rounded ring-1 ring-gray-border focus:ring-gray-border-dark text-base dark:text-primary-light dark:ring-primary-light dark:focus:ring-primary;
+    @apply px-2 py-1 rounded ring-1 ring-gray-border focus:ring-gray-border-dark text-base dark:text-primary-light dark:ring-primary-light dark:focus:ring-primary bg-transparent;
     &::placeholder {
         @apply text-gray-border dark:text-primary-light;
     }
