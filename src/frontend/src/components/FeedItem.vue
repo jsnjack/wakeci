@@ -3,30 +3,49 @@
         <ProgressBar class="feed-progress" :type="buildStatus" :progress="(getDoneTasks / getTotalTasks) * 100" />
 
         <div class="feed-item-content">
-            <router-link class="feed-head" :to="{ name: 'build', params: { id: build.id } }">
-                <span># {{ build.id }}</span>
-                <span>{{ build.name }}</span>
+            <header class="feed-item-header">
+                <router-link class="feed-title" :to="{ name: 'build', params: { id: build.id } }">
+                    <span># {{ build.id }}</span>
+                    <span>{{ build.name }}</span>
+                </router-link>
                 <Badge :text="build.status" :type="buildStatus" />
-            </router-link>
+            </header>
 
-            <p><b>Params:</b> {{ getParamsString }}</p>
-            <p>
-                <b>Tasks:</b> {{ getDoneTasks }}/{{ getTotalTasks }}
-                {{ `(${isDone ? "Duration" : "Running for"} ${getDuration})` }}
-            </p>
-            <p><b>Timestamp:</b> {{ getTimestamp }}</p>
-            <router-link :to="{ name: 'build', params: { id: build.id } }" class="btn btn-secondary small float-right" data-cy="open-build-button">
-                Open
-            </router-link>
-            <button
-                :to="{ name: 'build', params: { id: build.id } }"
-                v-show="!isDone"
-                class="btn btn-danger small float-right ml-3"
-                data-cy="open-build-button"
-                @click="abort"
-            >
-                Abort
-            </button>
+            <template v-if="job">
+                <b>Description</b>
+                <p>{{ job.desc }}</p>
+                <br />
+            </template>
+
+            <div class="feed-item-info">
+                <p><b>Params:</b> {{ getParamsString }}</p>
+                <p>
+                    <b>Tasks:</b> {{ getDoneTasks }}/{{ getTotalTasks }}
+                    {{ `(${isDone ? "Duration" : "Running for"} ${getDuration})` }}
+                </p>
+                <p><b>Timestamp:</b> {{ getTimestamp }}</p>
+            </div>
+
+            <div class="feed-item-actions">
+                <button
+                    :to="{ name: 'build', params: { id: build.id } }"
+                    v-if="!isDone"
+                    class="btn btn-danger small float-right ml-3"
+                    data-cy="open-build-button"
+                    @click="abort"
+                >
+                    Abort
+                </button>
+
+                <router-link
+                    :to="{ name: 'build', params: { id: build.id } }"
+                    class="btn btn-secondary small float-right"
+                    data-cy="open-build-button"
+                    v-if="showOpen"
+                >
+                    Open
+                </router-link>
+            </div>
         </div>
     </Card>
 </template>
@@ -46,6 +65,14 @@ export default {
         build: {
             type: Object,
             required: true,
+        },
+        showOpen: {
+            type: Boolean,
+            default: true,
+        },
+        job: {
+            type: Object,
+            required: false,
         },
     },
     computed: {
@@ -70,10 +97,17 @@ export default {
         },
         buildStatus() {
             const status = {
+<<<<<<< HEAD
                 running: "warning",
                 finished: "success",
                 failed: "danger",
                 aborted: "info",
+=======
+                running: 'info',
+                finished: 'success',
+                failed: 'danger',
+                aborted: 'warning',
+>>>>>>> 6170556 (Update TaskItem)
             };
             return status[this.build.status];
         },
@@ -99,7 +133,11 @@ export default {
         },
         getTimestamp() {
             const startedAt = dayjs(this.build.startedAt);
+<<<<<<< HEAD
             return `${startedAt.format("DD-MM-YYYY HH:mm:ss")} - (${startedAtRelative(startedAt)})`;
+=======
+            return `${startedAt.format('DD-MM-YYYY HH:mm:ss')} (${startedAtRelative(startedAt)})`;
+>>>>>>> 6170556 (Update TaskItem)
         },
     },
     methods: {
@@ -134,8 +172,17 @@ export default {
 }
 .feed-item-content {
     @apply p-3;
-    .feed-head {
-        @apply flex items-center gap-2 w-full;
+    .feed-title {
+        @apply flex items-center gap-2;
+    }
+    .feed-item-header {
+        @apply flex items-center gap-6 w-full mb-4;
+    }
+    .feed-item-info {
+        @apply text-sm flex md:items-center md:gap-4 w-full md:flex-row flex-col gap-2 items-start;
+    }
+    .feed-item-actions {
+        @apply flex flex-row gap-1 items-center justify-end;
     }
 }
 

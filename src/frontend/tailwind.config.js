@@ -20,17 +20,24 @@ module.exports = {
                     'border-dark': '#4B5563',
                 },
                 warning: {
+                    light: '#FEF3C7',
                     DEFAULT: '#FBBF24',
+                    dark: '#D97706',
                 },
                 danger: {
+                    light: '#F87171',
                     DEFAULT: '#B91C1C',
                     dark: '#7F1D1D',
                 },
                 success: {
+                    light: '#BBF7D0',
                     DEFAULT: '#15803D',
+                    dark: '#166534',
                 },
                 info: {
+                    light: '#A5F3FC',
                     DEFAULT: '#0891B2',
+                    dark: '#155E75',
                 },
             },
         },

@@ -1,54 +1,33 @@
 <template>
-    <div class="container grid-xl">
-        <div class="card build-header">
-            <div class="card-header">
-                <div class="card-title h5">{{ statusUpdate.name }} #{{ statusUpdate.id }}</div>
-                <div class="card-subtitle text-gray">
-                    {{ job.desc }}
-                </div>
-                <BuildStatus :status="statusUpdate.status" />
-                <DurationElement
-                    v-show="statusUpdate.status !== 'pending'"
-                    :item="statusUpdate"
-                />
-                <div class="float-right">
-                    <a
-                        v-if="!isDone"
-                        :href="getAbortURL"
-                        class="btn btn-error item-action"
-                        data-cy="abort-build-button"
-                        @click.prevent="abort"
-                        >Abort</a
-                    >
-                    <RunJobButton
-                        :params="statusUpdate.params"
-                        :button-title="'Rerun'"
-                        :job-name="statusUpdate.name"
-                        class="item-action"
+    <div class="build-view">
+        <Card class="build-header">
+            <div>
+                <b>Tasks:</b>
+                <div class="tasks-status">
+                    <TaskStatus
+                        v-for="task in statusUpdate.tasks"
+                        :key="task.id"
+                        :status="task.status"
+                        :task-title="job.tasks[task.id].name"
+                        @click="openAndScrollToTask(task.id)"
+                        showLabel
+                        clickable
                     />
                 </div>
             </div>
-            <div class="card-footer">
-                <BuildProgress
-                    v-if="!statusUpdate.eta"
-                    :done="getDoneTasks"
-                    :total="getTotalTasks"
-                />
-                <BuildProgressETA
-                    v-if="statusUpdate.eta"
-                    :eta="statusUpdate.eta"
-                    :started-at="statusUpdate.startedAt"
-                    :build-duration="statusUpdate.duration"
-                />
+            <div class="build-actions">
+                <div class="follow-holder">
+                    <Toggle v-model="follow" />
+                    Follow
+                </div>
+                <button class="btn btn-success small" @click="showRunModal = true">Rerun</button>
             </div>
-        </div>
-        <div class="columns">
-            <ParamItem
-                v-for="(item, index) in statusUpdate.params"
-                :key="index + 'param'"
-                :param="item"
-            />
-        </div>
+        </Card>
+
+        <FeedItem :build="statusUpdate" :showOpen="false" :job="job" />
+
+        <br />
+
         <TaskItem
             v-for="item in statusUpdate.tasks"
             :key="item.id"
@@ -59,44 +38,34 @@
             :name="job.tasks[item.id].name"
             :follow="follow"
         />
-        <ArtifactItem
-            :artifacts="getArtifacts"
-            :build-i-d="statusUpdate.id"
-        />
-        <div class="follow-logs form-group float-right label">
-            <label class="form-switch">
-                <input
-                    v-model="follow"
-                    type="checkbox"
-                />
-                <i class="form-icon" /> Follow
-            </label>
-        </div>
+        <ArtifactItem :artifacts="getArtifacts" :build-i-d="statusUpdate.id" />
+
+        <RunJobModal v-show="showRunModal" @close="showRunModal = false" :params="statusUpdate.params" :job-name="statusUpdate.name" />
     </div>
 </template>
 
 <script>
 import vuex from "vuex";
 import axios from "axios";
-import BuildStatus from "@/components/BuildStatus.vue";
 import DurationElement from "@/components/DurationElement.vue";
-import ParamItem from "@/components/ParamItem.vue";
-import BuildProgress from "@/components/BuildProgress.vue";
-import BuildProgressETA from "@/components/BuildProgressETA.vue";
-import RunJobButton from "@/components/RunJobButton.vue";
 import TaskItem from "@/components/TaskItem.vue";
 import ArtifactItem from "@/components/ArtifactItem.vue";
+import FeedItem from "@/components/FeedItem.vue";
+import RunJobModal from "@/components/RunJobModal.vue";
+import Toggle from "@/components/ui/Toggle.vue";
+import Card from "@/components/ui/Card.vue";
+import TaskStatus from "@/components/TaskStatus.vue";
 
 export default {
     components: {
-        BuildStatus,
-        BuildProgress,
-        BuildProgressETA,
         TaskItem,
-        ParamItem,
         ArtifactItem,
         DurationElement,
-        RunJobButton,
+        RunJobModal,
+        FeedItem,
+        Toggle,
+        Card,
+        TaskStatus,
     },
     props: {
         id: {
@@ -115,6 +84,7 @@ export default {
             buildLogSubscription: "build:log:" + this.id,
             buildUpdateSubscription: "build:update:" + this.id,
             follow: true,
+            showRunModal: false,
         };
     },
     computed: {
@@ -227,13 +197,36 @@ export default {
                 this.unsubscribe();
             }
         },
+        openAndScrollToTask(id) {
+            console.log(this.$refs[`task-${id}`][0]);
+            this.$refs[`task-${id}`][0].reloadLogs();
+            this.$nextTick(() => {
+                this.$refs[`task-${id}`][0].$el.scrollIntoView({
+                    behavior: "smooth",
+                    block: "end",
+                });
+            });
+        },
     },
 };
 </script>
 
 <style scoped lang="scss">
-.build-header {
-    margin-bottom: 1em;
+.build-view {
+    z-index: 1;
+    .build-header {
+        @apply sticky top-0 left-0 z-20 shadow flex justify-between items-center gap-4 mb-6 transform -translate-x-6 -translate-y-6 px-6 rounded-none flex-wrap;
+        width: calc(100% + 3rem);
+        .follow-holder {
+            @apply flex items-center gap-1;
+        }
+        .tasks-status {
+            @apply flex-1 flex items-center justify-start w-full gap-8 flex-wrap;
+        }
+        .build-actions {
+            @apply flex gap-4;
+        }
+    }
 }
 summary:hover {
     cursor: pointer;

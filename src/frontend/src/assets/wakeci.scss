@@ -3,26 +3,50 @@
 @tailwind utilities;
 
 * {
-    @apply transition-colors duration-300;
+    @apply transition-colors duration-300 box-border;
 }
 
 .CodeMirror * {
   font-size: 1.05em;
   font-family: monospace;
 }
+
+html, body {
+    overflow: hidden;
+}
+
+h1 {
+    @apply text-3xl font-bold;
+}
+
+h2 {
+    @apply text-2xl font-bold;
+}
+
+h3 {
+    @apply text-xl font-bold;
+}
+
+a {
+    @apply text-primary flex items-center gap-1;
+}
+
 .btn {
-    @apply px-2 py-1 rounded cursor-pointer;
+    @apply px-2 py-1 rounded cursor-pointer flex items-center justify-center gap-2 no-underline;
     &.btn-primary {
         @apply bg-primary text-white hover:bg-primary-dark;
     }
     &.small {
-        @apply px-2 py-1 rounded;
+        @apply px-2 py-1 rounded text-sm gap-1;
     }
     &.btn-secondary {
         @apply bg-secondary text-white hover:bg-secondary-dark;
     }
     &.btn-danger {
         @apply bg-danger text-white hover:bg-danger-dark;
+    }
+    &.btn-success {
+        @apply bg-success text-white hover:bg-success-dark;
     }
 }
 
@@ -31,4 +55,8 @@ input {
     &::placeholder {
         @apply text-gray-border dark:text-primary-light;
     }
+}
+
+.desktop-only {
+    @apply invisible md:visible;
 }

@@ -146,7 +146,7 @@ export default {
         @apply flex-1;
     }
     .main-content {
-        @apply p-6 overflow-y-auto;
+        @apply p-6 overflow-y-auto overflow-x-hidden;
         max-height: calc(100vh - 48px);
     }
 }

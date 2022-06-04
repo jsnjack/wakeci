@@ -42,7 +42,7 @@ export default {
             @apply bg-danger;
         }
         &.info {
-            @apply bg-info;
+            @apply bg-info animate-pulse;
         }
     }
 }

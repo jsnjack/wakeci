@@ -1,57 +1,52 @@
 <template>
-    <section v-show="isVisible" :data-cy="getCyText">
+    <section class="task-item" v-show="isVisible" :data-cy="getCyText">
         <div class="divider" :data-content="getDividerText" />
-        <div class="columns">
-            <div class="column">
-                <div class="text-left">
-                    <BuildStatus :status="task.status" />
-                    <span class="h5 task-name" @click="reloadLogs">{{ name }}</span>
-                    <DurationElement
-                        v-show="task.status !== 'pending'"
-                        :item="task"
-                        class="text-small m-1"
-                    />
-                </div>
-            </div>
-            <div class="column text-right">
-                <div class="dropdown dropdown-right text-left">
-                    <div class="btn-group">
-                        <button data-cy="reload" class="btn btn-sm btn-primary" @click="reloadLogs">
-                            Reload
-                        </button>
-                        <a class="btn btn-sm dropdown-toggle" tabindex="0">
-                            <i class="icon icon-caret" />
-                        </a>
-                        <ul class="menu">
-                            <li class="divider" data-content="ACTIONS" />
-                            <li class="menu-item">
-                                <a :href="getLogURL" target="_blank">Open</a>
-                            </li>
-                            <li class="menu-item">
-                                <a href="#" @click="clearLogs">Hide</a>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
+        <div :class="['task-title', `task-title-${task.status}`]">
+            <TaskStatus :status="task.status" :task-title="task.name" />
+            <span class="h5 task-name" @click="reloadLogs">{{ name }} ({{ task.kind }})</span>
+            <DurationElement v-show="task.status !== 'pending'" :item="task" class="desktop-only" />
+            <div class="task-item-actions">
+                <button
+                    data-cy="reload"
+                    class="btn btn-sm btn-primary small desktop-only"
+                    @click="reloadLogs"
+                >
+                    <span class="material-icons">refresh</span>
+                    Reload logs
+                </button>
+
+                <a :href="getLogURL" target="_blank">
+                    <span class="material-icons">open_in_new</span>
+                    Open logs
+                </a>
+
+                <span
+                    :class="['material-icons', 'accordion-control', { opened: content }]"
+                    @click="toggleLogs"
+                >
+                    chevron_right
+                </span>
             </div>
         </div>
-        <div class="log-container text-left code status-border" :class="getBorderClass">
-            <pre v-if="content" class="d-block log-line">{{ content }}</pre>
+        <div class="log-container" v-show="!!content">
+            <pre class="logs">{{ content }}</pre>
             <TextSpinner v-show="task.status === 'running'" />
+            <button @click.prevent="clearLogs" class="btn btn-secondary small">Hide</button>
         </div>
     </section>
 </template>
 
 <script>
+import axios from 'axios';
 import BuildStatus from '@/components/BuildStatus.vue';
 import TextSpinner from '@/components/TextSpinner.vue';
 import DurationElement from '@/components/DurationElement.vue';
-import axios from 'axios';
+import TaskStatus from '@/components/TaskStatus.vue';
 
 const FlushContentPeriod = 500;
 
 export default {
-    components: { BuildStatus, DurationElement, TextSpinner },
+    components: { BuildStatus, DurationElement, TextSpinner, TaskStatus },
     props: {
         buildID: {
             type: Number,
@@ -93,9 +88,6 @@ export default {
             }
             return !(this.task.startedAt && this.task.startedAt.indexOf('0001-') === 0);
         },
-        getBorderClass() {
-            return `border-${this.task.status}`.replaceAll(' ', '');
-        },
         getLogURL() {
             return `/storage/build/${this.buildID}/task_${this.task.id}.log`;
         },
@@ -117,6 +109,9 @@ export default {
         clearInterval(this.flushInterval);
     },
     methods: {
+        toggleLogs() {
+            this.content ? this.clearLogs() : this.reloadLogs();
+        },
         flushLogs() {
             axios
                 .post(this.getFlushURL)
@@ -161,7 +156,10 @@ export default {
                 this.cachedContent = '';
                 if (this.follow) {
                     this.$nextTick(() => {
-                        this.$el.scrollIntoView(false);
+                        this.$el.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'end',
+                        });
                     });
                 }
             }
@@ -170,7 +168,7 @@ export default {
             this.cachedContent = '';
             this.content = '';
         },
-        onStatusChange(value) {
+        onStatusChange(value, oldValue) {
             if (value === 'running') {
                 this.flushInterval = setInterval(
                     function () {
@@ -182,7 +180,63 @@ export default {
                 clearInterval(this.flushInterval);
                 this.flushContent();
             }
+
+            if (oldValue === 'running' && value === 'finished') {
+                this.clearLogs();
+            }
         },
     },
 };
 </script>
+
+<style lang="scss" scoped>
+.task-item {
+    margin-top: -2px;
+    .task-title {
+        @apply flex gap-4 items-center bg-white p-2 border-l-2 rounded-sm;
+        &.task-title-finished {
+            @apply border-success;
+            & + .log-container {
+                @apply border-success;
+            }
+        }
+        &.task-title-failed {
+            @apply border-danger;
+            & + .log-container {
+                @apply border-danger;
+            }
+        }
+        &.task-title-running {
+            @apply border-info;
+            & + .log-container {
+                @apply border-info;
+            }
+        }
+        &.task-title-aborted {
+            @apply border-warning;
+            & + .log-container {
+                @apply border-warning;
+            }
+        }
+        .task-item-actions {
+            @apply flex-1 w-full flex justify-end items-center gap-2;
+        }
+        .accordion-control {
+            @apply transform rotate-90 cursor-pointer transition-transform duration-200;
+            &.opened {
+                @apply -rotate-90;
+            }
+        }
+    }
+    .log-container {
+        @apply p-3 text-secondary bg-white border-l-2 max-w-full;
+        margin-top: -1px;
+        .logs {
+            @apply overflow-x-hidden font-mono p-2 border border-secondary bg-gray-light dark:bg-secondary dark:text-gray-light whitespace-pre-wrap;
+        }
+        .btn {
+            @apply ml-auto my-2;
+        }
+    }
+}
+</style>
