@@ -126,7 +126,7 @@ export default {
                 .then((response) => {
                     this.$notify({
                         text: 'Log file has been reloaded',
-                        type: 'success',
+                        type: 'info',
                         duration: 1000,
                     });
                     this.content = response.data;

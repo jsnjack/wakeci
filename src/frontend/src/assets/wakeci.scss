@@ -91,3 +91,22 @@ input {
         }
     }
 }
+
+.my-noty {
+    @apply rounded-sm p-2 my-1 border;
+    .notification-content {
+        @apply text-sm;
+    }
+    &.success {
+        @apply bg-success-light/90 text-success-dark border-success;
+    }
+    &.error {
+        @apply bg-danger-light/90 text-danger-dark border-danger;
+    }
+    &.info {
+        @apply bg-info-light/90 text-info-dark border-info;
+    }
+    &.warn {
+        @apply bg-warning-light/90 text-warning-dark border-warning;
+    }
+}

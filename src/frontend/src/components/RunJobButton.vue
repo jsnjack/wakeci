@@ -67,7 +67,7 @@ export default {
                 .post(url)
                 .then((response) => {
                     this.$notify({
-                        text: `${this.jobName} has been scheduled (#<a href="/build/${response.data}/">${response.data}</a>)`,
+                        text: `${this.jobName} has been scheduled <br/>(#<a href="/build/${response.data}/">${response.data}</a>)`,
                         type: 'success',
                         duration: 10000,
                     });

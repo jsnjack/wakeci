@@ -102,7 +102,7 @@ export default {
                 .then((response) => {
                     this.$notify({
                         text: `Job ${this.job.name} is ` + (response.data ? 'enabled' : 'disabled'),
-                        type: 'success',
+                        type: 'info',
                     });
                     this.isActive = response.data;
                 })

@@ -97,17 +97,10 @@ export default {
         },
         buildStatus() {
             const status = {
-<<<<<<< HEAD
-                running: "warning",
+                running: "info",
                 finished: "success",
                 failed: "danger",
-                aborted: "info",
-=======
-                running: 'info',
-                finished: 'success',
-                failed: 'danger',
-                aborted: 'warning',
->>>>>>> 6170556 (Update TaskItem)
+                aborted: "warning",
             };
             return status[this.build.status];
         },
@@ -133,11 +126,7 @@ export default {
         },
         getTimestamp() {
             const startedAt = dayjs(this.build.startedAt);
-<<<<<<< HEAD
             return `${startedAt.format("DD-MM-YYYY HH:mm:ss")} - (${startedAtRelative(startedAt)})`;
-=======
-            return `${startedAt.format('DD-MM-YYYY HH:mm:ss')} (${startedAtRelative(startedAt)})`;
->>>>>>> 6170556 (Update TaskItem)
         },
     },
     methods: {
@@ -148,7 +137,7 @@ export default {
                     .then((response) => {
                         this.$notify({
                             text: `${this.build.id} has been aborted`,
-                            type: "success",
+                            type: "warn",
                         });
                     })
                     .catch((error) => {});
