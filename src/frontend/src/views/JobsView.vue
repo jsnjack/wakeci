@@ -15,7 +15,12 @@
             <button data-cy="create-job" href="#" class="btn btn-success" @click.prevent="toggle">
                 Create new job
             </button>
-            <input class="job-search" placeholder="Filter..." v-model="search" />
+            <input
+                class="job-search"
+                placeholder="Filter..."
+                v-model="search"
+                data-cy="filter-jobs"
+            />
         </div>
         <table class="table jobs-table">
             <thead>
