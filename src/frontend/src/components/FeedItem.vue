@@ -1,10 +1,6 @@
 <template>
     <Card data-cy="feed-item" :data-cy-build="build.id">
-        <ProgressBar
-            class="feed-progress"
-            :type="buildStatus"
-            :progress="(getDoneTasks / getTotalTasks) * 100"
-        />
+        <ProgressBar class="feed-progress" :type="buildStatus" :progress="(getDoneTasks / getTotalTasks) * 100" />
 
         <div class="feed-item-content">
             <header class="feed-item-header">
@@ -12,7 +8,7 @@
                     <span># {{ build.id }}</span>
                     <span>{{ build.name }}</span>
                 </router-link>
-                <Badge :text="build.status" :type="buildStatus" />
+                <Badge :text="build.status" :type="buildStatus" data-cy="build-status-label" />
             </header>
 
             <template v-if="job">
@@ -35,7 +31,7 @@
                     :to="{ name: 'build', params: { id: build.id } }"
                     v-if="!isDone"
                     class="btn btn-danger small float-right ml-3"
-                    data-cy="open-build-button"
+                    data-cy="abort-build-button"
                     @click="abort"
                 >
                     Abort
@@ -102,6 +98,7 @@ export default {
         buildStatus() {
             const status = {
                 running: "info",
+                "timed out": "info",
                 finished: "success",
                 failed: "danger",
                 aborted: "warning",

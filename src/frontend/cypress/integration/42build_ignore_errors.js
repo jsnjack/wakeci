@@ -1,13 +1,13 @@
-describe("Build page - Ignore errors", function () {
-    it("should not ignore errors if task fails", function () {
+describe('Build page - Ignore errors', function () {
+    it('should not ignore errors if task fails', function () {
         // Create job
-        const jobName = "myjob" + new Date().getTime();
+        const jobName = 'myjob' + new Date().getTime();
         cy.request({
-            url: "/api/jobs/create",
-            method: "POST",
+            url: '/api/jobs/create',
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 name: jobName,
@@ -23,11 +23,11 @@ tasks:
 `;
 
         cy.request({
-            url: "/api/job/" + jobName,
-            method: "POST",
+            url: '/api/job/' + jobName,
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 fileContent: jobContent,
@@ -38,40 +38,40 @@ tasks:
         // Create build
         cy.request({
             url: `/api/job/${jobName}/run`,
-            method: "POST",
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {},
             form: true,
         });
 
-        cy.visit("/");
+        cy.visit('/');
         cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
-            .invoke("attr", "data-cy-build")
+        cy.get('[data-cy=filter]').clear().type(jobName);
+        cy.get('[data-cy=open-build-button]').should('have.length', 1);
+        cy.get('[data-cy=feed-item]')
+            .invoke('attr', 'data-cy-build')
             .then((val) => {
-                cy.get("[data-cy=open-build-button]").click();
-                cy.url().should("include", "/build/" + val);
+                cy.get('[data-cy=open-build-button]').click();
+                cy.url().should('include', '/build/' + val);
                 // Verify number of tasks
-                cy.get("[data-cy=reload]").click();
-                cy.get("body").should("contain", "> Exit code: 1");
-                cy.get("body").should("contain", "failed");
+                cy.get('[data-cy=reload]').click();
+                cy.get('body').should('contain', '> Exit code: 1');
+                cy.get('body').should('contain', 'failed');
             });
     });
 
-    it("should ignore errors if task fails", function () {
+    it('should ignore errors if task fails', function () {
         // Create job
-        const jobName = "myjob" + new Date().getTime();
+        const jobName = 'myjob' + new Date().getTime();
         cy.request({
-            url: "/api/jobs/create",
-            method: "POST",
+            url: '/api/jobs/create',
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 name: jobName,
@@ -88,11 +88,11 @@ tasks:
 `;
 
         cy.request({
-            url: "/api/job/" + jobName,
-            method: "POST",
+            url: '/api/job/' + jobName,
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 fileContent: jobContent,
@@ -103,29 +103,29 @@ tasks:
         // Create build
         cy.request({
             url: `/api/job/${jobName}/run`,
-            method: "POST",
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {},
             form: true,
         });
 
-        cy.visit("/");
+        cy.visit('/');
         cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
-            .invoke("attr", "data-cy-build")
+        cy.get('[data-cy=filter]').clear().type(jobName);
+        cy.get('[data-cy=open-build-button]').should('have.length', 1);
+        cy.get('[data-cy=feed-item]')
+            .invoke('attr', 'data-cy-build')
             .then((val) => {
-                cy.get("[data-cy=open-build-button]").click();
-                cy.url().should("include", "/build/" + val);
+                cy.get('[data-cy=open-build-button]').click();
+                cy.url().should('include', '/build/' + val);
                 // Verify number of tasks
-                cy.get("[data-cy=reload]").click();
-                cy.get("body").should("contain", "> Exit code: 1");
-                cy.get("body").should("contain", "> Ignorring exit code");
-                cy.get("body").should("not.contain", "failed");
+                cy.get('[data-cy=reload]').click();
+                cy.get('body').should('contain', '> Exit code: 1');
+                cy.get('body').should('contain', '> Ignorring exit code');
+                cy.get('body').should('not.contain', 'failed');
             });
     });
 });

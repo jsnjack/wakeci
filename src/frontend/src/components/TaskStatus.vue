@@ -1,9 +1,13 @@
 <template>
-    <span :class="['task-status', { clickable }]" :title="`${taskTitle} ${status}`">
+    <span
+        :class="['task-status', { clickable }]"
+        :title="`${taskTitle} ${status}`"
+        data-cy="task-status-label"
+    >
         <span
             :aria-label="`Task status: ${status}`"
             role="presentation"
-            :class="['material-icons', `task-${status}`]"
+            :class="['material-icons', `task-${status.split(' ').join('-')}`]"
         >
             {{ statusIcon }}
         </span>
@@ -22,7 +26,7 @@ export default {
             type: String,
             required: true,
             validator: (val) =>
-                ['running', 'finished', 'failed', 'aborted', 'pending'].includes(val),
+                ['running', 'finished', 'failed', 'aborted', 'pending', 'timed out'].includes(val),
         },
         showLabel: {
             type: Boolean,
@@ -43,6 +47,7 @@ export default {
                 failed: 'error_outline',
                 aborted: 'warning',
                 pending: 'radio_button_unchecked',
+                'timed out': 'timer_off',
             };
 
             return status[this.status];
@@ -74,6 +79,9 @@ export default {
     }
     .task-pending {
         @apply text-gray-border;
+    }
+    .task-timed-out {
+        @apply text-gray-light;
     }
 }
 </style>

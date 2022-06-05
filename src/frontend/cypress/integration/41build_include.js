@@ -1,7 +1,7 @@
-describe("Build page - Include", function () {
-    it("should include tasks from the template file and use their Env", function () {
+describe('Build page - Include', function () {
+    it('should include tasks from the template file and use their Env', function () {
         // Create a file with tasks to include
-        const filePath = "/tmp/tasks.inc";
+        const filePath = '/tmp/tasks.inc';
         const includeContent = `
 - name: Included task 1
   run: echo "task 1"
@@ -13,13 +13,13 @@ describe("Build page - Include", function () {
 `;
         cy.writeFile(filePath, includeContent);
         // Create job
-        const jobName = "myjob" + new Date().getTime();
+        const jobName = 'myjob' + new Date().getTime();
         cy.request({
-            url: "/api/jobs/create",
-            method: "POST",
+            url: '/api/jobs/create',
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 name: jobName,
@@ -37,11 +37,11 @@ tasks:
 `;
 
         cy.request({
-            url: "/api/job/" + jobName,
-            method: "POST",
+            url: '/api/job/' + jobName,
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 fileContent: jobContent,
@@ -52,38 +52,38 @@ tasks:
         // Create build
         cy.request({
             url: `/api/job/${jobName}/run`,
-            method: "POST",
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {},
             form: true,
         });
 
-        cy.visit("/");
+        cy.visit('/');
         cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("[data-cy=open-build-button]").should("have.length", 1);
+        cy.get('[data-cy=filter]').clear().type(jobName);
+        cy.get('[data-cy=open-build-button]').should('have.length', 1);
         // Reset include file content
-        cy.writeFile(filePath, "");
-        cy.get("tr")
-            .invoke("attr", "data-cy-build")
+        cy.writeFile(filePath, '');
+        cy.get('[data-cy=feed-item]')
+            .invoke('attr', 'data-cy-build')
             .then((val) => {
-                cy.get("[data-cy=open-build-button]").click();
-                cy.url().should("include", "/build/" + val);
+                cy.get('[data-cy=open-build-button]').click();
+                cy.url().should('include', '/build/' + val);
                 // Verify number of tasks
-                cy.get("[data-cy=reload]").should("have.length", 3);
-                cy.get("[data-cy=reload]").eq(1).click();
-                cy.get("body").should("contain", "task 1");
-                cy.get("[data-cy=reload]").eq(2).click();
-                cy.get("body").should("contain", "JOE");
+                cy.get('[data-cy=reload]').should('have.length', 3);
+                cy.get('[data-cy=reload]').eq(1).click();
+                cy.get('body').should('contain', 'task 1');
+                cy.get('[data-cy=reload]').eq(2).click();
+                cy.get('body').should('contain', 'JOE');
             });
     });
 
-    it("should include tasks from the template file and override their env", function () {
+    it('should include tasks from the template file and override their env', function () {
         // Create a file with tasks to include
-        const filePath = "/tmp/tasks.inc";
+        const filePath = '/tmp/tasks.inc';
         const includeContent = `
 - name: Included task 1
   run: echo "task 1"
@@ -95,13 +95,13 @@ tasks:
 `;
         cy.writeFile(filePath, includeContent);
         // Create job
-        const jobName = "myjob" + new Date().getTime();
+        const jobName = 'myjob' + new Date().getTime();
         cy.request({
-            url: "/api/jobs/create",
-            method: "POST",
+            url: '/api/jobs/create',
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 name: jobName,
@@ -121,11 +121,11 @@ tasks:
 `;
 
         cy.request({
-            url: "/api/job/" + jobName,
-            method: "POST",
+            url: '/api/job/' + jobName,
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 fileContent: jobContent,
@@ -136,36 +136,36 @@ tasks:
         // Create build
         cy.request({
             url: `/api/job/${jobName}/run`,
-            method: "POST",
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {},
             form: true,
         });
 
-        cy.visit("/");
+        cy.visit('/');
         cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
-            .invoke("attr", "data-cy-build")
+        cy.get('[data-cy=filter]').clear().type(jobName);
+        cy.get('[data-cy=open-build-button]').should('have.length', 1);
+        cy.get('[data-cy=feed-item]')
+            .invoke('attr', 'data-cy-build')
             .then((val) => {
-                cy.get("[data-cy=open-build-button]").click();
-                cy.url().should("include", "/build/" + val);
+                cy.get('[data-cy=open-build-button]').click();
+                cy.url().should('include', '/build/' + val);
                 // Verify number of tasks
-                cy.get("[data-cy=reload]").should("have.length", 3);
-                cy.get("[data-cy=reload]").eq(1).click();
-                cy.get("body").should("contain", "task 1");
-                cy.get("[data-cy=reload]").eq(2).click();
-                cy.get("body").should("contain", "PATRICK");
+                cy.get('[data-cy=reload]').should('have.length', 3);
+                cy.get('[data-cy=reload]').eq(1).click();
+                cy.get('body').should('contain', 'task 1');
+                cy.get('[data-cy=reload]').eq(2).click();
+                cy.get('body').should('contain', 'PATRICK');
             });
     });
 
-    it("should include tasks from the template file and preserve their env", function () {
+    it('should include tasks from the template file and preserve their env', function () {
         // Create a file with tasks to include
-        const filePath = "/tmp/tasks.inc";
+        const filePath = '/tmp/tasks.inc';
         const includeContent = `
 - name: Included task 1
   run: echo "task 1"
@@ -177,13 +177,13 @@ tasks:
 `;
         cy.writeFile(filePath, includeContent);
         // Create job
-        const jobName = "myjob" + new Date().getTime();
+        const jobName = 'myjob' + new Date().getTime();
         cy.request({
-            url: "/api/jobs/create",
-            method: "POST",
+            url: '/api/jobs/create',
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 name: jobName,
@@ -203,11 +203,11 @@ tasks:
 `;
 
         cy.request({
-            url: "/api/job/" + jobName,
-            method: "POST",
+            url: '/api/job/' + jobName,
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 fileContent: jobContent,
@@ -218,36 +218,36 @@ tasks:
         // Create build
         cy.request({
             url: `/api/job/${jobName}/run`,
-            method: "POST",
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {},
             form: true,
         });
 
-        cy.visit("/");
+        cy.visit('/');
         cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
-            .invoke("attr", "data-cy-build")
+        cy.get('[data-cy=filter]').clear().type(jobName);
+        cy.get('[data-cy=open-build-button]').should('have.length', 1);
+        cy.get('[data-cy=feed-item]')
+            .invoke('attr', 'data-cy-build')
             .then((val) => {
-                cy.get("[data-cy=open-build-button]").click();
-                cy.url().should("include", "/build/" + val);
+                cy.get('[data-cy=open-build-button]').click();
+                cy.url().should('include', '/build/' + val);
                 // Verify number of tasks
-                cy.get("[data-cy=reload]").should("have.length", 3);
-                cy.get("[data-cy=reload]").eq(1).click();
-                cy.get("body").should("contain", "task 1");
-                cy.get("[data-cy=reload]").eq(2).click();
-                cy.get("body").should("contain", "JOE");
+                cy.get('[data-cy=reload]').should('have.length', 3);
+                cy.get('[data-cy=reload]').eq(1).click();
+                cy.get('body').should('contain', 'task 1');
+                cy.get('[data-cy=reload]').eq(2).click();
+                cy.get('body').should('contain', 'JOE');
             });
     });
 
-    it("should include tasks from the template file and use original when", function () {
+    it('should include tasks from the template file and use original when', function () {
         // Create a file with tasks to include
-        const filePath = "/tmp/tasks.inc";
+        const filePath = '/tmp/tasks.inc';
         const includeContent = `
 - name: Included task 1
   run: echo "task 1"
@@ -255,13 +255,13 @@ tasks:
 `;
         cy.writeFile(filePath, includeContent);
         // Create job
-        const jobName = "myjob" + new Date().getTime();
+        const jobName = 'myjob' + new Date().getTime();
         cy.request({
-            url: "/api/jobs/create",
-            method: "POST",
+            url: '/api/jobs/create',
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 name: jobName,
@@ -278,11 +278,11 @@ tasks:
 `;
 
         cy.request({
-            url: "/api/job/" + jobName,
-            method: "POST",
+            url: '/api/job/' + jobName,
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 fileContent: jobContent,
@@ -293,34 +293,34 @@ tasks:
         // Create build
         cy.request({
             url: `/api/job/${jobName}/run`,
-            method: "POST",
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {},
             form: true,
         });
 
-        cy.visit("/");
+        cy.visit('/');
         cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
-            .invoke("attr", "data-cy-build")
+        cy.get('[data-cy=filter]').clear().type(jobName);
+        cy.get('[data-cy=open-build-button]').should('have.length', 1);
+        cy.get('[data-cy=feed-item]')
+            .invoke('attr', 'data-cy-build')
             .then((val) => {
-                cy.get("[data-cy=open-build-button]").click();
-                cy.url().should("include", "/build/" + val);
+                cy.get('[data-cy=open-build-button]').click();
+                cy.url().should('include', '/build/' + val);
                 // Verify number of tasks
-                cy.get("[data-cy=reload]").should("have.length", 1);
-                cy.get("[data-cy=reload]").click();
-                cy.get("body").should("contain", "task 1");
+                cy.get('[data-cy=reload]').should('have.length', 1);
+                cy.get('[data-cy=reload]').click();
+                cy.get('body').should('contain', 'task 1');
             });
     });
 
-    it("should include tasks from the template file and override original when", function () {
+    it('should include tasks from the template file and override original when', function () {
         // Create a file with tasks to include
-        const filePath = "/tmp/tasks.inc";
+        const filePath = '/tmp/tasks.inc';
         const includeContent = `
 - name: Included task 1
   run: echo "task 1"
@@ -328,13 +328,13 @@ tasks:
 `;
         cy.writeFile(filePath, includeContent);
         // Create job
-        const jobName = "myjob" + new Date().getTime();
+        const jobName = 'myjob' + new Date().getTime();
         cy.request({
-            url: "/api/jobs/create",
-            method: "POST",
+            url: '/api/jobs/create',
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 name: jobName,
@@ -352,11 +352,11 @@ tasks:
 `;
 
         cy.request({
-            url: "/api/job/" + jobName,
-            method: "POST",
+            url: '/api/job/' + jobName,
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 fileContent: jobContent,
@@ -367,28 +367,28 @@ tasks:
         // Create build
         cy.request({
             url: `/api/job/${jobName}/run`,
-            method: "POST",
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {},
             form: true,
         });
 
-        cy.visit("/");
+        cy.visit('/');
         cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
-            .invoke("attr", "data-cy-build")
+        cy.get('[data-cy=filter]').clear().type(jobName);
+        cy.get('[data-cy=open-build-button]').should('have.length', 1);
+        cy.get('[data-cy=feed-item]')
+            .invoke('attr', 'data-cy-build')
             .then((val) => {
-                cy.get("[data-cy=open-build-button]").click();
-                cy.url().should("include", "/build/" + val);
+                cy.get('[data-cy=open-build-button]').click();
+                cy.url().should('include', '/build/' + val);
                 // Verify number of tasks
-                cy.get("[data-cy=reload]").should("have.length", 1);
-                cy.get("[data-cy=reload]").click();
-                cy.get("body").should("contain", "task 1");
+                cy.get('[data-cy=reload]').should('have.length', 1);
+                cy.get('[data-cy=reload]').click();
+                cy.get('body').should('contain', 'task 1');
             });
     });
 });
