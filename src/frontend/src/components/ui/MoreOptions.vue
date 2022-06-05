@@ -16,6 +16,7 @@
                     :key="opt.name"
                     @click="opt.onClick ? opt.onClick() : null"
                     :disabled="!!opt.disabled"
+                    v-bind="opt.attrs"
                 >
                     <span class="material-icons" v-if="opt.icon">{{ opt.icon }}</span>
                     {{ opt.name }}

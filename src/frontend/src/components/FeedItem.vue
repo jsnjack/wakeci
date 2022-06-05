@@ -1,6 +1,10 @@
 <template>
-    <Card>
-        <ProgressBar class="feed-progress" :type="buildStatus" :progress="(getDoneTasks / getTotalTasks) * 100" />
+    <Card data-cy="feed-item" :data-cy-build="build.id">
+        <ProgressBar
+            class="feed-progress"
+            :type="buildStatus"
+            :progress="(getDoneTasks / getTotalTasks) * 100"
+        />
 
         <div class="feed-item-content">
             <header class="feed-item-header">

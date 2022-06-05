@@ -1,13 +1,13 @@
-describe("Build page", function () {
-    it("should show build page", function () {
+describe('Build page', function () {
+    it('should show build page', function () {
         // Create job
-        const jobName = "myjob" + new Date().getTime();
+        const jobName = 'myjob' + new Date().getTime();
         cy.request({
-            url: "/api/jobs/create",
-            method: "POST",
+            url: '/api/jobs/create',
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 name: jobName,
@@ -17,38 +17,38 @@ describe("Build page", function () {
         // Create build
         cy.request({
             url: `/api/job/${jobName}/run`,
-            method: "POST",
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {},
             form: true,
         });
-        cy.visit("/");
+        cy.visit('/');
         cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
-            .invoke("attr", "data-cy-build")
+        cy.get('[data-cy=filter]').clear().type(jobName);
+        cy.get('[data-cy=open-build-button]').should('have.length', 1);
+        cy.get('[data-cy=feed-item]')
+            .invoke('attr', 'data-cy-build')
             .then((val) => {
-                cy.get("[data-cy=open-build-button]").click();
-                cy.url().should("include", "/build/" + val);
-                cy.get("[data-cy=reload]").click();
-                cy.get(".notification-content").should("contain", "Log file has been reloaded");
-                cy.get("body").should("contain", "uname -a");
+                cy.get('[data-cy=open-build-button]').click();
+                cy.url().should('include', '/build/' + val);
+                cy.get('[data-cy=reload]').click();
+                cy.get('.notification-content').should('contain', 'Log file has been reloaded');
+                cy.get('body').should('contain', 'uname -a');
             });
     });
 
-    it("should inject wake env variables", function () {
+    it('should inject wake env variables', function () {
         // Create job
-        const jobName = "myjob" + new Date().getTime();
+        const jobName = 'myjob' + new Date().getTime();
         cy.request({
-            url: "/api/jobs/create",
-            method: "POST",
+            url: '/api/jobs/create',
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 name: jobName,
@@ -67,11 +67,11 @@ tasks:
 `;
 
         cy.request({
-            url: "/api/job/" + jobName,
-            method: "POST",
+            url: '/api/job/' + jobName,
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 fileContent: jobContent,
@@ -82,44 +82,44 @@ tasks:
         // Create build
         cy.request({
             url: `/api/job/${jobName}/run`,
-            method: "POST",
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {},
             form: true,
         });
 
-        cy.visit("/");
+        cy.visit('/');
         cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
-            .invoke("attr", "data-cy-build")
+        cy.get('[data-cy=filter]').clear().type(jobName);
+        cy.get('[data-cy=open-build-button]').should('have.length', 1);
+        cy.get('[data-cy=feed-item]')
+            .invoke('attr', 'data-cy-build')
             .then((val) => {
-                cy.get("[data-cy=open-build-button]").click();
-                cy.url().should("include", "/build/" + val);
-                cy.get("[data-cy=reload]").click();
-                cy.get(".notification-content").should("contain", "Log file has been reloaded");
-                cy.get("body").should("contain", `WAKE_JOB_NAME=${jobName}`);
-                cy.get("body").should("contain", "WAKE_URL=http://localhost:8081/");
-                cy.get("body").should("contain", "WAKE_CONFIG_DIR=");
-                cy.get("body").should("contain", "WAKE_BUILD_WORKSPACE=");
-                cy.get("body").should("contain", "WAKE_BUILD_ID=");
-                cy.get("body").should("contain", "WAKE_JOB_PARAMS=minsk=4&pruzhany=5");
+                cy.get('[data-cy=open-build-button]').click();
+                cy.url().should('include', '/build/' + val);
+                cy.get('[data-cy=reload]').click();
+                cy.get('.notification-content').should('contain', 'Log file has been reloaded');
+                cy.get('body').should('contain', `WAKE_JOB_NAME=${jobName}`);
+                cy.get('body').should('contain', 'WAKE_URL=http://localhost:8081/');
+                cy.get('body').should('contain', 'WAKE_CONFIG_DIR=');
+                cy.get('body').should('contain', 'WAKE_BUILD_WORKSPACE=');
+                cy.get('body').should('contain', 'WAKE_BUILD_ID=');
+                cy.get('body').should('contain', 'WAKE_JOB_PARAMS=minsk=4&pruzhany=5');
             });
     });
 
-    it("should collect artifacts", function () {
+    it('should collect artifacts', function () {
         // Create job
-        const jobName = "myjob" + new Date().getTime();
+        const jobName = 'myjob' + new Date().getTime();
         cy.request({
-            url: "/api/jobs/create",
-            method: "POST",
+            url: '/api/jobs/create',
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 name: jobName,
@@ -144,11 +144,11 @@ artifacts:
 `;
 
         cy.request({
-            url: "/api/job/" + jobName,
-            method: "POST",
+            url: '/api/job/' + jobName,
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 fileContent: jobContent,
@@ -159,48 +159,42 @@ artifacts:
         // Create build
         cy.request({
             url: `/api/job/${jobName}/run`,
-            method: "POST",
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {},
             form: true,
         });
 
-        cy.visit("/");
+        cy.visit('/');
         cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
-            .invoke("attr", "data-cy-build")
+        cy.get('[data-cy=filter]').clear().type(jobName);
+        cy.get('[data-cy=open-build-button]').should('have.length', 1);
+        cy.get('[data-cy=feed-item]')
+            .invoke('attr', 'data-cy-build')
             .then((val) => {
-                cy.get("[data-cy=open-build-button]").click();
+                cy.get('[data-cy=open-build-button]').click();
 
+                cy.get('[data-cy=artifactsMenu]').click();
                 // Assert total number of artifacts
-                cy.get("[data-cy=artifacts-body-row]").should("have.length", 2);
-
-                // Assert order by name
-                cy.get("[data-cy=artifacts-body-row] > td:first").should("contain", "big");
-                cy.get("[data-cy=artifacts-header-file]").click();
-                cy.get("[data-cy=artifacts-body-row] > td:first").should("contain", "small");
-                cy.get("[data-cy=artifacts-header-file]").click();
-                cy.get("[data-cy=artifacts-body-row] > td:first").should("contain", "big");
+                cy.get('[data-cy^=artifact-]').should('have.length', 2);
 
                 // Make sure Open index.html button is not present
-                cy.get("[data-cy=openIndexFile]").should("not.exist");
+                cy.get('[data-cy=openIndexFile]').should('not.exist');
             });
     });
 
-    it("should display Open index.html button", function () {
+    it('should display Open index.html button', function () {
         // Create job
-        const jobName = "myjob" + new Date().getTime();
+        const jobName = 'myjob' + new Date().getTime();
         cy.request({
-            url: "/api/jobs/create",
-            method: "POST",
+            url: '/api/jobs/create',
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 name: jobName,
@@ -225,11 +219,11 @@ artifacts:
 `;
 
         cy.request({
-            url: "/api/job/" + jobName,
-            method: "POST",
+            url: '/api/job/' + jobName,
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 fileContent: jobContent,
@@ -240,39 +234,50 @@ artifacts:
         // Create build
         cy.request({
             url: `/api/job/${jobName}/run`,
-            method: "POST",
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {},
             form: true,
         });
 
-        cy.visit("/");
+        cy.visit('/', {
+            onBeforeLoad(win) {
+                cy.stub(win, 'open').as('winOpen');
+            },
+        });
         cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
-            .invoke("attr", "data-cy-build")
+        cy.get('[data-cy=filter]').clear().type(jobName);
+        cy.get('[data-cy=open-build-button]').should('have.length', 1);
+        cy.get('[data-cy=feed-item]')
+            .invoke('attr', 'data-cy-build')
             .then((val) => {
-                cy.get("[data-cy=open-build-button]").click();
+                cy.get('[data-cy=open-build-button]').click();
+
+                cy.get('[data-cy=artifactsMenu]').click();
 
                 // Make sure Open index.html button is present
-                cy.get("[data-cy=openIndexFile]").should("contain", "Open index.html");
-                cy.get("[data-cy=openIndexFile]").should("have.attr", "href").and("contain", "bb");
+                cy.get('[data-cy=openIndexFile]').should('contain', 'Open index.html');
+                cy.get('[data-cy=openIndexFile]').click();
+                cy.window()
+                    .its('open')
+                    .then((winOpen) => {
+                        expect(winOpen.getCall(0).args[0]).to.includes('bb/index.html');
+                    });
             });
     });
 
-    it("should skip task when condition is false", function () {
+    it('should skip task when condition is false', function () {
         // Create job
-        const jobName = "myjob" + new Date().getTime();
+        const jobName = 'myjob' + new Date().getTime();
         cy.request({
-            url: "/api/jobs/create",
-            method: "POST",
+            url: '/api/jobs/create',
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 name: jobName,
@@ -289,11 +294,11 @@ tasks:
 `;
 
         cy.request({
-            url: "/api/job/" + jobName,
-            method: "POST",
+            url: '/api/job/' + jobName,
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 fileContent: jobContent,
@@ -304,41 +309,41 @@ tasks:
         // Create build
         cy.request({
             url: `/api/job/${jobName}/run`,
-            method: "POST",
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {},
             form: true,
         });
 
-        cy.visit("/");
+        cy.visit('/');
         cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
-            .invoke("attr", "data-cy-build")
+        cy.get('[data-cy=filter]').clear().type(jobName);
+        cy.get('[data-cy=open-build-button]').should('have.length', 1);
+        cy.get('[data-cy=feed-item]')
+            .invoke('attr', 'data-cy-build')
             .then((val) => {
-                cy.get("[data-cy=open-build-button]").click();
-                cy.url().should("include", "/build/" + val);
-                cy.get("[data-cy=reload]").click();
-                cy.get(".notification-content").should("contain", "Log file has been reloaded");
+                cy.get('[data-cy=open-build-button]').click();
+                cy.url().should('include', '/build/' + val);
+                cy.get('[data-cy=reload]').click();
+                cy.get('.notification-content').should('contain', 'Log file has been reloaded');
                 cy.get("body").should("contain", "skipped");
-                cy.get("body").should("contain", "Condition is false");
-                cy.get("body").should("not.contain", "WAKE_BUILD_ID=");
+                cy.get('body').should('contain', 'Condition is false');
+                cy.get('body').should('not.contain', 'WAKE_BUILD_ID=');
             });
     });
 
-    it("should run task when condition is true", function () {
+    it('should run task when condition is true', function () {
         // Create job
-        const jobName = "myjob" + new Date().getTime();
+        const jobName = 'myjob' + new Date().getTime();
         cy.request({
-            url: "/api/jobs/create",
-            method: "POST",
+            url: '/api/jobs/create',
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 name: jobName,
@@ -357,11 +362,11 @@ tasks:
 `;
 
         cy.request({
-            url: "/api/job/" + jobName,
-            method: "POST",
+            url: '/api/job/' + jobName,
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 fileContent: jobContent,
@@ -372,40 +377,40 @@ tasks:
         // Create build
         cy.request({
             url: `/api/job/${jobName}/run`,
-            method: "POST",
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {},
             form: true,
         });
 
-        cy.visit("/");
+        cy.visit('/');
         cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
-            .invoke("attr", "data-cy-build")
+        cy.get('[data-cy=filter]').clear().type(jobName);
+        cy.get('[data-cy=open-build-button]').should('have.length', 1);
+        cy.get('[data-cy=feed-item]')
+            .invoke('attr', 'data-cy-build')
             .then((val) => {
-                cy.get("[data-cy=open-build-button]").click();
-                cy.url().should("include", "/build/" + val);
-                cy.get("[data-cy=reload]").click();
-                cy.get(".notification-content").should("contain", "Log file has been reloaded");
-                cy.get("body").should("contain", "Condition is true");
-                cy.get("body").should("contain", "WAKE_BUILD_ID=");
+                cy.get('[data-cy=open-build-button]').click();
+                cy.url().should('include', '/build/' + val);
+                cy.get('[data-cy=reload]').click();
+                cy.get('.notification-content').should('contain', 'Log file has been reloaded');
+                cy.get('body').should('contain', 'Condition is true');
+                cy.get('body').should('contain', 'WAKE_BUILD_ID=');
             });
     });
 
-    it("should inject env variables", function () {
+    it('should inject env variables', function () {
         // Create job
-        const jobName = "myjob" + new Date().getTime();
+        const jobName = 'myjob' + new Date().getTime();
         cy.request({
-            url: "/api/jobs/create",
-            method: "POST",
+            url: '/api/jobs/create',
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 name: jobName,
@@ -424,11 +429,11 @@ tasks:
 `;
 
         cy.request({
-            url: "/api/job/" + jobName,
-            method: "POST",
+            url: '/api/job/' + jobName,
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 fileContent: jobContent,
@@ -439,28 +444,28 @@ tasks:
         // Create build
         cy.request({
             url: `/api/job/${jobName}/run`,
-            method: "POST",
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {},
             form: true,
         });
 
-        cy.visit("/");
+        cy.visit('/');
         cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
-            .invoke("attr", "data-cy-build")
+        cy.get('[data-cy=filter]').clear().type(jobName);
+        cy.get('[data-cy=open-build-button]').should('have.length', 1);
+        cy.get('[data-cy=feed-item]')
+            .invoke('attr', 'data-cy-build')
             .then((val) => {
-                cy.get("[data-cy=open-build-button]").click();
-                cy.url().should("include", "/build/" + val);
-                cy.get("[data-cy=reload]").click();
-                cy.get("body").should("contain", "NAME=joe");
-                cy.get("body").should("contain", "SCORE=5");
-                cy.get("body").should("contain", "WAKE_BUILD_ID=");
+                cy.get('[data-cy=open-build-button]').click();
+                cy.url().should('include', '/build/' + val);
+                cy.get('[data-cy=reload]').click();
+                cy.get('body').should('contain', 'NAME=joe');
+                cy.get('body').should('contain', 'SCORE=5');
+                cy.get('body').should('contain', 'WAKE_BUILD_ID=');
             });
     });
 

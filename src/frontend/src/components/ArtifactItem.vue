@@ -1,5 +1,5 @@
 <template>
-    <MoreOptions :optionsList="sortedArtifacts" />
+    <MoreOptions data-cy="artifactsMenu" :optionsList="sortedArtifacts" />
 </template>
 
 <script>
@@ -29,7 +29,7 @@ export default {
     computed: {
         sortedArtifacts: function () {
             console.log(this.artifacts);
-            return [...this.artifacts]
+            const sorted = [...this.artifacts]
                 .sort((a, b) => {
                     if (a[this.sortField] < b[this.sortField]) {
                         return 1 * this.sortOrder;
@@ -39,13 +39,29 @@ export default {
                     }
                     return 0;
                 })
-                .map((artifact) => {
+                .map((artifact, idx) => {
                     return {
                         icon: 'cloud_download',
                         name: `${artifact.filename} (${this.getSize(artifact.size)})`,
                         onClick: () => window.open(this.downloadURL(artifact.filename)),
+                        attrs: {
+                            'data-cy': `artifact-${idx}`,
+                        },
                     };
                 });
+
+            if (this.indexFile) {
+                sorted.unshift({
+                    icon: 'cloud_download',
+                    name: 'Open index.html',
+                    onClick: () => window.open(this.indexFile),
+                    attrs: {
+                        'data-cy': 'openIndexFile',
+                    },
+                });
+            }
+
+            return sorted;
         },
         indexFile: function () {
             // Returns filename of index.html file with shortest filename (in hope that it will be the top-level one)
