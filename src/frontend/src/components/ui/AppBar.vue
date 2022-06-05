@@ -3,24 +3,49 @@
         <span class="material-icons menu-icon" @click="$emit('menu-clicked')">menu</span>
 
         <div class="right-side">
-            <span class="version">v{{ getVesion }}</span>
-
-            <span class="material-icons cursor-pointer" title="Log out" @click="logOut"
-                >exit_to_app</span
-            >
+            <MoreOptions :optionsList="moreOptions" :showSearch="false" />
         </div>
     </header>
 </template>
 
 <script>
 import axios from 'axios';
+import MoreOptions from './MoreOptions.vue';
 
 export default {
     name: 'AppBar',
+    components: {
+        MoreOptions,
+    },
+    data() {
+        return {
+            moreOptions: null,
+            darkMode: false,
+        };
+    },
     computed: {
-        getVesion: function () {
+        getVersion: function () {
             return import.meta.env.VITE_VERSION || '0.0.0';
         },
+    },
+    created() {
+        this.moreOptions = [
+            {
+                name: 'Log out',
+                icon: 'exit_to_app',
+                onClick: this.logOut,
+            },
+            {
+                name: this.darkMode ? `Light Mode` : `Dark Mode`,
+                icon: this.darkMode ? 'wb_sunny' : 'brightness_3',
+                onClick: () => (this.darkMode = !this.darkMode),
+            },
+            {
+                name: `Version ${this.getVersion}`,
+                disabled: true,
+            },
+        ];
+        this.darkMode = JSON.parse(localStorage.getItem('darkMode')) || false;
     },
     methods: {
         logOut() {
@@ -31,6 +56,15 @@ export default {
                     this.$router.push('/login');
                 })
                 .catch((error) => {});
+        },
+    },
+    watch: {
+        darkMode(val) {
+            document.querySelector('html').classList.toggle('dark');
+            localStorage.setItem('darkMode', `${val}`);
+            // Items on MoreOptions are not reactive
+            this.moreOptions[1].name = val ? `Light Mode` : `Dark Mode`;
+            this.moreOptions[1].icon = val ? 'wb_sunny' : 'brightness_3';
         },
     },
 };

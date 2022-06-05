@@ -21,8 +21,6 @@
                 <span class="material-icons">settings</span>
                 <span class="sidebar-link-label">Settings</span>
             </router-link>
-
-            <Toggle v-model="darkMode" />
         </nav>
     </aside>
 </template>
@@ -46,17 +44,7 @@ export default {
     data() {
         return {
             logo,
-            darkMode: false,
         };
-    },
-    mounted() {
-        this.darkMode = !JSON.stringify(localStorage.getItem('darkMode'));
-    },
-    watch: {
-        darkMode() {
-            document.querySelector('html').classList.toggle('dark');
-            localStorage.setItem('darkMode', `${this.darkMode}`);
-        },
     },
 };
 </script>
@@ -80,7 +68,7 @@ export default {
     .sidebar-links {
         @apply flex flex-col gap-4;
         .sidebar-link {
-            @apply text-2xl text-white hover:text-primary-light dark:hover:text-primary-light flex gap-3 items-center;
+            @apply text-xl text-white hover:text-primary-light dark:hover:text-primary-light flex gap-3 items-center;
             &.sidebar-link-active {
                 @apply text-primary-light;
             }
