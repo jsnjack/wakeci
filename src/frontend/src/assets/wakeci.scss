@@ -64,11 +64,28 @@ input {
     @apply invisible md:visible;
 }
 
-.form {
-    .form-item {
-        @apply flex flex-col gap-0.5 my-1;
-        label {
-            @apply text-secondary-dark text-xs font-bold;
+.form-item {
+    @apply flex flex-col gap-0.5 my-1;
+    label {
+        @apply text-secondary-dark text-xs dark:text-primary-light;
+    }
+}
+
+.table {
+    @apply table-auto border border-primary-light dark:border-primary rounded-md border-collapse;
+    thead {
+        @apply bg-primary-light text-primary-dark;
+        th {
+            @apply text-primary font-bold text-left p-4 border-primary border;
+        }
+    }
+    tr {
+        @apply px-2 py-1 border-b border-primary-light bg-white dark:bg-primary-light;
+        &:nth-child(even) {
+            @apply bg-gray-light;
+        }
+        td {
+            @apply px-2 py-1;
         }
     }
 }

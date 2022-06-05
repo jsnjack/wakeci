@@ -1,6 +1,7 @@
 <template>
-    <div class="container grid-xl">
-        <table class="table table-striped">
+    <div class="jobs-view">
+        <input class="job-search" placeholder="Filter..." v-model="search" />
+        <table class="table jobs-table">
             <thead>
                 <th>Name</th>
                 <th class="hide-sm">Interval</th>
@@ -8,39 +9,20 @@
                 <th>Actions</th>
             </thead>
             <tbody>
-                <JobItem
-                    v-for="item in jobs"
-                    :key="item.name"
-                    :job="item"
-                />
+                <JobItem v-for="item in filteredJobs" :key="item.name" :job="item" />
             </tbody>
         </table>
 
-        <div
-            v-show="jobs.length === 0"
-            class="empty"
-        >
+        <div v-show="jobs.length === 0" class="empty">
             <p class="empty-title h5">Empty</p>
         </div>
         <div class="text-center create-section">
-            <a
-                data-cy="create-job"
-                href="#"
-                class="btn btn-primary m-1"
-                @click.prevent="toggle"
+            <a data-cy="create-job" href="#" class="btn btn-primary m-1" @click.prevent="toggle"
                 >Create new job</a
             >
             <!-- Modal to create new job -->
-            <div
-                class="modal"
-                :class="{ active: modalOpen }"
-            >
-                <a
-                    href="#"
-                    class="modal-overlay"
-                    aria-label="Close"
-                    @click.prevent="toggle"
-                />
+            <div class="modal" :class="{ active: modalOpen }">
+                <a href="#" class="modal-overlay" aria-label="Close" @click.prevent="toggle" />
                 <div class="modal-container">
                     <div class="modal-header">
                         <a
@@ -54,11 +36,7 @@
                     <div class="modal-body">
                         <div class="content text-left">
                             <div class="form-group">
-                                <label
-                                    class="form-label"
-                                    for="new-job-name"
-                                    >Name</label
-                                >
+                                <label class="form-label" for="new-job-name">Name</label>
                                 <input
                                     id="new-job-name"
                                     ref="newJobInput"
@@ -97,8 +75,8 @@
 </template>
 
 <script>
-import JobItem from "@/components/JobItem.vue";
-import axios from "axios";
+import JobItem from '@/components/JobItem.vue';
+import axios from 'axios';
 
 export default {
     components: { JobItem },
@@ -106,22 +84,28 @@ export default {
         return {
             jobs: [],
             modalOpen: false,
-            newJobName: "new_job",
+            newJobName: 'new_job',
+            search: '',
         };
     },
     computed: {
         isModalOpen: function () {
             return this.modalOpen;
         },
+        filteredJobs() {
+            return this.jobs.filter((job) => {
+                return job.name.toLowerCase().includes(this.search.toLowerCase());
+            });
+        },
     },
     mounted() {
-        document.title = "Jobs - wakeci";
+        document.title = 'Jobs - wakeci';
         this.fetch();
     },
     methods: {
         fetch() {
             axios
-                .get("/api/jobs/")
+                .get('/api/jobs/')
                 .then((response) => {
                     this.jobs = response.data || [];
                 })
@@ -137,14 +121,14 @@ export default {
         },
         create() {
             const data = new FormData();
-            data.append("name", this.newJobName);
+            data.append('name', this.newJobName);
             axios
-                .post("/api/jobs/create", data)
+                .post('/api/jobs/create', data)
                 .then((response) => {
                     this.toggle();
                     this.$notify({
-                        text: "New job created",
-                        type: "success",
+                        text: 'New job created',
+                        type: 'success',
                     });
                     this.fetch();
                 })
@@ -157,11 +141,11 @@ export default {
             // Helps to hide the tooltip
             document.documentElement.focus();
             axios
-                .post("/api/jobs/refresh")
+                .post('/api/jobs/refresh')
                 .then((response) => {
                     this.$notify({
-                        text: "Jobs have been refreshed",
-                        type: "success",
+                        text: 'Jobs have been refreshed',
+                        type: 'success',
                     });
                     this.fetch();
                 })
@@ -172,11 +156,13 @@ export default {
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style
-    scoped
-    lang="scss"
->
-.create-section {
-    margin-top: 1em;
+<style scoped lang="scss">
+.jobs-view {
+    .job-search {
+        @apply float-right mb-2;
+    }
+    .jobs-table {
+        @apply w-full;
+    }
 }
 </style>

@@ -2,11 +2,11 @@
     <Modal @close="$emit('close')" :title="getModalTitle">
         <div class="modal-body">
             <div class="content">
-                <form v-show="params" ref="form" class="form">
+                <form v-show="params" ref="form">
                     <RunFormItem v-for="item in params" :key="item.name" :params="item" />
                 </form>
                 <div v-show="!params" class="empty">
-                    <p class="empty-title h6 text-uppercase">Empty</p>
+                    <p>No parameters</p>
                 </div>
             </div>
         </div>
