@@ -7,6 +7,7 @@
                 :value="filter"
                 title="Filter builds by ID, name, params and status"
                 data-cy="filter"
+                placeholder="Filter..."
                 @input="(evt) => (filter = evt.target.value)"
             />
             <button
@@ -24,11 +25,11 @@
 
         <button
             v-show="moreEnabled"
-            class="btn btn-link float-right"
+            class="btn btn-primary load-btn"
             :class="{ loading: isFetching }"
             @click.prevent="fetchNow(true)"
         >
-            more...
+            Load more...
         </button>
     </div>
 </template>
@@ -225,6 +226,9 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.load-btn {
+    @apply float-right mt-4;
+}
 .feed-items {
     @apply flex flex-col gap-4 w-full;
 }

@@ -12,6 +12,6 @@ export default {
 
 <style>
 .card {
-    @apply bg-white shadow-sm rounded p-2 relative;
+    @apply bg-white shadow-sm rounded p-2 relative dark:bg-gray-extra-light;
 }
 </style>
