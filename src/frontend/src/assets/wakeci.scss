@@ -11,6 +11,12 @@
   font-family: monospace;
 }
 
+@layer utilities {
+    .desktop-only {
+        @apply max-no-desktop:hidden;
+    }
+}
+
 html, body {
     overflow: hidden;
 }
@@ -60,10 +66,6 @@ input {
     }
 }
 
-.desktop-only {
-    @apply invisible md:visible;
-}
-
 .form-item {
     @apply flex flex-col gap-0.5 my-1;
     label {
@@ -72,16 +74,16 @@ input {
 }
 
 .table {
-    @apply table-auto border border-primary-light dark:border-primary rounded-md border-collapse;
+    @apply table-auto border border-primary-light dark:border-primary rounded-md border-separate bg-white;
     thead {
         @apply bg-primary-light text-primary-dark;
         th {
-            @apply text-primary font-bold text-left p-4 border-primary border;
+            @apply text-primary font-bold text-left p-2 border-primary border rounded;
         }
     }
     tr {
         @apply px-2 py-1 border-b border-primary-light bg-white dark:bg-primary-light;
-        &:nth-child(even) {
+        &:nth-child(odd) {
             @apply bg-gray-light;
         }
         td {

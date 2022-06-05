@@ -1,5 +1,5 @@
 <template>
-    <div class="progress-bar">
+    <div :class="['progress-bar', type]">
         <span
             role="progressbar"
             max="100"
@@ -44,6 +44,12 @@ export default {
         &.info {
             @apply bg-info animate-pulse;
         }
+    }
+    &.warning {
+        @apply bg-warning-light;
+    }
+    &.danger {
+        @apply bg-danger-light;
     }
 }
 </style>

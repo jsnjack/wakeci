@@ -1,11 +1,26 @@
 <template>
     <div class="jobs-view">
-        <input class="job-search" placeholder="Filter..." v-model="search" />
+        <div class="jobs-action">
+            <button
+                data-cy="refresh-jobs"
+                href="#"
+                class="btn btn-primary"
+                title="Refresh all jobs from the configuration folder"
+                @click.prevent="refreshJobs"
+            >
+                Refesh jobs
+            </button>
+
+            <button data-cy="create-job" href="#" class="btn btn-success" @click.prevent="toggle">
+                Create new job
+            </button>
+            <input class="job-search" placeholder="Filter..." v-model="search" />
+        </div>
         <table class="table jobs-table">
             <thead>
                 <th>Name</th>
-                <th class="hide-sm">Interval</th>
-                <th class="hide-sm">Active</th>
+                <th class="desktop-only">Interval</th>
+                <th class="desktop-only">Active</th>
                 <th>Actions</th>
             </thead>
             <tbody>
@@ -16,70 +31,42 @@
         <div v-show="jobs.length === 0" class="empty">
             <p class="empty-title h5">Empty</p>
         </div>
-        <div class="text-center create-section">
-            <a data-cy="create-job" href="#" class="btn btn-primary m-1" @click.prevent="toggle"
-                >Create new job</a
-            >
-            <!-- Modal to create new job -->
-            <div class="modal" :class="{ active: modalOpen }">
-                <a href="#" class="modal-overlay" aria-label="Close" @click.prevent="toggle" />
-                <div class="modal-container">
-                    <div class="modal-header">
-                        <a
-                            href="#"
-                            class="btn btn-clear float-right"
-                            aria-label="Close"
-                            @click.prevent="toggle"
-                        />
-                        <div class="modal-title text-uppercase">Create new job</div>
-                    </div>
-                    <div class="modal-body">
-                        <div class="content text-left">
-                            <div class="form-group">
-                                <label class="form-label" for="new-job-name">Name</label>
-                                <input
-                                    id="new-job-name"
-                                    ref="newJobInput"
-                                    v-model="newJobName"
-                                    class="form-input"
-                                    type="text"
-                                    name="new-job-name"
-                                    @keyup.enter="enterClicked"
-                                />
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <a
-                            ref="createButton"
-                            data-cy="create-job-button"
-                            href="#"
-                            class="btn btn-primary float-right"
-                            aria-label="Close"
-                            @click.prevent="create"
-                            >Create</a
-                        >
-                    </div>
-                </div>
+
+        <Modal v-if="modalOpen" @close="modalOpen = false" title="Create new job">
+            <div class="form-item">
+                <label class="form-label" for="new-job-name">Name</label>
+                <input
+                    id="new-job-name"
+                    ref="newJobInput"
+                    v-model="newJobName"
+                    class="form-input"
+                    type="text"
+                    name="new-job-name"
+                    @keyup.enter="enterClicked"
+                />
             </div>
-            <a
-                data-cy="refresh-jobs"
+
+            <button
+                ref="createButton"
+                data-cy="create-job-button"
                 href="#"
-                class="btn tooltip m-1"
-                data-tooltip="Refresh all jobs from the configuration folder"
-                @click.prevent="refreshJobs"
-                >Refresh jobs</a
+                class="btn btn-primary float-right"
+                aria-label="Close"
+                @click.prevent="create"
             >
-        </div>
+                Create
+            </button>
+        </Modal>
     </div>
 </template>
 
 <script>
-import JobItem from '@/components/JobItem.vue';
 import axios from 'axios';
+import JobItem from '@/components/JobItem.vue';
+import Modal from '@/components/ui/Modal.vue';
 
 export default {
-    components: { JobItem },
+    components: { JobItem, Modal },
     data: function () {
         return {
             jobs: [],
@@ -158,8 +145,11 @@ export default {
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="scss">
 .jobs-view {
-    .job-search {
-        @apply float-right mb-2;
+    .jobs-action {
+        @apply mb-2 flex justify-end items-center gap-2;
+        .job-search {
+            @apply ml-4;
+        }
     }
     .jobs-table {
         @apply w-full;

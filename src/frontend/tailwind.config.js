@@ -40,6 +40,9 @@ module.exports = {
                     dark: '#155E75',
                 },
             },
+            screens: {
+                'max-no-desktop': { max: '768px' },
+            },
         },
     },
     plugins: [],

@@ -25,7 +25,7 @@
                 />
                 <router-link
                     :to="{ name: 'jobEdit', params: { name: job.name } }"
-                    class="btn btn-primary item-action"
+                    class="btn btn-secondary item-action"
                     data-cy="edit-job-button"
                 >
                     Edit
@@ -33,7 +33,7 @@
                 <a
                     data-cy="delete-job-button"
                     href="#"
-                    class="btn btn-error item-action"
+                    class="btn btn-danger item-action"
                     @click.prevent="toggleModalDelete"
                     >Delete</a
                 >

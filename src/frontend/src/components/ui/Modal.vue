@@ -40,7 +40,7 @@ export default {
 .modal-bg {
     @apply fixed z-40 top-0 left-0 right-0 bottom-0 bg-black/[.4] h-screen w-screen flex items-center justify-center;
     .modal {
-        @apply z-50 opacity-100 dark:bg-secondary text-gray-light;
+        @apply z-50 opacity-100 dark:bg-secondary dark:text-gray-light text-secondary;
         .modal-title {
             @apply my-2 grid items-center gap-4;
             grid-template-columns: auto auto;
