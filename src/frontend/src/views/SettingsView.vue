@@ -1,31 +1,17 @@
 <template>
-    <div class="container grid-sm">
-        <form
-            class="card"
-            method="post"
-            @submit.prevent="save"
-        >
+    <Card class="settings-card">
+        <form method="post" @submit.prevent="save">
             <div class="card-header">
-                <div class="card-title h5">Settings</div>
+                <h3>Settings</h3>
             </div>
-            <div class="card-body text-left">
-                <div class="form-group">
-                    <label
-                        class="form-label"
-                        for="password"
-                        >Password</label
-                    >
-                    <input
-                        id="password"
-                        v-model="password"
-                        class="form-input"
-                        type="password"
-                    />
+            <div>
+                <div class="form-item">
+                    <label class="form-label" for="password">Password</label>
+                    <input id="password" v-model="password" class="form-input" type="password" />
                 </div>
-                <div class="form-group">
-                    <label
-                        class="form-label"
-                        for="concurrent-builds"
+
+                <div class="form-item">
+                    <label class="form-label" for="concurrent-builds"
                         >Number of concurrent builds</label
                     >
                     <input
@@ -36,10 +22,8 @@
                         min="1"
                     />
                 </div>
-                <div class="form-group">
-                    <label
-                        class="form-label"
-                        for="build-history-size"
+                <div class="form-item">
+                    <label class="form-label" for="build-history-size"
                         >Number of builds to preserve</label
                     >
                     <input
@@ -51,57 +35,55 @@
                     />
                 </div>
             </div>
-            <div class="card-footer">
-                <button
-                    data-cy="save-settings"
-                    type="submit"
-                    class="btn btn-primary"
-                >
-                    Save
-                </button>
-            </div>
+            <button data-cy="save-settings" type="submit" class="btn btn-primary save-btn">
+                Save
+            </button>
         </form>
-    </div>
+    </Card>
 </template>
 
 <script>
-import axios from "axios";
+import axios from 'axios';
+import Card from '@/components/ui/Card.vue';
 
 export default {
+    components: {
+        Card,
+    },
     data: function () {
         return {
-            password: "",
+            password: '',
             concurrentBuilds: 2,
             buildHistorySize: 200,
         };
     },
     mounted() {
-        document.title = "Settings - wakeci";
+        document.title = 'Settings - wakeci';
         this.fetch();
     },
     methods: {
         save() {
             const data = new FormData();
-            data.append("password", this.password);
-            data.append("concurrentBuilds", this.concurrentBuilds);
-            data.append("buildHistorySize", this.buildHistorySize);
+            data.append('password', this.password);
+            data.append('concurrentBuilds', this.concurrentBuilds);
+            data.append('buildHistorySize', this.buildHistorySize);
             axios
-                .post("/api/settings", data, {
+                .post('/api/settings', data, {
                     headers: {
-                        "Content-type": "application/x-www-form-urlencoded",
+                        'Content-type': 'application/x-www-form-urlencoded',
                     },
                 })
                 .then((response) => {
                     this.$notify({
-                        text: "Saved",
-                        type: "success",
+                        text: 'Saved',
+                        type: 'success',
                     });
                 })
                 .catch((error) => {});
         },
         fetch() {
             axios
-                .get("/api/settings")
+                .get('/api/settings')
                 .then((response) => {
                     if (response.data.concurrentBuilds) {
                         this.concurrentBuilds = response.data.concurrentBuilds;
@@ -117,11 +99,12 @@ export default {
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style
-    scoped
-    lang="scss"
->
-.card {
-    margin-top: 1em;
+<style scoped lang="scss">
+.settings-card {
+    @apply min-w-max dark:bg-secondary dark:text-gray-extra-light;
+    width: 33%;
+    .save-btn {
+        @apply mt-4 ml-auto;
+    }
 }
 </style>

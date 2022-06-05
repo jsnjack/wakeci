@@ -67,9 +67,9 @@ input {
 }
 
 .form-item {
-    @apply flex flex-col gap-0.5 my-1;
+    @apply flex flex-col gap-0.5 my-2;
     label {
-        @apply text-secondary-dark text-xs dark:text-primary-light;
+        @apply text-secondary-dark text-sm dark:text-primary-light;
     }
 }
 
