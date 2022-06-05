@@ -3,7 +3,7 @@
         <span class="material-icons menu-icon" @click="$emit('menu-clicked')">menu</span>
 
         <div class="right-side">
-            <MoreOptions :optionsList="moreOptions" :showSearch="false" />
+            <MoreOptions data-cy="app-submenu" :optionsList="moreOptions" :showSearch="false" />
         </div>
     </header>
 </template>
@@ -34,6 +34,9 @@ export default {
                 name: 'Log out',
                 icon: 'exit_to_app',
                 onClick: this.logOut,
+                attrs: {
+                    'data-cy': 'logout',
+                },
             },
             {
                 name: this.darkMode ? `Light Mode` : `Dark Mode`,
