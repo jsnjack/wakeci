@@ -1,15 +1,15 @@
-describe("API", function () {
-    it("should use internal API", function () {
+describe('API', function () {
+    it('should use internal API', function () {
         // Create job
-        const jobName = "myjob" + new Date().getTime();
-        const jobName2 = "@" + jobName;
+        const jobName = 'myjob' + new Date().getTime();
+        const jobName2 = '@' + jobName;
 
         cy.request({
-            url: "/api/jobs/create",
-            method: "POST",
+            url: '/api/jobs/create',
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 name: jobName,
@@ -18,11 +18,11 @@ describe("API", function () {
         });
 
         cy.request({
-            url: "/api/jobs/create",
-            method: "POST",
+            url: '/api/jobs/create',
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 name: jobName2,
@@ -38,11 +38,11 @@ tasks:
 `;
 
         cy.request({
-            url: "/api/job/" + jobName,
-            method: "POST",
+            url: '/api/job/' + jobName,
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {
                 fileContent: jobContent,
@@ -53,19 +53,19 @@ tasks:
         // Create build
         cy.request({
             url: `/api/job/${jobName}/run`,
-            method: "POST",
+            method: 'POST',
             auth: {
-                user: "",
-                pass: "admin",
+                user: '',
+                pass: 'admin',
             },
             body: {},
             form: true,
         });
-        cy.visit("/");
+        cy.visit('/');
         cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("[data-cy=feed-tbody]").should("be.visible").should("have.length", 1);
-        cy.get("[data-cy=filter]").clear().type(jobName2);
-        cy.get("[data-cy=feed-tbody]").should("be.visible").should("have.length", 1);
+        cy.get('[data-cy=filter]').clear().type(jobName);
+        cy.get('[data-cy=feed-items]').should('be.visible').should('have.length', 1);
+        cy.get('[data-cy=filter]').clear().type(jobName2);
+        cy.get('[data-cy=feed-items]').should('be.visible').should('have.length', 1);
     });
 });
