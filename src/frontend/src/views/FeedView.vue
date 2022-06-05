@@ -11,17 +11,11 @@
                 placeholder="Filter..."
                 @input="(evt) => (filter = evt.target.value)"
             />
-            <button
-                class="btn btn-action"
-                :class="{ loading: isFetching }"
-                @click.prevent="clearFilter"
-            >
-                <i class="icon" :class="filterIconType" />
-            </button>
         </div>
 
-        <div class="feed-items">
+        <div class="feed-items" data-cy="feed-items">
             <FeedItem v-for="build in builds" :build="build" :key="build.id" />
+            <p v-if="!builds.length" data-cy="empty-feed">Empty</p>
         </div>
 
         <button
