@@ -1,10 +1,6 @@
 <template>
-    <div class="form-group">
-        <label
-            class="form-label"
-            :for="getForValue"
-            >{{ getParamsKey }}</label
-        >
+    <div class="form-item">
+        <label class="form-label" :for="getForValue">{{ getParamsKey }}</label>
         <input
             :id="getForValue"
             class="form-input"
@@ -38,7 +34,4 @@ export default {
 };
 </script>
 
-<style
-    lang="scss"
-    scoped
-></style>
+<style lang="scss" scoped></style>

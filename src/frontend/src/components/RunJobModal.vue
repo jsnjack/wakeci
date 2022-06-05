@@ -2,7 +2,7 @@
     <Modal @close="$emit('close')" :title="getModalTitle">
         <div class="modal-body">
             <div class="content">
-                <form v-show="params" ref="form">
+                <form v-show="params" ref="form" class="form">
                     <RunFormItem v-for="item in params" :key="item.name" :params="item" />
                 </form>
                 <div v-show="!params" class="empty">

@@ -63,3 +63,12 @@ input {
 .desktop-only {
     @apply invisible md:visible;
 }
+
+.form {
+    .form-item {
+        @apply flex flex-col gap-0.5 my-1;
+        label {
+            @apply text-secondary-dark text-xs font-bold;
+        }
+    }
+}

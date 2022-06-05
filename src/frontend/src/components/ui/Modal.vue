@@ -43,9 +43,9 @@ export default {
         @apply z-50 opacity-100;
         .modal-title {
             @apply my-2 grid items-center gap-4;
-            grid-template-columns: auto 20px;
+            grid-template-columns: auto auto;
             .close-icon {
-                @apply cursor-pointer text-gray-border hover:text-gray-border-dark;
+                @apply ml-8 cursor-pointer text-gray-border hover:text-gray-border-dark;
             }
         }
     }

@@ -27,6 +27,7 @@
                     v-if="getArtifacts.length"
                     :artifacts="getArtifacts"
                     :build-i-d="statusUpdate.id"
+                    title="Artifacts"
                 />
             </div>
         </Card>
