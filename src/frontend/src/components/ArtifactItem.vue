@@ -1,67 +1,15 @@
 <template>
-    <section>
-        <div
-            class="divider"
-            data-content="artifacts"
-        />
-
-        <div
-            v-if="indexFile"
-            class="float-right"
-        >
-            <a
-                :href="indexFile"
-                target="_blank"
-                class="btn btn-sm"
-                data-cy="openIndexFile"
-                >Open index.html</a
-            >
-        </div>
-
-        <table class="table table-striped table-hover">
-            <thead>
-                <tr>
-                    <th
-                        class="badge c-hand"
-                        data-cy="artifacts-header-file"
-                        @click="sortBy('filename')"
-                    >
-                        File
-                    </th>
-                    <th
-                        class="badge c-hand"
-                        data-cy="artifacts-header-size"
-                        @click="sortBy('size')"
-                    >
-                        Size
-                    </th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr
-                    v-for="item in sortedArtifacts"
-                    :key="item.path"
-                    data-cy="artifacts-body-row"
-                >
-                    <td>
-                        <a
-                            :href="downloadURL(item.filename)"
-                            target="_blank"
-                        >
-                            {{ item.filename }}
-                        </a>
-                    </td>
-                    <td>{{ getSize(item.size) }}</td>
-                </tr>
-            </tbody>
-        </table>
-    </section>
+    <MoreOptions :optionsList="sortedArtifacts" />
 </template>
 
 <script>
-import { humanFileSize } from "@/store/utils";
+import MoreOptions from '@/components/ui/MoreOptions.vue';
+import { humanFileSize } from '@/store/utils';
 
 export default {
+    components: {
+        MoreOptions,
+    },
     props: {
         artifacts: {
             required: true,
@@ -75,31 +23,40 @@ export default {
     data: function () {
         return {
             sortOrder: -1,
-            sortField: "filename",
+            sortField: 'filename',
         };
     },
     computed: {
         sortedArtifacts: function () {
-            return [...this.artifacts].sort((a, b) => {
-                if (a[this.sortField] < b[this.sortField]) {
-                    return 1 * this.sortOrder;
-                }
-                if (a[this.sortField] > b[this.sortField]) {
-                    return -1 * this.sortOrder;
-                }
-                return 0;
-            });
+            console.log(this.artifacts);
+            return [...this.artifacts]
+                .sort((a, b) => {
+                    if (a[this.sortField] < b[this.sortField]) {
+                        return 1 * this.sortOrder;
+                    }
+                    if (a[this.sortField] > b[this.sortField]) {
+                        return -1 * this.sortOrder;
+                    }
+                    return 0;
+                })
+                .map((artifact) => {
+                    return {
+                        icon: 'cloud_download',
+                        name: `${artifact.filename} (${this.getSize(artifact.size)})`,
+                        onClick: () => window.open(this.downloadURL(artifact.filename)),
+                    };
+                });
         },
         indexFile: function () {
             // Returns filename of index.html file with shortest filename (in hope that it will be the top-level one)
-            let indexEls = this.artifacts.filter(({ filename }) => filename.endsWith("index.html"));
+            let indexEls = this.artifacts.filter(({ filename }) => filename.endsWith('index.html'));
             indexEls = indexEls.sort((a, b) => {
                 return a.filename.length - b.filename.length;
             });
             if (indexEls.length) {
                 return this.downloadURL(indexEls[0].filename);
             }
-            return "";
+            return '';
         },
     },
     methods: {
@@ -121,10 +78,7 @@ export default {
 };
 </script>
 
-<style
-    lang="scss"
-    scoped
->
+<style lang="scss" scoped>
 .artifact {
     margin: 0.25em;
 }

@@ -20,7 +20,14 @@
                     <Toggle v-model="follow" />
                     Follow
                 </div>
+
                 <button class="btn btn-success small" @click="showRunModal = true">Rerun</button>
+
+                <ArtifactItem
+                    v-if="getArtifacts.length"
+                    :artifacts="getArtifacts"
+                    :build-i-d="statusUpdate.id"
+                />
             </div>
         </Card>
 
@@ -38,23 +45,23 @@
             :name="job.tasks[item.id].name"
             :follow="follow"
         />
-        <ArtifactItem :artifacts="getArtifacts" :build-i-d="statusUpdate.id" />
 
         <RunJobModal v-show="showRunModal" @close="showRunModal = false" :params="statusUpdate.params" :job-name="statusUpdate.name" />
     </div>
 </template>
 
 <script>
-import vuex from "vuex";
-import axios from "axios";
-import DurationElement from "@/components/DurationElement.vue";
-import TaskItem from "@/components/TaskItem.vue";
-import ArtifactItem from "@/components/ArtifactItem.vue";
-import FeedItem from "@/components/FeedItem.vue";
-import RunJobModal from "@/components/RunJobModal.vue";
-import Toggle from "@/components/ui/Toggle.vue";
-import Card from "@/components/ui/Card.vue";
-import TaskStatus from "@/components/TaskStatus.vue";
+import vuex from 'vuex';
+import axios from 'axios';
+import DurationElement from '@/components/DurationElement.vue';
+import TaskItem from '@/components/TaskItem.vue';
+import ArtifactItem from '@/components/ArtifactItem.vue';
+import FeedItem from '@/components/FeedItem.vue';
+import RunJobModal from '@/components/RunJobModal.vue';
+import Toggle from '@/components/ui/Toggle.vue';
+import Card from '@/components/ui/Card.vue';
+import TaskStatus from '@/components/TaskStatus.vue';
+import MoreOptions from '@/components/ui/MoreOptions.vue';
 
 export default {
     components: {
@@ -66,6 +73,7 @@ export default {
         Toggle,
         Card,
         TaskStatus,
+        MoreOptions,
     },
     props: {
         id: {

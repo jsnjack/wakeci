@@ -55,6 +55,9 @@ input {
     &::placeholder {
         @apply text-gray-border dark:text-primary-light;
     }
+    &.small {
+        @apply p-1 rounded text-sm;
+    }
 }
 
 .desktop-only {
