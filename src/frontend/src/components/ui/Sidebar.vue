@@ -68,7 +68,7 @@ export default {
     .sidebar-links {
         @apply flex flex-col gap-4;
         .sidebar-link {
-            @apply text-xl text-white hover:text-primary-light dark:hover:text-primary-light flex gap-3 items-center;
+            @apply text-xl text-white hover:text-primary-light dark:hover:text-primary-light flex gap-3 items-center no-underline;
             &.sidebar-link-active {
                 @apply text-primary-light;
             }

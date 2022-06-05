@@ -7,8 +7,10 @@
 }
 
 .CodeMirror * {
-  font-size: 1.05em;
-  font-family: monospace;
+    @apply font-mono text-base dark:bg-secondary dark:text-gray-light;
+    .cm-atom {
+        @apply dark:text-primary-light text-primary;
+    }
 }
 
 @layer utilities {
@@ -30,11 +32,11 @@ h2 {
 }
 
 h3 {
-    @apply text-xl font-bold;
+    @apply text-xl font-bold text-primary-dark;
 }
 
 a {
-    @apply text-primary flex items-center gap-1;
+    @apply text-primary flex items-center gap-1 hover:underline;
 }
 
 .btn {

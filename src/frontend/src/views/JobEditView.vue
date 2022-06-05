@@ -1,6 +1,7 @@
 <template>
-    <div class="container text-left">
-        <h4 class="text-center title">Edit {{ name }}</h4>
+    <div>
+        <h3>Edit {{ name }}</h3>
+        <br />
         <div>
             <Codemirror
                 :value="job.fileContent"
@@ -9,16 +10,18 @@
                 @input="onCodeChange"
             />
         </div>
-        <div class="divider" />
-        <div class="text-right">
-            <a data-cy="save-button" href="#" class="btn btn-primary" @click.prevent="save">Save</a>
-            <a
+        <div class="job-edit-actions">
+            <button data-cy="save-button" href="#" class="btn btn-primary" @click.prevent="save">
+                Save
+            </button>
+            <button
                 data-cy="save-and-close-button"
                 href="#"
                 class="btn btn-primary"
                 @click.prevent="saveAndClose"
-                >Save & Close</a
             >
+                Save & Close
+            </button>
         </div>
     </div>
 </template>
@@ -97,18 +100,9 @@ export default {
 
 <style lang="scss" scoped>
 .CodeMirror {
-    height: auto;
+    @apply h-auto;
 }
-.form-input {
-    width: 30%;
-}
-.title {
-    margin-top: 1em;
-}
-.btn {
-    margin: 1em;
-}
-.extra-wide-modal {
-    max-width: 960px;
+.job-edit-actions {
+    @apply flex gap-2 my-4 justify-end;
 }
 </style>

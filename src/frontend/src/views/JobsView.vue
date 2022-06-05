@@ -1,5 +1,6 @@
 <template>
     <div class="jobs-view">
+        <h3>Jobs</h3>
         <div class="jobs-action">
             <button
                 data-cy="refresh-jobs"
@@ -132,7 +133,7 @@ export default {
                 .then((response) => {
                     this.$notify({
                         text: 'Jobs have been refreshed',
-                        type: 'success',
+                        type: 'info',
                     });
                     this.fetch();
                 })

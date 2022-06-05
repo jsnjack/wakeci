@@ -1,5 +1,6 @@
 <template>
     <div>
+        <h3>Feed</h3>
         <div class="input-group input-inline float-right py-1">
             <input
                 class="form-input"
