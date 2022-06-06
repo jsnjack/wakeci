@@ -32,7 +32,7 @@ h2 {
 }
 
 h3 {
-    @apply text-xl font-bold text-primary-dark;
+    @apply text-xl font-bold text-primary-dark dark:text-primary-light;
 }
 
 a {
