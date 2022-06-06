@@ -97,7 +97,7 @@ input {
 .my-noty {
     @apply rounded-sm p-2 my-1 border;
     .notification-content {
-        @apply text-sm;
+        @apply text-sm flex flex-wrap;
     }
     &.success {
         @apply bg-success-light/90 text-success-dark border-success;

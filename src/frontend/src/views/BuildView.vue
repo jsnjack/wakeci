@@ -1,7 +1,7 @@
 <template>
     <div class="build-view">
         <Card class="build-header">
-            <div>
+            <div class="title-holder">
                 <b>Tasks:</b>
                 <div class="tasks-status">
                     <TaskStatus
@@ -229,25 +229,15 @@ export default {
         .follow-holder {
             @apply flex items-center gap-1;
         }
-        .tasks-status {
-            @apply flex-1 flex items-center justify-start w-full gap-8 flex-wrap;
+        .title-holder {
+            @apply max-w-full overflow-x-clip;
+            .tasks-status {
+                @apply flex-1 grid grid-flow-col auto-cols-max items-center justify-start w-max max-w-full gap-8 overflow-x-auto p-2 pb-3;
+            }
         }
         .build-actions {
-            @apply flex gap-4;
+            @apply flex gap-4 ml-auto;
         }
     }
-}
-summary:hover {
-    cursor: pointer;
-}
-.item-action {
-    margin: 0.25em;
-}
-.follow-logs {
-    position: fixed;
-    bottom: 10px;
-    right: 10px;
-    opacity: 0.8;
-    border-radius: 10px;
 }
 </style>

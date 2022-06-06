@@ -142,8 +142,13 @@ export default {
 
 #app {
     @apply bg-gray-extra-light dark:bg-secondary-dark flex flex-nowrap w-screen h-screen;
-    & .content {
+    .sidebar.collapsed + .content {
+        max-width: calc(100vw - 64px);
+    }
+    .content {
         @apply flex-1;
+        // Sidebar
+        max-width: calc(100vw - 173px);
     }
     .main-content {
         @apply p-6 overflow-y-auto overflow-x-hidden;

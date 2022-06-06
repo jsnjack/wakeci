@@ -10,6 +10,14 @@
                 </router-link>
                 <Badge :text="build.status" :type="buildStatus" data-cy="build-status-label" />
             </header>
+            <p class="feed-item-info">
+                <span class="material-icons">calendar_today</span> {{ getTimestamp }}
+            </p>
+            <p class="feed-item-info">
+                <span class="material-icons">timer</span>
+                {{ getDoneTasks }}/{{ getTotalTasks }}
+                {{ `(${isDone ? 'Duration' : 'Running for'} ${getDuration})` }}
+            </p>
 
             <template v-if="job">
                 <b>Description</b>
@@ -17,14 +25,7 @@
                 <br />
             </template>
 
-            <div class="feed-item-info">
-                <p><b>Params:</b> {{ getParamsString }}</p>
-                <p>
-                    <b>Tasks:</b> {{ getDoneTasks }}/{{ getTotalTasks }}
-                    {{ `(${isDone ? "Duration" : "Running for"} ${getDuration})` }}
-                </p>
-                <p><b>Timestamp:</b> {{ getTimestamp }}</p>
-            </div>
+            <p><b>Params:</b> {{ getParamsString }}</p>
 
             <div class="feed-item-actions">
                 <button
@@ -169,7 +170,10 @@ export default {
         @apply flex items-center gap-6 w-full mb-4;
     }
     .feed-item-info {
-        @apply text-sm flex md:items-center md:gap-4 w-full md:flex-row flex-col gap-2 items-start;
+        @apply text-gray-border flex items-center mb-2 text-sm gap-2;
+        .material-icons {
+            @apply text-base;
+        }
     }
     .feed-item-actions {
         @apply flex flex-row gap-1 items-center justify-end;

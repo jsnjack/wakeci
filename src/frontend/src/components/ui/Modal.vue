@@ -9,7 +9,7 @@
                     </span>
                 </div>
             </header>
-            <main>
+            <main class="modal-body">
                 <slot />
             </main>
         </Card>
@@ -47,6 +47,9 @@ export default {
             .close-icon {
                 @apply ml-8 cursor-pointer text-gray-border hover:text-gray-border-dark;
             }
+        }
+        .modal-body {
+            @apply max-h-96 overflow-y-auto p-2;
         }
     }
 }
