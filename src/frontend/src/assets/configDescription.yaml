@@ -58,8 +58,9 @@ timeout: 5m30s
 # Adjust build position in the queue
 priority: 10
 
-# Designates if parallel builds of the same job are allowed
-allow_parallel: no
+# Designates how many builds of the same job can be executed in parallel
+# 0 - unlimited
+concurrency: 0
 
 # List of tasks executed on build's status change
 # Available handlers:

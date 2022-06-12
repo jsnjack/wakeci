@@ -114,7 +114,7 @@ Returns the content of the job
 #### Output
 ```
 {
-  "fileContent": "desc: Ask a cow to say something smart\r\nparams:\r\n  - SLEEP: 5\r\n\r\ntasks:\r\n  - name: Waking up a cow\r\n    run: sleep ${SLEEP}\r\n\r\n  - name: Cow says\r\n    run: fortune | cowsay\r\n\r\ninterval: \"@every 2h\"\r\nallow_parallel_builds: no\r\non_running:\r\n  - name: Running logger on running\r\n    run: logger \"Running build ${WAKE_BUILD_ID}\"\r\n\r\non_pending:\r\n  - name: Print content of job\r\n    run: cat ${WAKE_CONFIG_DIR}curious_cow.yaml"
+  "fileContent": "desc: Ask a cow to say something smart\r\nparams:\r\n  - SLEEP: 5\r\n\r\ntasks:\r\n  - name: Waking up a cow\r\n    run: sleep ${SLEEP}\r\n\r\n  - name: Cow says\r\n    run: fortune | cowsay\r\n\r\ninterval: \"@every 2h\"\r\concurrency: 0\r\non_running:\r\n  - name: Running logger on running\r\n    run: logger \"Running build ${WAKE_BUILD_ID}\"\r\n\r\non_pending:\r\n  - name: Print content of job\r\n    run: cat ${WAKE_CONFIG_DIR}curious_cow.yaml"
 }
 ```
 

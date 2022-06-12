@@ -26,12 +26,16 @@ func (q *Queue) Take() {
 	QLoop:
 		for id, qItem := range q.queued {
 			Logger.Printf("Inspecting build %d from queue\n", qItem.ID)
-			if !qItem.Job.AllowParallel {
-				// Verify that other build of the same job is not running
+			if qItem.Job.Concurrency != 0 {
+				// Verify number of running builds of the same job
+				parallel := 0
 				for _, rItem := range q.running {
 					if rItem.Job.Name == qItem.Job.Name {
-						continue QLoop
+						parallel++
 					}
+				}
+				if parallel >= qItem.Job.Concurrency {
+					continue QLoop
 				}
 			}
 			foundItem = true
