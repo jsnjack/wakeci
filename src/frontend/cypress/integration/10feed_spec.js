@@ -393,4 +393,79 @@ run: env
                 cy.get("[data-cy=filter]").should("have.value", '"' + jobName + '"');
             });
     });
+
+    it("should start job immediately", function () {
+        cy.visit("/");
+        const jobName = "myjob" + new Date().getTime();
+        cy.request({
+            url: "/api/jobs/create",
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                name: jobName,
+            },
+            form: true,
+        });
+        const jobContent = `
+desc: Test env variables
+tasks:
+- name: Print env
+  run: sleep 5
+
+concurrency: 1
+`;
+
+        cy.request({
+            url: "/api/job/" + jobName,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                fileContent: jobContent,
+            },
+            form: true,
+        });
+
+        // Queue 2 jobs
+        cy.request({
+            url: `/api/job/${jobName}/run`,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {},
+            form: true,
+        });
+        cy.request({
+            url: `/api/job/${jobName}/run`,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {},
+            form: true,
+        });
+        cy.visit("/");
+        cy.login();
+        cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=build-status-label]").should("have.length", 2);
+        cy.get("[data-cy=build-status-label]").should((items) => {
+            expect(items, "2 items").to.have.length(2);
+            expect(items.eq(0), "first item").to.contain("pending");
+            expect(items.eq(1), "second item").to.contain("running");
+        });
+        cy.get("[data-cy=start-build-button]").click();
+        cy.get("[data-cy=build-status-label]").should((items) => {
+            expect(items, "2 items").to.have.length(2);
+            expect(items.eq(0), "first item").to.contain("running");
+            expect(items.eq(1), "second item").to.contain("running");
+        });
+    });
 });
