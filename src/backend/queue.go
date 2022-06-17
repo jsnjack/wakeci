@@ -59,6 +59,32 @@ func (q *Queue) Take() {
 	Logger.Printf("Executing %d builds, %d in queue\n", len(q.running), len(q.queued))
 }
 
+// TakeNow takes the build from the queue and starts executing it now
+func (q *Queue) TakeNow(buildID int) error {
+	var foundItem bool
+
+	q.mutex.Lock()
+	for id, qItem := range q.queued {
+		if qItem.ID == buildID {
+			Logger.Printf("Running immediately item %d, build %d\n", id, q.queued[id].ID)
+			q.running = append(q.running, q.queued[id])
+			go q.queued[id].Start()
+			q.queued[id] = nil
+			q.queued = append(q.queued[:id], q.queued[id+1:]...)
+			foundItem = true
+			break
+		}
+	}
+	q.mutex.Unlock()
+
+	q.Take()
+	Logger.Printf("Executing %d builds, %d in queue\n", len(q.running), len(q.queued))
+	if !foundItem {
+		return fmt.Errorf("build with id %d is not in the queue", buildID)
+	}
+	return nil
+}
+
 // Add adds build to the queue
 func (q *Queue) Add(b *Build) {
 	q.mutex.Lock()

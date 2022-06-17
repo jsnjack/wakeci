@@ -187,3 +187,33 @@ func HandleFlushTaskLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+// HandleStartBuild takes the build from the queue and starts to run it immediately
+// @Summary      Takes the build from the queue and starts to run it immediately, ignorring the number of allowed concurrent builds and concurrency parameter
+// @Tags         build
+// @Produce      plain
+// @Param        id       path    integer   true  "Build ID"
+// @Success      200      {string}   string
+// @Failure      500      {string}   http.StatusInternalServerError
+// @Failure      404      {string}   http.StatusNotFound
+// @Router       /build/{id}/abort [post]
+func HandleStartBuild(w http.ResponseWriter, r *http.Request) {
+	logger, ok := r.Context().Value(HL).(*log.Logger)
+	if !ok {
+		logger = Logger
+	}
+	buildID := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(buildID)
+	if err != nil {
+		logger.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
+	err = GlobalQueue.TakeNow(id)
+	if err != nil {
+		logger.Println(err)
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+}

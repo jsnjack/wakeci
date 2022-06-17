@@ -180,6 +180,7 @@ func main() {
 			router.Get("/{id}", HandleGetBuild)
 			router.Post("/{id}/abort", HandleAbortBuild)
 			router.Post("/{id}/flush", HandleFlushTaskLogs)
+			router.Post("/{id}/start", HandleStartBuild)
 		})
 
 		router.Get("/settings", HandleSettingsGet)

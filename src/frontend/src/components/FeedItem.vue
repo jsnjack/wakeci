@@ -44,21 +44,33 @@
             />
         </td>
         <td class="actions">
-            <router-link
-                :to="{ name: 'build', params: { id: build.id } }"
-                class="btn btn-primary item-action"
-                data-cy="open-build-button"
-            >
-                Open
-            </router-link>
-            <a
-                v-if="!isDone"
-                :href="getAbortURL"
-                class="btn btn-error item-action"
-                data-cy="abort-build-button"
-                @click.prevent="abort"
-                >Abort</a
-            >
+            <div class="btn-group">
+                <router-link
+                    :to="{ name: 'build', params: { id: build.id } }"
+                    class="btn btn-primary"
+                    data-cy="open-build-button"
+                >
+                    Open
+                </router-link>
+                <a
+                    v-if="!isDone"
+                    :href="getAbortURL"
+                    class="btn btn-error btn-action"
+                    data-cy="abort-build-button"
+                    data-tooltip="Abort build"
+                    @click.prevent="abort"
+                    ><i class="icon icon-cross"/></a
+                >
+                <a
+                    v-if="build.status === 'pending'"
+                    :href="getStartURL"
+                    class="btn btn-action tooltip tooltip-bottom"
+                    data-cy="start-build-button"
+                    data-tooltip="Start now"
+                    @click.prevent="start"
+                    ><i class="icon icon-forward"/></a
+                >
+            </div>
         </td>
     </tr>
 </template>
@@ -99,6 +111,9 @@ export default {
         getAbortURL: function () {
             return `/api/build/${this.build.id}/abort`;
         },
+        getStartURL: function () {
+            return `/api/build/${this.build.id}/start`;
+        },
         isDone() {
             switch (this.build.status) {
                 case "failed":
@@ -129,9 +144,17 @@ export default {
     methods: {
         abort(event) {
             axios
-                .post(event.target.href)
+                .post(event.target.href || event.target.parentElement.href)
                 .then((response) => {
                     this.$notify({ text: `${this.build.id} has been aborted`, type: "success" });
+                })
+                .catch((error) => {});
+        },
+        start(event) {
+            axios
+                .post(event.target.href || event.target.parentElement.href)
+                .then((response) => {
+                    this.$notify({ text: `${this.build.id} has been started`, type: "success" });
                 })
                 .catch((error) => {});
         },
@@ -144,9 +167,6 @@ export default {
     scoped
     lang="scss"
 >
-.item-action {
-    margin: 0.25em;
-}
 .param {
     margin: 0.25em;
 }
