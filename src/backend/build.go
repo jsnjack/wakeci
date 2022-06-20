@@ -19,7 +19,7 @@ import (
 	"github.com/sasha-s/go-deadlock"
 	"gopkg.in/yaml.v2"
 
-	"github.com/jsnjack/cmd"
+	"github.com/go-cmd/cmd"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -129,14 +129,12 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	b.Logger.Printf("Task %d has been started\n", task.ID)
 	defer b.Logger.Printf("Task %d is completed\n", task.ID)
 	// Disable output buffering, enable streaming
-	cmdOptions := cmd.Options{
-		Buffered:  false,
-		Streaming: true,
-	}
-
-	// Create Cmd with options
 	// Modify default streaming buffer size (thanks, webpack)
-	cmd.DEFAULT_LINE_BUFFER_SIZE = 491520
+	cmdOptions := cmd.Options{
+		Buffered:       false,
+		Streaming:      true,
+		LineBufferSize: 491520,
+	}
 	taskCmd := cmd.NewCmdOptions(cmdOptions, "bash", "-c", task.Command)
 
 	// Construct environment from params
