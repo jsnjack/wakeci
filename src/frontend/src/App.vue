@@ -1,6 +1,5 @@
 <template>
     <div id="app">
-        <Sidebar v-if="auth.isLoggedIn" :collapsed="toggleSidebar" />
         <div class="content">
             <AppBar v-if="auth.isLoggedIn" @menu-clicked="toggleSidebar = !toggleSidebar" />
 
@@ -19,12 +18,10 @@ import axios from 'axios';
 import { getWSURL } from '@/store/communication';
 import wsMessageHandler from './store/communication';
 
-import Sidebar from './components/ui/Sidebar.vue';
 import AppBar from './components/ui/AppBar.vue';
 
 export default {
     components: {
-        Sidebar,
         AppBar,
     },
     data() {
@@ -142,16 +139,11 @@ export default {
 
 #app {
     @apply bg-gray-extra-light dark:bg-secondary-dark flex flex-nowrap w-screen h-screen;
-    .sidebar.collapsed + .content {
-        max-width: calc(100vw - 64px);
-    }
     .content {
         @apply flex-1;
-        // Sidebar
-        max-width: calc(100vw - 173px);
     }
     .main-content {
-        @apply p-6 overflow-y-auto overflow-x-hidden;
+        @apply py-6 px-20 overflow-y-auto overflow-x-hidden;
         height: calc(100vh - 48px);
     }
 }

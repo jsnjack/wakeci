@@ -1,7 +1,5 @@
 <template>
     <header class="app-bar">
-        <span class="material-icons menu-icon" @click="$emit('menu-clicked')">menu</span>
-
         <div class="right-side">
             <MoreOptions data-cy="app-submenu" :optionsList="moreOptions" :showSearch="false" />
         </div>
@@ -9,11 +7,11 @@
 </template>
 
 <script>
-import axios from 'axios';
-import MoreOptions from './MoreOptions.vue';
+import axios from "axios";
+import MoreOptions from "./MoreOptions.vue";
 
 export default {
-    name: 'AppBar',
+    name: "AppBar",
     components: {
         MoreOptions,
     },
@@ -25,22 +23,32 @@ export default {
     },
     computed: {
         getVersion: function () {
-            return import.meta.env.VITE_VERSION || '0.0.0';
+            return import.meta.env.VITE_VERSION || "0.0.0";
         },
     },
     created() {
         this.moreOptions = [
             {
-                name: 'Log out',
-                icon: 'exit_to_app',
+                name: "Settings",
+                icon: "settings",
+                onClick: () => {
+                    this.$router.push({ name: "settings" });
+                },
+                attrs: {
+                    "data-cy": "settings-link",
+                },
+            },
+            {
+                name: "Log out",
+                icon: "exit_to_app",
                 onClick: this.logOut,
                 attrs: {
-                    'data-cy': 'logout',
+                    "data-cy": "logout",
                 },
             },
             {
                 name: this.darkMode ? `Light Mode` : `Dark Mode`,
-                icon: this.darkMode ? 'wb_sunny' : 'brightness_3',
+                icon: this.darkMode ? "wb_sunny" : "brightness_3",
                 onClick: () => (this.darkMode = !this.darkMode),
             },
             {
@@ -48,26 +56,26 @@ export default {
                 disabled: true,
             },
         ];
-        this.darkMode = JSON.parse(localStorage.getItem('darkMode')) || false;
+        this.darkMode = JSON.parse(localStorage.getItem("darkMode")) || false;
     },
     methods: {
         logOut() {
             axios
-                .get('/auth/logout')
+                .get("/auth/logout")
                 .then((response) => {
-                    this.$store.commit('LOG_OUT');
-                    this.$router.push('/login');
+                    this.$store.commit("LOG_OUT");
+                    this.$router.push("/login");
                 })
                 .catch((error) => {});
         },
     },
     watch: {
         darkMode(val) {
-            document.querySelector('html').classList.toggle('dark');
-            localStorage.setItem('darkMode', `${val}`);
+            document.querySelector("html").classList.toggle("dark");
+            localStorage.setItem("darkMode", `${val}`);
             // Items on MoreOptions are not reactive
             this.moreOptions[1].name = val ? `Light Mode` : `Dark Mode`;
-            this.moreOptions[1].icon = val ? 'wb_sunny' : 'brightness_3';
+            this.moreOptions[1].icon = val ? "wb_sunny" : "brightness_3";
         },
     },
 };
