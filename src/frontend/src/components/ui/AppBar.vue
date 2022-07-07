@@ -1,6 +1,14 @@
 <template>
     <header class="app-bar">
-        <div class="right-side">
+        <span class="col-span-1" />
+
+        <span class="col-span-1 app-links">
+            <router-link class="app-link" to="/"> Feed </router-link>
+
+            <router-link class="app-link" to="/jobs"> Jobs </router-link>
+        </span>
+
+        <div class="col-span-1 right-side">
             <MoreOptions data-cy="app-submenu" :optionsList="moreOptions" :showSearch="false" />
         </div>
     </header>
@@ -83,12 +91,21 @@ export default {
 
 <style lang="scss" scoped>
 .app-bar {
-    @apply h-12 bg-gray-light dark:bg-primary dark:text-primary text-white flex items-center justify-between py-2 px-6;
+    @apply h-12 bg-gray-light dark:bg-primary dark:text-primary text-white grid grid-cols-3 lg:grid-cols-4 items-center py-2 px-6;
     .menu-icon {
         @apply cursor-pointer text-secondary hover:text-secondary-dark dark:text-white dark:hover:text-primary-light;
     }
+    .app-links {
+        @apply flex items-center justify-center gap-4 lg:col-span-2;
+        .app-link {
+            @apply dark:text-white dark:hover:text-primary-light;
+            &.router-link-exact-active {
+                @apply font-bold text-primary-light;
+            }
+        }
+    }
     .right-side {
-        @apply flex items-center text-secondary gap-2 dark:text-white;
+        @apply flex items-center text-secondary gap-2 dark:text-white justify-self-end;
         .version {
             @apply text-xs hidden md:block;
         }
