@@ -1,5 +1,5 @@
 <template>
-    <Card data-cy="feed-item" :data-cy-build="build.id">
+    <Card data-cy="feed-item" :data-cy-build="build.id" class="feed-item">
         <ProgressBar class="feed-progress" :type="buildStatus" :progress="(getDoneTasks / getTotalTasks) * 100" />
 
         <div class="feed-item-content">
@@ -10,13 +10,11 @@
                 </router-link>
                 <Badge :text="build.status" :type="buildStatus" data-cy="build-status-label" />
             </header>
-            <p class="feed-item-info">
-                <span class="material-icons">calendar_today</span> {{ getTimestamp }}
-            </p>
+            <p class="feed-item-info"><span class="material-icons">calendar_today</span> {{ getTimestamp }}</p>
             <p class="feed-item-info">
                 <span class="material-icons">timer</span>
                 {{ getDoneTasks }}/{{ getTotalTasks }}
-                {{ `(${isDone ? 'Duration' : 'Running for'} ${getDuration})` }}
+                {{ `(${isDone ? "Duration" : "Running for"} ${getDuration})` }}
             </p>
 
             <template v-if="job">
@@ -158,25 +156,28 @@ export default {
 </script>
 
 <style scoped lang="scss">
-.feed-progress {
-    @apply absolute top-0 right-0 left-0;
-}
-.feed-item-content {
-    @apply p-3;
-    .feed-title {
-        @apply flex items-center gap-2;
+.feed-item {
+    @apply dark:bg-secondary;
+    .feed-progress {
+        @apply absolute top-0 right-0 left-0;
     }
-    .feed-item-header {
-        @apply flex items-center gap-6 w-full mb-4;
-    }
-    .feed-item-info {
-        @apply text-gray-border flex items-center mb-2 text-sm gap-2;
-        .material-icons {
-            @apply text-base;
+    .feed-item-content {
+        @apply p-3;
+        .feed-title {
+            @apply flex items-center gap-2 mb-1 dark:text-primary-light;
         }
-    }
-    .feed-item-actions {
-        @apply flex flex-row gap-1 items-center justify-end;
+        .feed-item-header {
+            @apply flex items-center gap-6 w-full mb-0;
+        }
+        .feed-item-info {
+            @apply text-gray-border flex items-center text-xs gap-2 m-0 dark:text-white;
+            .material-icons {
+                @apply text-sm;
+            }
+        }
+        .feed-item-actions {
+            @apply flex flex-row gap-1 items-center justify-end;
+        }
     }
 }
 
