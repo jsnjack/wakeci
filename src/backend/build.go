@@ -66,9 +66,9 @@ type Build struct {
 	Artifacts      []string // Deprecate
 	BuildArtifacts []*ArtifactInfo
 	StartedAt      time.Time
-	Duration       time.Duration
-	ETA            int         // seconds
-	timer          *time.Timer // A timer for Job.Timeout
+	Duration       time.Duration // ns
+	ETA            int           // seconds
+	timer          *time.Timer   // A timer for Job.Timeout
 	mutex          deadlock.Mutex
 }
 

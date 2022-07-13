@@ -5,6 +5,9 @@ import (
 	"time"
 )
 
+// Set precision of startedAt field
+const TimeFormat = "2006-01-02T15:04:05.000000Z07:00"
+
 // MsgTypeInSubscribe is incoming message. Means a user has opened build page
 const MsgTypeInSubscribe = "in:subscribe"
 
@@ -46,6 +49,28 @@ type TaskStatus struct {
 	Kind      string        `json:"kind"`
 }
 
+// When StartedAt field is serialized to JSON, it has fixed second's precision
+// to simplify using of Python's datetime.fromisoformat
+func (x TaskStatus) MarshalJSON() ([]byte, error) {
+	// re-type it to strip this method, else infinite regression
+	type Alias TaskStatus
+
+	// Embed, then mask the underlying time.Time field, allowing us to overwrite how it is marshalled
+	type StartedAtFieldMarshal struct {
+		Alias
+		StartedAt string `json:"startedAt"`
+	}
+
+	aliased := StartedAtFieldMarshal{
+		Alias:     Alias(x),
+		StartedAt: x.StartedAt.Format(TimeFormat),
+	}
+
+	// Marshal the wrapped struct, letting the JSON package handle the marshaling of any fields
+	// we're not specifically overwriting here
+	return json.Marshal(aliased)
+}
+
 // BuildUpdateData is viewable on the feed page
 type BuildUpdateData struct {
 	ID             int                 `json:"id"`
@@ -58,6 +83,28 @@ type BuildUpdateData struct {
 	StartedAt      time.Time           `json:"startedAt"`
 	Duration       time.Duration       `json:"duration"`
 	ETA            int                 `json:"eta"`
+}
+
+// When StartedAt field is serialized to JSON, it has fixed second's precision
+// to simplify using of Python's datetime.fromisoformat
+func (x BuildUpdateData) MarshalJSON() ([]byte, error) {
+	// re-type it to strip this method, else infinite regression
+	type Alias BuildUpdateData
+
+	// Embed, then mask the underlying time.Time field, allowing us to overwrite how it is marshalled
+	type StartedAtFieldMarshal struct {
+		Alias
+		StartedAt string `json:"startedAt"`
+	}
+
+	aliased := StartedAtFieldMarshal{
+		Alias:     Alias(x),
+		StartedAt: x.StartedAt.Format(TimeFormat),
+	}
+
+	// Marshal the wrapped struct, letting the JSON package handle the marshaling of any fields
+	// we're not specifically overwriting here
+	return json.Marshal(aliased)
 }
 
 // CommandLogData ...
