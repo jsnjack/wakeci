@@ -207,14 +207,9 @@ export default {
 
         // Restore filter from URL in address bar
         const url = new URL(window.location.href);
-        if (url.hash !== "") {
-            const param = new URLSearchParams(url.hash.substring(1, url.hash.length));
-            for (const [key, value] of param) {
-                if (key === "filter") {
-                    this.filter = decodeURIComponent(value);
-                    break;
-                }
-            }
+        if (url.searchParams.has("filter")) {
+            const filterValue = url.searchParams.get("filter");
+            this.filter = decodeURIComponent(filterValue);
         }
 
         this.fetchNow();
@@ -240,11 +235,13 @@ export default {
                     // Put filter value in address bar to allow copying and link sharing
                     const url = new URL(window.location.href);
                     if (this.filter === "") {
-                        url.hash = "";
+                        url.searchParams.delete("filter");
                     } else {
-                        url.hash = `#filter=${encodeURIComponent(this.filter)}`;
+                        const newSearch = url.searchParams;
+                        newSearch.set("filter", encodeURIComponent(this.filter));
+                        url.search = newSearch.toString();
                     }
-                    this.$router.replace(url.toString());
+                    this.$router.replace(url.pathname + url.search);
 
                     const data = response.data || [];
                     data.forEach((element) => {
@@ -330,7 +327,4 @@ export default {
 };
 </script>
 
-<style
-    scoped
-    lang="scss"
-></style>
+<style scoped lang="scss"></style>
