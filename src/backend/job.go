@@ -38,8 +38,8 @@ type Job struct {
 	Artifacts     []string            `yaml:"artifacts" json:"artifacts"`
 	Interval      string              `yaml:"interval" json:"interval"`
 	Timeout       string              `yaml:"timeout" json:"timeout"`
-	Concurrency   int                 `yaml:"concurrency"`
-	Priority      int                 `yaml:"priority"`
+	Concurrency   int                 `yaml:"concurrency" json:"concurrency"`
+	Priority      int                 `yaml:"priority" json:"priority"`
 }
 
 // AddToCron adds a job to cron
@@ -79,14 +79,14 @@ type Task struct {
 	ID           int               `json:"id"`
 	Name         string            `yaml:"name" json:"name"`
 	Command      string            `yaml:"run" json:"run"`
-	When         string            `yaml:"when"`
-	Env          map[string]string `yaml:"env"`
+	When         string            `yaml:"when" json:"when"`
+	Env          map[string]string `yaml:"env" json:"env"`
 	Status       ItemStatus        `json:"status"`
 	Kind         string            `json:"kind"`
 	Logs         interface{}       `json:"logs"` // used as a container for frontend
-	IncludePath  string            `yaml:"include"`
-	Block        []*Task           `yaml:"block"`
-	IgnoreErrors bool              `yaml:"ignore_errors"`
+	IncludePath  string            `yaml:"include" json:"include"`
+	Block        []*Task           `yaml:"block" json:"block"`
+	IgnoreErrors bool              `yaml:"ignore_errors" json:"ignore_errors"`
 	startedAt    time.Time
 	duration     time.Duration
 }
