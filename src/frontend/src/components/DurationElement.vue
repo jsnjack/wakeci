@@ -44,6 +44,7 @@ export default {
                 case "failed":
                 case "finished":
                 case "aborted":
+                case "skipped":
                 case "timed out":
                     return true;
             }
@@ -137,7 +138,4 @@ export default {
 };
 </script>
 
-<style
-    scoped
-    lang="scss"
-></style>
+<style scoped lang="scss"></style>

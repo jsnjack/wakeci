@@ -324,6 +324,7 @@ tasks:
                 cy.url().should("include", "/build/" + val);
                 cy.get("[data-cy=reload]").click();
                 cy.get(".notification-content").should("contain", "Log file has been reloaded");
+                cy.get("body").should("contain", "skipped");
                 cy.get("body").should("contain", "Condition is false");
                 cy.get("body").should("not.contain", "WAKE_BUILD_ID=");
             });

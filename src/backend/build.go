@@ -46,6 +46,10 @@ const StatusAborted = "aborted"
 // `timeout` value was reached
 const StatusTimedOut = "timed out"
 
+// StatusSkipped indicates that `when` condition is false and the task won't be
+// executed
+const StatusSkipped = "skipped"
+
 // FinalTask is the task that is executed no matter what is the result of the build
 const FinalTask = "finally"
 
@@ -208,7 +212,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 				fmt.Sprintf("> Condition is false: %s. Skipping the task", condErr.Error()),
 				bw, task.ID, task.startedAt,
 			)
-			return StatusFinished
+			return StatusSkipped
 		} else {
 			b.ProcessLogEntry("> Condition is true", bw, task.ID, task.startedAt)
 		}

@@ -222,10 +222,7 @@ export default {
 };
 </script>
 
-<style
-    lang="scss"
-    scoped
->
+<style lang="scss" scoped>
 @import "@/assets/colors.scss";
 
 .log-container {
@@ -274,6 +271,10 @@ section {
 }
 .border-finished {
     border-left-color: $success-color;
+}
+
+.border-skipped {
+    border-left-color: royalblue;
 }
 
 .task-name {

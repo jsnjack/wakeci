@@ -156,6 +156,7 @@ export default {
                 case "finished":
                 case "aborted":
                 case "timed out":
+                case "skipped":
                     return true;
             }
             return false;
@@ -230,10 +231,7 @@ export default {
 };
 </script>
 
-<style
-    scoped
-    lang="scss"
->
+<style scoped lang="scss">
 .build-header {
     margin-bottom: 1em;
 }

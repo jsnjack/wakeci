@@ -22,6 +22,8 @@ export default {
                     return "label-warning";
                 case "failed":
                     return "label-error";
+                case "skipped":
+                    return "label-skipped";
                 case "finished":
                     return "label-success";
                 case "aborted":
@@ -35,14 +37,15 @@ export default {
 };
 </script>
 
-<style
-    scoped
-    lang="scss"
->
+<style scoped lang="scss">
 span {
     margin: 0.25em;
 }
 span:hover {
     cursor: default;
+}
+.label-skipped {
+    background-color: royalblue;
+    color: white;
 }
 </style>

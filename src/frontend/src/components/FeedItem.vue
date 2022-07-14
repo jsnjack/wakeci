@@ -59,8 +59,8 @@
                     data-cy="abort-build-button"
                     data-tooltip="Abort build"
                     @click.prevent="abort"
-                    ><i class="icon icon-cross"/></a
-                >
+                    ><i class="icon icon-cross"
+                /></a>
                 <a
                     v-if="build.status === 'pending'"
                     :href="getStartURL"
@@ -68,8 +68,8 @@
                     data-cy="start-build-button"
                     data-tooltip="Start now"
                     @click.prevent="start"
-                    ><i class="icon icon-forward"/></a
-                >
+                    ><i class="icon icon-forward"
+                /></a>
             </div>
         </td>
     </tr>
@@ -119,6 +119,7 @@ export default {
                 case "failed":
                 case "finished":
                 case "aborted":
+                case "skipped":
                 case "timed out":
                     return true;
             }
@@ -163,10 +164,7 @@ export default {
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style
-    scoped
-    lang="scss"
->
+<style scoped lang="scss">
 .param {
     margin: 0.25em;
 }
