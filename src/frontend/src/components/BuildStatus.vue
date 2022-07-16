@@ -45,7 +45,7 @@ span:hover {
     cursor: default;
 }
 .label-skipped {
-    background-color: royalblue;
+    background-color: rgb(169, 207, 185);
     color: white;
 }
 </style>

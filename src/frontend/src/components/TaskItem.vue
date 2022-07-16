@@ -274,7 +274,7 @@ section {
 }
 
 .border-skipped {
-    border-left-color: royalblue;
+    border-left-color: rgb(169, 207, 185);
 }
 
 .task-name {
