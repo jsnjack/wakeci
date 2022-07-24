@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/bmatcuk/doublestar"
@@ -53,8 +54,11 @@ const StatusSkipped = "skipped"
 // FinalTask is the task that is executed no matter what is the result of the build
 const FinalTask = "finally"
 
-// WHEN_EVAL_TIMEOUT is the timeout for evaluating `when` condition in tasks
+// WHEN_EVAL_TIMEOUT is the timeout for evaluating `when` condition in tasks, s
 const WHEN_EVAL_TIMEOUT = 3
+
+// ABORT_TIMEOUT is the timeout for aborting the task, s
+const ABORT_TIMEOUT = 5
 
 // Build ...
 type Build struct {
@@ -257,7 +261,19 @@ func (b *Build) runTask(task *Task) ItemStatus {
 				default:
 					b.Logger.Printf("Unhandled abort method: %s\n", abortedDetails)
 				}
+				// taskCmd.Stop() send SIGTERM signal to the command. Most of the time it works just fine, however
+				// there are applications which will just ignore it or are in busy state and can't handle the signal.
+				// Here we start a timer for SIGTERM to succeed and if it doesn't, SIGKILL is sent
+				abortTimer := time.AfterFunc(ABORT_TIMEOUT*time.Second, func() {
+					b.ProcessLogEntry("> Killing the command...", bw, task.ID, task.startedAt)
+					err = syscall.Kill(taskCmd.Status().PID, syscall.SIGKILL)
+					if err != nil {
+						b.Logger.Printf("Unable to kill aborted task %d: %s\n", task.ID, err.Error())
+					}
+				})
 				taskCmd.Stop()
+				<-taskCmd.Done()
+				abortTimer.Stop()
 			case <-b.flushChannel:
 				b.Logger.Println("Flushing log file...")
 				bw.Flush()
