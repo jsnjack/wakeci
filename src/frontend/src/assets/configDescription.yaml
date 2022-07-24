@@ -1,6 +1,6 @@
 desc: Ask a cow to say something smart
 # 'params' are injected as environmetal variables
-# Note: There very first 'param' is visible on the Feed page
+# Note: The very first 'param' is visible on the Feed page
 params:
   - SLEEP: 5
 
@@ -78,12 +78,27 @@ on_pending:
 finally:
   - name: List all files
     run: ls -alh
-# Available environmetal variables:
+
+# Default environmetal variables, inject by wake:
 # "WAKE_BUILD_ID" - current build id, e.g. 169
-# "WAKE_BUILD_WORKSPACE" - path to the build's workspace, e.g. ~/workspace/
+# "WAKE_BUILD_WORKSPACE" - path to the build's workspace, e.g. ~/workspace/169/
 # "WAKE_JOB_NAME" - name of the job, e.g. ask_a_cow
 # "WAKE_JOB_PARAMS" - URL encoded `params` of the job. Useful to start another
 #                     job with the same params, e.g. "sleep=5&print=true"
 # "WAKE_CONFIG_DIR" - path to the directory with all job configuration files,
 #                     e.g. ~/jobs/
 # "WAKE_URL" - URL of the service, e.g. https://myci.space/
+
+# To modify or introduce new environmental variables during the build execution,
+# create `build.env` file in WAKE_BUILD_WORKSPACE directory.
+#
+# Example:
+# echo "{environment_variable_name}={value}" >> build.env
+#
+# There are multiple ways of defining environment for running tasks. If the same
+# environmental variable is defined multiple times, the priority is:
+#  - default OS env variables
+#  - wake env variables `WAKE_*`
+#  - variables from `params` section
+#  - variables from `env` section
+#  - variables from `build.env` file
