@@ -37,10 +37,10 @@ func getBuildConfig(buildID int) (*Job, error) {
 			return nil, err
 		}
 	} else if err != nil {
-		// Config file with new format might existsm but an error occured
+		// Config file with new format might exist but an error occured
 		return nil, err
 	} else {
-		// Config file with new forma exists
+		// Config file with new format exists
 		data, err := ioutil.ReadFile(newConfigFilename)
 		if err != nil {
 			return nil, err
