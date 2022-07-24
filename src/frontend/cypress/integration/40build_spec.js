@@ -463,4 +463,85 @@ tasks:
                 cy.get("body").should("contain", "WAKE_BUILD_ID=");
             });
     });
+
+    it("should use build.env files", function () {
+        // Create job
+        const jobName = "myjob" + new Date().getTime();
+        cy.request({
+            url: "/api/jobs/create",
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                name: jobName,
+            },
+            form: true,
+        });
+
+        const jobContent = `
+desc: build.env test
+params:
+  - NAME: bill
+tasks:
+  - name: Print NAME
+    run: echo "This is $NAME"
+
+  - name: Print NAME
+    run: echo "His best friend is $NAME"
+    env:
+      NAME: joe
+
+  - name: Create build.env file
+    run: echo "NAME=big $NAME" >> build.env
+
+  - name: Print new NAME
+    run: echo "People call him $NAME"
+`;
+
+        cy.request({
+            url: "/api/job/" + jobName,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                fileContent: jobContent,
+            },
+            form: true,
+        });
+
+        // Create build
+        cy.request({
+            url: `/api/job/${jobName}/run`,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {},
+            form: true,
+        });
+
+        cy.visit("/");
+        cy.login();
+        cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=open-build-button]").should("have.length", 1);
+        cy.get("tr")
+            .invoke("attr", "data-cy-build")
+            .then((val) => {
+                cy.get("[data-cy=open-build-button]").click();
+                cy.url().should("include", "/build/" + val);
+
+                cy.get("[data-cy=reload]").should("have.length", 4);
+                cy.get("[data-cy=reload]").eq(0).click();
+                cy.get("body").should("contain", "This is bill");
+                cy.get("[data-cy=reload]").eq(1).click();
+                cy.get("body").should("contain", "His best friend is joe");
+                cy.get("[data-cy=reload]").eq(3).click();
+                cy.get("body").should("contain", "People call him big bill");
+            });
+    });
 });
