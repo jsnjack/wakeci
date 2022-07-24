@@ -73,11 +73,11 @@ export default {
             type: Object,
             required: false,
         },
-		showingParams: {
-			type: Array,
-			required: false,
-		    default: () => [],
-		},
+        showingParams: {
+            type: Array,
+            required: false,
+            default: () => [],
+        },
     },
     computed: {
         getMainTasks() {
@@ -133,11 +133,13 @@ export default {
             const startedAt = dayjs(this.build.startedAt);
             return `${startedAt.format("DD-MM-YYYY HH:mm:ss")} - (${startedAtRelative(startedAt)})`;
         },
-		paramsList() {
-		    return this.build.params?.filter(param => {
-				this.showingParams.includes(Object.keys(param)[0]);
-			}).map(param => `${Object.keys(param)[0]}=${Object.values(param)[0]}`);
-		},
+        paramsList() {
+            return this.build.params
+                ?.filter((param) => {
+                    this.showingParams.includes(Object.keys(param)[0]);
+                })
+                .map((param) => `${Object.keys(param)[0]}=${Object.values(param)[0]}`);
+        },
     },
     methods: {
         abort(event) {
@@ -194,5 +196,6 @@ export default {
 @media (max-width: 480px) {
     .cell-name {
         max-width: 15ch;
+    }
 }
 </style>
