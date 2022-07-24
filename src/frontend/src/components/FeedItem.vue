@@ -23,7 +23,7 @@
                 <br />
             </template>
 
-            <p><b>Params:</b> {{ getParamsString }}</p>
+            <Badge v-for="param in paramsList" :key="param" :text="param" />
 
             <div class="feed-item-actions">
                 <button
@@ -73,6 +73,11 @@ export default {
             type: Object,
             required: false,
         },
+		showingParams: {
+			type: Array,
+			required: false,
+		    default: () => [],
+		},
     },
     computed: {
         getMainTasks() {
@@ -128,6 +133,11 @@ export default {
             const startedAt = dayjs(this.build.startedAt);
             return `${startedAt.format("DD-MM-YYYY HH:mm:ss")} - (${startedAtRelative(startedAt)})`;
         },
+		paramsList() {
+		    return this.build.params?.filter(param => {
+				this.showingParams.includes(Object.keys(param)[0]);
+			}).map(param => `${Object.keys(param)[0]}=${Object.values(param)[0]}`);
+		},
     },
     methods: {
         abort(event) {
@@ -162,7 +172,7 @@ export default {
         @apply absolute top-0 right-0 left-0;
     }
     .feed-item-content {
-        @apply p-3;
+        @apply p-3 pb-0;
         .feed-title {
             @apply flex items-center gap-2 mb-1 dark:text-primary-light;
         }

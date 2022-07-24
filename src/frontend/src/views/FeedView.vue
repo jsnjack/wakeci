@@ -1,7 +1,7 @@
 <template>
     <div>
         <h3>Feed</h3>
-        <div class="input-group input-inline float-right py-1">
+        <div class="input-group float-right py-1">
             <input
                 class="form-input"
                 type="text"
@@ -13,28 +13,24 @@
             />
         </div>
 
-        <div class="feed-items" data-cy="feed-items">
-            <FeedItem v-for="build in builds" :build="build" :key="build.id" />
-            <p v-if="!builds.length" data-cy="empty-feed">Empty</p>
+        <div class="feed-params clear-right">
+            <div class="params-list"></div>
+            <div class="feed-items" data-cy="feed-items">
+                <FeedItem v-for="build in builds" :build="build" :key="build.id" />
+                <p v-if="!builds.length" data-cy="empty-feed">Empty</p>
+            </div>
         </div>
 
-        <button
-            v-show="moreEnabled"
-            class="btn btn-primary load-btn"
-            :class="{ loading: isFetching }"
-            @click.prevent="fetchNow(true)"
-        >
-            Load more...
-        </button>
+        <button v-show="moreEnabled" class="btn btn-primary load-btn" :class="{ loading: isFetching }" @click.prevent="fetchNow(true)">Load more...</button>
     </div>
 </template>
 
 <script>
-import FeedItem from '@/components/FeedItem.vue';
-import vuex from 'vuex';
-import axios from 'axios';
-import { findInContainer, isFilteredUpdate } from '@/store/utils.js';
-import _ from 'lodash';
+import FeedItem from "@/components/FeedItem.vue";
+import vuex from "vuex";
+import axios from "axios";
+import { findInContainer, isFilteredUpdate } from "@/store/utils.js";
+import _ from "lodash";
 
 const FetchItemsSize = 10;
 
@@ -45,10 +41,10 @@ export default {
     data: function () {
         return {
             builds: [],
-            subscription: 'build:update:',
+            subscription: "build:update:",
             isFetching: false, // request to the server is in progress
             filterIsDirty: false, // when user is still typing
-            filter: '', // sent to the server, to filter builds out
+            filter: "", // sent to the server, to filter builds out
             moreEnabled: true, // if makes sense to load more builds from the server
             paramsIndex: 0, // Params index to display on the feed page
             filteredUpdates: 0, // When `filter` is active, updates which do not much are counted here
@@ -56,7 +52,7 @@ export default {
         };
     },
     computed: {
-        ...vuex.mapState(['ws', 'durationMode']),
+        ...vuex.mapState(["ws", "durationMode"]),
         sortedBuilds: function () {
             return [...this.builds].sort((a, b) => {
                 if (a.id < b.id) {
@@ -70,15 +66,15 @@ export default {
         },
         filterIconType: function () {
             if (this.isFetching) {
-                return '';
+                return "";
             }
             if (this.filterIsDirty) {
-                return 'icon-more-horiz';
+                return "icon-more-horiz";
             }
-            if (this.filter === '') {
-                return 'icon-search';
+            if (this.filter === "") {
+                return "icon-search";
             }
-            return 'icon-cross';
+            return "icon-cross";
         },
     },
     watch: {
@@ -88,10 +84,10 @@ export default {
             this.builds = [];
             this.fetch();
         },
-        'ws.connected': 'onWSChange',
+        "ws.connected": "onWSChange",
     },
     mounted() {
-        document.title = 'Feed - wakeci';
+        document.title = "Feed - wakeci";
 
         // Restore filter from URL in address bar
         const url = new URL(window.location.href);
@@ -122,13 +118,8 @@ export default {
 
                     // Put filter value in address bar to allow copying and link sharing
                     const url = new URL(window.location.href);
-<<<<<<< HEAD
                     if (this.filter === "") {
                         url.searchParams.delete("filter");
-=======
-                    if (this.filter === '') {
-                        url.hash = '';
->>>>>>> 2820fe0 (Add partial FeedItem new card)
                     } else {
                         const newSearch = url.searchParams;
                         newSearch.set("filter", encodeURIComponent(this.filter));
@@ -154,16 +145,16 @@ export default {
     },
     methods: {
         subscribe() {
-            this.$store.commit('WS_SEND', {
-                type: 'in:subscribe',
+            this.$store.commit("WS_SEND", {
+                type: "in:subscribe",
                 data: {
                     to: [this.subscription],
                 },
             });
         },
         unsubscribe() {
-            this.$store.commit('WS_SEND', {
-                type: 'in:unsubscribe',
+            this.$store.commit("WS_SEND", {
+                type: "in:unsubscribe",
                 data: {
                     to: [this.subscription],
                 },
@@ -175,7 +166,7 @@ export default {
             this.fetch.flush();
         },
         applyUpdate(ev, fromFetch = false) {
-            const index = findInContainer(this.builds, 'id', ev.id)[1];
+            const index = findInContainer(this.builds, "id", ev.id)[1];
             if (index !== undefined) {
                 this.builds[index] = ev;
             } else {
@@ -191,7 +182,7 @@ export default {
         },
         clearFilter() {
             if (!this.isFetching && !this.filterIsDirty) {
-                this.filter = '';
+                this.filter = "";
                 this.filteredUpdates = 0;
                 this.fetchNow();
             }
@@ -211,7 +202,7 @@ export default {
             }
         },
         toggleDurationMode() {
-            this.$store.commit('TOGGLE_DURATION_MODE');
+            this.$store.commit("TOGGLE_DURATION_MODE");
         },
         toggleAdvancedSyntaxModal() {
             this.showAdvancedSyntaxModal = !this.showAdvancedSyntaxModal;
@@ -224,7 +215,13 @@ export default {
 .load-btn {
     @apply float-right mt-4;
 }
-.feed-items {
-    @apply flex flex-col gap-4 w-full;
+.feed-params {
+    @apply lg:grid lg:grid-cols-12;
+    .params-list {
+        @apply mr-2 sm:invisible md:visible lg:visible lg:col-span-2 md:col-span-3;
+    }
+    .feed-items {
+        @apply flex flex-col gap-4 w-full lg:col-span-10 md:col-span-9;
+    }
 }
 </style>

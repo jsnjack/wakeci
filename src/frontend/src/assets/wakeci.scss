@@ -40,7 +40,7 @@ a {
 }
 
 .btn {
-    @apply px-2 py-1 rounded cursor-pointer flex items-center justify-center gap-2 no-underline;
+    @apply px-2 py-1 rounded cursor-pointer flex items-center justify-center gap-2;
     &.btn-primary {
         @apply bg-primary text-white hover:bg-primary-dark;
     }
@@ -48,7 +48,7 @@ a {
         @apply px-2 py-1 rounded text-sm gap-1;
     }
     &.btn-secondary {
-        @apply bg-secondary text-white hover:bg-secondary-dark;
+        @apply bg-secondary text-white hover:bg-secondary-dark dark:bg-secondary-light;
     }
     &.btn-danger {
         @apply bg-danger text-white hover:bg-danger-dark;

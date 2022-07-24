@@ -82,8 +82,8 @@ export default {
             document.querySelector("html").classList.toggle("dark");
             localStorage.setItem("darkMode", `${val}`);
             // Items on MoreOptions are not reactive
-            this.moreOptions[1].name = val ? `Light Mode` : `Dark Mode`;
-            this.moreOptions[1].icon = val ? "wb_sunny" : "brightness_3";
+            this.moreOptions[2].name = val ? `Light Mode` : `Dark Mode`;
+            this.moreOptions[2].icon = val ? "wb_sunny" : "brightness_3";
         },
     },
 };
@@ -91,14 +91,14 @@ export default {
 
 <style lang="scss" scoped>
 .app-bar {
-    @apply h-12 bg-gray-light dark:bg-primary dark:text-primary text-white grid grid-cols-3 lg:grid-cols-4 items-center py-2 px-6;
+    @apply h-12 bg-secondary-light dark:bg-primary dark:text-primary text-white grid grid-cols-3 lg:grid-cols-4 items-center py-2 px-6;
     .menu-icon {
         @apply cursor-pointer text-secondary hover:text-secondary-dark dark:text-white dark:hover:text-primary-light;
     }
     .app-links {
         @apply flex items-center justify-center gap-4 lg:col-span-2;
         .app-link {
-            @apply dark:text-white dark:hover:text-primary-light;
+            @apply text-white dark:hover:text-primary-light;
             &.router-link-exact-active {
                 @apply font-bold text-primary-light;
             }

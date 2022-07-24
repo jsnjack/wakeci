@@ -16,7 +16,7 @@ export default {
             type: String,
             required: false,
             default: 'success',
-            validate: (val) => ['success', 'danger', 'warning', 'info'].includes(val),
+            validate: (val) => ['success', 'danger', 'warning', 'info', 'blank'].includes(val),
         },
     },
 };
@@ -37,5 +37,8 @@ export default {
     &.info {
         @apply bg-info-light text-info-dark ring-info;
     }
+	&.blank {
+		@apply bg-white text-secondary ring-secondary;
+	}
 }
 </style>

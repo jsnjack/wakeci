@@ -143,7 +143,7 @@ export default {
         @apply flex-1;
     }
     .main-content {
-        @apply py-6 px-20 overflow-y-auto overflow-x-hidden;
+        @apply py-6 px-4 lg:px-20 overflow-y-auto overflow-x-hidden;
         height: calc(100vh - 48px);
     }
 }

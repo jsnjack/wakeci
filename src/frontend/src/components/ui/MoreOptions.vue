@@ -12,8 +12,8 @@
             <ul class="options-list">
                 <li
                     class="option"
-                    v-for="opt in filteredOptions"
-                    :key="opt.name"
+                    v-for="(opt, idx) in filteredOptions"
+                    :key="idx"
                     @click="opt.onClick ? opt.onClick() : null"
                     :disabled="!!opt.disabled"
                     v-bind="opt.attrs"
@@ -73,7 +73,7 @@ export default {
 .more-options-container {
     @apply relative;
     .more-options {
-        @apply ring-1 ring-gray-border flex items-center justify-center rounded-sm cursor-pointer hover:bg-gray-light px-0.5 z-10;
+        @apply ring-1 ring-secondary flex items-center justify-center rounded-sm cursor-pointer hover:bg-gray-light px-0.5 z-10;
     }
     .options-popover {
         @apply absolute z-50 bg-white dark:bg-secondary dark:text-gray-extra-light ring-1 ring-gray-border rounded-sm shadow-md top-full p-1 right-0 transform translate-y-2 w-80 max-h-60 overflow-y-auto;
