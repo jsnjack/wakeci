@@ -14,7 +14,9 @@
         </div>
 
         <div class="feed-params clear-right">
-            <div class="params-list"></div>
+            <div class="params-list">
+                <ParamsAccordion v-for="name in buildNames" :key="name" :buildName="name" :paramsList="paramsByName[name]" />
+            </div>
             <div class="feed-items" data-cy="feed-items">
                 <FeedItem v-for="build in builds" :build="build" :key="build.id" />
                 <p v-if="!builds.length" data-cy="empty-feed">Empty</p>
@@ -31,12 +33,14 @@ import vuex from "vuex";
 import axios from "axios";
 import { findInContainer, isFilteredUpdate } from "@/store/utils.js";
 import _ from "lodash";
+import ParamsAccordion from "@/components/ParamsAccordion.vue";
 
 const FetchItemsSize = 10;
 
 export default {
     components: {
         FeedItem,
+        ParamsAccordion,
     },
     data: function () {
         return {
@@ -75,6 +79,29 @@ export default {
                 return "icon-search";
             }
             return "icon-cross";
+        },
+        buildNames() {
+            const names = Array.from(new Set(this.builds.map((build) => build.name)));
+            return names.sort();
+        },
+        paramsByName() {
+            const paramsByName = {};
+            if (!this.builds || !this.buildNames) {
+                return {};
+            }
+            this.buildNames.forEach((name) => {
+                paramsByName[name] = [];
+            });
+            this.builds.forEach(({ name, params }) => {
+                if (!params) return;
+                params.forEach((param) => {
+                    const paramName = Object.keys(param)[0];
+                    if (paramsByName[name].indexOf(paramName) === -1) {
+                        paramsByName[name].push(paramName);
+                    }
+                });
+            });
+            return paramsByName;
         },
     },
     watch: {
@@ -218,7 +245,7 @@ export default {
 .feed-params {
     @apply lg:grid lg:grid-cols-12;
     .params-list {
-        @apply mr-2 sm:invisible md:visible lg:visible lg:col-span-2 md:col-span-3;
+        @apply mr-2 sm:invisible md:visible lg:visible lg:col-span-2 md:col-span-3 gap-2 flex flex-col;
     }
     .feed-items {
         @apply flex flex-col gap-4 w-full lg:col-span-10 md:col-span-9;
