@@ -21,6 +21,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/go-cmd/cmd"
+	"github.com/joho/godotenv"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -145,20 +146,6 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	}
 	taskCmd := cmd.NewCmdOptions(cmdOptions, "bash", "-c", task.Command)
 
-	// Construct environment from params
-	taskCmd.Env = os.Environ()
-	taskCmd.Dir = b.GetWorkspaceDir()
-	taskCmd.Env = append(taskCmd.Env, b.generateDefaultEnvVariables()...)
-	for idx := range b.Params {
-		for pkey, pval := range b.Params[idx] {
-			taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", pkey, pval))
-		}
-	}
-
-	for key, value := range task.Env {
-		taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", key, value))
-	}
-
 	// Configure task logs
 	file, err := os.Create(b.GetWakespaceDir() + fmt.Sprintf("task_%d.log", task.ID))
 	bw := bufio.NewWriter(file)
@@ -175,6 +162,33 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	if err != nil {
 		b.Logger.Println(err)
 		return StatusFailed
+	}
+
+	// Construct environment for the task
+	taskCmd.Env = os.Environ()
+	taskCmd.Dir = b.GetWorkspaceDir()
+	taskCmd.Env = append(taskCmd.Env, b.generateDefaultEnvVariables()...)
+	for idx := range b.Params {
+		for pkey, pval := range b.Params[idx] {
+			taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", pkey, pval))
+		}
+	}
+
+	for key, value := range task.Env {
+		taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", key, value))
+	}
+
+	envFile := b.GetWorkspaceDir() + "build.env"
+	buidEnv, err := godotenv.Read(envFile)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			b.ProcessLogEntry("> Error in build.env file: "+err.Error(), bw, task.ID, task.startedAt)
+			return StatusFailed
+		}
+	} else {
+		for key, value := range buidEnv {
+			taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", key, value))
+		}
 	}
 
 	// Checking condition in when
@@ -641,8 +655,9 @@ type ArtifactInfo struct {
 // Used to expand env variables in commands
 func getEnvMapper(env []string) func(string) string {
 	mapper := func(evar string) string {
-		for _, e := range env {
-			pair := strings.SplitN(e, "=", 2)
+		// Iterate backwards as the last value will be the actual value
+		for i := len(env) - 1; i >= 0; i-- {
+			pair := strings.SplitN(env[i], "=", 2)
 			if pair[0] == evar {
 				return pair[1]
 			}
