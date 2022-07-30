@@ -1,8 +1,9 @@
 <script setup>
 import { watch, ref, computed } from "vue";
+import { useStore } from "vuex";
 const isCollapsed = ref(true);
 const filter = ref("");
-const selectedParams = ref([]);
+const store = useStore();
 
 const props = defineProps({
     buildName: {
@@ -20,15 +21,26 @@ const filteredParams = computed({
         return props.paramsList.filter((param) => param.toLowerCase().includes(filter.value.toLowerCase()));
     },
 });
+const selectedParams = computed({
+    get() {
+        return store.state.selectedParams[props.buildName] || [];
+    },
+    set(val) {
+        store.commit("SET_SELECTED_PARAMS", {
+            buildName: props.buildName,
+            params: val,
+        });
+    },
+});
 </script>
 
 <template>
     <div class="params-accordion">
         <span class="params-accordion-title" @click="isCollapsed = !isCollapsed">{{ buildName }} ({{ paramsList.length }})</span>
         <ul :class="['params-list', { collapsed: isCollapsed }]">
-            <li><input placeholder="Filter" v-model="filter" /></li>
+            <li v-if="paramsList.length > 5"><input placeholder="Filter" v-model="filter" /></li>
             <li v-for="param in filteredParams" :key="param">
-                <input type="checkbox" :id="param" v-model="selectedParams" :value="param">
+                <input type="checkbox" :id="param" v-model="selectedParams" :value="param" />
                 <label :for="param">
                     {{ param }}
                 </label>

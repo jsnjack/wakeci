@@ -1,4 +1,4 @@
-import { toggleDurationMode } from '@/utils/duration';
+import { toggleDurationMode } from "@/utils/duration";
 
 const mutations = {
     WS_CONNECTED(state, connection) {
@@ -35,7 +35,10 @@ const mutations = {
         } else {
             state.durationMode = toggleDurationMode(state.durationMode);
         }
-        localStorage.setItem('durationMode', state.durationMode);
+        localStorage.setItem("durationMode", state.durationMode);
+    },
+    SET_SELECTED_PARAMS(state, { buildName, params }) {
+        state.selectedParams[buildName] = params;
     },
 };
 
