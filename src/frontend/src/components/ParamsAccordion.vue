@@ -25,12 +25,11 @@ const filteredParams = computed({
 <template>
     <div class="params-accordion">
         <span class="params-accordion-title" @click="isCollapsed = !isCollapsed">{{ buildName }} ({{ paramsList.length }})</span>
-        <ul :class="['params-list', { collapsed: isCollapsed }]" @click.stop.prevent>
+        <ul :class="['params-list', { collapsed: isCollapsed }]">
             <li><input placeholder="Filter" v-model="filter" /></li>
-            <li>{{ selectedParams }}</li>
             <li v-for="param in filteredParams" :key="param">
+                <input type="checkbox" :id="param" v-model="selectedParams" :value="param">
                 <label :for="param">
-                    <input type="checkbox" :id="param" v-model="selectedParams" :value="param" />
                     {{ param }}
                 </label>
             </li>

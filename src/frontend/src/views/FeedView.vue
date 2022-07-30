@@ -81,7 +81,7 @@ export default {
             return "icon-cross";
         },
         buildNames() {
-            const names = Array.from(new Set(this.builds.map((build) => build.name)));
+				const names = Array.from(new Set(this.builds.filter(build => !!build.params).map((build) => build.name)));
             return names.sort();
         },
         paramsByName() {
