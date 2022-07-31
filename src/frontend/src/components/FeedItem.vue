@@ -23,7 +23,9 @@
                 <br />
             </template>
 
-            <Badge v-for="param in paramsList" :key="param" :text="param" />
+            <div class="feed-item-params">
+                <Badge v-for="param in paramsList" :key="param" :text="param" type="blank" />
+            </div>
 
             <div class="feed-item-actions">
                 <button
@@ -136,7 +138,7 @@ export default {
         paramsList() {
             return this.build.params
                 ?.filter((param) => {
-                    this.showingParams.includes(Object.keys(param)[0]);
+                    return this.showingParams.includes(Object.keys(param)[0]);
                 })
                 .map((param) => `${Object.keys(param)[0]}=${Object.values(param)[0]}`);
         },
@@ -189,6 +191,9 @@ export default {
         }
         .feed-item-actions {
             @apply flex flex-row gap-1 items-center justify-end;
+        }
+        .feed-item-params {
+            @apply flex flex-wrap gap-1;
         }
     }
 }

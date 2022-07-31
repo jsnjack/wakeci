@@ -15,10 +15,12 @@
 
         <div class="feed-params clear-right">
             <div class="params-list">
-                <ParamsAccordion v-for="name in buildNames" :key="name" :buildName="name" :paramsList="paramsByName[name]" />
+                <div class="params-sticky">
+                    <ParamsAccordion v-for="name in buildNames" :key="name" :buildName="name" :paramsList="paramsByName[name]" />
+                </div>
             </div>
             <div class="feed-items" data-cy="feed-items">
-                <FeedItem v-for="build in builds" :build="build" :key="build.id" />
+                <FeedItem :showingParams="selectedParams[build.name]" v-for="build in builds" :build="build" :key="build.id" />
                 <p v-if="!builds.length" data-cy="empty-feed">Empty</p>
             </div>
         </div>
@@ -56,7 +58,7 @@ export default {
         };
     },
     computed: {
-        ...vuex.mapState(["ws", "durationMode"]),
+        ...vuex.mapState(["ws", "durationMode", "selectedParams"]),
         sortedBuilds: function () {
             return [...this.builds].sort((a, b) => {
                 if (a.id < b.id) {
@@ -81,7 +83,7 @@ export default {
             return "icon-cross";
         },
         buildNames() {
-				const names = Array.from(new Set(this.builds.filter(build => !!build.params).map((build) => build.name)));
+            const names = Array.from(new Set(this.builds.filter((build) => !!build.params).map((build) => build.name)));
             return names.sort();
         },
         paramsByName() {
@@ -243,9 +245,12 @@ export default {
     @apply float-right mt-4;
 }
 .feed-params {
-    @apply lg:grid lg:grid-cols-12;
+    @apply lg:grid lg:grid-cols-12 gap-6;
     .params-list {
-        @apply mr-2 sm:invisible md:visible lg:visible lg:col-span-2 md:col-span-3 gap-2 flex flex-col;
+        @apply mr-2 sm:invisible md:visible lg:visible lg:col-span-2 md:col-span-3;
+        .params-sticky {
+            @apply sticky top-0 flex flex-col gap-2;
+        }
     }
     .feed-items {
         @apply flex flex-col gap-4 w-full lg:col-span-10 md:col-span-9;
