@@ -51,12 +51,21 @@ func initApp() {
 	Logger = log.New(os.Stdout, "", log.Lmicroseconds|log.Lshortfile)
 
 	configFlag := flag.String("config", "Wakefile.yaml", "Configuration file location")
+	compactDBFlag := flag.Bool("compactdb", false, "Reclaim space in the database which is no longer used")
 	flag.Parse()
 
 	var err error
 	Config, err = CreateWakeConfig(*configFlag)
 	if err != nil {
 		Logger.Fatal(err)
+	}
+
+	if *compactDBFlag {
+		err = CompactDB()
+		if err != nil {
+			Logger.Fatal(err)
+		}
+		os.Exit(0)
 	}
 }
 

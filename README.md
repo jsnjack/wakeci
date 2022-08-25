@@ -60,6 +60,8 @@ on_finished:
 
 ```
 Usage of ./bin/wakeci:
+  -compactdb
+    	Reclaim space in the database which is no longer used
   -config string
     	Configuration file location (default "Wakefile.yaml")
 ```
