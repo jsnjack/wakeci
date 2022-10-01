@@ -286,8 +286,11 @@ func (b *Build) runTask(task *Task) ItemStatus {
 					}
 				})
 				taskCmd.Stop()
-				<-taskCmd.Done()
-				abortTimer.Stop()
+				go func() {
+					// This call is blocking and should be executed outside of channel message handler
+					<-taskCmd.Done()
+					abortTimer.Stop()
+				}()
 			case <-b.flushChannel:
 				b.Logger.Println("Flushing log file...")
 				bw.Flush()
