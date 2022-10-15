@@ -11,7 +11,7 @@ import (
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/NYTimes/gziphandler"
+	"github.com/CAFxX/httpcompression"
 	"github.com/go-chi/chi/v5"
 	"github.com/robfig/cron/v3"
 	bolt "go.etcd.io/bbolt"
@@ -219,6 +219,11 @@ func main() {
 	vuefs := http.FileServer(http.FS(Assets))
 	router.Method("GET", "/*", HandleVueResources(vuefs))
 
+	compress, err := httpcompression.DefaultAdapter()
+	if err != nil {
+		Logger.Fatal(err)
+	}
+
 	if Config.Port == "443" {
 		go func() {
 			Logger.Println("Listening on port 80...")
@@ -245,7 +250,7 @@ func main() {
 				},
 				GetCertificate: certManager.GetCertificate,
 			},
-			Handler: gziphandler.GzipHandler(router),
+			Handler: compress(router),
 		}
 
 		err = server.ListenAndServeTLS("", "")
@@ -254,7 +259,7 @@ func main() {
 		}
 	} else {
 		Logger.Printf("Listening on port %s...\n", Config.Port)
-		err := http.ListenAndServe(":"+Config.Port, gziphandler.GzipHandler(router))
+		err := http.ListenAndServe(":"+Config.Port, compress(router))
 		if err != nil {
 			Logger.Fatal(err)
 		}

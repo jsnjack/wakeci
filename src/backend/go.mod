@@ -3,7 +3,7 @@ module wakeci
 go 1.16
 
 require (
-	github.com/NYTimes/gziphandler v1.1.1
+	github.com/CAFxX/httpcompression v0.0.8
 	github.com/bmatcuk/doublestar v1.3.4
 	github.com/go-chi/chi/v5 v5.0.7
 	github.com/go-cmd/cmd v1.4.1
