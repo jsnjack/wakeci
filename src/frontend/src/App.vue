@@ -1,43 +1,38 @@
 <template>
     <div id="app">
-        <header
-            class="navbar"
-            :class="getHeaderClass"
-            :data-hostname="getHostname"
-        >
-            <section class="navbar-section">
-                <small class="text-gray">v {{ getVesion }}</small>
-            </section>
-            <section class="navbar-center">
-                <router-link
-                    to="/"
-                    class="btn btn-link text-light"
-                >
-                    Feed
-                </router-link>
-                <router-link
-                    to="/jobs"
-                    class="btn btn-link text-light"
-                >
-                    Jobs
-                </router-link>
-                <router-link
-                    to="/settings"
-                    class="btn btn-link text-light"
-                >
-                    Settings
-                </router-link>
-                <DocsMenu />
-            </section>
-            <section class="navbar-section">
-                <a
+        <header>
+            <nav>
+                <i>{{ getConnectionIndicator }}</i>
+                <small>{{ getVesion }}</small>
+                <h6 class="max center-align">{{ getTitle }}</h6>
+                <button class="circle transparent">
+                    <div class="tooltip bottom">Feed</div>
+                    <router-link to="/">
+                        <i>list</i>
+                    </router-link>
+                </button>
+                <button class="circle transparent">
+                    <div class="tooltip bottom">Jobs</div>
+                    <router-link to="/jobs">
+                        <i>task_alt</i>
+                    </router-link>
+                </button>
+                <button class="circle transparent">
+                    <div class="tooltip bottom">Settings</div>
+                    <router-link to="/settings">
+                        <i>settings</i>
+                    </router-link>
+                </button>
+                <button
+                    class="circle transparent"
                     data-cy="logout"
                     href="#"
-                    class="btn btn-link text-light"
                     @click.prevent="logOut"
-                    >Log out</a
                 >
-            </section>
+                    <i>logout</i>
+                    <div class="tooltip bottom">Log out</div>
+                </button>
+            </nav>
         </header>
         <router-view />
         <notifications
@@ -48,6 +43,10 @@
 </template>
 
 <script>
+// importing as beercss and materialDynamicColors
+import "beercss";
+import "material-dynamic-colors";
+
 import vuex from "vuex";
 import axios from "axios";
 import { getWSURL } from "@/store/communication.js";
@@ -57,25 +56,21 @@ import DocsMenu from "@/components/DocsMenu.vue";
 export default {
     components: { DocsMenu },
     computed: {
-        ...vuex.mapState(["ws", "auth", "durationMode"]),
+        ...vuex.mapState(["ws", "auth"]),
         getVesion: function () {
             return import.meta.env.VITE_VERSION || "0.0.0";
         },
-        getHeaderClass: function () {
+        getConnectionIndicator: function () {
             if (this.$store.state.ws.connected) {
-                return "header-connected";
+                return "wifi";
             }
-            return "header-disconnected";
+            return "signal_wifi_0_bar";
         },
-        getHostname: function () {
-            return location.hostname;
+        getTitle: function () {
+            return `wakeci on ${window.location.hostname}`;
         },
     },
     mounted() {
-        // Restore global duration mode
-        if (localStorage.getItem("durationMode")) {
-            this.$store.commit("TOGGLE_DURATION_MODE", localStorage.getItem("durationMode"));
-        }
         this.connect();
     },
     methods: {
@@ -143,7 +138,7 @@ export default {
 }
 
 .header-connected {
-    background: $primary-color;
+    background: tomato;
 }
 
 .header-connected[data-hostname="mrt-wake.surfly.com"] {
@@ -162,28 +157,28 @@ export default {
     padding: 10px;
     margin: 0 5px 5px;
 
-    color: $light-color;
-    background: $primary-color;
-    border-left: 5px solid $primary-color-dark;
+    color: tomato;
+    background: tomato;
+    border-left: 5px solid tomato;
 
     & a {
-        color: $light-color;
+        color: tomato;
         text-decoration: underline;
     }
 
     &.warn {
-        background: $warning-color;
-        border-left-color: darken($warning-color, 10%);
+        background: tomato;
+        border-left-color: darken(tomato, 10%);
     }
 
     &.error {
-        background: $error-color;
-        border-left-color: darken($error-color, 10%);
+        background: tomato;
+        border-left-color: darken(tomato, 10%);
     }
 
     &.success {
-        background: $success-color;
-        border-left-color: darken($success-color, 10%);
+        background: tomato;
+        border-left-color: darken(tomato, 10%);
     }
 }
 </style>
