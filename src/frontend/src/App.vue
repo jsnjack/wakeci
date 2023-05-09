@@ -1,45 +1,40 @@
 <template>
-    <div id="app">
-        <header>
-            <nav>
-                <h6>wake</h6>
-                <small>{{ getVesion }}</small>
-                <div class="max"></div>
-                <button class="circle transparent">
-                    <div class="tooltip bottom">Feed</div>
-                    <router-link to="/">
-                        <i>list</i>
-                    </router-link>
-                </button>
-                <button class="circle transparent">
-                    <div class="tooltip bottom">Jobs</div>
-                    <router-link to="/jobs">
-                        <i>task_alt</i>
-                    </router-link>
-                </button>
-                <button class="circle transparent">
-                    <div class="tooltip bottom">Settings</div>
-                    <router-link to="/settings">
-                        <i>settings</i>
-                    </router-link>
-                </button>
-                <button
-                    class="circle transparent"
-                    data-cy="logout"
-                    href="#"
-                    @click.prevent="logOut"
-                >
-                    <i>logout</i>
-                    <div class="tooltip bottom">Log out</div>
-                </button>
-            </nav>
-        </header>
-        <router-view />
-        <notifications
-            classes="my-noty"
-            position="bottom right"
-        />
-    </div>
+    <header>
+        <nav>
+            <i class="large fill primary-text">water</i>
+            <small>{{ getVesion }}</small>
+            <div class="max"></div>
+            <button class="circle transparent">
+                <div class="tooltip bottom">Feed</div>
+                <router-link to="/">
+                    <i>list</i>
+                </router-link>
+            </button>
+            <button class="circle transparent">
+                <div class="tooltip bottom">Jobs</div>
+                <router-link to="/jobs">
+                    <i>task_alt</i>
+                </router-link>
+            </button>
+            <button class="circle transparent">
+                <div class="tooltip bottom">Settings</div>
+                <router-link to="/settings">
+                    <i>settings</i>
+                </router-link>
+            </button>
+            <button
+                class="circle transparent"
+                data-cy="logout"
+                href="#"
+                @click.prevent="logOut"
+            >
+                <i>logout</i>
+                <div class="tooltip bottom">Log out</div>
+            </button>
+        </nav>
+    </header>
+    <router-view />
+    <notifications classes="toast active" />
 </template>
 
 <script>
@@ -113,63 +108,4 @@ export default {
 };
 </script>
 
-<style lang="scss">
-@import "@/assets/wakeci.scss";
-
-#app {
-    font-family: "Avenir", Helvetica, Arial, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-align: center;
-    color: #2c3e50;
-}
-
-.navbar {
-    transition: background-color 1000ms linear;
-}
-
-.header-connected {
-    background: tomato;
-}
-
-.header-connected[data-hostname="mrt-wake.surfly.com"] {
-    background: #333;
-}
-
-.header-connected[data-hostname="build.surfly.com"] {
-    background: #b8662c;
-}
-
-.header-disconnected {
-    background: #6f6f94;
-}
-
-.my-noty {
-    padding: 10px;
-    margin: 0 5px 5px;
-
-    color: tomato;
-    background: tomato;
-    border-left: 5px solid tomato;
-
-    & a {
-        color: tomato;
-        text-decoration: underline;
-    }
-
-    &.warn {
-        background: tomato;
-        border-left-color: darken(tomato, 10%);
-    }
-
-    &.error {
-        background: tomato;
-        border-left-color: darken(tomato, 10%);
-    }
-
-    &.success {
-        background: tomato;
-        border-left-color: darken(tomato, 10%);
-    }
-}
-</style>
+<style lang="scss"></style>

@@ -1,35 +1,34 @@
 <template>
-    <div
-        class="container grid-xs"
-        :class="{ 'loading loading-lg': fetching }"
+    <form
+        class="medium-height middle-align center-align"
+        method="post"
+        @submit.prevent="logIn"
     >
-        <form
+        <a
+            class="loader large"
+            v-show="fetching"
+        ></a>
+        <div
+            class="center-align"
             v-show="!fetching"
-            class="card"
-            method="post"
-            @submit.prevent="logIn"
         >
-            <div class="card-header">
-                <div class="card-title h5">Password</div>
-            </div>
-            <div class="card-body">
-                <input
-                    id="password"
-                    v-model="password"
-                    class="form-input text-center"
-                    type="password"
-                />
-            </div>
-            <div class="card-footer">
-                <button
-                    type="submit"
-                    class="btn btn-primary"
-                >
-                    Log in
-                </button>
-            </div>
-        </form>
-    </div>
+            <i class="extra">water</i>
+            <h5 class="center-align">Welcome to wake</h5>
+            <p>Start by logging in with your password</p>
+            <div class="space"></div>
+            <nav class="no-space">
+                <div class="max field border left-round">
+                    <input
+                        id="password"
+                        v-model="password"
+                        class="form-input text-center"
+                        type="password"
+                    />
+                </div>
+                <button class="large right-round">Log in</button>
+            </nav>
+        </div>
+    </form>
 </template>
 
 <script>
@@ -88,11 +87,4 @@ export default {
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped lang="scss">
-.card {
-    margin-top: 1em;
-}
-.loading {
-    min-height: 80vh;
-}
-</style>
+<style scoped lang="scss"></style>
