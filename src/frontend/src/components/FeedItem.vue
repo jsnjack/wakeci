@@ -1,5 +1,37 @@
 <template>
-    <tr :data-cy-build="build.id">
+    <div
+        class="row medium-padding round large-text feed-item"
+        :data-cy-build="build.id"
+    >
+        <BuildStatus :status="build.status" />
+        <div class="max">
+            <a class="small-padding">
+                <router-link :to="{ name: 'build', params: { id: build.id } }"> #{{ build.id }} </router-link>
+            </a>
+            <div>{{ build.name }}</div>
+        </div>
+        <div>
+            <a class="duration-block">
+                <i class="small">avg_time</i>
+                <SimpleDuration :item="build" />
+            </a>
+            <div></div>
+            <a class="duration-block">
+                <i class="small">schedule</i>
+                <SimpleStartedAgo :item="build" />
+            </a>
+        </div>
+        <a>
+            <i>arrow_forward</i>
+        </a>
+        <a>
+            <i>play_arrow</i>
+        </a>
+        <a>
+            <i>stop</i>
+        </a>
+    </div>
+    <!-- <tr :data-cy-build="build.id">
         <td>
             <router-link :to="{ name: 'build', params: { id: build.id } }">
                 {{ build.id }}
@@ -72,7 +104,7 @@
                 /></a>
             </div>
         </td>
-    </tr>
+    </tr> -->
 </template>
 
 <script>
@@ -80,10 +112,12 @@ import BuildStatus from "@/components/BuildStatus.vue";
 import BuildProgress from "@/components/BuildProgress.vue";
 import BuildProgressETA from "@/components/BuildProgressETA.vue";
 import DurationElement from "@/components/DurationElement.vue";
+import SimpleDuration from "@/components/SimpleDuration.vue";
+import SimpleStartedAgo from "@/components/SimpleStartedAgo.vue";
 import axios from "axios";
 
 export default {
-    components: { BuildStatus, BuildProgress, BuildProgressETA, DurationElement },
+    components: { BuildStatus, BuildProgress, BuildProgressETA, DurationElement, SimpleDuration, SimpleStartedAgo, SimpleDuration, SimpleStartedAgo },
     props: {
         build: {
             type: Object,
@@ -165,21 +199,10 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="scss">
-.param {
-    margin: 0.25em;
-}
-.param:hover {
+.duration-block {
     cursor: default;
 }
-.cell-name {
-    max-width: 20ch;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-@media (max-width: 480px) {
-    .cell-name {
-        max-width: 15ch;
-    }
+.feed-item {
+    background-color: var(--background);
 }
 </style>

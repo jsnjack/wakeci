@@ -1,5 +1,12 @@
 <template>
-    <div class="container grid-xl">
+    <FeedItem
+        v-for="item in sortedBuilds"
+        :key="item.id"
+        :build="item"
+        :params-index="paramsIndex"
+    />
+
+    <!-- <div class="container grid-xl">
         <div class="input-group input-inline float-right py-1">
             <input
                 class="form-input"
@@ -80,14 +87,7 @@
                 </th>
                 <th>Actions</th>
             </thead>
-            <tbody data-cy="feed-tbody">
-                <FeedItem
-                    v-for="item in sortedBuilds"
-                    :key="item.id"
-                    :build="item"
-                    :params-index="paramsIndex"
-                />
-            </tbody>
+            <tbody data-cy="feed-tbody"></tbody>
         </table>
         <div
             v-show="Object.keys(builds).length === 0"
@@ -140,7 +140,7 @@
                 </div>
             </div>
         </div>
-    </div>
+    </div> -->
 </template>
 
 <script>
