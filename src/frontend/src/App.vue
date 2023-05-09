@@ -33,7 +33,9 @@
             </button>
         </nav>
     </header>
-    <router-view />
+    <main class="responsive">
+        <router-view />
+    </main>
     <notifications classes="toast active" />
 </template>
 
