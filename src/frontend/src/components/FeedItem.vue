@@ -12,24 +12,27 @@
         </div>
         <div>
             <a class="duration-block">
-                <i class="small">avg_time</i>
+                <i class="small small-padding">avg_time</i>
                 <SimpleDuration :item="build" />
             </a>
             <div></div>
             <a class="duration-block">
-                <i class="small">schedule</i>
+                <i class="small small-padding">schedule</i>
                 <SimpleStartedAgo :item="build" />
             </a>
         </div>
-        <a>
+        <button class="circle transparent">
             <i>arrow_forward</i>
-        </a>
-        <a>
+            <div class="tooltip bottom">Open</div>
+        </button>
+        <button class="circle transparent">
             <i>play_arrow</i>
-        </a>
-        <a>
+            <div class="tooltip bottom">Start</div>
+        </button>
+        <button class="circle transparent">
             <i>stop</i>
-        </a>
+            <div class="tooltip bottom">Abort</div>
+        </button>
     </div>
     <!-- <tr :data-cy-build="build.id">
         <td>
