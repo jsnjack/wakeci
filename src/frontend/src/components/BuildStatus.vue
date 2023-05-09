@@ -1,10 +1,11 @@
 <template>
-    <span
-        class="label"
+    <button
+        class="small circle"
         :class="getStatusClass"
-        data-cy="build-status-label"
-        >{{ status }}</span
     >
+        <i data-cy="build-status-label">{{ getStatusIcon }}</i>
+        <div class="tooltip right">{{ status }}</div>
+    </button>
 </template>
 
 <script>
@@ -19,33 +20,51 @@ export default {
         getStatusClass() {
             switch (this.status) {
                 case "running":
-                    return "label-warning";
+                    return "yellow5";
                 case "failed":
-                    return "label-error";
+                    return "error";
                 case "skipped":
-                    return "label-skipped";
+                    return "light-green3";
                 case "finished":
-                    return "label-success";
+                    return "green7";
                 case "aborted":
+                    return "grey5";
                 case "timed out":
-                    return "label-primary";
+                    return "deep-purple7";
             }
             // pending
             return "";
+        },
+        getStatusIcon() {
+            switch (this.status) {
+                case "running":
+                    return "downloading";
+                case "failed":
+                    return "cancel";
+                case "skipped":
+                    return "play_disabled";
+                case "finished":
+                    return "check_circle";
+                case "aborted":
+                    return "do_not_disturb_on";
+                case "timed out":
+                    return "acute";
+            }
+            // pending
+            return "pending";
         },
     },
 };
 </script>
 
 <style scoped lang="scss">
-span {
-    margin: 0.25em;
+// Disable cursor which comes from a button
+button {
+    cursor: auto;
 }
-span:hover {
-    cursor: default;
-}
-.label-skipped {
-    background-color: rgb(169, 207, 185);
-    color: white;
+
+// Disable light color on hover
+button:hover {
+    background-image: none;
 }
 </style>
