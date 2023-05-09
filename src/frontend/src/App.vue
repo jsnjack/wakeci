@@ -3,7 +3,7 @@
         <nav>
             <i class="large fill primary-text">water</i>
             <small>{{ getVesion }}</small>
-            <div class="max"></div>
+            <h6 class="max center-align">{{ currentPage }}</h6>
             <button class="circle transparent">
                 <div class="tooltip bottom">Feed</div>
                 <router-link to="/">
@@ -51,7 +51,7 @@ import DocsMenu from "@/components/DocsMenu.vue";
 export default {
     components: { DocsMenu },
     computed: {
-        ...vuex.mapState(["ws", "auth"]),
+        ...vuex.mapState(["ws", "auth", "currentPage"]),
         getVesion: function () {
             return import.meta.env.VITE_VERSION || "0.0.0";
         },

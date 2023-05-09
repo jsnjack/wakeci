@@ -11,6 +11,7 @@ const state = {
         isLoggedIn: false,
     },
     durationMode: "duration", // See Duration component for details
+    currentPage: "",
 };
 
 export default state;

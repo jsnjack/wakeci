@@ -43,13 +43,13 @@ export default {
         };
     },
     computed: {
-        ...vuex.mapState(["auth"]),
+        ...vuex.mapState(["auth", "currentPage"]),
         getRedirectURL: function () {
             return this.$route.query.redirect || "/";
         },
     },
     mounted() {
-        document.title = "Login - wakeci";
+        this.$store.commit("SET_CURRENT_PAGE", "Login");
         this.fetch();
     },
     methods: {

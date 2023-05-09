@@ -37,6 +37,10 @@ const mutations = {
         }
         localStorage.setItem("durationMode", state.durationMode);
     },
+    SET_CURRENT_PAGE(state, value) {
+        state.currentPage = value;
+        document.title = value + " - wakeci";
+    },
 };
 
 export default mutations;

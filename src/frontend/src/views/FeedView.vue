@@ -203,7 +203,7 @@ export default {
         "ws.connected": "onWSChange",
     },
     mounted() {
-        document.title = "Feed - wakeci";
+        this.$store.commit("SET_CURRENT_PAGE", "Feed");
 
         // Restore filter from URL in address bar
         const url = new URL(window.location.href);
