@@ -2,9 +2,9 @@
     <div id="app">
         <header>
             <nav>
-                <i>{{ getConnectionIndicator }}</i>
+                <h6>wake</h6>
                 <small>{{ getVesion }}</small>
-                <h6 class="max center-align">{{ getTitle }}</h6>
+                <div class="max"></div>
                 <button class="circle transparent">
                     <div class="tooltip bottom">Feed</div>
                     <router-link to="/">
@@ -59,15 +59,6 @@ export default {
         ...vuex.mapState(["ws", "auth"]),
         getVesion: function () {
             return import.meta.env.VITE_VERSION || "0.0.0";
-        },
-        getConnectionIndicator: function () {
-            if (this.$store.state.ws.connected) {
-                return "wifi";
-            }
-            return "signal_wifi_0_bar";
-        },
-        getTitle: function () {
-            return `wakeci on ${window.location.hostname}`;
         },
     },
     mounted() {
