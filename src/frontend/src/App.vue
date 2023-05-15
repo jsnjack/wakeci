@@ -24,6 +24,13 @@
             </button>
             <button
                 class="circle transparent"
+                @click.prevent="toggleDarkMode"
+            >
+                <div class="tooltip bottom">Toggle dark mode</div>
+                <i>dark_mode</i>
+            </button>
+            <button
+                class="circle transparent"
                 data-cy="logout"
                 href="#"
                 @click.prevent="logOut"
@@ -52,6 +59,11 @@ import DocsMenu from "@/components/DocsMenu.vue";
 
 export default {
     components: { DocsMenu },
+    data: function () {
+        return {
+            darkMode: false,
+        };
+    },
     computed: {
         ...vuex.mapState(["ws", "auth", "currentPage"]),
         getVesion: function () {
@@ -106,8 +118,19 @@ export default {
                 })
                 .catch((error) => {});
         },
+        toggleDarkMode: function () {
+            if (this.darkMode) {
+                document.body.classList.remove("dark");
+                document.body.classList.add("light");
+                this.darkMode = false;
+            } else {
+                document.body.classList.add("dark");
+                document.body.classList.remove("light");
+                this.darkMode = true;
+            }
+        },
     },
 };
 </script>
 
-<style lang="scss"></style>
+<style></style>
