@@ -50,6 +50,7 @@
 // importing as beercss and materialDynamicColors
 import "beercss";
 import "material-dynamic-colors";
+import "@/assets/main.scss";
 
 import vuex from "vuex";
 import axios from "axios";

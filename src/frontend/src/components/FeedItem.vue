@@ -6,9 +6,31 @@
         <BuildStatus :status="build.status" />
         <div class="max">
             <a class="small-padding">
-                <router-link :to="{ name: 'build', params: { id: build.id } }"> #{{ build.id }} </router-link>
+                <router-link :to="{ name: 'build', params: { id: build.id } }"> #{{ build.id }} {{ build.name }}</router-link>
             </a>
-            <div>{{ build.name }}</div>
+            <div>
+                <ParamItem
+                    v-for="(item, index) in this.getFilteredParams"
+                    :key="index + 'param'"
+                    :param="item"
+                />
+                <button
+                    v-if="build.params && build.params.length > getFilteredParams.length"
+                    class="circle transparent"
+                    @click.prevent="toggleExpandParams"
+                >
+                    <i>expand_more</i>
+                    <div class="tooltip bottom">More</div>
+                </button>
+                <button
+                    v-if="expandParams"
+                    class="circle transparent"
+                    @click.prevent="toggleExpandParams"
+                >
+                    <i>expand_less</i>
+                    <div class="tooltip bottom">Less</div>
+                </button>
+            </div>
         </div>
         <div>
             <a class="duration-block">
@@ -117,10 +139,23 @@ import BuildProgressETA from "@/components/BuildProgressETA.vue";
 import DurationElement from "@/components/DurationElement.vue";
 import SimpleDuration from "@/components/SimpleDuration.vue";
 import SimpleStartedAgo from "@/components/SimpleStartedAgo.vue";
+import ParamItem from "@/components/ParamItem.vue";
 import axios from "axios";
 
+const MAX_DEFAULT_NUMBER_OF_PARAMS = 3;
+
 export default {
-    components: { BuildStatus, BuildProgress, BuildProgressETA, DurationElement, SimpleDuration, SimpleStartedAgo, SimpleDuration, SimpleStartedAgo },
+    components: {
+        ParamItem,
+        BuildStatus,
+        BuildProgress,
+        BuildProgressETA,
+        DurationElement,
+        SimpleDuration,
+        SimpleStartedAgo,
+        SimpleDuration,
+        SimpleStartedAgo,
+    },
     props: {
         build: {
             type: Object,
@@ -178,6 +213,22 @@ export default {
             }
             return "";
         },
+        getFilteredParams() {
+            // User asked to show all params
+            if (this.expandParams) {
+                return this.build.params;
+            }
+
+            // Limit number of params and skip empty ones
+            if (this.build.params) {
+                return this.build.params
+                    .filter((v) => {
+                        return Object.values(v)[0] !== ""; // skip empty params
+                    })
+                    .slice(0, MAX_DEFAULT_NUMBER_OF_PARAMS);
+            }
+            return [];
+        },
     },
     methods: {
         abort(event) {
@@ -196,6 +247,14 @@ export default {
                 })
                 .catch((error) => {});
         },
+        toggleExpandParams() {
+            this.expandParams = !this.expandParams;
+        },
+    },
+    data: function () {
+        return {
+            expandParams: false,
+        };
     },
 };
 </script>

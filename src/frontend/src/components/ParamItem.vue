@@ -1,5 +1,13 @@
 <template>
-    <div class="label param">{{ getName }} = {{ getValue }}</div>
+    <span
+        class="chip fill small"
+        style="margin-bottom: 0.5em"
+    >
+        {{ getValue }}
+        <div class="tooltip bottom">
+            {{ getName }}
+        </div>
+    </span>
 </template>
 
 <script>
@@ -21,14 +29,4 @@ export default {
 };
 </script>
 
-<style
-    scoped
-    lang="scss"
->
-.param {
-    margin: 0.25em;
-}
-.param:hover {
-    cursor: default;
-}
-</style>
+<style scoped></style>
