@@ -43,18 +43,39 @@
                 <SimpleStartedAgo :item="build" />
             </a>
         </div>
-        <button class="circle transparent">
+        <!-- Open build view -->
+        <router-link
+            :to="{ name: 'build', params: { id: build.id } }"
+            class="button circle transparent"
+            data-cy="open-build-button"
+        >
             <i>arrow_forward</i>
             <div class="tooltip bottom">Open</div>
-        </button>
-        <button class="circle transparent">
-            <i>play_arrow</i>
-            <div class="tooltip bottom">Start</div>
-        </button>
-        <button class="circle transparent">
+        </router-link>
+
+        <!-- Abort build -->
+        <a
+            :disabled="isDone"
+            :href="getAbortURL"
+            class="button circle transparent"
+            data-cy="abort-build-button"
+            @click.prevent="abort"
+        >
             <i>stop</i>
             <div class="tooltip bottom">Abort</div>
-        </button>
+        </a>
+
+        <!-- Start build -->
+        <a
+            :disabled="build.status !== 'pending'"
+            :href="getStartURL"
+            class="button circle transparent"
+            data-cy="start-build-button"
+            @click.prevent="start"
+        >
+            <i>play_arrow</i>
+            <div class="tooltip bottom">Start</div>
+        </a>
     </div>
     <!-- <tr :data-cy-build="build.id">
         <td>
@@ -232,20 +253,24 @@ export default {
     },
     methods: {
         abort(event) {
-            axios
-                .post(event.target.href || event.target.parentElement.href)
-                .then((response) => {
-                    this.$notify({ text: `${this.build.id} has been aborted`, type: "success" });
-                })
-                .catch((error) => {});
+            if (!this.isDone) {
+                axios
+                    .post(event.target.href || event.target.parentElement.href)
+                    .then((response) => {
+                        this.$notify({ text: `${this.build.id} has been aborted`, type: "success" });
+                    })
+                    .catch((error) => {});
+            }
         },
         start(event) {
-            axios
-                .post(event.target.href || event.target.parentElement.href)
-                .then((response) => {
-                    this.$notify({ text: `${this.build.id} has been started`, type: "success" });
-                })
-                .catch((error) => {});
+            if (this.build.status === "pending") {
+                axios
+                    .post(event.target.href || event.target.parentElement.href)
+                    .then((response) => {
+                        this.$notify({ text: `${this.build.id} has been started`, type: "success" });
+                    })
+                    .catch((error) => {});
+            }
         },
         toggleExpandParams() {
             this.expandParams = !this.expandParams;
