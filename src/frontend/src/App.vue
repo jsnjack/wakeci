@@ -40,7 +40,7 @@
             </button>
         </nav>
     </header>
-    <main class="responsive">
+    <main class="responsive no-scroll">
         <router-view />
     </main>
     <notifications classes="toast active" />
