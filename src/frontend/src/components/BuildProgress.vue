@@ -1,13 +1,11 @@
 <template>
-    <div
-        class="tooltip tooltip-bottom"
-        :data-tooltip="getProgressTooltip()"
-    >
-        <progress
-            class="progress"
+    <div class="small-space">
+        <div
+            class="progress left"
             :value="done"
             :max="total"
-        />
+        ></div>
+        <div class="tooltip bottom">{{ getProgressTooltip }}</div>
     </div>
 </template>
 
@@ -34,7 +32,4 @@ export default {
 };
 </script>
 
-<style
-    scoped
-    lang="scss"
-></style>
+<style scoped lang="scss"></style>
