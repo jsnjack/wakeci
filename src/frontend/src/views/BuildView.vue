@@ -166,7 +166,7 @@ export default {
         "ws.connected": "onWSChange",
     },
     mounted() {
-        document.title = `#${this.id} - wakeci`;
+        this.$store.commit("SET_CURRENT_PAGE", `#${this.id}`);
         this.fetch();
         this.subscribe();
         this.emitter.on(this.buildUpdateSubscription, this.applyBuildUpdate);
@@ -218,7 +218,7 @@ export default {
             this.updateTitle();
         },
         updateTitle() {
-            document.title = `#${this.id} - ${this.statusUpdate.status} - wakeci`;
+            this.$store.commit("SET_CURRENT_PAGE", `#${this.id} - ${this.statusUpdate.status}`);
         },
         onWSChange(value) {
             if (value) {

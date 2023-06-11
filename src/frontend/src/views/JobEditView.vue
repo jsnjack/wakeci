@@ -60,7 +60,7 @@ export default {
         };
     },
     mounted() {
-        document.title = `Edit ${this.name} - wakeci`;
+        this.$store.commit("SET_CURRENT_PAGE", `Edit ${this.name}`);
         this.fetch();
     },
     methods: {
@@ -101,10 +101,7 @@ export default {
 };
 </script>
 
-<style
-    lang="scss"
-    scoped
->
+<style lang="scss" scoped>
 @import "@/assets/colors.scss";
 
 .form-input {
