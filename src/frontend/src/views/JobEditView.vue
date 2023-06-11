@@ -1,32 +1,28 @@
 <template>
-    <div class="container text-left">
-        <h4 class="text-center title">Edit {{ name }}</h4>
-        <div>
-            <Codemirror
-                :value="job.fileContent"
-                data-cy="editor"
-                :options="editorOptions"
-                @input="onCodeChange"
-            />
-        </div>
-        <div class="divider" />
-        <div class="text-right">
-            <a
-                data-cy="save-button"
-                href="#"
-                class="btn btn-primary"
-                @click.prevent="save"
-                >Save</a
-            >
-            <a
-                data-cy="save-and-close-button"
-                href="#"
-                class="btn btn-primary"
-                @click.prevent="saveAndClose"
-                >Save & Close</a
-            >
-        </div>
+    <div>
+        <Codemirror
+            :value="job.fileContent"
+            data-cy="editor"
+            :options="editorOptions"
+            @input="onCodeChange"
+        />
     </div>
+    <nav>
+        <div class="max"></div>
+        <button
+            data-cy="save-button"
+            @click.prevent="save"
+        >
+            Save
+        </button>
+        <button
+            class="secondary"
+            data-cy="save-and-close-button"
+            @click.prevent="saveAndClose"
+        >
+            Save & Close
+        </button>
+    </nav>
 </template>
 
 <script>
@@ -88,7 +84,7 @@ export default {
                 .then((response) => {
                     this.$notify({
                         text: "Saved",
-                        type: "success",
+                        type: "primary",
                     });
                 })
                 .catch((error) => {});
@@ -101,19 +97,4 @@ export default {
 };
 </script>
 
-<style lang="scss" scoped>
-@import "@/assets/colors.scss";
-
-.form-input {
-    width: 30%;
-}
-.title {
-    margin-top: 1em;
-}
-.btn {
-    margin: 1em;
-}
-.extra-wide-modal {
-    max-width: 960px;
-}
-</style>
+<style lang="scss" scoped></style>
