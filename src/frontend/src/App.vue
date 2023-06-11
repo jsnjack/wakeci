@@ -4,24 +4,27 @@
             <i class="large fill primary-text">water</i>
             <small>{{ getVesion }}</small>
             <h6 class="max center-align">{{ currentPage }}</h6>
-            <button class="circle transparent">
+            <router-link
+                to="/"
+                class="button circle transparent"
+            >
                 <div class="tooltip bottom">Feed</div>
-                <router-link to="/">
-                    <i>list</i>
-                </router-link>
-            </button>
-            <button class="circle transparent">
+                <i>list</i>
+            </router-link>
+            <router-link
+                to="/jobs"
+                class="button circle transparent"
+            >
                 <div class="tooltip bottom">Jobs</div>
-                <router-link to="/jobs">
-                    <i>task_alt</i>
-                </router-link>
-            </button>
-            <button class="circle transparent">
+                <i>task_alt</i>
+            </router-link>
+            <router-link
+                to="/settings"
+                class="button circle transparent"
+            >
                 <div class="tooltip bottom">Settings</div>
-                <router-link to="/settings">
-                    <i>settings</i>
-                </router-link>
-            </button>
+                <i>settings</i>
+            </router-link>
             <button
                 class="circle transparent"
                 @click.prevent="toggleDarkMode"
