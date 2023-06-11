@@ -46,7 +46,11 @@
     <main class="responsive no-scroll">
         <router-view />
     </main>
-    <notifications classes="toast active" />
+    <notifications
+        classes="toast active"
+        max="1"
+        pauseOnHover="true"
+    />
 </template>
 
 <script>

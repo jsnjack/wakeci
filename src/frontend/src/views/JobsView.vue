@@ -1,97 +1,71 @@
 <template>
-    <div class="container grid-xl">
-        <table class="table table-striped">
-            <thead>
-                <th>Name</th>
-                <th class="hide-sm">Interval</th>
-                <th class="hide-sm">Active</th>
-                <th>Actions</th>
-            </thead>
-            <tbody>
-                <JobItem
-                    v-for="item in jobs"
-                    :key="item.name"
-                    :job="item"
-                />
-            </tbody>
-        </table>
-
-        <div
-            v-show="jobs.length === 0"
-            class="empty"
-        >
-            <p class="empty-title h5">Empty</p>
+    <dialog :class="{ active: modalOpen }">
+        <h5>Create a new job</h5>
+        <div class="field border small">
+            <input
+                id="new-job-name"
+                ref="newJobInput"
+                v-model="newJobName"
+                class="form-input"
+                type="text"
+                name="new-job-name"
+                @keyup.enter="enterClicked"
+            />
+            <span class="helper">Name</span>
         </div>
-        <div class="text-center create-section">
-            <a
-                data-cy="create-job"
-                href="#"
-                class="btn btn-primary m-1"
+        <nav class="right-align">
+            <button
+                class="border"
                 @click.prevent="toggle"
-                >Create new job</a
             >
-            <!-- Modal to create new job -->
-            <div
-                class="modal"
-                :class="{ active: modalOpen }"
-            >
-                <a
-                    href="#"
-                    class="modal-overlay"
-                    aria-label="Close"
-                    @click.prevent="toggle"
-                />
-                <div class="modal-container">
-                    <div class="modal-header">
-                        <a
-                            href="#"
-                            class="btn btn-clear float-right"
-                            aria-label="Close"
-                            @click.prevent="toggle"
-                        />
-                        <div class="modal-title text-uppercase">Create new job</div>
-                    </div>
-                    <div class="modal-body">
-                        <div class="content text-left">
-                            <div class="form-group">
-                                <label
-                                    class="form-label"
-                                    for="new-job-name"
-                                    >Name</label
-                                >
-                                <input
-                                    id="new-job-name"
-                                    ref="newJobInput"
-                                    v-model="newJobName"
-                                    class="form-input"
-                                    type="text"
-                                    name="new-job-name"
-                                    @keyup.enter="enterClicked"
-                                />
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <a
-                            ref="createButton"
-                            data-cy="create-job-button"
-                            href="#"
-                            class="btn btn-primary float-right"
-                            aria-label="Close"
-                            @click.prevent="create"
-                            >Create</a
-                        >
-                    </div>
-                </div>
-            </div>
-            <a
-                data-cy="refresh-jobs"
+                Cancel
+            </button>
+            <button
+                ref="createButton"
+                data-cy="create-job-button"
                 href="#"
-                class="btn tooltip m-1"
-                data-tooltip="Refresh all jobs from the configuration folder"
-                @click.prevent="refreshJobs"
-                >Refresh jobs</a
+                class="btn btn-primary float-right"
+                aria-label="Close"
+                @click.prevent="create"
             >
+                Create
+            </button>
+        </nav>
+    </dialog>
+
+    <nav class="medium-margin">
+        <div class="max"></div>
+        <button
+            data-cy="create-job"
+            @click.prevent="toggle"
+        >
+            <i>add_circle</i>
+            Create a new job
+        </button>
+
+        <button
+            data-cy="refresh-jobs"
+            @click.prevent="refreshJobs"
+        >
+            <i>sync</i>
+            Reload all jobs
+        </button>
+    </nav>
+
+    <div class="article">
+        <JobItem
+            v-for="item in jobs"
+            :key="item.name"
+            :job="item"
+        />
+        <div
+            v-if="jobs.length === 0"
+            class="fill medium-height middle-align center-align"
+        >
+            <div class="center-align">
+                <i class="extra">water</i>
+                <h5>No jobs found</h5>
+            </div>
         </div>
     </div>
 </template>
@@ -115,7 +89,7 @@ export default {
         },
     },
     mounted() {
-        document.title = "Jobs - wakeci";
+        this.$store.commit("SET_CURRENT_PAGE", "Jobs");
         this.fetch();
     },
     methods: {
@@ -144,7 +118,7 @@ export default {
                     this.toggle();
                     this.$notify({
                         text: "New job created",
-                        type: "success",
+                        type: "primary",
                     });
                     this.fetch();
                 })
@@ -161,7 +135,7 @@ export default {
                 .then((response) => {
                     this.$notify({
                         text: "Jobs have been refreshed",
-                        type: "success",
+                        type: "primary",
                     });
                     this.fetch();
                 })
@@ -172,11 +146,4 @@ export default {
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style
-    scoped
-    lang="scss"
->
-.create-section {
-    margin-top: 1em;
-}
-</style>
+<style scoped lang="scss"></style>
