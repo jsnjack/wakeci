@@ -3,7 +3,8 @@
     <div>
         <nav @click="toggleLogs">
             <a class="row wave max">
-                <i>chevron_right</i>
+                <i v-if="this.content === '' && this.task.status !== 'running'">chevron_right</i>
+                <i v-else>expand_more</i>
                 <BuildStatus :status="task.status" />
                 <div class="max large-text">{{ name }}</div>
                 <SimpleDuration :item="task" />
