@@ -1,92 +1,49 @@
 <template>
-    <section
-        v-show="isVisible"
-        :data-cy="getCyText"
-    >
-        <div
-            class="divider"
-            :data-content="getDividerText"
-        />
-        <div class="columns">
-            <div class="column">
-                <div class="text-left">
-                    <BuildStatus :status="task.status" />
-                    <span
-                        class="h5 task-name"
-                        @click="reloadLogs"
-                        >{{ name }}</span
-                    >
-                    <DurationElement
-                        v-show="task.status !== 'pending'"
-                        :item="task"
-                        class="text-small m-1"
-                    />
-                </div>
-            </div>
-            <div class="column text-right">
-                <div class="dropdown dropdown-right text-left">
-                    <div class="btn-group">
-                        <button
-                            data-cy="reload"
-                            class="btn btn-sm btn-primary"
-                            @click="reloadLogs"
-                        >
-                            Reload
-                        </button>
-                        <a
-                            class="btn btn-sm dropdown-toggle"
-                            tabindex="0"
-                        >
-                            <i class="icon icon-caret" />
-                        </a>
-                        <ul class="menu">
-                            <li
-                                class="divider"
-                                data-content="ACTIONS"
-                            />
-                            <li class="menu-item">
-                                <a
-                                    :href="getLogURL"
-                                    target="_blank"
-                                    >Open</a
-                                >
-                            </li>
-                            <li class="menu-item">
-                                <a
-                                    href="#"
-                                    @click="clearLogs"
-                                    >Hide</a
-                                >
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div
-            class="log-container text-left code status-border"
-            :class="getBorderClass"
-        >
+    <div class="medium-margin"></div>
+    <div>
+        <nav @click="toggleLogs">
+            <a class="row wave max">
+                <i>chevron_right</i>
+                <BuildStatus :status="task.status" />
+                <div class="max large-text">{{ name }}</div>
+                <SimpleDuration :item="task" />
+            </a>
+            <a
+                @click="reloadLogs"
+                class="button circle transparent"
+            >
+                <i>sync</i>
+            </a>
+            <a
+                class="button circle transparent"
+                :href="getLogURL"
+                target="_blank"
+            >
+                <i>open_in_new</i>
+            </a>
+        </nav>
+        <article class="log-container no-padding">
             <pre
                 v-if="content"
-                class="d-block log-line"
+                class="log-line fill large-padding no-round"
                 >{{ content }}</pre
             >
             <TextSpinner v-show="task.status === 'running'" />
-        </div>
-    </section>
+        </article>
+    </div>
 </template>
 
 <script>
 import BuildStatus from "@/components/BuildStatus.vue";
 import TextSpinner from "@/components/TextSpinner.vue";
 import DurationElement from "@/components/DurationElement.vue";
+import SimpleDuration from "@/components/SimpleDuration.vue";
 import axios from "axios";
 
 const FlushContentPeriod = 500;
 
 export default {
-    components: { BuildStatus, DurationElement, TextSpinner },
+    components: { BuildStatus, DurationElement, TextSpinner, SimpleDuration },
     props: {
         buildID: {
             type: Number,
@@ -164,11 +121,6 @@ export default {
             axios
                 .get(this.getLogURL)
                 .then((response) => {
-                    this.$notify({
-                        text: "Log file has been reloaded",
-                        type: "success",
-                        duration: 1000,
-                    });
                     this.content = response.data;
                     if (this.follow) {
                         this.$nextTick(() => {
@@ -218,66 +170,23 @@ export default {
                 this.flushContent();
             }
         },
+        toggleLogs() {
+            if (this.content.length > 0) {
+                this.clearLogs();
+                return;
+            }
+            this.reloadLogs();
+        },
     },
 };
 </script>
 
 <style lang="scss" scoped>
-@import "@/assets/colors.scss";
-
 .log-container {
-    background: $bg-color;
-    margin-left: 0.4em;
     overflow: auto;
-    font-size: 90%;
-    pre {
-        padding-left: 1em;
-        margin: 0;
-    }
 }
-
-@media (max-width: 600px) {
-    .log-container {
-        font-size: 60%;
-    }
-}
-
 .log-line {
     white-space: pre-wrap;
     word-break: break-word;
-}
-
-section {
-    margin-top: 2em;
-    margin-bottom: 2em;
-}
-
-.status-border {
-    border-left: 0.25em solid;
-}
-
-.border-pending {
-    border-left-color: $gray-color;
-}
-.border-running {
-    border-left-color: $warning-color;
-}
-.border-aborted,
-.border-timedout {
-    border-left-color: $primary-color;
-}
-.border-failed {
-    border-left-color: $error-color;
-}
-.border-finished {
-    border-left-color: $success-color;
-}
-
-.border-skipped {
-    border-left-color: rgb(169, 207, 185);
-}
-
-.task-name {
-    cursor: pointer;
 }
 </style>

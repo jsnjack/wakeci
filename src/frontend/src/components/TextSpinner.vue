@@ -1,5 +1,5 @@
 <template>
-    <div class="text-center">
+    <div class="fill center-align no-round">
         {{ getText }}
     </div>
 </template>
@@ -39,7 +39,4 @@ export default {
 };
 </script>
 
-<style
-    scoped
-    lang="scss"
-></style>
+<style scoped lang="scss"></style>

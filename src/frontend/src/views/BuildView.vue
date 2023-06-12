@@ -1,5 +1,56 @@
 <template>
-    <div class="container grid-xl">
+    <article>
+        <nav>
+            <div class="max medium-padding">
+                <div>
+                    <h6>{{ statusUpdate.name }}</h6>
+                    <p>{{ job.desc }}</p>
+                </div>
+            </div>
+            <div class="medium-padding">
+                <div>
+                    <nav>
+                        <BuildStatus :status="statusUpdate.status" />
+                        <div>{{ statusUpdate.status }}</div>
+                    </nav>
+                    <div>
+                        <a class="duration-block">
+                            <i class="small small-padding">avg_time</i>
+                            <SimpleDuration :item="statusUpdate" />
+                        </a>
+                        <div></div>
+                        <a class="duration-block">
+                            <i class="small small-padding">schedule</i>
+                            <SimpleStartedAgo :item="statusUpdate" />
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </article>
+
+    <article>
+        <FullParamItem
+            v-for="(item, index) in statusUpdate.params"
+            :key="index + 'param'"
+            :param="item"
+        />
+    </article>
+
+    <div>
+        <TaskItem
+            v-for="item in statusUpdate.tasks"
+            :key="item.id"
+            :ref="'task-' + item.id"
+            :task="item"
+            :build-i-d="id"
+            :build-status="statusUpdate.status"
+            :name="job.tasks[item.id].name"
+            :follow="follow"
+        />
+    </div>
+
+    <!-- <div class="container grid-xl">
         <div class="card build-header">
             <div class="card-header">
                 <div class="card-title h5">{{ statusUpdate.name }} #{{ statusUpdate.id }}</div>
@@ -72,7 +123,7 @@
                 <i class="form-icon" /> Follow
             </label>
         </div>
-    </div>
+    </div> -->
 </template>
 
 <script>
@@ -81,11 +132,14 @@ import axios from "axios";
 import BuildStatus from "@/components/BuildStatus.vue";
 import DurationElement from "@/components/DurationElement.vue";
 import ParamItem from "@/components/ParamItem.vue";
+import FullParamItem from "@/components/FullParamItem.vue";
 import BuildProgress from "@/components/BuildProgress.vue";
 import BuildProgressETA from "@/components/BuildProgressETA.vue";
 import RunJobButton from "@/components/RunJobButton.vue";
 import TaskItem from "@/components/TaskItem.vue";
 import ArtifactItem from "@/components/ArtifactItem.vue";
+import SimpleDuration from "@/components/SimpleDuration.vue";
+import SimpleStartedAgo from "@/components/SimpleStartedAgo.vue";
 
 export default {
     components: {
@@ -97,6 +151,9 @@ export default {
         ArtifactItem,
         DurationElement,
         RunJobButton,
+        SimpleDuration,
+        SimpleStartedAgo,
+        FullParamItem,
     },
     props: {
         id: {

@@ -36,7 +36,9 @@ export default {
                 this.startedText = "";
                 return;
             }
-            this.startedText = ago.format(new Date(this.item.startedAt));
+            try {
+                this.startedText = ago.format(new Date(this.item.startedAt));
+            } catch (e) {}
             return "";
         },
     },
