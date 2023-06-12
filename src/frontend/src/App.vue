@@ -16,7 +16,7 @@
                 class="button circle transparent"
             >
                 <div class="tooltip bottom">Jobs</div>
-                <i>task_alt</i>
+                <i>apps</i>
             </router-link>
             <router-link
                 to="/settings"
