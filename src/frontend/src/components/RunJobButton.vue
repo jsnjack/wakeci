@@ -5,8 +5,19 @@
         data-cy="run-job-button"
         @click.prevent="toggleModal"
     >
-        <i>play_arrow</i>
-        <div class="tooltip bottom">Start</div>
+        <i>{{ icon }}</i>
+        <div
+            v-if="icon === 'play_arrow'"
+            class="tooltip bottom"
+        >
+            Start
+        </div>
+        <div
+            v-if="icon === 'replay'"
+            class="tooltip bottom"
+        >
+            Re-run
+        </div>
     </button>
     <dialog :class="{ active: modalOpen }">
         <h5>{{ getModalTitle }}</h5>
@@ -49,10 +60,6 @@ export default {
             type: null,
             required: true,
         },
-        buttonTitle: {
-            type: String,
-            required: true,
-        },
         jobName: {
             type: null,
             required: true,
@@ -61,6 +68,11 @@ export default {
             type: Boolean,
             default: false,
             required: false,
+        },
+        icon: {
+            type: String,
+            required: false,
+            default: "play_arrow",
         },
     },
     data: function () {
