@@ -29,6 +29,13 @@
         </div>
         <div class="row">
             <div class="max"></div>
+            <button
+                class="circle transparent"
+                @click.prevent="hideAll"
+            >
+                <i>hide</i>
+                <div class="tooltip bottom">Hide all logs</div>
+            </button>
             <a
                 class="button circle transparent"
                 :disabled="isDone"
@@ -71,79 +78,19 @@
         :build-i-d="statusUpdate.id"
     />
 
-    <!-- <div class="container grid-xl">
-        <div class="card build-header">
-            <div class="card-header">
-                <div class="card-title h5">{{ statusUpdate.name }} #{{ statusUpdate.id }}</div>
-                <div class="card-subtitle text-gray">
-                    {{ job.desc }}
-                </div>
-                <BuildStatus :status="statusUpdate.status" />
-                    v-show="statusUpdate.status !== 'pending'"
-                    :item="statusUpdate"
-                />
-                <div class="float-right">
-                    <a
-                        v-if="!isDone"
-                        :href="getAbortURL"
-                        class="btn btn-error item-action"
-                        data-cy="abort-build-button"
-                        @click.prevent="abort"
-                        >Abort</a
-                    >
-                    <RunJobButton
-                        :params="statusUpdate.params"
-                        :button-title="'Rerun'"
-                        :job-name="statusUpdate.name"
-                        class="item-action"
-                    />
-                </div>
-            </div>
-            <div class="card-footer">
-                <BuildProgress
-                    v-if="!statusUpdate.eta"
-                    :done="getDoneTasks"
-                    :total="getTotalTasks"
-                />
-                <BuildProgressETA
-                    v-if="statusUpdate.eta"
-                    :eta="statusUpdate.eta"
-                    :started-at="statusUpdate.startedAt"
-                    :build-duration="statusUpdate.duration"
-                />
-            </div>
-        </div>
-        <div class="columns">
-            <ParamItem
-                v-for="(item, index) in statusUpdate.params"
-                :key="index + 'param'"
-                :param="item"
-            />
-        </div>
-        <TaskItem
-            v-for="item in statusUpdate.tasks"
-            :key="item.id"
-            :ref="'task-' + item.id"
-            :task="item"
-            :build-i-d="id"
-            :build-status="statusUpdate.status"
-            :name="job.tasks[item.id].name"
-            :follow="follow"
+    <label
+        style="opacity: 0.8"
+        class="switch icon fixed bottom right medium-margin"
+    >
+        <div class="tooltip left">Follow logs</div>
+        <input
+            type="checkbox"
+            v-model="follow"
         />
-        <ArtifactItem
-            :artifacts="getArtifacts"
-            :build-i-d="statusUpdate.id"
-        />
-        <div class="follow-logs form-group float-right label">
-            <label class="form-switch">
-                <input
-                    v-model="follow"
-                    type="checkbox"
-                />
-                <i class="form-icon" /> Follow
-            </label>
-        </div>
-    </div> -->
+        <span>
+            <i>route</i>
+        </span>
+    </label>
 </template>
 
 <script>
@@ -306,21 +253,4 @@ export default {
 };
 </script>
 
-<style scoped lang="scss">
-.build-header {
-    margin-bottom: 1em;
-}
-summary:hover {
-    cursor: pointer;
-}
-.item-action {
-    margin: 0.25em;
-}
-.follow-logs {
-    position: fixed;
-    bottom: 10px;
-    right: 10px;
-    opacity: 0.8;
-    border-radius: 10px;
-}
-</style>
+<style scoped lang="scss"></style>
