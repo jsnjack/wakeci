@@ -27,6 +27,23 @@
                 </div>
             </div>
         </nav>
+        <nav>
+            <div class="max"></div>
+            <a
+                class="button circle transparent"
+                :disabled="isDone"
+                @click.prevent="abort"
+                :href="getAbortURL"
+            >
+                <i>stop</i>
+                <div class="tooltip bottom">Abort</div>
+            </a>
+            <RunJobButton
+                :params="job.defaultParams"
+                :job-name="job.name"
+                :icon="'replay'"
+            />
+        </nav>
     </article>
 
     <article>
@@ -44,7 +61,6 @@
             :ref="'task-' + item.id"
             :task="item"
             :build-i-d="id"
-            :build-status="statusUpdate.status"
             :name="job.tasks[item.id].name"
             :follow="follow"
         />
@@ -58,7 +74,6 @@
                     {{ job.desc }}
                 </div>
                 <BuildStatus :status="statusUpdate.status" />
-                <DurationElement
                     v-show="statusUpdate.status !== 'pending'"
                     :item="statusUpdate"
                 />
@@ -130,7 +145,6 @@
 import vuex from "vuex";
 import axios from "axios";
 import BuildStatus from "@/components/BuildStatus.vue";
-import DurationElement from "@/components/DurationElement.vue";
 import ParamItem from "@/components/ParamItem.vue";
 import FullParamItem from "@/components/FullParamItem.vue";
 import BuildProgress from "@/components/BuildProgress.vue";
@@ -149,7 +163,6 @@ export default {
         TaskItem,
         ParamItem,
         ArtifactItem,
-        DurationElement,
         RunJobButton,
         SimpleDuration,
         SimpleStartedAgo,
