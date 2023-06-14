@@ -23,7 +23,6 @@
             :disabled="!isActive"
             :params="job.defaultParams"
             :job-name="job.name"
-            data-cy="start-job-button"
         />
 
         <!-- Edit job -->
