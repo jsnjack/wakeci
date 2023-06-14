@@ -95,7 +95,6 @@
 import BuildStatus from "@/components/BuildStatus.vue";
 import BuildProgress from "@/components/BuildProgress.vue";
 import BuildProgressETA from "@/components/BuildProgressETA.vue";
-import DurationElement from "@/components/DurationElement.vue";
 import SimpleDuration from "@/components/SimpleDuration.vue";
 import SimpleStartedAgo from "@/components/SimpleStartedAgo.vue";
 import ParamItem from "@/components/ParamItem.vue";
@@ -109,7 +108,6 @@ export default {
         BuildStatus,
         BuildProgress,
         BuildProgressETA,
-        DurationElement,
         SimpleDuration,
         SimpleStartedAgo,
         SimpleDuration,

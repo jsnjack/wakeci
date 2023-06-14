@@ -37,14 +37,13 @@
 <script>
 import BuildStatus from "@/components/BuildStatus.vue";
 import TextSpinner from "@/components/TextSpinner.vue";
-import DurationElement from "@/components/DurationElement.vue";
 import SimpleDuration from "@/components/SimpleDuration.vue";
 import axios from "axios";
 
 const FlushContentPeriod = 500;
 
 export default {
-    components: { BuildStatus, DurationElement, TextSpinner, SimpleDuration },
+    components: { BuildStatus, TextSpinner, SimpleDuration },
     props: {
         buildID: {
             type: Number,
