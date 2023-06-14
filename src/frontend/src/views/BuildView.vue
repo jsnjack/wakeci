@@ -1,6 +1,6 @@
 <template>
     <article>
-        <nav>
+        <div class="row">
             <div class="max medium-padding">
                 <div>
                     <h6>{{ statusUpdate.name }}</h6>
@@ -9,10 +9,10 @@
             </div>
             <div class="medium-padding">
                 <div>
-                    <nav>
+                    <div class="row">
                         <BuildStatus :status="statusUpdate.status" />
                         <div>{{ statusUpdate.status }}</div>
-                    </nav>
+                    </div>
                     <div>
                         <a class="duration-block">
                             <i class="small small-padding">avg_time</i>
@@ -26,8 +26,8 @@
                     </div>
                 </div>
             </div>
-        </nav>
-        <nav>
+        </div>
+        <div class="row">
             <div class="max"></div>
             <a
                 class="button circle transparent"
@@ -43,10 +43,10 @@
                 :job-name="job.name"
                 :icon="'replay'"
             />
-        </nav>
+        </div>
     </article>
 
-    <article>
+    <article v-if="params && params.length > 0">
         <FullParamItem
             v-for="(item, index) in statusUpdate.params"
             :key="index + 'param'"
