@@ -124,7 +124,7 @@ export default {
                     this.content = response.data;
                     if (this.follow) {
                         this.$nextTick(() => {
-                            this.$el.scrollIntoView(false);
+                            this.$el.parentElement.scrollIntoView(false);
                         });
                     }
                 })
@@ -148,7 +148,7 @@ export default {
                 this.cachedContent = "";
                 if (this.follow) {
                     this.$nextTick(() => {
-                        this.$el.scrollIntoView(false);
+                        this.$el.parentElement.scrollIntoView(false);
                     });
                 }
             }
