@@ -33,15 +33,8 @@
             </div>
         </div>
         <div>
-            <a class="duration-block">
-                <i class="small small-padding">avg_time</i>
-                <SimpleDuration :item="build" />
-            </a>
-            <div></div>
-            <a class="duration-block">
-                <i class="small small-padding">schedule</i>
-                <SimpleStartedAgo :item="build" />
-            </a>
+            <SimpleDuration :item="build" />
+            <SimpleStartedAgo :item="build" />
         </div>
         <!-- Open build view -->
         <router-link
@@ -108,10 +101,8 @@ export default {
         BuildStatus,
         BuildProgress,
         BuildProgressETA,
-        SimpleDuration,
         SimpleStartedAgo,
         SimpleDuration,
-        SimpleStartedAgo,
     },
     props: {
         build: {
@@ -206,9 +197,6 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="scss">
-.duration-block {
-    cursor: default;
-}
 .feed-item {
     background-color: var(--background);
 }

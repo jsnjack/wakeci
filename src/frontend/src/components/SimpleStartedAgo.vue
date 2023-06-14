@@ -1,5 +1,8 @@
 <template>
-    <div>{{ startedText }}</div>
+    <div class="row">
+        <i class="small">schedule</i>
+        <div>{{ startedText }}</div>
+    </div>
 </template>
 
 <script>

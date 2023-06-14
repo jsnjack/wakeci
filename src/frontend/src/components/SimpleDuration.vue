@@ -1,5 +1,12 @@
 <template>
-    <div>{{ durationText }}</div>
+    <div class="row">
+        <i
+            v-if="!hideIcon"
+            class="small"
+            >avg_time</i
+        >
+        <div>{{ durationText }}</div>
+    </div>
 </template>
 
 <script>
@@ -11,6 +18,11 @@ export default {
         item: {
             required: true,
             type: Object,
+        },
+        hideIcon: {
+            type: Boolean,
+            default: false,
+            required: false,
         },
     },
     data: function () {

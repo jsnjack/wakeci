@@ -7,7 +7,10 @@
                 <i v-else>expand_more</i>
                 <BuildStatus :status="task.status" />
                 <div class="max large-text">{{ name }}</div>
-                <SimpleDuration :item="task" />
+                <SimpleDuration
+                    :item="task"
+                    :hideIcon="true"
+                />
             </a>
             <a
                 @click="reloadLogs"

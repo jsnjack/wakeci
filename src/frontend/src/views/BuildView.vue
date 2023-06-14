@@ -13,16 +13,9 @@
                         <BuildStatus :status="statusUpdate.status" />
                         <div>{{ statusUpdate.status }}</div>
                     </div>
-                    <div>
-                        <a class="duration-block">
-                            <i class="small small-padding">avg_time</i>
-                            <SimpleDuration :item="statusUpdate" />
-                        </a>
-                        <div></div>
-                        <a class="duration-block">
-                            <i class="small small-padding">schedule</i>
-                            <SimpleStartedAgo :item="statusUpdate" />
-                        </a>
+                    <div class="small-padding">
+                        <SimpleDuration :item="statusUpdate" />
+                        <SimpleStartedAgo :item="statusUpdate" />
                     </div>
                 </div>
             </div>
