@@ -32,7 +32,7 @@
                 </button>
             </div>
         </div>
-        <div>
+        <div style="min-width: 200px">
             <SimpleDuration :item="build" />
             <SimpleStartedAgo :item="build" />
         </div>
