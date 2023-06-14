@@ -48,8 +48,8 @@
     </main>
     <notifications
         classes="toast active"
-        max="1"
-        pauseOnHover="true"
+        :max="1"
+        :pauseOnHover="true"
     />
 </template>
 
