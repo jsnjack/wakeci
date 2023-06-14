@@ -1,38 +1,37 @@
 <template>
-    <section>
-        <div
-            class="divider"
-            data-content="artifacts"
-        />
-
+    <article v-if="artifacts && artifacts.length > 0">
+        <h6>Artifacts</h6>
         <div
             v-if="indexFile"
-            class="float-right"
+            class="row"
         >
+            <div class="max"></div>
             <a
                 :href="indexFile"
                 target="_blank"
-                class="btn btn-sm"
+                class="button secondary"
                 data-cy="openIndexFile"
-                >Open index.html</a
+                ><i>open_in_new</i>index.html</a
             >
         </div>
 
-        <table class="table table-striped table-hover">
+        <table class="border">
             <thead>
                 <tr>
                     <th
-                        class="badge c-hand"
+                        style="cursor: pointer"
                         data-cy="artifacts-header-file"
                         @click="sortBy('filename')"
                     >
+                        <i>sort</i>
                         File
                     </th>
                     <th
-                        class="badge c-hand"
+                        style="cursor: pointer"
                         data-cy="artifacts-header-size"
                         @click="sortBy('size')"
                     >
+                        <i>sort</i>
                         Size
                     </th>
                 </tr>
@@ -55,7 +54,7 @@
                 </tr>
             </tbody>
         </table>
-    </section>
+    </article>
 </template>
 
 <script>
@@ -73,6 +72,7 @@ export default {
         },
     },
     data: function () {
+        console.log(this.artifacts);
         return {
             sortOrder: -1,
             sortField: "filename",
@@ -121,13 +121,7 @@ export default {
 };
 </script>
 
-<style
-    lang="scss"
-    scoped
->
-.artifact {
-    margin: 0.25em;
-}
+<style lang="scss" scoped>
 table {
     white-space: pre-wrap;
     word-break: break-word;

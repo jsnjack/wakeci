@@ -66,6 +66,11 @@
         />
     </div>
 
+    <ArtifactItem
+        :artifacts="getArtifacts"
+        :build-i-d="statusUpdate.id"
+    />
+
     <!-- <div class="container grid-xl">
         <div class="card build-header">
             <div class="card-header">
