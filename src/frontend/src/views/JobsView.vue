@@ -59,7 +59,7 @@
             :job="item"
         />
         <div
-            v-if="jobs.length === 0"
+            v-if="jobs.length === 0 && fetchingDone"
             class="fill medium-height middle-align center-align"
         >
             <div class="center-align">
@@ -81,6 +81,7 @@ export default {
             jobs: [],
             modalOpen: false,
             newJobName: "new_job",
+            fetchingDone: false,
         };
     },
     computed: {
@@ -98,8 +99,11 @@ export default {
                 .get("/api/jobs/")
                 .then((response) => {
                     this.jobs = response.data || [];
+                    this.fetchingDone = true;
                 })
-                .catch((error) => {});
+                .catch((error) => {
+                    this.fetchingDone = true;
+                });
         },
         toggle(event) {
             this.modalOpen = !this.modalOpen;
