@@ -137,7 +137,6 @@ export default {
             return `/api/build/${this.build.id}/start`;
         },
         isDone() {
-            console.log(this.build.status);
             switch (this.build.status) {
                 case "failed":
                 case "finished":
