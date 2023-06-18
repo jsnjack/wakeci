@@ -19,7 +19,7 @@
             Re-run
         </div>
     </button>
-    <dialog :class="{ active: modalOpen }">
+    <dialog :id="'run-job-dialog-' + jobName">
         <h5>{{ getModalTitle }}</h5>
         <form
             class="medium-margin"
@@ -75,11 +75,6 @@ export default {
             default: "play_arrow",
         },
     },
-    data: function () {
-        return {
-            modalOpen: false,
-        };
-    },
     computed: {
         getModalTitle: function () {
             return `Configure ${this.jobName}`;
@@ -101,7 +96,7 @@ export default {
                 .catch((error) => {});
         },
         toggleModal(event) {
-            this.modalOpen = !this.modalOpen;
+            window.ui("#" + "run-job-dialog-" + this.jobName);
         },
     },
 };
