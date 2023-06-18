@@ -266,11 +266,12 @@ tasks:
             .then((val) => {
                 cy.get("[data-cy=open-build-button]").click();
                 cy.url().should("include", "/build/" + val);
-                cy.get("[data-cy=reload]").eq(0).click();
-                cy.get("[data-cy=task_section_0]").should("contain", "> Condition is true");
+                cy.get("[data-cy=task-title]").eq(0).click();
+                cy.get("body").should("contain", "> Condition is true");
+                cy.get("[data-cy=task-title]").eq(0).click();
 
-                cy.get("[data-cy=reload]").eq(1).click();
-                cy.get("[data-cy=task_section_1]").should("contain", "> Condition is false");
+                cy.get("[data-cy=task-title]").eq(1).click();
+                cy.get("body").should("contain", "> Condition is false");
             });
     });
 });

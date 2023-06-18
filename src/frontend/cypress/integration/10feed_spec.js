@@ -288,7 +288,7 @@ run: env
             });
     });
 
-    it.only("should start job immediately", function () {
+    it("should start job immediately", function () {
         cy.visit("/");
         const jobName = "myjob" + new Date().getTime();
         cy.request({
@@ -307,7 +307,7 @@ run: env
 desc: Test env variables
 tasks:
 - name: Print env
-  run: sleep 5
+  run: sleep 10
 
 concurrency: 1
 `;
@@ -356,10 +356,10 @@ concurrency: 1
             expect(items.eq(1), "second item").to.contain("running");
         });
         cy.get("[data-cy=start-build-button]:not([disabled])").click();
-        cy.get("[data-cy=build-status-label]").should((items) => {
+        cy.get("[data-cy-status]").should((items) => {
             expect(items, "2 items").to.have.length(2);
-            expect(items.eq(0), "first item").text().to.contain("running");
-            expect(items.eq(1), "second item").text().to.contain("running");
+            expect(items.eq(0), "first item").to.contain("running");
+            expect(items.eq(1), "second item").to.contain("running");
         });
     });
 });
