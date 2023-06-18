@@ -1,5 +1,4 @@
 <template>
-    <article>
         <div class="row">
             <div class="max medium-padding">
                 <div>
@@ -39,14 +38,13 @@
                 <div class="tooltip bottom">Abort</div>
             </a>
             <RunJobButton
-                :params="job.defaultParams"
+                :params="statusUpdate.params"
                 :job-name="job.name"
                 :icon="'replay'"
             />
         </div>
-    </article>
 
-    <article v-if="params && params.length > 0">
+    <article v-if="statusUpdate.params && statusUpdate.params.length > 0">
         <FullParamItem
             v-for="(item, index) in statusUpdate.params"
             :key="index + 'param'"
