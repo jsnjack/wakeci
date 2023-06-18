@@ -55,6 +55,7 @@
 <script>
 import RunFormItem from "@/components/RunFormItem.vue";
 import axios from "axios";
+import { generateRandomString } from "@/store/utils";
 
 export default {
     components: { RunFormItem },
@@ -111,15 +112,6 @@ export default {
         };
     },
 };
-
-function generateRandomString(length) {
-    const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    let result = "";
-    for (let i = 0; i < length; i++) {
-        result += characters.charAt(Math.floor(Math.random() * characters.length));
-    }
-    return result;
-}
 </script>
 
 <style lang="scss" scoped></style>
