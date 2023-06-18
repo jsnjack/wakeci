@@ -72,7 +72,6 @@ export default {
         },
     },
     data: function () {
-        console.log(this.artifacts);
         return {
             sortOrder: -1,
             sortField: "filename",
