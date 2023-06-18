@@ -1,7 +1,10 @@
 <template>
     <div class="medium-margin"></div>
     <div>
-        <nav @click="toggleLogs">
+        <nav
+            @click="toggleLogs"
+            data-cy="task-title"
+        >
             <a class="row wave max">
                 <i v-if="this.content === '' && this.task.status !== 'running'">chevron_right</i>
                 <i v-else>expand_more</i>
@@ -15,6 +18,7 @@
             <a
                 @click="reloadLogs"
                 class="button circle transparent"
+                data-cy="reload"
             >
                 <i>sync</i>
             </a>
