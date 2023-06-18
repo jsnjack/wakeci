@@ -1,6 +1,6 @@
 <template>
     <button
-        :disabled="disabled"
+        :disabled="disabled ? true : null"
         class="circle transparent"
         data-cy="run-job-button"
         @click.prevent="toggleModal"
@@ -19,7 +19,10 @@
             Re-run
         </div>
     </button>
-    <dialog :id="'run-job-dialog-' + jobName">
+    <dialog
+        :id="'run-job-dialog-' + selectorID"
+        ref="dialog"
+    >
         <h5>{{ getModalTitle }}</h5>
         <form
             class="medium-margin"
@@ -96,10 +99,27 @@ export default {
                 .catch((error) => {});
         },
         toggleModal(event) {
-            window.ui("#" + "run-job-dialog-" + this.jobName);
+            window.ui("#" + "run-job-dialog-" + this.selectorID);
         },
     },
+    mounted: function () {
+        this.selectorID = generateRandomString(10);
+    },
+    data: function () {
+        return {
+            selectorID: "",
+        };
+    },
 };
+
+function generateRandomString(length) {
+    const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let result = "";
+    for (let i = 0; i < length; i++) {
+        result += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    return result;
+}
 </script>
 
 <style lang="scss" scoped></style>
