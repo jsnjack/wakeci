@@ -12,8 +12,7 @@ export default {
         SyntaxViewer,
     },
     mounted() {
-        // TODO: to remove
-        document.title = "Job syntax - wakeci";
+        this.$store.commit("SET_CURRENT_PAGE", "Job syntax");
     },
 };
 </script>
