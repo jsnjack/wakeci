@@ -222,7 +222,7 @@ export default {
                 .then((response) => {
                     this.$notify({
                         text: `${this.id} has been aborted`,
-                        type: "success",
+                        type: "primary",
                     });
                 })
                 .catch((error) => {});

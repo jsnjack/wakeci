@@ -171,7 +171,7 @@ export default {
                 axios
                     .post(event.target.href || event.target.parentElement.href)
                     .then((response) => {
-                        this.$notify({ text: `${this.build.id} has been aborted`, type: "success" });
+                        this.$notify({ text: `${this.build.id} has been aborted`, type: "primary" });
                     })
                     .catch((error) => {});
             }
@@ -181,7 +181,7 @@ export default {
                 axios
                     .post(event.target.href || event.target.parentElement.href)
                     .then((response) => {
-                        this.$notify({ text: `${this.build.id} has been started`, type: "success" });
+                        this.$notify({ text: `${this.build.id} has been started`, type: "primary" });
                     })
                     .catch((error) => {});
             }

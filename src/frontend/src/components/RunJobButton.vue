@@ -91,7 +91,7 @@ export default {
                 .post(url)
                 .then((response) => {
                     this.$notify({
-                        text: `${this.jobName} has been scheduled (#<a href="/build/${response.data}/">${response.data}</a>)`,
+                        text: `${this.jobName} has been scheduled (<a class="inverse-link" href="/build/${response.data}/">#${response.data}</a>)`,
                         type: "primary",
                         duration: 10000,
                     });

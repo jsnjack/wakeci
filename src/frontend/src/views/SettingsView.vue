@@ -74,7 +74,6 @@ export default {
                     },
                 })
                 .then((response) => {
-                    // TODO: check all notification classes
                     this.$notify({
                         text: "Saved",
                         type: "primary",
