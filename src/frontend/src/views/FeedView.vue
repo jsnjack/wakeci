@@ -41,16 +41,19 @@
         <p>{{ filteredUpdates }} updates have been filtered beacuse of the active filter</p>
     </article>
 
-    <FeedItem
-        v-for="item in sortedBuilds"
-        :key="item.id"
-        :build="item"
-        :params-index="paramsIndex"
-    />
+    <div data-cy="feed-container">
+        <FeedItem
+            v-for="item in sortedBuilds"
+            :key="item.id"
+            :build="item"
+            :params-index="paramsIndex"
+        />
+    </div>
 
     <div
         v-if="sortedBuilds.length === 0 && !isFetching && !filterIsDirty"
         class="fill medium-height middle-align center-align"
+        data-cy="no-builds-found"
     >
         <div class="center-align">
             <i class="extra">water</i>

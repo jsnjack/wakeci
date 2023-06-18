@@ -2,8 +2,9 @@
     <button
         class="small circle"
         :class="getStatusClass"
+        :data-cy-status="status"
     >
-        <i data-cy="build-status-label">{{ getStatusIcon }}</i>
+        <i>{{ getStatusIcon }}</i>
         <div class="tooltip right">{{ status }}</div>
     </button>
 </template>

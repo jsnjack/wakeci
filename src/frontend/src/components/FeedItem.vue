@@ -8,7 +8,7 @@
             <a class="small-padding">
                 <router-link :to="{ name: 'build', params: { id: build.id } }"> #{{ build.id }} {{ build.name }}</router-link>
             </a>
-            <div>
+            <div data-cy="params-container">
                 <ParamItem
                     v-for="(item, index) in this.getFilteredParams"
                     :key="index + 'param'"
@@ -18,6 +18,7 @@
                     v-if="build.params && build.params.length > getFilteredParams.length"
                     class="circle transparent"
                     @click.prevent="toggleExpandParams"
+                    data-cy="expand-more-params-button"
                 >
                     <i>expand_more</i>
                     <div class="tooltip bottom">More</div>
@@ -26,6 +27,7 @@
                     v-if="expandParams"
                     class="circle transparent"
                     @click.prevent="toggleExpandParams"
+                    data-cy="expand-less-params-button"
                 >
                     <i>expand_less</i>
                     <div class="tooltip bottom">Less</div>
@@ -48,7 +50,7 @@
 
         <!-- Abort build -->
         <a
-            :disabled="isDone"
+            :disabled="isDone ? true : null"
             :href="getAbortURL"
             class="button circle transparent"
             data-cy="abort-build-button"
@@ -60,14 +62,14 @@
 
         <!-- Start build -->
         <a
-            :disabled="build.status !== 'pending'"
+            :disabled="build.status === 'pending' ? null : true"
             :href="getStartURL"
             class="button circle transparent"
             data-cy="start-build-button"
             @click.prevent="start"
         >
-            <i>play_arrow</i>
-            <div class="tooltip bottom">Start</div>
+            <i>start</i>
+            <div class="tooltip bottom">Start now</div>
         </a>
     </div>
     <!-- TODO: Fix progress bar -->
@@ -135,6 +137,7 @@ export default {
             return `/api/build/${this.build.id}/start`;
         },
         isDone() {
+            console.log(this.build.status);
             switch (this.build.status) {
                 case "failed":
                 case "finished":

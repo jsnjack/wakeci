@@ -2,6 +2,7 @@
     <span
         class="chip fill small"
         style="margin-bottom: 0.5em"
+        data-cy="params-value"
     >
         {{ getValue }}
         <div class="tooltip bottom">
