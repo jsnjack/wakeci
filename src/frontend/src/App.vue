@@ -1,7 +1,9 @@
 <template>
     <header>
         <nav>
-            <i class="large fill primary-text">water</i>
+            <router-link to="/">
+                <i class="large fill primary-text">water</i>
+            </router-link>
             <small>{{ getVesion }}</small>
             <h6 class="max center-align">{{ currentPage }}</h6>
             <router-link
