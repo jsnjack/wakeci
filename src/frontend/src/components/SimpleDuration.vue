@@ -1,7 +1,7 @@
 <template>
     <div class="row">
         <i
-            v-if="!hideIcon"
+            v-if="!minimalisticMode"
             class="small"
             >avg_time</i
         >
@@ -19,7 +19,7 @@ export default {
             required: true,
             type: Object,
         },
-        hideIcon: {
+        minimalisticMode: {
             type: Boolean,
             default: false,
             required: false,
@@ -44,6 +44,19 @@ export default {
             }
             return false;
         },
+        getMainTasks() {
+            return this.item.tasks.filter((el) => {
+                return el.kind === "main";
+            });
+        },
+        getDoneTasks() {
+            return this.getMainTasks.filter((el) => {
+                return el.status !== "pending" && el.status !== "running";
+            }).length;
+        },
+        getTotalTasks() {
+            return this.getMainTasks.length;
+        },
     },
     watch: {
         "item.status": "onStatusChange",
@@ -65,6 +78,16 @@ export default {
             }
             if (this.item.status === "running") {
                 this.durationText = runningDuration(this.item.startedAt);
+                if (!this.minimalisticMode) {
+                    // Add information about the progress status
+                    if (this.item.eta) {
+                        const duration = (new Date().getTime() - new Date(this.item.startedAt).getTime()) / 1000;
+                        const p = Math.round((duration / Math.round(this.item.eta / 10 ** 9)) * 100);
+                        this.durationText += ` (${p}%)`;
+                    } else {
+                        this.durationText += ` (${this.getDoneTasks}/${this.getTotalTasks})`;
+                    }
+                }
                 return;
             }
             if (this.item.duration > 0) {

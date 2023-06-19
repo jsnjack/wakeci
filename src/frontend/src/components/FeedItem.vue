@@ -72,24 +72,10 @@
             <div class="tooltip bottom">Start now</div>
         </a>
     </div>
-    <BuildProgress
-        v-if="!build.eta"
-        :done="getDoneTasks"
-        :total="getTotalTasks"
-    />
-    <!-- TODO: Fix progress bar -->
-    <!-- <BuildProgressETA
-        v-if="build.eta"
-        :eta="build.eta"
-        :started-at="build.startedAt"
-        :build-duration="build.duration"
-    /> -->
 </template>
 
 <script>
 import BuildStatus from "@/components/BuildStatus.vue";
-import BuildProgress from "@/components/BuildProgress.vue";
-import BuildProgressETA from "@/components/BuildProgressETA.vue";
 import SimpleDuration from "@/components/SimpleDuration.vue";
 import SimpleStartedAgo from "@/components/SimpleStartedAgo.vue";
 import ParamItem from "@/components/ParamItem.vue";
@@ -101,8 +87,6 @@ export default {
     components: {
         ParamItem,
         BuildStatus,
-        BuildProgress,
-        BuildProgressETA,
         SimpleStartedAgo,
         SimpleDuration,
     },
@@ -117,19 +101,6 @@ export default {
         },
     },
     computed: {
-        getMainTasks() {
-            return this.build.tasks.filter((item) => {
-                return item.kind === "main";
-            });
-        },
-        getDoneTasks() {
-            return this.getMainTasks.filter((item) => {
-                return item.status !== "pending" && item.status !== "running";
-            }).length;
-        },
-        getTotalTasks() {
-            return this.getMainTasks.length;
-        },
         getAbortURL: function () {
             return `/api/build/${this.build.id}/abort`;
         },

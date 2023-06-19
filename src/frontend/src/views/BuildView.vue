@@ -93,8 +93,6 @@ import axios from "axios";
 import BuildStatus from "@/components/BuildStatus.vue";
 import ParamItem from "@/components/ParamItem.vue";
 import FullParamItem from "@/components/FullParamItem.vue";
-import BuildProgress from "@/components/BuildProgress.vue";
-import BuildProgressETA from "@/components/BuildProgressETA.vue";
 import RunJobButton from "@/components/RunJobButton.vue";
 import TaskItem from "@/components/TaskItem.vue";
 import ArtifactItem from "@/components/ArtifactItem.vue";
@@ -104,8 +102,6 @@ import SimpleStartedAgo from "@/components/SimpleStartedAgo.vue";
 export default {
     components: {
         BuildStatus,
-        BuildProgress,
-        BuildProgressETA,
         TaskItem,
         ParamItem,
         ArtifactItem,

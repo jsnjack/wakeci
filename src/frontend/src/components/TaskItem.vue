@@ -12,7 +12,7 @@
                 <div class="max large-text">{{ name }}</div>
                 <SimpleDuration
                     :item="task"
-                    :hideIcon="true"
+                    :minimalisticMode="true"
                 />
             </a>
             <a
