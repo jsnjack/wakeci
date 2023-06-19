@@ -32,7 +32,6 @@ export default {
         };
     },
     computed: {
-        ...vuex.mapState(["durationMode"]),
         isDone() {
             switch (this.item.status) {
                 case "failed":

@@ -29,14 +29,6 @@ const mutations = {
             state.ws.obj.close();
         }
     },
-    TOGGLE_DURATION_MODE(state, value) {
-        if (value) {
-            state.durationMode = value;
-        } else {
-            state.durationMode = toggleDurationMode(state.durationMode);
-        }
-        localStorage.setItem("durationMode", state.durationMode);
-    },
     SET_CURRENT_PAGE(state, value) {
         state.currentPage = value;
         document.title = value + " - wakeci";
