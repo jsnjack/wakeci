@@ -30,7 +30,10 @@
                 <i>open_in_new</i>
             </a>
         </nav>
-        <article class="log-container no-padding">
+        <article
+            class="log-container no-padding"
+            ref="logContainer"
+        >
             <pre
                 v-if="content"
                 class="log-line fill large-padding no-round"
@@ -131,7 +134,7 @@ export default {
                     this.content = response.data;
                     if (this.follow) {
                         this.$nextTick(() => {
-                            this.$el.parentElement.scrollIntoView(false);
+                            this.$refs.logContainer.scrollIntoView({ behavior: "smooth", block: "end", inline: "nearest" });
                         });
                     }
                 })
@@ -155,7 +158,7 @@ export default {
                 this.cachedContent = "";
                 if (this.follow) {
                     this.$nextTick(() => {
-                        this.$el.parentElement.scrollIntoView(false);
+                        this.$refs.logContainer.scrollIntoView({ behavior: "smooth", block: "end", inline: "nearest" });
                     });
                 }
             }
