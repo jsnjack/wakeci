@@ -72,18 +72,18 @@
             <div class="tooltip bottom">Start now</div>
         </a>
     </div>
-    <!-- TODO: Fix progress bar -->
     <BuildProgress
         v-if="!build.eta"
         :done="getDoneTasks"
         :total="getTotalTasks"
     />
-    <BuildProgressETA
+    <!-- TODO: Fix progress bar -->
+    <!-- <BuildProgressETA
         v-if="build.eta"
         :eta="build.eta"
         :started-at="build.startedAt"
         :build-duration="build.duration"
-    />
+    /> -->
 </template>
 
 <script>

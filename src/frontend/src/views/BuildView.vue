@@ -1,49 +1,51 @@
 <template>
-    <div class="row">
-        <div class="max medium-padding">
-            <div>
-                <h6>{{ statusUpdate.name }}</h6>
-                <p>{{ job.desc }}</p>
-            </div>
-        </div>
-        <div class="medium-padding">
-            <div>
-                <div class="row">
-                    <BuildStatus :status="statusUpdate.status" />
-                    <div>{{ statusUpdate.status }}</div>
-                </div>
-                <div class="small-padding">
-                    <SimpleDuration :item="statusUpdate" />
-                    <SimpleStartedAgo :item="statusUpdate" />
+    <article>
+        <div class="row">
+            <div class="max medium-padding">
+                <div>
+                    <h6>{{ statusUpdate.name }}</h6>
+                    <p>{{ job.desc }}</p>
                 </div>
             </div>
+            <div class="medium-padding">
+                <div>
+                    <div class="row">
+                        <BuildStatus :status="statusUpdate.status" />
+                        <div>{{ statusUpdate.status }}</div>
+                    </div>
+                    <div class="small-padding">
+                        <SimpleDuration :item="statusUpdate" />
+                        <SimpleStartedAgo :item="statusUpdate" />
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
-    <div class="row">
-        <div class="max"></div>
-        <button
-            class="circle transparent"
-            @click.prevent="hideAll"
-        >
-            <i>hide</i>
-            <div class="tooltip bottom">Hide all logs</div>
-        </button>
-        <a
-            class="button circle transparent"
-            :disabled="isDone ? true : null"
-            @click.prevent="abort"
-            :href="getAbortURL"
-            data-cy="abort-build-button"
-        >
-            <i>stop</i>
-            <div class="tooltip bottom">Abort</div>
-        </a>
-        <RunJobButton
-            :params="statusUpdate.params"
-            :job-name="job.name"
-            :icon="'replay'"
-        />
-    </div>
+        <div class="row">
+            <div class="max"></div>
+            <button
+                class="circle transparent"
+                @click.prevent="hideAll"
+            >
+                <i>hide</i>
+                <div class="tooltip bottom">Hide all logs</div>
+            </button>
+            <a
+                class="button circle transparent"
+                :disabled="isDone ? true : null"
+                @click.prevent="abort"
+                :href="getAbortURL"
+                data-cy="abort-build-button"
+            >
+                <i>stop</i>
+                <div class="tooltip bottom">Abort</div>
+            </a>
+            <RunJobButton
+                :params="statusUpdate.params"
+                :job-name="job.name"
+                :icon="'replay'"
+            />
+        </div>
+    </article>
 
     <article v-if="statusUpdate.params && statusUpdate.params.length > 0">
         <FullParamItem

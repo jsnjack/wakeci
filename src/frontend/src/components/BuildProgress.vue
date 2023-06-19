@@ -1,12 +1,9 @@
 <template>
-    <div class="small-space">
-        <div
-            class="progress left"
-            :value="done"
-            :max="total"
-        ></div>
-        <div class="tooltip bottom">{{ getProgressTooltip }}</div>
-    </div>
+    <progress
+        class="row max"
+        :value="done"
+        :max="total"
+    ></progress>
 </template>
 
 <script>
