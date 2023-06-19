@@ -39,7 +39,7 @@
                 class="log-line fill large-padding no-round"
                 >{{ content }}</pre
             >
-            <TextSpinner v-show="task.status === 'running'" />
+            <TextSpinner v-show="task.status === 'running' && !hideAllLogs" />
         </article>
     </div>
 </template>
@@ -68,6 +68,10 @@ export default {
             required: true,
         },
         follow: {
+            type: Boolean,
+            required: true,
+        },
+        hideAllLogs: {
             type: Boolean,
             required: true,
         },
@@ -107,6 +111,7 @@ export default {
     },
     watch: {
         "task.status": "onStatusChange",
+        hideAllLogs: "onHideAllLogsChange",
     },
     mounted() {
         this.emitter.on(`build:log:${this.buildID}:task-${this.task.id}`, this.addLog);
@@ -186,6 +191,11 @@ export default {
                 return;
             }
             this.reloadLogs();
+        },
+        onHideAllLogsChange(value) {
+            if (value) {
+                this.clearLogs();
+            }
         },
     },
 };

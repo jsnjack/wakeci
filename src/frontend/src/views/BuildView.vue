@@ -24,10 +24,22 @@
             <div class="max"></div>
             <button
                 class="circle transparent"
-                @click.prevent="hideAll"
+                @click.prevent="toggleHideAllLogs"
             >
-                <i>hide</i>
-                <div class="tooltip bottom">Hide all logs</div>
+                <i v-if="!hideAllLogs">hide</i>
+                <i v-else>system_update_alt</i>
+                <div
+                    v-if="!hideAllLogs"
+                    class="tooltip bottom"
+                >
+                    Hide all logs
+                </div>
+                <div
+                    v-else
+                    class="tooltip bottom"
+                >
+                    Stream logs
+                </div>
             </button>
             <a
                 class="button circle transparent"
@@ -64,6 +76,7 @@
             :build-i-d="id"
             :name="job.tasks[item.id].name"
             :follow="follow"
+            :hideAllLogs="hideAllLogs"
         />
     </div>
 
@@ -73,6 +86,7 @@
     />
 
     <label
+        v-if="!hideAllLogs"
         style="opacity: 0.8"
         class="switch icon fixed bottom right medium-margin"
     >
@@ -127,6 +141,7 @@ export default {
             buildLogSubscription: "build:log:" + this.id,
             buildUpdateSubscription: "build:update:" + this.id,
             follow: true,
+            hideAllLogs: false,
         };
     },
     computed: {
@@ -176,6 +191,7 @@ export default {
     },
     watch: {
         "ws.connected": "onWSChange",
+        hideAllLogs: "onHideAllLogsChange",
     },
     mounted() {
         this.$store.commit("SET_CURRENT_PAGE", `#${this.id}`);
@@ -237,6 +253,28 @@ export default {
                 this.subscribe();
             } else {
                 this.unsubscribe();
+            }
+        },
+        toggleHideAllLogs() {
+            this.hideAllLogs = !this.hideAllLogs;
+        },
+        onHideAllLogsChange(value) {
+            if (value) {
+                this.$store.commit("WS_SEND", {
+                    type: "in:unsubscribe",
+                    data: {
+                        to: [this.buildLogSubscription],
+                    },
+                });
+                this.follow = false;
+            } else {
+                this.$store.commit("WS_SEND", {
+                    type: "in:subscribe",
+                    data: {
+                        to: [this.buildLogSubscription],
+                    },
+                });
+                this.follow = true;
             }
         },
     },
