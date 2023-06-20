@@ -3,7 +3,7 @@
         <Codemirror
             :value="job.fileContent"
             data-cy="editor"
-            :options="editorOptions"
+            :options="getOptions"
             @input="onCodeChange"
         />
     </div>
@@ -26,9 +26,11 @@
 </template>
 
 <script>
+import vuex from "vuex";
 import axios from "axios";
 import Codemirror from "codemirror-editor-vue3";
 import "codemirror/lib/codemirror.css";
+import "codemirror/theme/dracula.css";
 import "codemirror/mode/yaml/yaml.js";
 
 export default {
@@ -46,18 +48,24 @@ export default {
             job: {
                 fileContent: "",
             },
-            editorOptions: {
-                tabSize: 2,
-                mode: "text/x-yaml",
-                lineNumbers: true,
-                line: true,
-                indentUnit: 2,
-            },
         };
     },
     mounted() {
         this.$store.commit("SET_CURRENT_PAGE", `Edit ${this.name}`);
         this.fetch();
+    },
+    computed: {
+        ...vuex.mapState(["theme"]),
+        getOptions() {
+            return {
+                tabSize: 2,
+                mode: "text/x-yaml",
+                lineNumbers: true,
+                line: true,
+                indentUnit: 2,
+                theme: this.theme === "light" ? "default" : "dracula",
+            };
+        },
     },
     methods: {
         onCodeChange(newCode) {
