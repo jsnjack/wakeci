@@ -33,6 +33,10 @@ const mutations = {
         state.currentPage = value;
         document.title = value + " - wakeci";
     },
+    SET_THEME(state, value) {
+        state.theme = value;
+        window.localStorage.setItem("theme", value);
+    },
 };
 
 export default mutations;

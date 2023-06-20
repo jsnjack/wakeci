@@ -69,19 +69,15 @@ import DocsMenu from "@/components/DocsMenu.vue";
 
 export default {
     components: { DocsMenu },
-    data: function () {
-        return {
-            darkMode: false,
-        };
-    },
     computed: {
-        ...vuex.mapState(["ws", "auth", "currentPage"]),
+        ...vuex.mapState(["ws", "auth", "currentPage", "theme"]),
         getVesion: function () {
             return import.meta.env.VITE_VERSION || "0.0.0";
         },
     },
     mounted() {
         this.connect();
+        this.applyTheme();
     },
     methods: {
         connect: function () {
@@ -129,14 +125,20 @@ export default {
                 .catch((error) => {});
         },
         toggleDarkMode: function () {
-            if (this.darkMode) {
+            if (this.theme === "light") {
+                this.$store.commit("SET_THEME", "dark");
+            } else {
+                this.$store.commit("SET_THEME", "dark");
+            }
+            this.applyTheme();
+        },
+        applyTheme: function () {
+            if (this.theme === "light") {
                 document.body.classList.remove("dark");
                 document.body.classList.add("light");
-                this.darkMode = false;
             } else {
                 document.body.classList.add("dark");
                 document.body.classList.remove("light");
-                this.darkMode = true;
             }
         },
     },

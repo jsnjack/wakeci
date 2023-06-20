@@ -11,6 +11,11 @@ const state = {
         isLoggedIn: false,
     },
     currentPage: "",
+    theme: "light",
 };
+
+if (window.localStorage.getItem("theme")) {
+    state.theme = window.localStorage.getItem("theme");
+}
 
 export default state;
