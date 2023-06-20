@@ -7,6 +7,7 @@
             <small>{{ getVesion }}</small>
             <h6 class="max center-align">{{ currentPage }}</h6>
             <router-link
+                v-if="auth.isLoggedIn"
                 to="/"
                 class="button circle transparent"
             >
@@ -14,6 +15,7 @@
                 <i>list</i>
             </router-link>
             <router-link
+                v-if="auth.isLoggedIn"
                 to="/jobs"
                 class="button circle transparent"
             >
@@ -21,6 +23,7 @@
                 <i>apps</i>
             </router-link>
             <router-link
+                v-if="auth.isLoggedIn"
                 to="/settings"
                 class="button circle transparent"
             >
