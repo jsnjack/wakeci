@@ -61,7 +61,6 @@ const router = createRouter({
             path: "/help",
             name: "help",
             component: HelpView,
-            beforeEnter: requireAuth,
         },
     ],
 });
