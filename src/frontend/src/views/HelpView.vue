@@ -16,8 +16,10 @@
             <article class="large-text">
                 <p>
                     This search function allows you to retrieve specific builds based on their attributes, providing you with a flexible and precise filtering
-                    mechanism. With this feature, you can search for builds using the following criteria: <p class="italic">ID, name, parameters, or status</p>
+                    mechanism. With this feature, you can search for builds using the following criteria:
                 </p>
+
+                <p class="italic">ID, name, parameters, or status</p>
 
                 <p>
                     The search functionality supports the use of space-separated keywords, where any of these keywords can be present in the mentioned
@@ -39,7 +41,19 @@
             </article>
         </div>
         <div class="page padding">
-            <h5>Tab 3</h5>
+            <div class="fill medium-height middle-align center-align">
+                <div class="center-align">
+                    <i class="extra">assistant_direction</i>
+                    <h5>
+                        <a
+                            class="link"
+                            href="/docs/api/"
+                            target="_blank"
+                            >Open REST API documentation in a new window</a
+                        >
+                    </h5>
+                </div>
+            </div>
         </div>
     </div>
 </template>
