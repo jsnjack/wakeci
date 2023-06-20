@@ -128,7 +128,7 @@ export default {
             if (this.theme === "light") {
                 this.$store.commit("SET_THEME", "dark");
             } else {
-                this.$store.commit("SET_THEME", "dark");
+                this.$store.commit("SET_THEME", "light");
             }
             this.applyTheme();
         },
