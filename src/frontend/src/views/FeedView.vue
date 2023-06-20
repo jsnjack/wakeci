@@ -1,6 +1,6 @@
 <template>
     <nav class="no-space">
-        <div class="max field label prefix border left-round">
+        <div class="max field label prefix border small-margin left-round">
             <i>search</i>
             <input
                 type="text"
