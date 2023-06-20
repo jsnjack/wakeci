@@ -1,6 +1,6 @@
 <template>
     <div
-        class="row medium-padding large-text"
+        class="row medium-padding round large-text"
         style="background-color: var(--background)"
         :data-cy="job.name"
     >
