@@ -5,7 +5,7 @@ import JobsView from "./views/JobsView.vue";
 import BuildView from "./views/BuildView.vue";
 import SettingsView from "./views/SettingsView.vue";
 import JobEditView from "./views/JobEditView.vue";
-import SyntaxView from "./views/SyntaxView.vue";
+import HelpView from "./views/HelpView.vue";
 
 import { requireAuth } from "./auth";
 
@@ -58,9 +58,9 @@ const router = createRouter({
             beforeEnter: requireAuth,
         },
         {
-            path: "/syntax",
-            name: "syntax",
-            component: SyntaxView,
+            path: "/help",
+            name: "help",
+            component: HelpView,
             beforeEnter: requireAuth,
         },
     ],

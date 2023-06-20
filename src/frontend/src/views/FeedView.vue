@@ -19,20 +19,6 @@
         </button>
     </nav>
 
-    <details>
-        <summary>Search syntax</summary>
-        <ul>
-            <li>
-                Returns only builds which <span class="text-italic">ID</span>, <span class="text-italic">name</span>, <span class="text-italic">params</span> or
-                <span class="text-italic">status</span> contains <span class="text-bold">any</span> of the space-separated words
-            </li>
-            <li>Requires presence of the prefixed with <code>+</code> words</li>
-            <li>Requires absence of the prefixed with <code>-</code> words</li>
-            <li>Phrases can be wrapped in single or double quotes</li>
-        </ul>
-        <span> Example: <code>aborted "timed out" -yesterday +'cpu info'</code></span>
-    </details>
-
     <article
         class="fill"
         v-show="filteredUpdates !== 0"

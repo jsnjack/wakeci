@@ -1,6 +1,5 @@
 <template>
     <div class="content">
-        <h5>Job syntax</h5>
         <Codemirror
             :ref="'codeViewer'"
             :value="configFormatContent"

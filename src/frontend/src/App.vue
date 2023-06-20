@@ -34,6 +34,13 @@
                 <div class="tooltip bottom">Toggle dark mode</div>
                 <i>dark_mode</i>
             </button>
+            <router-link
+                to="/help"
+                class="button circle transparent"
+            >
+                <div class="tooltip bottom">Help</div>
+                <i>help</i>
+            </router-link>
             <button
                 class="circle transparent"
                 data-cy="logout"
