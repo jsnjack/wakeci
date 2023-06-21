@@ -1,7 +1,7 @@
 <template>
     <span
         class="chip fill small"
-        style="margin-bottom: 0.5em"
+        style="margin-bottom: 0.5em; word-break: break-all"
     >
         {{ getName }}={{ getValue }}
     </span>
