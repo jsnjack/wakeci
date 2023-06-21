@@ -1,5 +1,6 @@
 <template>
-    <article>
+    <NotFound v-if="empty" />
+    <article v-if="!empty">
         <div :class="{ row: isDesktop }">
             <div class="max medium-padding">
                 <div>
@@ -106,6 +107,7 @@ import vuex from "vuex";
 import axios from "axios";
 import BuildStatus from "@/components/BuildStatus.vue";
 import ParamItem from "@/components/ParamItem.vue";
+import NotFound from "@/components/NotFound.vue";
 import FullParamItem from "@/components/FullParamItem.vue";
 import RunJobButton from "@/components/RunJobButton.vue";
 import TaskItem from "@/components/TaskItem.vue";
@@ -123,6 +125,7 @@ export default {
         SimpleDuration,
         SimpleStartedAgo,
         FullParamItem,
+        NotFound,
     },
     props: {
         id: {
@@ -142,6 +145,7 @@ export default {
             buildUpdateSubscription: "build:update:" + this.id,
             follow: true,
             hideAllLogs: false,
+            empty: false,
         };
     },
     computed: {
@@ -233,7 +237,9 @@ export default {
                     this.job = response.data.job;
                     this.updateTitle();
                 })
-                .catch((error) => {});
+                .catch((error) => {
+                    this.empty = true;
+                });
         },
         abort(event) {
             axios
