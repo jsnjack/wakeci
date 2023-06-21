@@ -6,10 +6,10 @@
     >
         <div class="max">
             <div>{{ job.name }}</div>
-            <small>{{ job.desc }}</small>
+            <small class="m l">{{ job.desc }}</small>
         </div>
-        <div>{{ job.interval }}</div>
-        <label class="switch">
+        <div class="m l">{{ job.interval }}</div>
+        <label class="switch m l">
             <input
                 :checked="isActive"
                 type="checkbox"

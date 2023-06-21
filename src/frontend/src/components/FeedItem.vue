@@ -8,7 +8,10 @@
             <a class="small-padding">
                 <router-link :to="{ name: 'build', params: { id: build.id } }"> #{{ build.id }} {{ build.name }}</router-link>
             </a>
-            <div data-cy="params-container">
+            <div
+                data-cy="params-container"
+                class="m l"
+            >
                 <ParamItem
                     v-for="(item, index) in this.getFilteredParams"
                     :key="index + 'param'"
@@ -34,14 +37,17 @@
                 </button>
             </div>
         </div>
-        <div style="min-width: 200px">
+        <div
+            style="min-width: 200px"
+            class="m l"
+        >
             <SimpleDuration :item="build" />
             <SimpleStartedAgo :item="build" />
         </div>
         <!-- Open build view -->
         <router-link
             :to="{ name: 'build', params: { id: build.id } }"
-            class="button circle transparent"
+            class="button circle transparent m l"
             data-cy="open-build-button"
         >
             <i>arrow_forward</i>

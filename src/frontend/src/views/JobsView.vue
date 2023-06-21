@@ -33,7 +33,7 @@
         </nav>
     </dialog>
 
-    <nav class="medium-margin">
+    <nav class="medium-margin m l">
         <div class="max"></div>
         <button
             data-cy="create-job"

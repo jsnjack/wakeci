@@ -1,6 +1,6 @@
 <template>
     <article>
-        <div class="row">
+        <div :class="{ row: isDesktop }">
             <div class="max medium-padding">
                 <div>
                     <h6>{{ statusUpdate.name }}</h6>
@@ -187,6 +187,11 @@ export default {
                     return true;
             }
             return false;
+        },
+        isDesktop() {
+            // Info about sizes:
+            // https://github.com/beercss/beercss/blob/acd6fe4e5aefd7c24fe4df30aa12e34f9ca92f90/src/cdn/helpers/responsive.css
+            return window.innerWidth > 600;
         },
     },
     watch: {

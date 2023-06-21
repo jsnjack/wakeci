@@ -20,7 +20,7 @@
     </nav>
 
     <article
-        class="fill small-margin center-align large-text"
+        class="fill small-margin center-align large-text m l"
         v-show="filteredUpdates !== 0"
         data-cy="filtered-updates"
     >
