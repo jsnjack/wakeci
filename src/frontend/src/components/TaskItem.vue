@@ -1,46 +1,48 @@
 <template>
-    <div class="medium-margin"></div>
-    <div>
-        <nav
-            @click="toggleLogs"
-            data-cy="task-title"
-        >
-            <a class="row wave max">
-                <i v-if="this.content === '' && this.task.status !== 'running'">chevron_right</i>
-                <i v-else>expand_more</i>
-                <BuildStatus :status="task.status" />
-                <div class="max large-text">{{ name }}</div>
-                <SimpleDuration
-                    :item="task"
-                    :minimalisticMode="true"
-                />
-            </a>
-            <a
-                @click="reloadLogs"
-                class="button circle transparent"
-                data-cy="reload"
+    <div v-show="isVisible">
+        <div class="medium-margin"></div>
+        <div>
+            <nav
+                @click="toggleLogs"
+                data-cy="task-title"
             >
-                <i>sync</i>
-            </a>
-            <a
-                class="button circle transparent"
-                :href="getLogURL"
-                target="_blank"
+                <a class="row wave max">
+                    <i v-if="this.content === '' && this.task.status !== 'running'">chevron_right</i>
+                    <i v-else>expand_more</i>
+                    <BuildStatus :status="task.status" />
+                    <div class="max large-text">{{ name }}</div>
+                    <SimpleDuration
+                        :item="task"
+                        :minimalisticMode="true"
+                    />
+                </a>
+                <a
+                    @click="reloadLogs"
+                    class="button circle transparent"
+                    data-cy="reload"
+                >
+                    <i>sync</i>
+                </a>
+                <a
+                    class="button circle transparent"
+                    :href="getLogURL"
+                    target="_blank"
+                >
+                    <i>open_in_new</i>
+                </a>
+            </nav>
+            <article
+                class="log-container no-padding"
+                ref="logContainer"
             >
-                <i>open_in_new</i>
-            </a>
-        </nav>
-        <article
-            class="log-container no-padding"
-            ref="logContainer"
-        >
-            <pre
-                v-if="content"
-                class="log-line fill large-padding no-round"
-                >{{ content }}</pre
-            >
-            <TextSpinner v-show="task.status === 'running' && !hideAllLogs" />
-        </article>
+                <pre
+                    v-if="content"
+                    class="log-line fill large-padding no-round"
+                    >{{ content }}</pre
+                >
+                <TextSpinner v-show="task.status === 'running' && !hideAllLogs" />
+            </article>
+        </div>
     </div>
 </template>
 
