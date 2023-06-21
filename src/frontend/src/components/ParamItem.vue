@@ -3,6 +3,7 @@
         class="chip fill small"
         style="margin-bottom: 0.5em; word-break: break-all"
         data-cy="params-value"
+        @click.prevent="copyContent"
     >
         {{ getValue }}
         <div class="tooltip bottom">
@@ -25,6 +26,18 @@ export default {
         },
         getValue() {
             return this.param[this.getName];
+        },
+    },
+    methods: {
+        copyContent() {
+            navigator.clipboard.writeText(this.getValue).then(
+                () => {
+                    this.$notify({ text: "The value has been copied to clipboard", type: "primary" });
+                },
+                () => {
+                    this.$notify({ text: "Unable to copy", type: "error" });
+                }
+            );
         },
     },
 };
