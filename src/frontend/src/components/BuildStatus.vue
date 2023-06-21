@@ -25,7 +25,7 @@ export default {
                 case "failed":
                     return "error";
                 case "skipped":
-                    return "light-green4";
+                    return "light-green3";
                 case "finished":
                     return "green6";
                 case "aborted":
