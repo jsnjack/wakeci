@@ -21,17 +21,17 @@ export default {
         getStatusClass() {
             switch (this.status) {
                 case "running":
-                    return "yellow5";
+                    return "yellow7";
                 case "failed":
                     return "error";
                 case "skipped":
-                    return "light-green3";
+                    return "light-green4";
                 case "finished":
-                    return "green7";
+                    return "green6";
                 case "aborted":
-                    return "grey5";
+                    return "grey6";
                 case "timed out":
-                    return "deep-purple7";
+                    return "deep-purple6";
             }
             // pending
             return "";
