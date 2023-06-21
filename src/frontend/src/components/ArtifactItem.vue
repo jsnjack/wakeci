@@ -15,7 +15,7 @@
             >
         </div>
 
-        <table class="border">
+        <table class="border large-space">
             <thead>
                 <tr>
                     <th
@@ -30,6 +30,7 @@
                         style="cursor: pointer"
                         data-cy="artifacts-header-size"
                         @click="sortBy('size')"
+                        class="right-align"
                     >
                         <i>sort</i>
                         Size
@@ -50,7 +51,7 @@
                             {{ item.filename }}
                         </a>
                     </td>
-                    <td>{{ getSize(item.size) }}</td>
+                    <td class="right-align">{{ getSize(item.size) }}</td>
                 </tr>
             </tbody>
         </table>
@@ -123,6 +124,5 @@ export default {
 <style lang="scss" scoped>
 table {
     white-space: pre-wrap;
-    word-break: break-word;
 }
 </style>
