@@ -101,9 +101,6 @@ export default {
             }
             return !(this.task.startedAt && this.task.startedAt.indexOf("0001-") === 0);
         },
-        getBorderClass() {
-            return `border-${this.task.status}`.replaceAll(" ", "");
-        },
         getLogURL() {
             return `/storage/build/${this.buildID}/task_${this.task.id}.log`;
         },

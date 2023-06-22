@@ -11,7 +11,6 @@
 
 <script>
 import { runningDuration, doneDuration, updateDurationPeriod } from "@/duration";
-import vuex from "vuex";
 
 export default {
     props: {

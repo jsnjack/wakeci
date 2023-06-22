@@ -75,10 +75,8 @@ import vuex from "vuex";
 import axios from "axios";
 import { getWSURL } from "@/store/communication.js";
 import wsMessageHandler from "./store/communication.js";
-import DocsMenu from "@/components/DocsMenu.vue";
 
 export default {
-    components: { DocsMenu },
     computed: {
         ...vuex.mapState(["ws", "auth", "currentPage", "theme"]),
         getVesion: function () {
