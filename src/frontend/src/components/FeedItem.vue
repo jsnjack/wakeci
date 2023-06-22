@@ -10,8 +10,9 @@
             </a>
             <div
                 data-cy="params-container"
-                class="m l"
+                class="l"
             >
+                <div></div>
                 <ParamItem
                     v-for="(item, index) in this.getFilteredParams"
                     :key="index + 'param'"

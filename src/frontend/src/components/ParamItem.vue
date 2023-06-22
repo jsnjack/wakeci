@@ -1,15 +1,17 @@
 <template>
-    <span
-        class="chip fill small"
-        style="margin-bottom: 0.5em; word-break: break-all"
-        data-cy="params-value"
+    <article
+        class="fill small-margin small-padding medium-text no-elevate"
+        style="font-weight: 400; display: inline-block; cursor: pointer; word-break: break-all"
         @click.prevent="copyContent"
     >
-        {{ getValue }}
-        <div class="tooltip bottom">
+        {{ getText }}
+        <div
+            v-if="!includeKeys"
+            class="tooltip bottom"
+        >
             {{ getName }}
         </div>
-    </span>
+    </article>
 </template>
 
 <script>
@@ -19,6 +21,11 @@ export default {
             required: true,
             type: Object,
         },
+        includeKeys: {
+            required: false,
+            type: Boolean,
+            default: false,
+        },
     },
     computed: {
         getName() {
@@ -26,6 +33,12 @@ export default {
         },
         getValue() {
             return this.param[this.getName];
+        },
+        getText() {
+            if (this.includeKeys) {
+                return `${this.getName}=${this.getValue}`;
+            }
+            return this.getValue;
         },
     },
     methods: {

@@ -4,8 +4,8 @@
         <div :class="{ row: isDesktop }">
             <div class="max medium-padding">
                 <div>
-                    <h6>{{ statusUpdate.name }}</h6>
-                    <p>{{ job.desc }}</p>
+                    <h5>{{ statusUpdate.name }}</h5>
+                    <p class="large-text">{{ job.desc }}</p>
                 </div>
             </div>
             <div class="medium-padding">
@@ -61,10 +61,12 @@
     </article>
 
     <article v-if="statusUpdate.params && statusUpdate.params.length > 0">
-        <FullParamItem
+        <div class="large-text">Parameters</div>
+        <ParamItem
             v-for="(item, index) in statusUpdate.params"
             :key="index + 'param'"
             :param="item"
+            :includeKeys="true"
         />
     </article>
 
@@ -106,9 +108,8 @@
 import vuex from "vuex";
 import axios from "axios";
 import BuildStatus from "@/components/BuildStatus.vue";
-import ParamItem from "@/components/ParamItem.vue";
 import NotFound from "@/components/NotFound.vue";
-import FullParamItem from "@/components/FullParamItem.vue";
+import ParamItem from "@/components/ParamItem.vue";
 import RunJobButton from "@/components/RunJobButton.vue";
 import TaskItem from "@/components/TaskItem.vue";
 import ArtifactItem from "@/components/ArtifactItem.vue";
@@ -124,7 +125,7 @@ export default {
         RunJobButton,
         SimpleDuration,
         SimpleStartedAgo,
-        FullParamItem,
+        ParamItem,
         NotFound,
     },
     props: {
