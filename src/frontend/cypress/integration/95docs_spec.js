@@ -5,8 +5,7 @@ describe("Docs menu", function () {
     });
 
     it("should open syntax docs", function () {
-        cy.visit("/syntax/");
-        cy.login();
+        cy.visit("/help");
         cy.get("body").contains("Ask a cow to say something smart");
     });
 });

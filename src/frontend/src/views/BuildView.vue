@@ -1,102 +1,132 @@
 <template>
-    <div class="container grid-xl">
-        <div class="card build-header">
-            <div class="card-header">
-                <div class="card-title h5">{{ statusUpdate.name }} #{{ statusUpdate.id }}</div>
-                <div class="card-subtitle text-gray">
-                    {{ job.desc }}
-                </div>
-                <BuildStatus :status="statusUpdate.status" />
-                <DurationElement
-                    v-show="statusUpdate.status !== 'pending'"
-                    :item="statusUpdate"
-                />
-                <div class="float-right">
-                    <a
-                        v-if="!isDone"
-                        :href="getAbortURL"
-                        class="btn btn-error item-action"
-                        data-cy="abort-build-button"
-                        @click.prevent="abort"
-                        >Abort</a
-                    >
-                    <RunJobButton
-                        :params="statusUpdate.params"
-                        :button-title="'Rerun'"
-                        :job-name="statusUpdate.name"
-                        class="item-action"
-                    />
+    <NotFound v-if="empty" />
+    <article v-if="!empty">
+        <div :class="{ row: isDesktop }">
+            <div class="max medium-padding">
+                <div>
+                    <h5>{{ statusUpdate.name }}</h5>
+                    <p class="large-text">{{ job.desc }}</p>
                 </div>
             </div>
-            <div class="card-footer">
-                <BuildProgress
-                    v-if="!statusUpdate.eta"
-                    :done="getDoneTasks"
-                    :total="getTotalTasks"
-                />
-                <BuildProgressETA
-                    v-if="statusUpdate.eta"
-                    :eta="statusUpdate.eta"
-                    :started-at="statusUpdate.startedAt"
-                    :build-duration="statusUpdate.duration"
-                />
+            <div class="medium-padding">
+                <div>
+                    <div class="row">
+                        <BuildStatus :status="statusUpdate.status" />
+                        <div>{{ statusUpdate.status }}</div>
+                    </div>
+                    <div class="small-padding">
+                        <SimpleDuration :item="statusUpdate" />
+                        <SimpleStartedAgo :item="statusUpdate" />
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="columns">
-            <ParamItem
-                v-for="(item, index) in statusUpdate.params"
-                :key="index + 'param'"
-                :param="item"
+        <div class="row">
+            <div class="max"></div>
+            <button
+                class="circle transparent"
+                @click.prevent="toggleHideAllLogs"
+            >
+                <i v-if="!hideAllLogs">hide</i>
+                <i v-else>system_update_alt</i>
+                <div
+                    v-if="!hideAllLogs"
+                    class="tooltip bottom"
+                >
+                    Hide all logs
+                </div>
+                <div
+                    v-else
+                    class="tooltip bottom"
+                >
+                    Stream logs
+                </div>
+            </button>
+            <a
+                class="button circle transparent"
+                :disabled="isDone ? true : null"
+                @click.prevent="abort"
+                :href="getAbortURL"
+                data-cy="abort-build-button"
+            >
+                <i>stop</i>
+                <div class="tooltip bottom">Abort</div>
+            </a>
+            <RunJobButton
+                :params="statusUpdate.params"
+                :job-name="job.name"
+                :icon="'replay'"
             />
         </div>
+    </article>
+
+    <article v-if="statusUpdate.params && statusUpdate.params.length > 0">
+        <div class="large-text">Parameters</div>
+        <ParamItem
+            v-for="(item, index) in statusUpdate.params"
+            :key="index + 'param'"
+            :param="item"
+            :includeKeys="true"
+        />
+    </article>
+
+    <div>
         <TaskItem
             v-for="item in statusUpdate.tasks"
             :key="item.id"
             :ref="'task-' + item.id"
             :task="item"
             :build-i-d="id"
-            :build-status="statusUpdate.status"
             :name="job.tasks[item.id].name"
             :follow="follow"
+            :hideAllLogs="hideAllLogs"
         />
-        <ArtifactItem
-            :artifacts="getArtifacts"
-            :build-i-d="statusUpdate.id"
-        />
-        <div class="follow-logs form-group float-right label">
-            <label class="form-switch">
-                <input
-                    v-model="follow"
-                    type="checkbox"
-                />
-                <i class="form-icon" /> Follow
-            </label>
-        </div>
     </div>
+
+    <ArtifactItem
+        :artifacts="getArtifacts"
+        :build-i-d="statusUpdate.id"
+    />
+
+    <label
+        v-if="!hideAllLogs"
+        style="opacity: 0.8"
+        class="switch icon fixed bottom right medium-margin"
+    >
+        <div class="tooltip left">Follow logs</div>
+        <input
+            type="checkbox"
+            v-model="follow"
+        />
+        <span>
+            <i>route</i>
+        </span>
+    </label>
 </template>
 
 <script>
 import vuex from "vuex";
 import axios from "axios";
 import BuildStatus from "@/components/BuildStatus.vue";
-import DurationElement from "@/components/DurationElement.vue";
+import NotFound from "@/components/NotFound.vue";
 import ParamItem from "@/components/ParamItem.vue";
-import BuildProgress from "@/components/BuildProgress.vue";
-import BuildProgressETA from "@/components/BuildProgressETA.vue";
 import RunJobButton from "@/components/RunJobButton.vue";
 import TaskItem from "@/components/TaskItem.vue";
 import ArtifactItem from "@/components/ArtifactItem.vue";
+import SimpleDuration from "@/components/SimpleDuration.vue";
+import SimpleStartedAgo from "@/components/SimpleStartedAgo.vue";
 
 export default {
     components: {
         BuildStatus,
-        BuildProgress,
-        BuildProgressETA,
         TaskItem,
         ParamItem,
         ArtifactItem,
-        DurationElement,
         RunJobButton,
+        SimpleDuration,
+        SimpleStartedAgo,
+        ParamItem,
+        NotFound,
     },
     props: {
         id: {
@@ -115,6 +145,8 @@ export default {
             buildLogSubscription: "build:log:" + this.id,
             buildUpdateSubscription: "build:update:" + this.id,
             follow: true,
+            hideAllLogs: false,
+            empty: false,
         };
     },
     computed: {
@@ -161,12 +193,18 @@ export default {
             }
             return false;
         },
+        isDesktop() {
+            // Info about sizes:
+            // https://github.com/beercss/beercss/blob/acd6fe4e5aefd7c24fe4df30aa12e34f9ca92f90/src/cdn/helpers/responsive.css
+            return window.innerWidth > 600;
+        },
     },
     watch: {
         "ws.connected": "onWSChange",
+        hideAllLogs: "onHideAllLogsChange",
     },
     mounted() {
-        document.title = `#${this.id} - wakeci`;
+        this.$store.commit("SET_CURRENT_PAGE", `#${this.id}`);
         this.fetch();
         this.subscribe();
         this.emitter.on(this.buildUpdateSubscription, this.applyBuildUpdate);
@@ -200,7 +238,9 @@ export default {
                     this.job = response.data.job;
                     this.updateTitle();
                 })
-                .catch((error) => {});
+                .catch((error) => {
+                    this.empty = true;
+                });
         },
         abort(event) {
             axios
@@ -208,7 +248,7 @@ export default {
                 .then((response) => {
                     this.$notify({
                         text: `${this.id} has been aborted`,
-                        type: "success",
+                        type: "primary",
                     });
                 })
                 .catch((error) => {});
@@ -218,7 +258,7 @@ export default {
             this.updateTitle();
         },
         updateTitle() {
-            document.title = `#${this.id} - ${this.statusUpdate.status} - wakeci`;
+            this.$store.commit("SET_CURRENT_PAGE", `#${this.id} - ${this.statusUpdate.status}`);
         },
         onWSChange(value) {
             if (value) {
@@ -227,25 +267,30 @@ export default {
                 this.unsubscribe();
             }
         },
+        toggleHideAllLogs() {
+            this.hideAllLogs = !this.hideAllLogs;
+        },
+        onHideAllLogsChange(value) {
+            if (value) {
+                this.$store.commit("WS_SEND", {
+                    type: "in:unsubscribe",
+                    data: {
+                        to: [this.buildLogSubscription],
+                    },
+                });
+                this.follow = false;
+            } else {
+                this.$store.commit("WS_SEND", {
+                    type: "in:subscribe",
+                    data: {
+                        to: [this.buildLogSubscription],
+                    },
+                });
+                this.follow = true;
+            }
+        },
     },
 };
 </script>
 
-<style scoped lang="scss">
-.build-header {
-    margin-bottom: 1em;
-}
-summary:hover {
-    cursor: pointer;
-}
-.item-action {
-    margin: 0.25em;
-}
-.follow-logs {
-    position: fixed;
-    bottom: 10px;
-    right: 10px;
-    opacity: 0.8;
-    border-radius: 10px;
-}
-</style>
+<style scoped lang="scss"></style>

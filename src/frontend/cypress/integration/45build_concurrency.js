@@ -48,8 +48,8 @@ concurrency: 0
         cy.visit("/");
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("[data-cy=build-status-label]").should("have.length", 2);
-        cy.get("[data-cy=build-status-label]").should((items) => {
+        cy.get("[data-cy-status]").should("have.length", 2);
+        cy.get("[data-cy-status]").should((items) => {
             expect(items, "2 items").to.have.length(2);
             expect(items.eq(0), "first item").to.contain("running");
             expect(items.eq(1), "second item").to.contain("running");
@@ -105,8 +105,8 @@ concurrency: 1
         cy.visit("/");
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("[data-cy=build-status-label]").should("have.length", 2);
-        cy.get("[data-cy=build-status-label]").should((items) => {
+        cy.get("[data-cy-status]").should("have.length", 2);
+        cy.get("[data-cy-status]").should((items) => {
             expect(items, "2 items").to.have.length(2);
             expect(items.eq(0), "first item").to.contain("pending");
             expect(items.eq(1), "second item").to.contain("running");

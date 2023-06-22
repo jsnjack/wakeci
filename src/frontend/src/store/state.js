@@ -10,7 +10,12 @@ const state = {
     auth: {
         isLoggedIn: false,
     },
-    durationMode: "duration", // See Duration component for details
+    currentPage: "",
+    theme: "light",
 };
+
+if (window.localStorage.getItem("theme")) {
+    state.theme = window.localStorage.getItem("theme");
+}
 
 export default state;

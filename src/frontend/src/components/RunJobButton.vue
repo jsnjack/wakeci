@@ -1,69 +1,61 @@
 <template>
-    <span>
-        <a
-            href="#"
-            class="btn btn-success"
-            @click.prevent="toggleModal"
-            >{{ buttonTitle }}</a
-        >
-
+    <button
+        :disabled="disabled ? true : null"
+        class="circle transparent"
+        data-cy="run-job-button"
+        @click.prevent="toggleModal"
+    >
+        <i>{{ icon }}</i>
         <div
-            class="modal"
-            :class="{ active: modalOpen }"
+            v-if="icon === 'play_arrow'"
+            class="tooltip bottom"
         >
-            <a
-                href="#"
-                class="modal-overlay"
-                aria-label="Close"
-                @click.prevent="toggleModal"
-            />
-            <div class="modal-container">
-                <div class="modal-header">
-                    <a
-                        href="#"
-                        class="btn btn-clear float-right"
-                        aria-label="Close"
-                        @click.prevent="toggleModal"
-                    />
-                    <div class="modal-title text-uppercase">{{ getModalTitle }}</div>
-                </div>
-                <div class="modal-body">
-                    <div class="content">
-                        <form
-                            v-show="params"
-                            ref="form"
-                        >
-                            <RunFormItem
-                                v-for="item in params"
-                                :key="item.name"
-                                :params="item"
-                            />
-                        </form>
-                        <div
-                            v-show="!params"
-                            class="empty"
-                        >
-                            <p class="empty-title h6 text-uppercase">Empty</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <a
-                        data-cy="start-job-confirm"
-                        href="#"
-                        class="btn btn-primary float-right"
-                        @click.prevent="run"
-                        >Add to queue</a
-                    >
-                </div>
-            </div>
+            Start
         </div>
-    </span>
+        <div
+            v-if="icon === 'replay'"
+            class="tooltip bottom"
+        >
+            Re-run
+        </div>
+    </button>
+    <dialog
+        :id="'run-job-dialog-' + selectorID"
+        ref="dialog"
+    >
+        <h5>{{ getModalTitle }}</h5>
+        <form
+            class="medium-margin"
+            v-show="params"
+            ref="form"
+        >
+            <RunFormItem
+                v-for="item in params"
+                :key="item.name"
+                :params="item"
+            />
+        </form>
+        <nav class="right-align">
+            <button
+                class="border"
+                @click.prevent="toggleModal"
+            >
+                Cancel
+            </button>
+            <button
+                data-cy="start-job-confirm"
+                @click.prevent="run"
+            >
+                Add to queue
+            </button>
+        </nav>
+    </dialog>
 </template>
 
 <script>
 import RunFormItem from "@/components/RunFormItem.vue";
 import axios from "axios";
+import { generateRandomString } from "@/store/utils";
 
 export default {
     components: { RunFormItem },
@@ -72,23 +64,24 @@ export default {
             type: null,
             required: true,
         },
-        buttonTitle: {
-            type: String,
-            required: true,
-        },
         jobName: {
             type: null,
             required: true,
         },
-    },
-    data: function () {
-        return {
-            modalOpen: false,
-        };
+        disabled: {
+            type: Boolean,
+            default: false,
+            required: false,
+        },
+        icon: {
+            type: String,
+            required: false,
+            default: "play_arrow",
+        },
     },
     computed: {
         getModalTitle: function () {
-            return `${this.jobName} job parameters`;
+            return `Configure ${this.jobName}`;
         },
     },
     methods: {
@@ -99,21 +92,26 @@ export default {
                 .post(url)
                 .then((response) => {
                     this.$notify({
-                        text: `${this.jobName} has been scheduled (#<a href="/build/${response.data}/">${response.data}</a>)`,
-                        type: "success",
+                        text: `${this.jobName} has been scheduled (<a class="inverse-link" href="/build/${response.data}/">#${response.data}</a>)`,
+                        type: "primary",
                         duration: 10000,
                     });
                 })
                 .catch((error) => {});
         },
         toggleModal(event) {
-            this.modalOpen = !this.modalOpen;
+            window.ui("#" + "run-job-dialog-" + this.selectorID);
         },
+    },
+    mounted: function () {
+        this.selectorID = generateRandomString(10);
+    },
+    data: function () {
+        return {
+            selectorID: "",
+        };
     },
 };
 </script>
 
-<style
-    lang="scss"
-    scoped
-></style>
+<style lang="scss" scoped></style>

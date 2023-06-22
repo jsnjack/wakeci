@@ -1,82 +1,91 @@
 <template>
-    <div id="app">
-        <header
-            class="navbar"
-            :class="getHeaderClass"
-            :data-hostname="getHostname"
-        >
-            <section class="navbar-section">
-                <small class="text-gray">v {{ getVesion }}</small>
-            </section>
-            <section class="navbar-center">
-                <router-link
-                    to="/"
-                    class="btn btn-link text-light"
-                >
-                    Feed
-                </router-link>
-                <router-link
-                    to="/jobs"
-                    class="btn btn-link text-light"
-                >
-                    Jobs
-                </router-link>
-                <router-link
-                    to="/settings"
-                    class="btn btn-link text-light"
-                >
-                    Settings
-                </router-link>
-                <DocsMenu />
-            </section>
-            <section class="navbar-section">
-                <a
-                    data-cy="logout"
-                    href="#"
-                    class="btn btn-link text-light"
-                    @click.prevent="logOut"
-                    >Log out</a
-                >
-            </section>
-        </header>
+    <header>
+        <nav>
+            <router-link to="/">
+                <i class="large fill primary-text">water</i>
+            </router-link>
+            <small class="m l">{{ getVesion }}</small>
+            <h6 class="max center-align">{{ currentPage }}</h6>
+            <router-link
+                v-if="auth.isLoggedIn"
+                to="/"
+                class="button circle transparent m l"
+            >
+                <div class="tooltip bottom">Feed</div>
+                <i>list</i>
+            </router-link>
+            <router-link
+                v-if="auth.isLoggedIn"
+                to="/jobs"
+                class="button circle transparent m l"
+            >
+                <div class="tooltip bottom">Jobs</div>
+                <i>apps</i>
+            </router-link>
+            <router-link
+                v-if="auth.isLoggedIn"
+                to="/settings"
+                class="button circle transparent m l"
+            >
+                <div class="tooltip bottom">Settings</div>
+                <i>settings</i>
+            </router-link>
+            <button
+                class="circle transparent m l"
+                @click.prevent="toggleDarkMode"
+            >
+                <div class="tooltip bottom">Toggle dark mode</div>
+                <i>dark_mode</i>
+            </button>
+            <router-link
+                to="/help"
+                class="button circle transparent m l"
+            >
+                <div class="tooltip bottom">Help</div>
+                <i>help</i>
+            </router-link>
+            <button
+                class="circle transparent"
+                data-cy="logout"
+                href="#"
+                @click.prevent="logOut"
+            >
+                <i>logout</i>
+                <div class="tooltip bottom">Log out</div>
+            </button>
+        </nav>
+    </header>
+    <main class="responsive no-scroll">
         <router-view />
-        <notifications
-            classes="my-noty"
-            position="bottom right"
-        />
-    </div>
+    </main>
+    <notifications
+        classes="toast active"
+        :max="1"
+        :pauseOnHover="true"
+    />
 </template>
 
 <script>
+// importing as beercss and materialDynamicColors
+import "beercss";
+import "material-dynamic-colors";
+import "@/assets/main.scss";
+
 import vuex from "vuex";
 import axios from "axios";
 import { getWSURL } from "@/store/communication.js";
 import wsMessageHandler from "./store/communication.js";
-import DocsMenu from "@/components/DocsMenu.vue";
 
 export default {
-    components: { DocsMenu },
     computed: {
-        ...vuex.mapState(["ws", "auth", "durationMode"]),
+        ...vuex.mapState(["ws", "auth", "currentPage", "theme"]),
         getVesion: function () {
             return import.meta.env.VITE_VERSION || "0.0.0";
         },
-        getHeaderClass: function () {
-            if (this.$store.state.ws.connected) {
-                return "header-connected";
-            }
-            return "header-disconnected";
-        },
-        getHostname: function () {
-            return location.hostname;
-        },
     },
     mounted() {
-        // Restore global duration mode
-        if (localStorage.getItem("durationMode")) {
-            this.$store.commit("TOGGLE_DURATION_MODE", localStorage.getItem("durationMode"));
-        }
         this.connect();
+        this.applyTheme();
     },
     methods: {
         connect: function () {
@@ -123,67 +132,25 @@ export default {
                 })
                 .catch((error) => {});
         },
+        toggleDarkMode: function () {
+            if (this.theme === "light") {
+                this.$store.commit("SET_THEME", "dark");
+            } else {
+                this.$store.commit("SET_THEME", "light");
+            }
+            this.applyTheme();
+        },
+        applyTheme: function () {
+            if (this.theme === "light") {
+                document.body.classList.remove("dark");
+                document.body.classList.add("light");
+            } else {
+                document.body.classList.add("dark");
+                document.body.classList.remove("light");
+            }
+        },
     },
 };
 </script>
 
-<style lang="scss">
-@import "@/assets/wakeci.scss";
-
-#app {
-    font-family: "Avenir", Helvetica, Arial, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-align: center;
-    color: #2c3e50;
-}
-
-.navbar {
-    transition: background-color 1000ms linear;
-}
-
-.header-connected {
-    background: $primary-color;
-}
-
-.header-connected[data-hostname="mrt-wake.surfly.com"] {
-    background: #333;
-}
-
-.header-connected[data-hostname="build.surfly.com"] {
-    background: #b8662c;
-}
-
-.header-disconnected {
-    background: #6f6f94;
-}
-
-.my-noty {
-    padding: 10px;
-    margin: 0 5px 5px;
-
-    color: $light-color;
-    background: $primary-color;
-    border-left: 5px solid $primary-color-dark;
-
-    & a {
-        color: $light-color;
-        text-decoration: underline;
-    }
-
-    &.warn {
-        background: $warning-color;
-        border-left-color: darken($warning-color, 10%);
-    }
-
-    &.error {
-        background: $error-color;
-        border-left-color: darken($error-color, 10%);
-    }
-
-    &.success {
-        background: $success-color;
-        border-left-color: darken($success-color, 10%);
-    }
-}
-</style>
+<style></style>

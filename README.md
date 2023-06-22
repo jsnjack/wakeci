@@ -125,5 +125,5 @@ make runb
 #### Update (almost) all outdated npm packages
 
 ```bash
-npm outdated --json | jq -r 'keys[]' | kazy -e sass | xargs -I % npm i %@latest --save
+npm outdated --json | jq -r 'keys[]' | xargs -I % npm i %@latest --save
 ```

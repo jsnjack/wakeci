@@ -1,92 +1,61 @@
 <template>
-    <section
-        v-show="isVisible"
-        :data-cy="getCyText"
-    >
-        <div
-            class="divider"
-            :data-content="getDividerText"
-        />
-        <div class="columns">
-            <div class="column">
-                <div class="text-left">
-                    <BuildStatus :status="task.status" />
-                    <span
-                        class="h5 task-name"
-                        @click="reloadLogs"
-                        >{{ name }}</span
-                    >
-                    <DurationElement
-                        v-show="task.status !== 'pending'"
-                        :item="task"
-                        class="text-small m-1"
-                    />
-                </div>
-            </div>
-            <div class="column text-right">
-                <div class="dropdown dropdown-right text-left">
-                    <div class="btn-group">
-                        <button
-                            data-cy="reload"
-                            class="btn btn-sm btn-primary"
-                            @click="reloadLogs"
-                        >
-                            Reload
-                        </button>
-                        <a
-                            class="btn btn-sm dropdown-toggle"
-                            tabindex="0"
-                        >
-                            <i class="icon icon-caret" />
-                        </a>
-                        <ul class="menu">
-                            <li
-                                class="divider"
-                                data-content="ACTIONS"
-                            />
-                            <li class="menu-item">
-                                <a
-                                    :href="getLogURL"
-                                    target="_blank"
-                                    >Open</a
-                                >
-                            </li>
-                            <li class="menu-item">
-                                <a
-                                    href="#"
-                                    @click="clearLogs"
-                                    >Hide</a
-                                >
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div
-            class="log-container text-left code status-border"
-            :class="getBorderClass"
-        >
-            <pre
-                v-if="content"
-                class="d-block log-line"
-                >{{ content }}</pre
+    <div v-show="isVisible">
+        <div class="medium-margin"></div>
+        <div>
+            <nav
+                @click="toggleLogs"
+                data-cy="task-title"
             >
-            <TextSpinner v-show="task.status === 'running'" />
+                <a class="row wave max">
+                    <i v-if="this.content === '' && this.task.status !== 'running'">chevron_right</i>
+                    <i v-else>expand_more</i>
+                    <BuildStatus :status="task.status" />
+                    <div class="max large-text">{{ name }}</div>
+                    <SimpleDuration
+                        :item="task"
+                        :minimalisticMode="true"
+                    />
+                </a>
+                <a
+                    @click="reloadLogs"
+                    class="button circle transparent"
+                    data-cy="reload"
+                >
+                    <i>sync</i>
+                </a>
+                <a
+                    class="button circle transparent"
+                    :href="getLogURL"
+                    target="_blank"
+                >
+                    <i>open_in_new</i>
+                </a>
+            </nav>
+            <article
+                class="log-container no-padding"
+                ref="logContainer"
+            >
+                <pre
+                    v-if="content"
+                    class="log-line fill large-padding no-round"
+                    >{{ content }}</pre
+                >
+                <TextSpinner v-show="task.status === 'running' && !hideAllLogs" />
+            </article>
         </div>
-    </section>
+    </div>
 </template>
 
 <script>
 import BuildStatus from "@/components/BuildStatus.vue";
 import TextSpinner from "@/components/TextSpinner.vue";
-import DurationElement from "@/components/DurationElement.vue";
+import SimpleDuration from "@/components/SimpleDuration.vue";
 import axios from "axios";
 
 const FlushContentPeriod = 500;
 
 export default {
-    components: { BuildStatus, DurationElement, TextSpinner },
+    components: { BuildStatus, TextSpinner, SimpleDuration },
     props: {
         buildID: {
             type: Number,
@@ -101,6 +70,10 @@ export default {
             required: true,
         },
         follow: {
+            type: Boolean,
+            required: true,
+        },
+        hideAllLogs: {
             type: Boolean,
             required: true,
         },
@@ -128,9 +101,6 @@ export default {
             }
             return !(this.task.startedAt && this.task.startedAt.indexOf("0001-") === 0);
         },
-        getBorderClass() {
-            return `border-${this.task.status}`.replaceAll(" ", "");
-        },
         getLogURL() {
             return `/storage/build/${this.buildID}/task_${this.task.id}.log`;
         },
@@ -140,6 +110,7 @@ export default {
     },
     watch: {
         "task.status": "onStatusChange",
+        hideAllLogs: "onHideAllLogsChange",
     },
     mounted() {
         this.emitter.on(`build:log:${this.buildID}:task-${this.task.id}`, this.addLog);
@@ -164,15 +135,10 @@ export default {
             axios
                 .get(this.getLogURL)
                 .then((response) => {
-                    this.$notify({
-                        text: "Log file has been reloaded",
-                        type: "success",
-                        duration: 1000,
-                    });
                     this.content = response.data;
                     if (this.follow) {
                         this.$nextTick(() => {
-                            this.$el.scrollIntoView(false);
+                            this.$refs.logContainer.scrollIntoView({ behavior: "smooth", block: "end", inline: "nearest" });
                         });
                     }
                 })
@@ -196,7 +162,7 @@ export default {
                 this.cachedContent = "";
                 if (this.follow) {
                     this.$nextTick(() => {
-                        this.$el.scrollIntoView(false);
+                        this.$refs.logContainer.scrollIntoView({ behavior: "smooth", block: "end", inline: "nearest" });
                     });
                 }
             }
@@ -218,66 +184,33 @@ export default {
                 this.flushContent();
             }
         },
+        toggleLogs() {
+            if (this.content.length > 0) {
+                this.clearLogs();
+                return;
+            }
+            this.reloadLogs();
+        },
+        onHideAllLogsChange(value) {
+            if (value) {
+                this.clearLogs();
+            }
+        },
     },
 };
 </script>
 
 <style lang="scss" scoped>
-@import "@/assets/colors.scss";
-
 .log-container {
-    background: $bg-color;
-    margin-left: 0.4em;
     overflow: auto;
-    font-size: 90%;
-    pre {
-        padding-left: 1em;
-        margin: 0;
-    }
 }
-
-@media (max-width: 600px) {
-    .log-container {
-        font-size: 60%;
-    }
-}
-
 .log-line {
     white-space: pre-wrap;
     word-break: break-word;
 }
-
-section {
-    margin-top: 2em;
-    margin-bottom: 2em;
-}
-
-.status-border {
-    border-left: 0.25em solid;
-}
-
-.border-pending {
-    border-left-color: $gray-color;
-}
-.border-running {
-    border-left-color: $warning-color;
-}
-.border-aborted,
-.border-timedout {
-    border-left-color: $primary-color;
-}
-.border-failed {
-    border-left-color: $error-color;
-}
-.border-finished {
-    border-left-color: $success-color;
-}
-
-.border-skipped {
-    border-left-color: rgb(169, 207, 185);
-}
-
-.task-name {
-    cursor: pointer;
+@media (max-width: 600px) {
+    .log-container {
+        font-size: 60%;
+    }
 }
 </style>

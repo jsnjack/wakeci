@@ -1,38 +1,38 @@
 <template>
-    <section>
-        <div
-            class="divider"
-            data-content="artifacts"
-        />
-
+    <article v-if="artifacts && artifacts.length > 0">
+        <h6>Artifacts</h6>
         <div
             v-if="indexFile"
-            class="float-right"
+            class="row"
         >
+            <div class="max"></div>
             <a
                 :href="indexFile"
                 target="_blank"
-                class="btn btn-sm"
+                class="button secondary"
                 data-cy="openIndexFile"
-                >Open index.html</a
+                ><i>open_in_new</i>index.html</a
             >
         </div>
 
-        <table class="table table-striped table-hover">
+        <table class="border large-space">
             <thead>
                 <tr>
                     <th
-                        class="badge c-hand"
+                        style="cursor: pointer"
                         data-cy="artifacts-header-file"
                         @click="sortBy('filename')"
                     >
+                        <i>sort</i>
                         File
                     </th>
                     <th
-                        class="badge c-hand"
+                        style="cursor: pointer"
                         data-cy="artifacts-header-size"
                         @click="sortBy('size')"
+                        class="right-align"
                     >
+                        <i>sort</i>
                         Size
                     </th>
                 </tr>
@@ -43,7 +43,7 @@
                     :key="item.path"
                     data-cy="artifacts-body-row"
                 >
-                    <td>
+                    <td style="word-break: break-all">
                         <a
                             :href="downloadURL(item.filename)"
                             target="_blank"
@@ -51,11 +51,11 @@
                             {{ item.filename }}
                         </a>
                     </td>
-                    <td>{{ getSize(item.size) }}</td>
+                    <td class="right-align">{{ getSize(item.size) }}</td>
                 </tr>
             </tbody>
         </table>
-    </section>
+    </article>
 </template>
 
 <script>
@@ -121,15 +121,8 @@ export default {
 };
 </script>
 
-<style
-    lang="scss"
-    scoped
->
-.artifact {
-    margin: 0.25em;
-}
+<style lang="scss" scoped>
 table {
     white-space: pre-wrap;
-    word-break: break-word;
 }
 </style>

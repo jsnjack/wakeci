@@ -24,7 +24,7 @@ describe("Feed page", function () {
         });
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get(".empty").should("contain", "Empty");
+        cy.get("[data-cy=no-builds-found]").should("contain", "No builds found");
         cy.get("[data-cy=filter]").clear();
         cy.request({
             url: `/api/job/${jobName}/run`,
@@ -37,7 +37,7 @@ describe("Feed page", function () {
             form: true,
         });
         cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("[data-cy=feed-tbody]").should("be.visible").should("have.length", 1);
+        cy.get("[data-cy=feed-container]").should("have.length", 1);
         cy.get("[data-cy=filtered-updates]").should("not.be.visible");
     });
 
@@ -103,7 +103,7 @@ describe("Feed page", function () {
             body: {},
             form: true,
         });
-        cy.get("[data-cy=feed-tbody]").should("be.visible").should("have.length", 1);
+        cy.get("[data-cy=feed-container]").should("be.visible").should("have.length", 1);
         cy.get("[data-cy=filtered-updates]").should("be.visible");
     });
 
@@ -156,7 +156,7 @@ run: env
 
         cy.login();
         cy.get("[data-cy=filter]").clear().type("bereza");
-        cy.get("[data-cy=feed-tbody]").should("be.visible").should("have.length", 1);
+        cy.get("[data-cy=feed-container]").should("be.visible").should("have.length", 1);
     });
 
     it("should toggle params", function () {
@@ -178,8 +178,10 @@ run: env
         const jobContent = `
 desc: Test env variables
 params:
-  - pruzhany: pruzhany
-  - minsk: minsk
+  - param1: ok0
+  - param2: ok1
+  - param3: ok2
+  - param4: ok3
 tasks:
 - name: Print env
 run: env
@@ -213,144 +215,36 @@ run: env
         cy.visit("/");
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("tr")
+        cy.get("[data-cy=params-container]")
             .invoke("attr", "data-cy-build")
             .then((val) => {
                 // Default value
-                cy.get("[data-cy=params-text]").should("contain", "pruzhany");
-                // Next value
-                cy.get("[data-cy=params-index-button]").click();
-                cy.get("[data-cy=params-text]").should("contain", "minsk");
-                // Clear, back to the default one
-                cy.get("[data-cy=params-index-button-clean]").click();
-                cy.get("[data-cy=params-text]").should("contain", "pruzhany");
-                // Default value again (when not enough params)
-                cy.get("[data-cy=params-index-button]").click();
-                cy.get("[data-cy=params-index-button]").click();
-                cy.get("[data-cy=params-text]").should("contain", "pruzhany");
+                cy.get("[data-cy=params-value]").each((item, index, list) => {
+                    expect(list).to.have.length(3);
+                    switch (index) {
+                        case 0:
+                            expect(item.text()).to.equal("ok0 param1");
+                            break;
+                        case 1:
+                            expect(item.text()).to.equal("ok1 param2");
+                            break;
+                        case 2:
+                            expect(item.text()).to.equal("ok2 param3");
+                            break;
+                    }
+                });
+                // Expand params
+                cy.get("[data-cy=expand-more-params-button]").click();
+                cy.get("[data-cy=params-value]").each((_1, _2, list) => {
+                    expect(list).to.have.length(4);
+                });
+
+                // Collapse params
+                cy.get("[data-cy=expand-less-params-button]").click();
+                cy.get("[data-cy=params-value]").each((_1, _2, list) => {
+                    expect(list).to.have.length(3);
+                });
             });
-    });
-
-    it("should toggle duration", function () {
-        // Create job
-        const jobName = "myjob" + new Date().getTime();
-        cy.request({
-            url: "/api/jobs/create",
-            method: "POST",
-            auth: {
-                user: "",
-                pass: "admin",
-            },
-            body: {
-                name: jobName,
-            },
-            form: true,
-        });
-
-        const jobContent = `
-desc: Test env variables
-tasks:
-- name: Print env
-run: env
-`;
-
-        cy.request({
-            url: "/api/job/" + jobName,
-            method: "POST",
-            auth: {
-                user: "",
-                pass: "admin",
-            },
-            body: {
-                fileContent: jobContent,
-            },
-            form: true,
-        });
-
-        // Create build
-        cy.request({
-            url: `/api/job/${jobName}/run`,
-            method: "POST",
-            auth: {
-                user: "",
-                pass: "admin",
-            },
-            body: {},
-            form: true,
-        });
-
-        cy.visit("/");
-        cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("tr")
-            .invoke("attr", "data-cy-build")
-            .then((val) => {
-                cy.get("[data-cy=duration]")
-                    .should("contain", "sec")
-                    .click()
-                    .should("contain", "just now")
-                    .click()
-                    .should("contain", ":")
-                    .click()
-                    .should("contain", "sec");
-            });
-    });
-
-    it("should preserve duration after reload", function () {
-        // Create job
-        const jobName = "myjob" + new Date().getTime();
-        cy.request({
-            url: "/api/jobs/create",
-            method: "POST",
-            auth: {
-                user: "",
-                pass: "admin",
-            },
-            body: {
-                name: jobName,
-            },
-            form: true,
-        });
-
-        const jobContent = `
-desc: Test env variables
-tasks:
-- name: Print env
-run: env
-`;
-
-        cy.request({
-            url: "/api/job/" + jobName,
-            method: "POST",
-            auth: {
-                user: "",
-                pass: "admin",
-            },
-            body: {
-                fileContent: jobContent,
-            },
-            form: true,
-        });
-
-        // Create build
-        cy.request({
-            url: `/api/job/${jobName}/run`,
-            method: "POST",
-            auth: {
-                user: "",
-                pass: "admin",
-            },
-            body: {},
-            form: true,
-        });
-
-        cy.visit("/");
-        cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("[data-cy=duration]").should("contain", "sec").click().should("contain", "just now");
-        cy.visit("/");
-        cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("[data-cy=duration]").should("contain", "just now").click().click().should("contain", "sec");
     });
 
     it("should preserve filter after reload", function () {
@@ -383,7 +277,7 @@ run: env
             .clear()
             .type('"' + jobName + '"');
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
+        cy.get("[data-cy-build]")
             .invoke("attr", "data-cy-build")
             .then((val) => {
                 cy.get("[data-cy=open-build-button]").click();
@@ -413,7 +307,7 @@ run: env
 desc: Test env variables
 tasks:
 - name: Print env
-  run: sleep 5
+  run: sleep 10
 
 concurrency: 1
 `;
@@ -455,14 +349,14 @@ concurrency: 1
         cy.visit("/");
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("[data-cy=build-status-label]").should("have.length", 2);
-        cy.get("[data-cy=build-status-label]").should((items) => {
+        cy.get("[data-cy-status]").should("have.length", 2);
+        cy.get("[data-cy-status]").should((items) => {
             expect(items, "2 items").to.have.length(2);
             expect(items.eq(0), "first item").to.contain("pending");
             expect(items.eq(1), "second item").to.contain("running");
         });
-        cy.get("[data-cy=start-build-button]").click();
-        cy.get("[data-cy=build-status-label]").should((items) => {
+        cy.get("[data-cy=start-build-button]:not([disabled])").click();
+        cy.get("[data-cy-status]").should((items) => {
             expect(items, "2 items").to.have.length(2);
             expect(items.eq(0), "first item").to.contain("running");
             expect(items.eq(1), "second item").to.contain("running");

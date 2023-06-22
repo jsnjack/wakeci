@@ -29,13 +29,12 @@ describe("Build page", function () {
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
+        cy.get("[data-cy-build]")
             .invoke("attr", "data-cy-build")
             .then((val) => {
                 cy.get("[data-cy=open-build-button]").click();
                 cy.url().should("include", "/build/" + val);
                 cy.get("[data-cy=reload]").click();
-                cy.get(".notification-content").should("contain", "Log file has been reloaded");
                 cy.get("body").should("contain", "uname -a");
             });
     });
@@ -95,13 +94,12 @@ tasks:
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
+        cy.get("[data-cy-build]")
             .invoke("attr", "data-cy-build")
             .then((val) => {
                 cy.get("[data-cy=open-build-button]").click();
                 cy.url().should("include", "/build/" + val);
                 cy.get("[data-cy=reload]").click();
-                cy.get(".notification-content").should("contain", "Log file has been reloaded");
                 cy.get("body").should("contain", `WAKE_JOB_NAME=${jobName}`);
                 cy.get("body").should("contain", "WAKE_URL=http://localhost:8081/");
                 cy.get("body").should("contain", "WAKE_CONFIG_DIR=");
@@ -172,7 +170,7 @@ artifacts:
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
+        cy.get("[data-cy-build]")
             .invoke("attr", "data-cy-build")
             .then((val) => {
                 cy.get("[data-cy=open-build-button]").click();
@@ -253,13 +251,13 @@ artifacts:
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
+        cy.get("[data-cy-build]")
             .invoke("attr", "data-cy-build")
             .then((val) => {
                 cy.get("[data-cy=open-build-button]").click();
 
                 // Make sure Open index.html button is present
-                cy.get("[data-cy=openIndexFile]").should("contain", "Open index.html");
+                cy.get("[data-cy=openIndexFile]").should("contain", "index.html");
                 cy.get("[data-cy=openIndexFile]").should("have.attr", "href").and("contain", "bb");
             });
     });
@@ -317,13 +315,12 @@ tasks:
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
+        cy.get("[data-cy-build]")
             .invoke("attr", "data-cy-build")
             .then((val) => {
                 cy.get("[data-cy=open-build-button]").click();
                 cy.url().should("include", "/build/" + val);
                 cy.get("[data-cy=reload]").click();
-                cy.get(".notification-content").should("contain", "Log file has been reloaded");
                 cy.get("body").should("contain", "skipped");
                 cy.get("body").should("contain", "Condition is false");
                 cy.get("body").should("not.contain", "WAKE_BUILD_ID=");
@@ -385,13 +382,12 @@ tasks:
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
+        cy.get("[data-cy-build]")
             .invoke("attr", "data-cy-build")
             .then((val) => {
                 cy.get("[data-cy=open-build-button]").click();
                 cy.url().should("include", "/build/" + val);
                 cy.get("[data-cy=reload]").click();
-                cy.get(".notification-content").should("contain", "Log file has been reloaded");
                 cy.get("body").should("contain", "Condition is true");
                 cy.get("body").should("contain", "WAKE_BUILD_ID=");
             });
@@ -452,7 +448,7 @@ tasks:
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
+        cy.get("[data-cy-build]")
             .invoke("attr", "data-cy-build")
             .then((val) => {
                 cy.get("[data-cy=open-build-button]").click();
@@ -529,7 +525,7 @@ tasks:
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
+        cy.get("[data-cy-build]")
             .invoke("attr", "data-cy-build")
             .then((val) => {
                 cy.get("[data-cy=open-build-button]").click();

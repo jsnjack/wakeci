@@ -1,83 +1,71 @@
 <template>
-    <tr :data-cy="job.name">
-        <td>
+    <div
+        class="row medium-padding round large-text"
+        style="background-color: var(--background)"
+        :data-cy="job.name"
+    >
+        <div class="max">
             <div>{{ job.name }}</div>
-            <small>{{ job.desc }}</small>
-        </td>
-        <td class="hide-sm">
-            {{ job.interval }}
-        </td>
-        <td class="hide-sm">
-            <label class="form-switch">
-                <input
-                    v-model="isActive"
-                    type="checkbox"
-                    @click.prevent="toggleIsActive"
-                />
-                <i class="form-icon" />
-            </label>
-        </td>
-        <td class="actions">
-            <RunJobButton
-                v-show="isActive"
-                :params="job.defaultParams"
-                :button-title="'Start'"
-                :job-name="job.name"
-                class="item-action"
-                data-cy="start-job-button"
+            <small class="m l">{{ job.desc }}</small>
+        </div>
+        <div class="m l">{{ job.interval }}</div>
+        <label class="switch m l">
+            <input
+                :checked="isActive"
+                type="checkbox"
+                @click.prevent="toggleIsActive"
             />
-            <router-link
-                :to="{ name: 'jobEdit', params: { name: job.name } }"
-                class="btn btn-primary item-action"
-                data-cy="edit-job-button"
-            >
-                Edit
-            </router-link>
-            <a
-                data-cy="delete-job-button"
-                href="#"
-                class="btn btn-error item-action"
-                @click.prevent="toggleModalDelete"
-                >Delete</a
-            >
+            <span></span>
+        </label>
 
-            <div
-                class="modal"
-                :class="{ active: modalDelete }"
-            >
-                <a
-                    href="#"
-                    class="modal-overlay"
-                    aria-label="Close"
-                    @click.prevent="toggleModalDelete"
-                />
-                <div class="modal-container">
-                    <div class="modal-header">
-                        <a
-                            href="#"
-                            class="btn btn-clear float-right"
-                            aria-label="Close"
-                            @click.prevent="toggleModalDelete"
-                        />
-                        <div class="modal-title text-uppercase">Delete</div>
-                    </div>
-                    <div class="modal-body">
-                        Confirm to delete
-                        <b>{{ job.name }}</b>
-                    </div>
-                    <div class="modal-footer">
-                        <a
-                            data-cy="delete-job-confirm"
-                            href="#"
-                            class="btn btn-error float-right"
-                            @click.prevent="deleteJob"
-                            >Delete</a
-                        >
-                    </div>
-                </div>
+        <!-- Start job -->
+        <RunJobButton
+            :disabled="!isActive"
+            :params="job.defaultParams"
+            :job-name="job.name"
+        />
+
+        <!-- Edit job -->
+        <router-link
+            :to="{ name: 'jobEdit', params: { name: job.name } }"
+            class="button circle transparent"
+            data-cy="edit-job-button"
+        >
+            <i>edit</i>
+            <div class="tooltip bottom">Edit</div>
+        </router-link>
+
+        <!-- Delete job -->
+        <button
+            class="circle transparent"
+            data-cy="delete-job-button"
+            @click.prevent="toggleModalDelete"
+        >
+            <i>delete</i>
+            <div class="tooltip bottom">Delete</div>
+        </button>
+
+        <dialog :class="{ active: modalDelete }">
+            <div>
+                Are you sure you want to delete <b>{{ job.name }}</b
+                >?
             </div>
-        </td>
-    </tr>
+            <nav class="right-align">
+                <button
+                    class="border"
+                    @click="toggleModalDelete"
+                >
+                    Cancel
+                </button>
+                <button
+                    data-cy="delete-job-confirm"
+                    @click.prevent="deleteJob"
+                >
+                    Confirm
+                </button>
+            </nav>
+        </dialog>
+    </div>
 </template>
 
 <script>
@@ -107,7 +95,7 @@ export default {
                 .then((response) => {
                     this.$notify({
                         text: `${this.job.name} has been deleted`,
-                        type: "success",
+                        type: "primary",
                     });
                     this.toggleModalDelete();
                     this.$router.go();
@@ -126,7 +114,7 @@ export default {
                 .then((response) => {
                     this.$notify({
                         text: `Job ${this.job.name} is ` + (response.data ? "enabled" : "disabled"),
-                        type: "success",
+                        type: "primary",
                     });
                     this.isActive = response.data;
                 })
@@ -137,11 +125,4 @@ export default {
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style
-    scoped
-    lang="scss"
->
-.item-action {
-    margin: 0.25em;
-}
-</style>
+<style scoped lang="scss"></style>

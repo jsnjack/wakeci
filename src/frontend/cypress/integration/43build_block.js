@@ -44,7 +44,7 @@ tasks:
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
+        cy.get("[data-cy-build]")
             .invoke("attr", "data-cy-build")
             .then((val) => {
                 cy.get("[data-cy=open-build-button]").click();
@@ -108,7 +108,7 @@ tasks:
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
+        cy.get("[data-cy-build]")
             .invoke("attr", "data-cy-build")
             .then((val) => {
                 cy.get("[data-cy=open-build-button]").click();
@@ -187,7 +187,7 @@ tasks:
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
+        cy.get("[data-cy-build]")
             .invoke("attr", "data-cy-build")
             .then((val) => {
                 cy.get("[data-cy=open-build-button]").click();
@@ -261,16 +261,17 @@ tasks:
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
-        cy.get("tr")
+        cy.get("[data-cy-build]")
             .invoke("attr", "data-cy-build")
             .then((val) => {
                 cy.get("[data-cy=open-build-button]").click();
                 cy.url().should("include", "/build/" + val);
-                cy.get("[data-cy=reload]").eq(0).click();
-                cy.get("[data-cy=task_section_0]").should("contain", "> Condition is true");
+                cy.get("[data-cy=task-title]").eq(0).click();
+                cy.get("body").should("contain", "> Condition is true");
+                cy.get("[data-cy=task-title]").eq(0).click();
 
-                cy.get("[data-cy=reload]").eq(1).click();
-                cy.get("[data-cy=task_section_1]").should("contain", "> Condition is false");
+                cy.get("[data-cy=task-title]").eq(1).click();
+                cy.get("body").should("contain", "> Condition is false");
             });
     });
 });

@@ -64,8 +64,8 @@ tasks:
         cy.visit("/");
         cy.login();
         cy.get("[data-cy=filter]").clear().type(jobName);
-        cy.get("[data-cy=feed-tbody]").should("be.visible").should("have.length", 1);
+        cy.get("[data-cy=feed-container]").should("be.visible").should("have.length", 1);
         cy.get("[data-cy=filter]").clear().type(jobName2);
-        cy.get("[data-cy=feed-tbody]").should("be.visible").should("have.length", 1);
+        cy.get("[data-cy=feed-container]").should("be.visible").should("have.length", 1);
     });
 });

@@ -1,65 +1,47 @@
 <template>
-    <div class="container grid-sm">
+    <div>
         <form
-            class="card"
             method="post"
             @submit.prevent="save"
         >
-            <div class="card-header">
-                <div class="card-title h5">Settings</div>
+            <div class="field border small">
+                <input
+                    type="password"
+                    id="password"
+                    v-model="password"
+                />
+                <span class="helper">Password</span>
             </div>
-            <div class="card-body text-left">
-                <div class="form-group">
-                    <label
-                        class="form-label"
-                        for="password"
-                        >Password</label
-                    >
-                    <input
-                        id="password"
-                        v-model="password"
-                        class="form-input"
-                        type="password"
-                    />
-                </div>
-                <div class="form-group">
-                    <label
-                        class="form-label"
-                        for="concurrent-builds"
-                        >Number of concurrent builds</label
-                    >
-                    <input
-                        id="concurrent-builds"
-                        v-model="concurrentBuilds"
-                        class="form-input"
-                        type="number"
-                        min="1"
-                    />
-                </div>
-                <div class="form-group">
-                    <label
-                        class="form-label"
-                        for="build-history-size"
-                        >Number of builds to preserve</label
-                    >
-                    <input
-                        id="build-history-size"
-                        v-model="buildHistorySize"
-                        class="form-input"
-                        type="number"
-                        min="1"
-                    />
-                </div>
+
+            <div class="field border small">
+                <input
+                    type="number"
+                    id="concurrent-builds"
+                    min="1"
+                    v-model="concurrentBuilds"
+                />
+                <span class="helper">Number of concurrent builds</span>
             </div>
-            <div class="card-footer">
+
+            <div class="field border small">
+                <input
+                    id="build-history-size"
+                    v-model="buildHistorySize"
+                    type="number"
+                    min="1"
+                />
+                <span class="helper">Number of builds to preserve</span>
+            </div>
+
+            <nav class="no-space">
+                <div class="max"></div>
                 <button
                     data-cy="save-settings"
                     type="submit"
-                    class="btn btn-primary"
                 >
                     Save
                 </button>
-            </div>
+            </nav>
         </form>
     </div>
 </template>
@@ -76,7 +58,7 @@ export default {
         };
     },
     mounted() {
-        document.title = "Settings - wakeci";
+        this.$store.commit("SET_CURRENT_PAGE", "Settings");
         this.fetch();
     },
     methods: {
@@ -94,7 +76,7 @@ export default {
                 .then((response) => {
                     this.$notify({
                         text: "Saved",
-                        type: "success",
+                        type: "primary",
                     });
                 })
                 .catch((error) => {});
@@ -117,11 +99,4 @@ export default {
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style
-    scoped
-    lang="scss"
->
-.card {
-    margin-top: 1em;
-}
-</style>
+<style scoped lang="scss"></style>
