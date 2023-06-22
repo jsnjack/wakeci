@@ -43,7 +43,7 @@
                     :key="item.path"
                     data-cy="artifacts-body-row"
                 >
-                    <td>
+                    <td style="word-break: break-all">
                         <a
                             :href="downloadURL(item.filename)"
                             target="_blank"
