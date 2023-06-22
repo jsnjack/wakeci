@@ -211,4 +211,9 @@ export default {
     white-space: pre-wrap;
     word-break: break-word;
 }
+@media (max-width: 600px) {
+    .log-container {
+        font-size: 60%;
+    }
+}
 </style>
