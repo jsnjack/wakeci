@@ -13,9 +13,9 @@
             <SyntaxViewer />
         </div>
         <div class="page padding">
-            <article class="large-text">
+            <article>
                 <p>
-                    This search function allows you to retrieve specific builds based on their attributes, providing you with a flexible and precise filtering
+                    The search function allows you to retrieve specific builds based on their attributes, providing you with a flexible and precise filtering
                     mechanism. With this feature, you can search for builds using the following criteria:
                 </p>
 
@@ -29,15 +29,16 @@
                     for exact phrases within the build attributes.
                 </p>
 
-                <p>
-                    Here's an example to illustrate how this search feature works: Let's say you want to find builds that contain the words "aborted" or "timed
-                    out," but you don't want any builds from yesterday and you specifically need builds that include the phrase "cpu info." You can use the
-                    following search query:
-                </p>
+                <p>Here are some examples to illustrate how this search feature works:</p>
 
-                <code>aborted "timed out" -yesterday +'cpu info'</code>
+                <h6>Example 1: Retrieving all failed builds</h6>
+                <code>+failed</code>
 
-                <p>This query will retrieve builds that satisfy the specified criteria, helping you quickly find the relevant builds you're looking for.</p>
+                <h6>Example 2: Retrieving all failed and timed out builds</h6>
+                <code>failed "timed out"</code>
+
+                <h6>Example 2: Retrieving all failed builds which don't contain "test_"</h6>
+                <code>+failed -test_</code>
             </article>
         </div>
         <div class="page padding">
