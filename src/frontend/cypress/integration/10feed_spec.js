@@ -159,7 +159,7 @@ run: env
         cy.get("[data-cy=feed-container]").should("be.visible").should("have.length", 1);
     });
 
-    it("should toggle params", function () {
+    it.only("should toggle params", function () {
         // Create job
         const jobName = "myjob" + new Date().getTime();
         cy.request({

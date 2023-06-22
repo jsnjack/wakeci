@@ -3,6 +3,7 @@
         class="fill small-margin small-padding medium-text no-elevate"
         style="font-weight: 400; display: inline-block; cursor: pointer; word-break: break-all"
         @click.prevent="copyContent"
+        data-cy="params-value"
     >
         {{ getText }}
         <div
