@@ -1,11 +1,11 @@
 <template>
     <div
-        class="row medium-padding round large-text feed-item"
+        class="row round large-text feed-item"
         :data-cy-build="build.id"
     >
         <BuildStatus :status="build.status" />
         <div class="max">
-            <a class="small-padding">
+            <a class="small-padding" style="padding-bottom: 0 !important;">
                 <router-link :to="{ name: 'build', params: { id: build.id } }"> #{{ build.id }} {{ build.name }}</router-link>
             </a>
             <div
@@ -179,5 +179,7 @@ export default {
 <style scoped lang="scss">
 .feed-item {
     background-color: var(--background);
+    padding: 0.2rem 1rem !important;
+    margin-top: 0.5rem !important;
 }
 </style>
