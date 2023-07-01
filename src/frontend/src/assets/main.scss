@@ -1,5 +1,12 @@
-
 .CodeMirror * {
   font-size: 1.05em;
   font-family: monospace;
+}
+
+:root body.light {
+    --feed-item-background-color: #f9eff6;;
+}
+
+:root body.dark {
+    --feed-item-background-color: #1C1B1F;
 }

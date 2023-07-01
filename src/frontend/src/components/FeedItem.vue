@@ -5,7 +5,10 @@
     >
         <BuildStatus :status="build.status" />
         <div class="max">
-            <a class="small-padding" style="padding-bottom: 0 !important;">
+            <a
+                class="small-padding"
+                style="padding-bottom: 0 !important"
+            >
                 <router-link :to="{ name: 'build', params: { id: build.id } }"> #{{ build.id }} {{ build.name }}</router-link>
             </a>
             <div
@@ -178,7 +181,7 @@ export default {
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="scss">
 .feed-item {
-    background-color: var(--background);
+    background-color: var(--feed-item-background-color);
     padding: 0.2rem 1rem !important;
     margin-top: 0.5rem !important;
 }
