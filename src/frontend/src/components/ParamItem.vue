@@ -16,6 +16,9 @@
 </template>
 
 <script>
+// Commit message length
+const LENGTH_LIMIT = 40;
+
 export default {
     props: {
         param: {
@@ -37,7 +40,10 @@ export default {
         },
         getText() {
             if (this.includeKeys) {
-                return `${this.getName}=${this.getValue}`;
+                return `${this.getName} = ${this.getValue}`;
+            }
+            if (this.getValue.length > LENGTH_LIMIT) {
+                return this.getValue.substring(0, LENGTH_LIMIT - 3) + "...";
             }
             return this.getValue;
         },

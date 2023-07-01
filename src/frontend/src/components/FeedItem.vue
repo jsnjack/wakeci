@@ -21,25 +21,27 @@
                     :key="index + 'param'"
                     :param="item"
                 />
-                <button
-                    v-if="build.params && build.params.length > getFilteredParams.length"
-                    class="circle transparent"
-                    @click.prevent="toggleExpandParams"
-                    data-cy="expand-more-params-button"
-                >
-                    <i>expand_more</i>
-                    <div class="tooltip bottom">More</div>
-                </button>
-                <button
-                    v-if="expandParams"
-                    class="circle transparent"
-                    @click.prevent="toggleExpandParams"
-                    data-cy="expand-less-params-button"
-                >
-                    <i>expand_less</i>
-                    <div class="tooltip bottom">Less</div>
-                </button>
             </div>
+        </div>
+        <div class="l">
+            <button
+                v-if="build.params && build.params.length > getFilteredParams.length"
+                class="circle transparent"
+                @click.prevent="toggleExpandParams"
+                data-cy="expand-more-params-button"
+            >
+                <i>expand_more</i>
+                <div class="tooltip bottom">More</div>
+            </button>
+            <button
+                v-if="expandParams"
+                class="circle transparent"
+                @click.prevent="toggleExpandParams"
+                data-cy="expand-less-params-button"
+            >
+                <i>expand_less</i>
+                <div class="tooltip bottom">Less</div>
+            </button>
         </div>
         <div
             style="min-width: 200px"
