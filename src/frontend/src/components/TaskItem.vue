@@ -211,7 +211,7 @@ export default {
 }
 @media (max-width: 600px) {
     .log-container {
-        font-size: 60%;
+        font-size: 70%;
     }
 }
 </style>
