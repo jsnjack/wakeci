@@ -2,10 +2,17 @@
     <article
         class="fill small-margin small-padding medium-text no-elevate"
         style="font-weight: 400; display: inline-block; cursor: pointer; word-break: break-all"
-        @click.prevent="copyContent"
         data-cy="params-value"
     >
-        {{ getText }}
+        <div>
+            {{ getText }}
+            <i
+                class="tiny"
+                @click.prevent="copyContent"
+                >{{ copyIcon }}</i
+            >
+        </div>
+
         <div
             v-if="!includeKeys"
             class="tooltip bottom"
@@ -52,13 +59,24 @@ export default {
         copyContent() {
             navigator.clipboard.writeText(this.getValue).then(
                 () => {
-                    this.$notify({ text: "The value has been copied to clipboard", type: "primary" });
+                    this.copyIcon = "done";
+                    window.setTimeout(() => {
+                        this.copyIcon = "content_copy";
+                    }, 1500);
                 },
                 () => {
-                    this.$notify({ text: "Unable to copy", type: "error" });
+                    this.copyIcon = "close";
+                    window.setTimeout(() => {
+                        this.copyIcon = "content_copy";
+                    }, 1500);
                 }
             );
         },
+    },
+    data: function () {
+        return {
+            copyIcon: "content_copy",
+        };
     },
 };
 </script>
