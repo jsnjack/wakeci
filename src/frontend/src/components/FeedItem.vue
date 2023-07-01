@@ -7,7 +7,7 @@
         <div class="max">
             <a
                 class="small-padding"
-                style="padding-bottom: 0 !important"
+                style="padding-bottom: 0 !important; padding-top: 0 !important"
             >
                 <router-link :to="{ name: 'build', params: { id: build.id } }"> #{{ build.id }} {{ build.name }}</router-link>
             </a>
