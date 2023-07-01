@@ -4,7 +4,6 @@
         "javascript",
     ],
     "editor.detectIndentation": false,
-    "go.autocompleteUnimportedPackages": true,
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
         "source.fixAll.eslint": true
@@ -16,7 +15,6 @@
         "buildFlags": [
             "-tags=wireinject"
         ],
-        "experimentalWorkspaceModule": true
     },
     "[vue]": {
         "editor.defaultFormatter": "esbenp.prettier-vscode"
