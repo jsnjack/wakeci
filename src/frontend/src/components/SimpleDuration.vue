@@ -6,11 +6,17 @@
             >avg_time</i
         >
         <div>{{ durationText }}</div>
+        <div
+            v-if="durationTooltip"
+            class="tooltip bottom"
+        >
+            {{ durationTooltip }}
+        </div>
     </div>
 </template>
 
 <script>
-import { runningDuration, doneDuration, updateDurationPeriod } from "@/duration";
+import { runningDuration, doneDuration, doneDurationSec } from "@/duration";
 
 export default {
     props: {
@@ -28,6 +34,8 @@ export default {
         return {
             updateInterval: null,
             durationText: "",
+            durationTooltip: "",
+            updatePeriod: 1000,
         };
     },
     computed: {
@@ -62,6 +70,16 @@ export default {
         mode: "onStatusChange",
     },
     mounted() {
+        if (this.item.eta) {
+            const etaInSec = Math.round(this.item.eta / 10 ** 9);
+            const numberOfDataPoints = 200;
+            // Default update period is once a second. Make it depends on the
+            // eta of the task
+            let period = (etaInSec / numberOfDataPoints) * 1000;
+            if (period > this.updatePeriod) {
+                this.updatePeriod = period;
+            }
+        }
         this.onStatusChange();
     },
     beforeUnmount: function () {
@@ -69,11 +87,14 @@ export default {
     },
     methods: {
         updateText() {
+            // Build is in the queue
             if (this.item.startedAt && this.item.startedAt.indexOf("0001-") === 0) {
                 // Go's way of saying it is zero
                 this.durationText = "";
                 return;
             }
+
+            // Build is in progress
             if (this.item.status === "running") {
                 this.durationText = runningDuration(this.item.startedAt);
                 if (!this.minimalisticMode) {
@@ -81,15 +102,35 @@ export default {
                     if (this.item.eta) {
                         const duration = (new Date().getTime() - new Date(this.item.startedAt).getTime()) / 1000;
                         const p = Math.round((duration / Math.round(this.item.eta / 10 ** 9)) * 100);
-                        this.durationText += ` (${p}%)`;
+                        // Can be infinity in case of indefinite tasks
+                        if (Number.isInteger(p)) {
+                            this.durationText += ` (${p}%)`;
+                            if (p > 100) {
+                                this.durationTooltip = "any moment";
+                            } else {
+                                const eta = doneDurationSec(Math.round(this.item.eta / 10 ** 9 - duration));
+                                this.durationTooltip = `eta ${eta}`;
+                            }
+                        }
                     } else {
                         this.durationText += ` (${this.getDoneTasks}/${this.getTotalTasks})`;
                     }
                 }
                 return;
             }
+            // Build is done, show the result
             if (this.item.duration > 0) {
                 this.durationText = doneDuration(this.item.duration);
+                if (this.item.eta) {
+                    const p = Math.round((this.item.duration / Math.round(this.item.eta)) * 100);
+                    if (Number.isInteger(p)) {
+                        if (p > 100) {
+                            this.durationTooltip = p - 100 + "% slower than usual";
+                        } else if (p < 100) {
+                            this.durationTooltip = 100 - p + "% faster than usual";
+                        }
+                    }
+                }
                 return;
             }
             return "";
@@ -102,7 +143,7 @@ export default {
                     function () {
                         this.updateText();
                     }.bind(this),
-                    updateDurationPeriod
+                    this.updatePeriod
                 );
             }
             this.updateText();
@@ -111,4 +152,8 @@ export default {
 };
 </script>
 
-<style scoped lang="scss"></style>
+<style scoped lang="scss">
+div {
+    cursor: default;
+}
+</style>

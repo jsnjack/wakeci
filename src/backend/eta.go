@@ -76,7 +76,7 @@ func calcAvg(durationList *[]int) int {
 	for _, item := range *durationList {
 		sum += item
 	}
-	if len(*durationList) > 0 {
+	if len(*durationList) >= DurationWindowLength {
 		eta = sum / len(*durationList)
 	}
 	return eta
