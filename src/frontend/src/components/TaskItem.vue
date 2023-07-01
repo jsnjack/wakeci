@@ -37,7 +37,7 @@
             >
                 <pre
                     v-if="content"
-                    class="log-line fill large-padding no-round"
+                    class="log-line fill small-padding no-round"
                     >{{ content }}</pre
                 >
                 <TextSpinner v-show="task.status === 'running' && !hideAllLogs" />
