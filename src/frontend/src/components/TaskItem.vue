@@ -22,6 +22,7 @@
                     data-cy="reload"
                 >
                     <i>sync</i>
+                    <div class="tooltip bottom">Reload logs</div>
                 </a>
                 <a
                     class="button circle transparent"
