@@ -108,10 +108,6 @@ export default {
             type: Object,
             required: true,
         },
-        paramsIndex: {
-            type: Number,
-            required: true,
-        },
     },
     computed: {
         getAbortURL: function () {

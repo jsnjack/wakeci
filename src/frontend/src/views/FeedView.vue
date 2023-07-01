@@ -32,7 +32,6 @@
             v-for="item in sortedBuilds"
             :key="item.id"
             :build="item"
-            :params-index="paramsIndex"
             @setFilter="handleSetFilter"
         />
     </div>
@@ -63,7 +62,7 @@
 import FeedItem from "@/components/FeedItem.vue";
 import vuex from "vuex";
 import axios from "axios";
-import { findInContainer, isFilteredUpdate } from "@/store/utils.js";
+import { findInContainer, isFilteredUpdate, createFilterObj } from "@/store/utils.js";
 import _ from "lodash";
 
 const FetchItemsSize = 10;
@@ -78,8 +77,8 @@ export default {
             filterIsDirty: false, // when user is still typing
             filter: "", // sent to the server, to filter builds out
             moreEnabled: true, // if makes sense to load more builds from the server
-            paramsIndex: 0, // Params index to display on the feed page
             filteredUpdates: 0, // When `filter` is active, updates which do not much are counted here
+            filterObj: null,
         };
     },
     computed: {
@@ -97,8 +96,10 @@ export default {
         },
     },
     watch: {
-        filter: function () {
+        filter: function (value) {
             this.filterIsDirty = true;
+            this.filterObj = createFilterObj(value);
+            console.log("Created", this.filterObj);
             // Reset builds if user starts to change filter
             this.builds = [];
             this.fetch();
@@ -190,7 +191,7 @@ export default {
                 this.builds[index] = ev;
             } else {
                 if (!fromFetch) {
-                    if (isFilteredUpdate(ev, this.filter)) {
+                    if (isFilteredUpdate(ev, this.filterObj)) {
                         this.filteredUpdates++;
                         return;
                     }
