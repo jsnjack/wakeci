@@ -182,7 +182,7 @@ export default {
 <style scoped lang="scss">
 .feed-item {
     background-color: var(--feed-item-background-color);
-    padding: 0.2rem 1rem !important;
+    padding: 0.5rem 0.5rem !important;
     margin-top: 0.5rem !important;
 }
 </style>
