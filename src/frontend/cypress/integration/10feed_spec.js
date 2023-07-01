@@ -223,13 +223,13 @@ run: env
                     expect(list).to.have.length(3);
                     switch (index) {
                         case 0:
-                            expect(item.text()).to.equal("ok0 param1");
+                            expect(item.text()).to.equal("ok0content_copyparam1");
                             break;
                         case 1:
-                            expect(item.text()).to.equal("ok1 param2");
+                            expect(item.text()).to.equal("ok1content_copyparam2");
                             break;
                         case 2:
-                            expect(item.text()).to.equal("ok2 param3");
+                            expect(item.text()).to.equal("ok2content_copyparam3");
                             break;
                     }
                 });
