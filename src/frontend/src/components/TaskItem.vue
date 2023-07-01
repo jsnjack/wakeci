@@ -138,7 +138,7 @@ export default {
                     this.content = response.data;
                     if (this.follow) {
                         this.$nextTick(() => {
-                            this.$refs.logContainer.scrollIntoView({ behavior: "smooth", block: "end", inline: "nearest" });
+                            this.$refs.logContainer.scrollIntoView({ block: "end", inline: "nearest" });
                         });
                     }
                 })
@@ -162,7 +162,7 @@ export default {
                 this.cachedContent = "";
                 if (this.follow) {
                     this.$nextTick(() => {
-                        this.$refs.logContainer.scrollIntoView({ behavior: "smooth", block: "end", inline: "nearest" });
+                        this.$refs.logContainer.scrollIntoView({ block: "end", inline: "nearest" });
                     });
                 }
             }
