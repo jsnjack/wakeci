@@ -4,11 +4,11 @@
 
 wakeci is an automation tool which helps to execute repetitive tasks
 
-![ScreenShot](https://raw.githubusercontent.com/jsnjack/wakeci/master/screenshots/feed_view.png)
+![ScreenShot](https://raw.githubusercontent.com/jsnjack/wakeci/master/screenshots/feed.png)
 
 ### Features
 
--   simple job configuration using YAML
+-   simple job configuration using YAML files with Ansible inspired syntax
 -   easy to install - just download a binary file from Releases
 -   automatic Let's Encrypt SSL certificates
 -   parameterized builds, artifacts, intervals and timeouts - see job configuration example below
