@@ -20,6 +20,7 @@
                     v-for="(item, index) in this.getFilteredParams"
                     :key="index + 'param'"
                     :param="item"
+                    @setFilter="handleSetFilter"
                 />
             </div>
         </div>
@@ -170,6 +171,9 @@ export default {
         },
         toggleExpandParams() {
             this.expandParams = !this.expandParams;
+        },
+        handleSetFilter(filterText) {
+            this.$emit("setFilter", filterText);
         },
     },
     data: function () {

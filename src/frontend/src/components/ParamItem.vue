@@ -1,11 +1,16 @@
 <template>
     <article
         class="fill small-margin small-padding medium-text no-elevate"
-        style="font-weight: 400; display: inline-block; cursor: pointer; word-break: break-all"
+        style="font-weight: 400; display: inline-block; cursor: pointer"
         data-cy="params-value"
     >
-        <div>
-            {{ getText }}
+        <div class="row no-space">
+            <div
+                @click.prevent="setFilter"
+                style="word-break: break-all; flex: auto"
+            >
+                {{ getText }}
+            </div>
             <i
                 class="tiny"
                 @click.prevent="copyContent"
@@ -54,6 +59,12 @@ export default {
             }
             return this.getValue;
         },
+        getValueStyle() {
+            if (this.includeKeys) {
+                return "cursor: 'default'";
+            }
+            return "ddd";
+        },
     },
     methods: {
         copyContent() {
@@ -71,6 +82,9 @@ export default {
                     }, 1500);
                 }
             );
+        },
+        setFilter() {
+            this.$emit("setFilter", this.getValue);
         },
     },
     data: function () {

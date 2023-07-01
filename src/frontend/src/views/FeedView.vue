@@ -33,6 +33,7 @@
             :key="item.id"
             :build="item"
             :params-index="paramsIndex"
+            @setFilter="handleSetFilter"
         />
     </div>
 
@@ -211,6 +212,9 @@ export default {
             } else {
                 this.unsubscribe();
             }
+        },
+        handleSetFilter(filterText) {
+            this.filter = "+" + filterText;
         },
     },
 };
