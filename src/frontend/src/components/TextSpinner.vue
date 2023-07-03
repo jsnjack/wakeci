@@ -1,5 +1,5 @@
 <template>
-    <div class="fill center-align no-round">
+    <div class="center-align no-round">
         {{ getText }}
     </div>
 </template>
