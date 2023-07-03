@@ -183,7 +183,7 @@ export default {
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="scss">
 .feed-item {
-    background-color: var(--feed-item-background-color);
+    background-color: var(--surface);
     padding: 0.5rem 0.5rem !important;
     margin-top: 0.5rem !important;
 }
