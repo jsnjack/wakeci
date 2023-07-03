@@ -24,7 +24,7 @@
         v-show="filteredUpdates !== 0"
         data-cy="filtered-updates"
     >
-        <p>{{ filteredUpdates }} updates have been filtered beacuse of the active filter</p>
+        <p>{{ filteredUpdates }} updates have been filtered because of the active filter</p>
     </article>
 
     <div data-cy="feed-container">
