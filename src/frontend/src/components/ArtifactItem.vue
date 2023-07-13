@@ -19,7 +19,7 @@
             <thead>
                 <tr>
                     <th
-                        style="cursor: pointer"
+                        style="cursor: pointer; width: 100%"
                         data-cy="artifacts-header-file"
                         @click="sortBy('filename')"
                     >
