@@ -15,11 +15,11 @@
             >
         </div>
 
-        <table class="border large-space">
+        <table class="border large-space large-text">
             <thead>
                 <tr>
                     <th
-                        style="cursor: pointer; width: 100%"
+                        style="cursor: pointer; width: 15%"
                         data-cy="artifacts-header-file"
                         @click="sortBy('filename')"
                     >
