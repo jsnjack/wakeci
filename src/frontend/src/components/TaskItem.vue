@@ -208,6 +208,7 @@ export default {
 .log-line {
     white-space: pre-wrap;
     word-break: break-word;
+    font-size: 95%;
 }
 @media (max-width: 600px) {
     .log-container {
