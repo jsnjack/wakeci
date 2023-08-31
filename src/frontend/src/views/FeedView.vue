@@ -99,7 +99,6 @@ export default {
         filter: function (value) {
             this.filterIsDirty = true;
             this.filterObj = createFilterObj(value);
-            console.log("Created", this.filterObj);
             // Reset builds if user starts to change filter
             this.builds = [];
             this.fetch();
