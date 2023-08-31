@@ -8,8 +8,8 @@
                 :value="filter"
                 @input="(evt) => (filter = evt.target.value)"
             />
-            <a :class="{ loader: isFetching }"></a>
             <label>Filter builds by ID, name, params and status</label>
+            <progress class="circle" v-show="isFetching"></progress>
         </div>
         <button
             class="large right-round secondary"
