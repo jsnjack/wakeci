@@ -59,7 +59,7 @@
         <router-view />
     </main>
     <notifications
-        classes="toast active"
+        classes="snackbar active"
         :max="1"
         :pauseOnHover="true"
     />

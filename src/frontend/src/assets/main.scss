@@ -1,6 +1,6 @@
 .CodeMirror * {
-  font-size: 1.05em;
-  font-family: monospace;
+    font-size: 1.05em;
+    font-family: monospace;
 }
 
 :root body.light {
@@ -30,7 +30,6 @@
     --inverse-surface: #313033;
     --inverse-on-surface: #F4EFF4;
     --inverse-primary: #D0BCFF;
-    --inverse-on-primary: #371E73;
     --body: #FFF;
     --overlay: rgb(0 0 0 / .5);
     --active: rgb(0 0 0 / .1);
@@ -66,7 +65,6 @@
     --inverse-surface: #E6E1E5;
     --inverse-on-surface: #313033;
     --inverse-primary: #6750A4;
-    --inverse-on-primary: #FFF;
     --body: #000;
     --overlay: rgb(0 0 0 / .5);
     --active: rgb(255 255 255 / .2);
