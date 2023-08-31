@@ -10,9 +10,11 @@ tasks:
 
   - name: Cow says
     run: fortune | cowsay
-    # `run` is executed when the condition in `when` evaluates to `true`
+    # command in `run` is executed when the condition in `when` evaluates to `true`
     # The condition uses `[[` syntax from bash (https://devhints.io/bash#conditionals)
     when: $USER == joe
+    # command in `run` is executed when the command in `if` has exit code 0
+    if: test -f API.md
     env:
       KEY: secret
       HTTPS: true
@@ -78,7 +80,6 @@ on_pending:
 finally:
   - name: List all files
     run: ls -alh
-
 # Default environmetal variables, inject by wake:
 # "WAKE_BUILD_ID" - current build id, e.g. 169
 # "WAKE_BUILD_WORKSPACE" - path to the build's workspace, e.g. ~/workspace/169/

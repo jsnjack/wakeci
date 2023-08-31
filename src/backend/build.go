@@ -191,7 +191,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 		}
 	}
 
-	// Checking condition in when
+	// Checking condition in `when`
 	if task.When != "" {
 		condCmd := exec.Command("bash", "-c", fmt.Sprintf("[[ %s ]]", task.When))
 		condCmd.Env = taskCmd.Env
@@ -201,6 +201,51 @@ func (b *Build) runTask(task *Task) ItemStatus {
 		if expandedCondCmd != task.When {
 			b.ProcessLogEntry(
 				"> Expanded condition: "+os.Expand(task.When, getEnvMapper(condCmd.Env)), bw, task.ID, task.startedAt,
+			)
+		}
+		condErr := condCmd.Start()
+		if condErr != nil {
+			b.ProcessLogEntry(
+				fmt.Sprintf("> Unable to evaluate the condition: %s", condErr.Error()),
+				bw, task.ID, task.startedAt,
+			)
+			return StatusFailed
+		}
+		condKilled := false
+		condTimer := time.AfterFunc(WHEN_EVAL_TIMEOUT*time.Second, func() {
+			condKilled = true
+			condCmd.Process.Kill()
+		})
+		condErr = condCmd.Wait()
+		condTimer.Stop()
+		if condKilled {
+			b.ProcessLogEntry(
+				fmt.Sprintf("> Condition timeouted: %s", condErr.Error()),
+				bw, task.ID, task.startedAt,
+			)
+			return StatusFailed
+		}
+		if condErr != nil {
+			b.ProcessLogEntry(
+				fmt.Sprintf("> Condition is false: %s. Skipping the task", condErr.Error()),
+				bw, task.ID, task.startedAt,
+			)
+			return StatusSkipped
+		} else {
+			b.ProcessLogEntry("> Condition is true", bw, task.ID, task.startedAt)
+		}
+	}
+
+	// Checking condition in `if`
+	if task.If != "" {
+		condCmd := exec.Command("bash", "-c", task.If)
+		condCmd.Env = taskCmd.Env
+		condCmd.Dir = taskCmd.Dir
+		b.ProcessLogEntry("> Checking `if` condition: "+task.If, bw, task.ID, task.startedAt)
+		expandedCondCmd := os.Expand(task.If, getEnvMapper(condCmd.Env))
+		if expandedCondCmd != task.If {
+			b.ProcessLogEntry(
+				"> Expanded condition: "+os.Expand(task.If, getEnvMapper(condCmd.Env)), bw, task.ID, task.startedAt,
 			)
 		}
 		condErr := condCmd.Start()

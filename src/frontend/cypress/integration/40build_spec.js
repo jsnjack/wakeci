@@ -540,4 +540,135 @@ tasks:
                 cy.get("body").should("contain", "People call him big bill");
             });
     });
+
+    it("should skip task when `if` condition has non-zero exit code", function () {
+        // Create job
+        const jobName = "myjob" + new Date().getTime();
+        cy.request({
+            url: "/api/jobs/create",
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                name: jobName,
+            },
+            form: true,
+        });
+
+        const jobContent = `
+desc: Condition test
+tasks:
+  - name: Print env
+    run: env
+    if: test -n ""
+`;
+
+        cy.request({
+            url: "/api/job/" + jobName,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                fileContent: jobContent,
+            },
+            form: true,
+        });
+
+        // Create build
+        cy.request({
+            url: `/api/job/${jobName}/run`,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {},
+            form: true,
+        });
+
+        cy.visit("/");
+        cy.login();
+        cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=open-build-button]").should("have.length", 1);
+        cy.get("[data-cy-build]")
+            .invoke("attr", "data-cy-build")
+            .then((val) => {
+                cy.get("[data-cy=open-build-button]").click();
+                cy.url().should("include", "/build/" + val);
+                cy.get("[data-cy=reload]").click();
+                cy.get("body").should("contain", "skipped");
+                cy.get("body").should("contain", "Condition is false");
+                cy.get("body").should("not.contain", "WAKE_BUILD_ID=");
+            });
+    });
+
+    it("should run task when `if` condition has exit code 0", function () {
+        // Create job
+        const jobName = "myjob" + new Date().getTime();
+        cy.request({
+            url: "/api/jobs/create",
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                name: jobName,
+            },
+            form: true,
+        });
+
+        const jobContent = `
+desc: Condition test
+params:
+ - NAME: joe
+tasks:
+  - name: Print env
+    run: env
+    when: test -n "$NAME"
+`;
+
+        cy.request({
+            url: "/api/job/" + jobName,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                fileContent: jobContent,
+            },
+            form: true,
+        });
+
+        // Create build
+        cy.request({
+            url: `/api/job/${jobName}/run`,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {},
+            form: true,
+        });
+
+        cy.visit("/");
+        cy.login();
+        cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=open-build-button]").should("have.length", 1);
+        cy.get("[data-cy-build]")
+            .invoke("attr", "data-cy-build")
+            .then((val) => {
+                cy.get("[data-cy=open-build-button]").click();
+                cy.url().should("include", "/build/" + val);
+                cy.get("[data-cy=reload]").click();
+                cy.get("body").should("contain", "Condition is true");
+                cy.get("body").should("contain", "WAKE_BUILD_ID=");
+            });
+    });
 });
