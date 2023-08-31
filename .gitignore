@@ -4,3 +4,4 @@ example_cd/
 example_wd/
 workdir/
 *.mp4
+src/frontend/cypress/downloads/
