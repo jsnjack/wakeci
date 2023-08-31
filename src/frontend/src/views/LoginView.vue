@@ -4,10 +4,7 @@
         method="post"
         @submit.prevent="logIn"
     >
-        <a
-            class="loader large"
-            v-show="fetching"
-        ></a>
+    <progress class="circle large" v-show="fetching"></progress>
         <div
             class="center-align"
             v-show="!fetching"
