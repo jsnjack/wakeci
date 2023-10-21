@@ -53,6 +53,7 @@
                 <div class="tooltip bottom">Abort</div>
             </a>
             <StartBuildNowButton
+                v-if="statusUpdate.id"
                 :status="statusUpdate.status"
                 :build-i-d="statusUpdate.id"
             />

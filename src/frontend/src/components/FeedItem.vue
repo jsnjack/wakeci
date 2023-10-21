@@ -75,6 +75,7 @@
 
         <!-- Start build -->
         <StartBuildNowButton
+            v-if="build.id"
             :status="build.status"
             :build-i-d="build.id"
         />
