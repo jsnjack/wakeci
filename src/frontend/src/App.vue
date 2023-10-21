@@ -60,6 +60,7 @@
     </main>
     <notifications
         classes="snackbar active"
+        :dangerouslySetInnerHtml="true"
         :max="1"
         :pauseOnHover="true"
     />
