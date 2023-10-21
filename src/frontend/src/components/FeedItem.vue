@@ -81,7 +81,7 @@
             data-cy="start-build-button"
             @click.prevent="start"
         >
-            <i>start</i>
+            <i>play_arrow</i>
             <div class="tooltip bottom">Start now</div>
         </a>
     </div>
