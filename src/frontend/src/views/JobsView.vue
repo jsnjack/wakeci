@@ -89,6 +89,12 @@
                 <h5>No jobs found</h5>
             </div>
         </div>
+        <div
+            v-if="!fetchingDone"
+            class="medium-height middle-align center-align"
+        >
+            <progress class="circle large"></progress>
+        </div>
     </div>
 </template>
 
