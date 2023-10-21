@@ -30,6 +30,7 @@
                     target="_blank"
                 >
                     <i>open_in_new</i>
+                    <div class="tooltip left">Raw logs</div>
                 </a>
             </nav>
             <article
@@ -178,7 +179,7 @@ export default {
                     function () {
                         this.flushContent();
                     }.bind(this),
-                    FlushContentPeriod
+                    FlushContentPeriod,
                 );
             } else {
                 clearInterval(this.flushInterval);
