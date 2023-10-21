@@ -71,7 +71,10 @@
         </button>
     </nav>
 
-    <div class="article">
+    <div
+        class="article"
+        data-cy="jobs-container"
+    >
         <JobItem
             v-for="item in filteredJobs"
             :key="item.name"

@@ -85,4 +85,29 @@ describe("Jobs page", function () {
         cy.get("[data-cy=save-and-close-button]").click();
         cy.location("pathname").should("eq", "/jobs");
     });
+
+    it("should filter jobs", function () {
+        cy.visit("/");
+        const jobName = "myjob" + new Date().getTime();
+        cy.request({
+            url: "/api/jobs/create",
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                name: jobName,
+            },
+            form: true,
+        });
+        cy.login();
+        cy.visit("/jobs");
+        cy.get("[data-cy=filter]")
+            .clear()
+            .type(jobName + "bad");
+        cy.get("[data-cy=jobs-container]").should("contain", "No jobs found");
+        cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=jobs-container]").should("have.length", 1);
+    });
 });

@@ -7,7 +7,7 @@ describe("Feed page", function () {
         cy.get("a[href='/settings']").should("contain", "Settings");
     });
 
-    it("should filter jobs", function () {
+    it("should filter builds", function () {
         cy.visit("/");
         const jobName = "myjob" + new Date().getTime();
         cy.request({
