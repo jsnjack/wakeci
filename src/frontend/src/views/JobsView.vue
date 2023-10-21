@@ -52,14 +52,33 @@
         </button>
     </nav>
 
+    <nav class="no-space small-margin">
+        <div class="max field label prefix border left-round">
+            <i>filter_alt</i>
+            <input
+                type="text"
+                data-cy="filter"
+                :value="filter"
+                @input="(evt) => (filter = evt.target.value)"
+            />
+            <label>Filter jobs by name</label>
+        </div>
+        <button
+            class="large right-round secondary"
+            @click.prevent="clearFilter"
+        >
+            <i>backspace</i>
+        </button>
+    </nav>
+
     <div class="article">
         <JobItem
-            v-for="item in jobs"
+            v-for="item in filteredJobs"
             :key="item.name"
             :job="item"
         />
         <div
-            v-if="jobs.length === 0 && fetchingDone"
+            v-if="filteredJobs.length === 0 && fetchingDone"
             class="fill medium-height middle-align center-align"
         >
             <div class="center-align">
@@ -73,12 +92,15 @@
 <script>
 import JobItem from "@/components/JobItem.vue";
 import axios from "axios";
+import _ from "lodash";
 
 export default {
     components: { JobItem },
     data: function () {
         return {
             jobs: [],
+            filteredJobs: [],
+            filter: "",
             modalOpen: false,
             newJobName: "new_job",
             fetchingDone: false,
@@ -93,12 +115,30 @@ export default {
         this.$store.commit("SET_CURRENT_PAGE", "Jobs");
         this.fetch();
     },
+    created() {
+        this.filterJobs = _.debounce(() => {
+            if (this.filter === "") {
+                this.filteredJobs = this.jobs;
+                return;
+            }
+
+            this.filteredJobs = this.jobs.filter((item) => {
+                return item.name.toLowerCase().includes(this.filter.toLowerCase());
+            });
+        }, 100);
+    },
+    watch: {
+        filter: function () {
+            this.filterJobs();
+        },
+    },
     methods: {
         fetch() {
             axios
                 .get("/api/jobs/")
                 .then((response) => {
                     this.jobs = response.data || [];
+                    this.filteredJobs = this.jobs;
                     this.fetchingDone = true;
                 })
                 .catch((error) => {
@@ -144,6 +184,9 @@ export default {
                     this.fetch();
                 })
                 .catch((error) => {});
+        },
+        clearFilter() {
+            this.filter = "";
         },
     },
 };
