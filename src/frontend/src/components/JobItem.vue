@@ -1,7 +1,7 @@
 <template>
     <div
         class="row medium-padding round large-text"
-        style="background-color: var(--surface)"
+        style="background-color: var(--surface-container)"
         :data-cy="job.name"
     >
         <div class="max">
