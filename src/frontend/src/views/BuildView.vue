@@ -33,7 +33,7 @@
                     v-if="!hideAllLogs"
                     class="tooltip bottom"
                 >
-                    Hide all logs
+                    Hide all logs (Ctrl + Alt + H)
                 </div>
                 <div
                     v-else
@@ -98,7 +98,7 @@
         style="opacity: 0.8"
         class="switch icon fixed bottom right medium-margin"
     >
-        <div class="tooltip left">Follow logs</div>
+        <div class="tooltip left">Toggle following logs (Ctrl + Alt + F)</div>
         <input
             type="checkbox"
             v-model="follow"
@@ -212,11 +212,13 @@ export default {
     },
     mounted() {
         this.$store.commit("SET_CURRENT_PAGE", `#${this.id}`);
+        document.addEventListener("keyup", this.onKeyUp);
         this.fetch();
         this.subscribe();
         this.emitter.on(this.buildUpdateSubscription, this.applyBuildUpdate);
     },
     unmounted() {
+        document.removeEventListener("keyup", this.onKeyUp);
         this.unsubscribe();
         this.emitter.off(this.buildUpdateSubscription, this.applyBuildUpdate);
     },
@@ -294,6 +296,16 @@ export default {
                     },
                 });
                 this.follow = true;
+            }
+        },
+        onKeyUp(event) {
+            console.log(event);
+            if (event.ctrlKey && event.altKey && event.code === "KeyF") {
+                this.follow = !this.follow;
+                return;
+            }
+            if (event.ctrlKey && event.altKey && event.code === "KeyH") {
+                this.hideAllLogs = !this.hideAllLogs;
             }
         },
     },
