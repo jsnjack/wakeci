@@ -52,6 +52,10 @@
                 <i>stop</i>
                 <div class="tooltip bottom">Abort</div>
             </a>
+            <StartBuildNowButton
+                :status="statusUpdate.status"
+                :build-i-d="statusUpdate.id"
+            />
             <RunJobButton
                 :params="statusUpdate.params"
                 :job-name="job.name"
@@ -115,6 +119,7 @@ import TaskItem from "@/components/TaskItem.vue";
 import ArtifactItem from "@/components/ArtifactItem.vue";
 import SimpleDuration from "@/components/SimpleDuration.vue";
 import SimpleStartedAgo from "@/components/SimpleStartedAgo.vue";
+import StartBuildNowButton from "../components/StartBuildNowButton.vue";
 
 export default {
     components: {
@@ -127,6 +132,7 @@ export default {
         SimpleStartedAgo,
         ParamItem,
         NotFound,
+        StartBuildNowButton,
     },
     props: {
         id: {

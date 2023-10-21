@@ -74,16 +74,10 @@
         </a>
 
         <!-- Start build -->
-        <a
-            :disabled="build.status === 'pending' ? null : true"
-            :href="getStartURL"
-            class="button circle transparent"
-            data-cy="start-build-button"
-            @click.prevent="start"
-        >
-            <i>play_arrow</i>
-            <div class="tooltip bottom">Start now</div>
-        </a>
+        <StartBuildNowButton
+            :status="build.status"
+            :build-i-d="build.id"
+        />
     </div>
 </template>
 
@@ -92,6 +86,7 @@ import BuildStatus from "@/components/BuildStatus.vue";
 import SimpleDuration from "@/components/SimpleDuration.vue";
 import SimpleStartedAgo from "@/components/SimpleStartedAgo.vue";
 import ParamItem from "@/components/ParamItem.vue";
+import StartBuildNowButton from "./StartBuildNowButton.vue";
 import axios from "axios";
 
 const MAX_DEFAULT_NUMBER_OF_PARAMS = 3;
@@ -102,6 +97,7 @@ export default {
         BuildStatus,
         SimpleStartedAgo,
         SimpleDuration,
+        StartBuildNowButton,
     },
     props: {
         build: {
@@ -151,16 +147,6 @@ export default {
                     .post(event.target.href || event.target.parentElement.href)
                     .then((response) => {
                         this.$notify({ text: `${this.build.id} has been aborted`, type: "primary" });
-                    })
-                    .catch((error) => {});
-            }
-        },
-        start(event) {
-            if (this.build.status === "pending") {
-                axios
-                    .post(event.target.href || event.target.parentElement.href)
-                    .then((response) => {
-                        this.$notify({ text: `${this.build.id} has been started`, type: "primary" });
                     })
                     .catch((error) => {});
             }
