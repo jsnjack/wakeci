@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
@@ -683,7 +682,7 @@ func CreateBuild(job *Job, jobPath string) (*Build, error) {
 		return nil, err
 	}
 
-	err = ioutil.WriteFile(build.GetBuildConfigFilename(), input, os.ModePerm)
+	err = os.WriteFile(build.GetBuildConfigFilename(), input, os.ModePerm)
 	if err != nil {
 		build.Logger.Println(err)
 		return nil, err

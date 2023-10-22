@@ -122,7 +122,7 @@ func HandleJobPost(w http.ResponseWriter, r *http.Request) {
 
 	path := Config.JobDir + chi.URLParam(r, "name") + Config.jobsExt
 
-	err = ioutil.WriteFile(path, contentB, 0644)
+	err = os.WriteFile(path, contentB, 0644)
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusBadRequest)

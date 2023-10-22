@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -100,7 +99,7 @@ func HandleJobsCreate(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(err.Error()))
 			return
 		}
-		err = ioutil.WriteFile(path, []byte(NewJobTemplate), 0644)
+		err = os.WriteFile(path, []byte(NewJobTemplate), 0644)
 		if err != nil {
 			logger.Println(err)
 			w.WriteHeader(http.StatusBadRequest)
