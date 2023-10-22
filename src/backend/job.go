@@ -45,6 +45,9 @@ type Job struct {
 
 // AddToCron adds a job to cron
 func (j *Job) AddToCron() error {
+	// Remove cron entry if the job is already in cron
+	RemoveJobFromCron(j.Name)
+
 	if j.Interval == "" {
 		return nil
 	}
@@ -180,11 +183,17 @@ func CreateJobFromFile(path string) (*Job, error) {
 		t.Status = StatusPending
 	}
 
-	_, nameExt := filepath.Split(path)
-	job.Name = nameExt[0 : len(nameExt)-len(Config.jobsExt)]
+	job.Name = GetJobNameFromPath(path)
 
 	Logger.Printf("Read job from file %s: %s, tasks %d\n", path, job.Name, len(job.Tasks))
 	return &job, nil
+}
+
+// GetJobNameFromPath returns job name from path to job file. It is a filename
+// without extension
+func GetJobNameFromPath(path string) string {
+	_, nameExt := filepath.Split(path)
+	return nameExt[0 : len(nameExt)-len(Config.jobsExt)]
 }
 
 // ScanAllJobs scans for all available jobs and saves them in database
@@ -196,53 +205,80 @@ func ScanAllJobs() error {
 	}
 	files, _ := filepath.Glob(Config.JobDir + "*" + Config.jobsExt)
 	for _, f := range files {
-		job, err := CreateJobFromFile(f)
-		if err != nil {
-			Logger.Println(err)
-			continue
-		}
-		err = DB.Update(func(tx *bolt.Tx) error {
-			jobsBucket := tx.Bucket(JobsBucket)
-
-			jb, err := jobsBucket.CreateBucketIfNotExists([]byte(job.Name))
-			if err != nil {
-				return err
-			}
-			paramsB, err := json.Marshal(job.DefaultParams)
-			if err != nil {
-				return err
-			}
-			err = jb.Put([]byte("defaultParams"), paramsB)
-			if err != nil {
-				return err
-			}
-			err = jb.Put([]byte("desc"), []byte(job.Desc))
-			if err != nil {
-				return err
-			}
-			err = jb.Put([]byte("interval"), []byte(job.Interval))
-			if err != nil {
-				return err
-			}
-			isActive := jb.Get([]byte("active"))
-			if isActive == nil {
-				err = jb.Put([]byte("active"), []byte("true"))
-				if err != nil {
-					return err
-				}
-			}
-			return nil
-		})
-		if err != nil {
-			Logger.Println(err)
-			continue
-		}
-		err = job.AddToCron()
+		err := RegisterJob(f)
 		if err != nil {
 			Logger.Println(err)
 		}
 	}
 	return nil
+}
+
+// RegisterJob registers a job in database and cron
+func RegisterJob(filename string) error {
+	job, err := CreateJobFromFile(filename)
+	if err != nil {
+		return err
+	}
+	err = DB.Update(func(tx *bolt.Tx) error {
+		jobsBucket := tx.Bucket(JobsBucket)
+
+		jb, err := jobsBucket.CreateBucketIfNotExists([]byte(job.Name))
+		if err != nil {
+			return err
+		}
+		paramsB, err := json.Marshal(job.DefaultParams)
+		if err != nil {
+			return err
+		}
+		err = jb.Put([]byte("defaultParams"), paramsB)
+		if err != nil {
+			return err
+		}
+		err = jb.Put([]byte("desc"), []byte(job.Desc))
+		if err != nil {
+			return err
+		}
+		err = jb.Put([]byte("interval"), []byte(job.Interval))
+		if err != nil {
+			return err
+		}
+		isActive := jb.Get([]byte("active"))
+		if isActive == nil {
+			err = jb.Put([]byte("active"), []byte("true"))
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+	err = job.AddToCron()
+	if err == nil {
+		Logger.Println("Registered job", job.Name)
+	}
+	return err
+}
+
+// UnregisterJob removes a job from database and cron
+func UnregisterJob(filename string) {
+	jobName := GetJobNameFromPath(filename)
+	RemoveJobFromCron(jobName)
+	CleanupJobsBucket()
+	Logger.Println("Unregistered job", jobName)
+}
+
+func RemoveJobFromCron(name string) {
+	for _, entry := range GlobalCron.Entries() {
+		entryJob, ok := entry.Job.(*Job)
+		if ok && entryJob.Name == name {
+			GlobalCron.Remove(entry.ID)
+			Logger.Printf("Removing job %s from cron\n", name)
+			break
+		}
+	}
 }
 
 // RunJob creates a new build and schedules it for execution
@@ -318,13 +354,16 @@ func InitJobWatcher(jobDir string, jobsExt string) {
 					return
 				}
 				if strings.HasSuffix(event.Name, jobsExt) {
-					if event.Has(fsnotify.Create | fsnotify.Write | fsnotify.Remove | fsnotify.Rename) {
+					if event.Has(fsnotify.Create | fsnotify.Write) {
 						Logger.Println("jobs dir watcher:", event.Op.String(), event.Name)
-						CleanupJobsBucket()
-						err := ScanAllJobs()
+						err := RegisterJob(event.Name)
 						if err != nil {
 							Logger.Println(err)
 						}
+					}
+					if event.Has(fsnotify.Remove) {
+						Logger.Println("jobs dir watcher:", event.Op.String(), event.Name)
+						UnregisterJob(event.Name)
 					}
 				}
 			}

@@ -94,7 +94,7 @@ func CleanupJobsBucket() {
 			path := Config.JobDir + name + Config.jobsExt
 			_, err := os.Stat(path)
 			if err != nil {
-				Logger.Printf("Removing %s: %s\n", name, err.Error())
+				Logger.Printf("Removing %s from database, reason: %s\n", name, err.Error())
 				toRemove = append(toRemove, key)
 			}
 		}
