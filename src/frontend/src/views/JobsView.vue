@@ -42,14 +42,6 @@
             <i>add_circle</i>
             Create a new job
         </button>
-
-        <button
-            data-cy="refresh-jobs"
-            @click.prevent="refreshJobs"
-        >
-            <i>sync</i>
-            Reload all jobs
-        </button>
     </nav>
 
     <nav class="no-space small-margin">
@@ -179,20 +171,6 @@ export default {
         },
         enterClicked() {
             this.$refs.createButton.click();
-        },
-        refreshJobs() {
-            // Helps to hide the tooltip
-            document.documentElement.focus();
-            axios
-                .post("/api/jobs/refresh")
-                .then((response) => {
-                    this.$notify({
-                        text: "Jobs have been refreshed",
-                        type: "primary",
-                    });
-                    this.fetch();
-                })
-                .catch((error) => {});
         },
         clearFilter() {
             this.filter = "";

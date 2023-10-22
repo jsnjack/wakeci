@@ -106,35 +106,7 @@ func HandleJobsCreate(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(err.Error()))
 			return
 		}
-		CleanupJobsBucket()
-		err = ScanAllJobs()
-		if err != nil {
-			logger.Println(err)
-		}
 	} else {
-		logger.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
-		return
-	}
-}
-
-// HandleJobsRefresh deletes all jobs and reads them again from config directory
-// @Summary      Refresh all jobs from the configuration folder; removes non-existing jobs
-// @Tags         jobs
-// @Produce      plain
-// @Success      200      {string}    string
-// @Failure      500      {string}    string
-// @Router       /jobs/refresh [post]
-func HandleJobsRefresh(w http.ResponseWriter, r *http.Request) {
-	logger, ok := r.Context().Value(HL).(*log.Logger)
-	if !ok {
-		logger = Logger
-	}
-
-	CleanupJobsBucket()
-	err := ScanAllJobs()
-	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))

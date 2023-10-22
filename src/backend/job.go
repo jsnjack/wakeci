@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/robfig/cron/v3"
 	yaml "gopkg.in/yaml.v2"
 
@@ -291,4 +292,50 @@ func RunJob(name string, params url.Values) (*Build, error) {
 	GlobalQueue.Take()
 	build.BroadcastUpdate()
 	return build, nil
+}
+
+// InitJobWatcher initializes watcher which uses fsnotify to watch for changes
+// in the folder with job files
+func InitJobWatcher(jobDir string, jobsExt string) {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		Logger.Fatal(err)
+	}
+	defer watcher.Close()
+
+	go func() {
+		for {
+			select {
+			// Read from Errors.
+			case err, ok := <-watcher.Errors:
+				if !ok { // Channel was closed (i.e. Watcher.Close() was called).
+					return
+				}
+				Logger.Printf("ERROR: %s\n", err)
+			// Read from Events.
+			case event, ok := <-watcher.Events:
+				if !ok { // Channel was closed (i.e. Watcher.Close() was called).
+					return
+				}
+				if strings.HasSuffix(event.Name, jobsExt) {
+					if event.Has(fsnotify.Create | fsnotify.Write | fsnotify.Remove | fsnotify.Rename) {
+						Logger.Println("jobs dir watcher:", event.Op.String(), event.Name)
+						CleanupJobsBucket()
+						err := ScanAllJobs()
+						if err != nil {
+							Logger.Println(err)
+						}
+					}
+				}
+			}
+		}
+	}()
+
+	err = watcher.Add(jobDir)
+	if err != nil {
+		Logger.Fatal(err)
+	}
+
+	// Block forever
+	<-make(chan struct{})
 }

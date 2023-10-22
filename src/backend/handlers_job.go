@@ -130,11 +130,6 @@ func HandleJobPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Printf("Job %s was updated\n", chi.URLParam(r, "name"))
-	CleanupJobsBucket()
-	err = ScanAllJobs()
-	if err != nil {
-		logger.Println(err)
-	}
 }
 
 // HandleDeleteJob deletes the job

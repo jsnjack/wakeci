@@ -141,6 +141,13 @@ func main() {
 	GlobalCron = cron.New()
 	GlobalCron.Start()
 
+	err = os.MkdirAll(Config.JobDir, os.ModePerm)
+	if err != nil {
+		Logger.Fatal(err)
+	}
+
+	go InitJobWatcher(Config.JobDir, Config.jobsExt)
+
 	CleanupJobsBucket()
 	ScanAllJobs()
 	CleanupOldBuilds(BuildCleanupPeriod)
@@ -174,7 +181,6 @@ func main() {
 		router.Route("/jobs", func(router chi.Router) {
 			router.Get("/", HandleJobsView)
 			router.Post("/create", HandleJobsCreate)
-			router.Post("/refresh", HandleJobsRefresh)
 		})
 
 		router.Route("/job", func(router chi.Router) {
