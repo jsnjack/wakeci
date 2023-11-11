@@ -15,7 +15,7 @@
   "dependencies": {
     "@kyvg/vue3-notification": "^3.0.2",
     "@vitejs/plugin-vue": "^4.4.0",
-    "axios": "^1.5.1",
+    "axios": "^1.6.0",
     "beercss": "^3.4.0",
     "codemirror-editor-vue3": "^2.3.0",
     "cypress": "^13.3.2",
