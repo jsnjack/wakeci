@@ -349,4 +349,80 @@ tasks:
                 cy.get("body").should("contain", "> Condition is false");
             });
     });
+
+    it("should combine both if and when", function () {
+        const jobName = "myjob" + new Date().getTime();
+        cy.request({
+            url: "/api/jobs/create",
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                name: jobName,
+            },
+            form: true,
+        });
+
+        const jobContent = `
+    desc: Env test
+    params:
+      - CITY: PRUZHANY
+      - COUNTRY: BELARUS
+    tasks:
+      - name: Block
+        block:
+          - name: Print kernel information 1
+            run: uname -a
+            when: $COUNTRY = BELARUS
+
+          - name: Print kernel information 2
+            run: uname -a
+            when: $COUNTRY = PRUZHANY
+        if: test $CITY == PRUZHANY
+    `;
+
+        cy.request({
+            url: "/api/job/" + jobName,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                fileContent: jobContent,
+            },
+            form: true,
+        });
+
+        // Create build
+        cy.request({
+            url: `/api/job/${jobName}/run`,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {},
+            form: true,
+        });
+
+        cy.visit("/");
+        cy.login();
+        cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=open-build-button]").should("have.length", 1);
+        cy.get("[data-cy-build]")
+            .invoke("attr", "data-cy-build")
+            .then((val) => {
+                cy.get("[data-cy=open-build-button]").click();
+                cy.url().should("include", "/build/" + val);
+                cy.get("[data-cy=task-title]").eq(0).click();
+                cy.get("body").should("contain", "> Condition is true");
+                cy.get("[data-cy=task-title]").eq(0).click();
+
+                cy.get("[data-cy=task-title]").eq(1).click();
+                cy.get("body").should("contain", "> Condition is false");
+            });
+    });
 });
