@@ -391,4 +391,77 @@ tasks:
                 cy.get("body").should("contain", "task 1");
             });
     });
+    it("should include tasks from the template file and override original if", function () {
+        // Create a file with tasks to include
+        const filePath = "/tmp/tasks.inc";
+        const includeContent = `
+- name: Included task 1
+  run: echo "task 1"
+  if: test $NAME == joe
+`;
+        cy.writeFile(filePath, includeContent);
+        // Create job
+        const jobName = "myjob" + new Date().getTime();
+        cy.request({
+            url: "/api/jobs/create",
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                name: jobName,
+            },
+            form: true,
+        });
+
+        const jobContent = `
+desc: Include test
+params:
+  - NAME: tim
+tasks:
+  - include: ${filePath}
+    if: test $NAME == tim
+`;
+
+        cy.request({
+            url: "/api/job/" + jobName,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {
+                fileContent: jobContent,
+            },
+            form: true,
+        });
+
+        // Create build
+        cy.request({
+            url: `/api/job/${jobName}/run`,
+            method: "POST",
+            auth: {
+                user: "",
+                pass: "admin",
+            },
+            body: {},
+            form: true,
+        });
+
+        cy.visit("/");
+        cy.login();
+        cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=open-build-button]").should("have.length", 1);
+        cy.get("[data-cy-build]")
+            .invoke("attr", "data-cy-build")
+            .then((val) => {
+                cy.get("[data-cy=open-build-button]").click();
+                cy.url().should("include", "/build/" + val);
+                // Verify number of tasks
+                cy.get("[data-cy=reload]").should("have.length", 1);
+                cy.get("[data-cy=reload]").click();
+                cy.get("body").should("contain", "task 1");
+            });
+    });
 });

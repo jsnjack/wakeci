@@ -70,6 +70,12 @@ func injectExpandedTasks(t *Task, pos int, toInject []*Task, tasks *[]*Task) {
 			}
 			(*tasks)[pos+i].When += t.When
 		}
+		if t.If != "" {
+			if (*tasks)[pos+i].If != "" {
+				(*tasks)[pos+i].If += " && "
+			}
+			(*tasks)[pos+i].If += t.If
+		}
 		(*tasks)[pos+i].Kind = t.Kind
 	}
 }

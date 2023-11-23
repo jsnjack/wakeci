@@ -23,13 +23,13 @@ tasks:
 
   # `include` adds tasks from external file. The value can be an absolute path or
   # a path relative to WAKE_CONFIG_DIR.
-  # If `when` or `env` is specified, all included tasks inherit it
+  # If `when`, `if` or `env` is specified, all included tasks inherit it
   - include: includes/notifications.yml
     env:
       KEY: secret
 
   # `block` statement allows to group multiple tasks together
-  # If `when` or `env` is specified, all tasks inside `block` statement inherit it
+  # If `when`, `if` or `env` is specified, all tasks inside `block` statement inherit it
   - name: Install application
     block:
       - name: Install application with dnf
