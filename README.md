@@ -122,8 +122,14 @@ make runf
 make runb
 ```
 
-#### Update (almost) all outdated npm packages
+#### Update all outdated npm packages
 
 ```bash
 npm outdated --json | jq -r 'keys[]' | xargs -I % npm i %@latest --save
+```
+
+#### Update all outdated go packages
+
+```bash
+GOWORK=off go-mod-upgrade
 ```
