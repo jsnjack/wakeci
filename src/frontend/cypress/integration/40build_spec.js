@@ -629,7 +629,7 @@ params:
 tasks:
   - name: Print env
     run: env
-    when: test -n "$NAME"
+    if: test -n "$NAME"
 `;
 
         cy.request({
