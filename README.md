@@ -77,6 +77,8 @@ hostname: ""
 workdir: ./wakeci
 # Configuration directory - all your job files (default "./")
 jobdir: ./
+# Path to the file with secrets
+secretsfile: ./secrets.yaml
 ```
 
 > Default password is `admin`. Don't forget to immediately change it!
