@@ -1,7 +1,7 @@
 package main
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	yaml "gopkg.in/yaml.v2"
@@ -86,7 +86,7 @@ func ReadTasks(path string) ([]*Task, error) {
 	if filepath.IsAbs(path) {
 		includePath = path
 	}
-	data, err := ioutil.ReadFile(includePath)
+	data, err := os.ReadFile(includePath)
 	if err != nil {
 		return nil, err
 	}

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -30,7 +29,7 @@ func CreateWakeConfig(path string) (*WakeConfig, error) {
 	// Verify that config file exists
 	if _, err := os.Stat(path); err == nil {
 		Logger.Printf("Using configuration file: %s\n", path)
-		data, err := ioutil.ReadFile(path)
+		data, err := os.ReadFile(path)
 		if err != nil {
 			return nil, err
 		}

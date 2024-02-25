@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -60,7 +59,7 @@ func HandleJobGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	path := Config.JobDir + chi.URLParam(r, "name") + Config.jobsExt
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)

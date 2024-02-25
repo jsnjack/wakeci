@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -41,7 +40,7 @@ func getBuildConfig(buildID int) (*Job, error) {
 		return nil, err
 	} else {
 		// Config file with new format exists
-		data, err := ioutil.ReadFile(newConfigFilename)
+		data, err := os.ReadFile(newConfigFilename)
 		if err != nil {
 			return nil, err
 		}
