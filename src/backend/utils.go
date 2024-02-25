@@ -2,9 +2,7 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"math/rand"
-	"net"
 	"regexp"
 )
 
@@ -27,16 +25,6 @@ var colorEscapeCodesRE = regexp.MustCompile(colorEscapeCodes)
 // StripColor removes color escape codes from string
 func StripColor(str string) string {
 	return colorEscapeCodesRE.ReplaceAllString(str, "")
-}
-
-// EnsureLocalIP returns error if IP address is not local
-func EnsureLocalIP(ip string) error {
-	ipObj := net.ParseIP(ip)
-
-	if ipObj.IsLoopback() {
-		return nil
-	}
-	return fmt.Errorf("not a local IP: %s", ip)
 }
 
 // NormalizeNewlines normalizes \r\n (windows) and \r (mac)

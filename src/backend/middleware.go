@@ -152,30 +152,3 @@ func AuthMi(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
-
-// InternalAuthMi requires calls to be made from localhost only
-func InternalAuthMi(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger, ok := r.Context().Value(HL).(*log.Logger)
-		if !ok {
-			logger = Logger
-		}
-
-		// Get IP address of a user
-		ip, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err != nil {
-			logger.Println(err)
-			w.WriteHeader(http.StatusForbidden)
-			return
-		}
-
-		err = EnsureLocalIP(ip)
-
-		if err != nil {
-			logger.Println(err)
-			w.WriteHeader(http.StatusForbidden)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
-}

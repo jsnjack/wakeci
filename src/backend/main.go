@@ -202,11 +202,6 @@ func main() {
 		router.Post("/settings", HandleSettingsPost)
 	})
 
-	router.Route("/internal", func(router chi.Router) {
-		router.Use(InternalAuthMi)
-		router.Post("/api/job/{name}/run", HandleRunJob)
-	})
-
 	router.Route("/storage", func(router chi.Router) {
 		// Storage server
 		router.Use(StorageSecurityMi)
