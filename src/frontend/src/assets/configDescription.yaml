@@ -16,7 +16,7 @@ tasks:
     # command in `run` is executed when the command in `if` has exit code 0
     if: test -f API.md
     env:
-      KEY: secret
+      DRY: false
       HTTPS: true
     # Set task status to `finished` even if exit code is not 0
     ignore_errors: yes
@@ -26,7 +26,7 @@ tasks:
   # If `when`, `if` or `env` is specified, all included tasks inherit it
   - include: includes/notifications.yml
     env:
-      KEY: secret
+      DRY: false
 
   # `block` statement allows to group multiple tasks together
   # If `when`, `if` or `env` is specified, all tasks inside `block` statement inherit it
@@ -38,7 +38,20 @@ tasks:
       - name: Print all installed packages
         run: dnf List
     env:
-      KEY: secret
+      DRY: false
+
+  # Using secrets. Secrets allow you to store sensitive information in your wake
+  # configuration files. Use `secretsfile` configuration option for wakeci to
+  # specify the path to the file with secrets.
+  #
+  # In a job file, secrets are accessed using the `secrets` object. The `secrets`
+  # object is a map of secret names to their values. Secrets can be accessed in
+  # the `env` section, `params` section and `run` section. Wakeci will automatically
+  # redact secrets from the build logs.
+  - name: Example of using secrets
+    run: echo "My secret is {{ secrets.MY_SECRET }} and my API key is {{ secrets.API_KEY }}"
+    env:
+      API_KEY: "{{ secrets.API_KEY }}"
 
 # List of patterns according to https://golang.org/pkg/path/filepath/#Match
 # related to the workspace directory

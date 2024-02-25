@@ -20,6 +20,10 @@ type WakeConfig struct {
 	JobDir string `yaml:"jobdir"`
 	// Job files extension
 	jobsExt string
+	// Path to the file with secrets
+	SecretsFile string `yaml:"secretsfile"`
+	// Map of secrets retrieved from SecretsFile
+	secrets map[string]string
 }
 
 // CreateWakeConfig creates new config instance
@@ -57,6 +61,19 @@ func CreateWakeConfig(path string) (*WakeConfig, error) {
 	}
 
 	config.jobsExt = ".yaml"
+
+	// Load secrets
+	if config.SecretsFile != "" {
+		Logger.Printf("Loading secrets from: %s\n", config.SecretsFile)
+		data, err := os.ReadFile(config.SecretsFile)
+		if err != nil {
+			return nil, err
+		}
+		err = yaml.Unmarshal(data, &config.secrets)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	// Clean up the config object
 	cwd, err := os.Getwd()

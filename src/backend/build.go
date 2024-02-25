@@ -143,7 +143,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 		Streaming:      true,
 		LineBufferSize: 491520,
 	}
-	taskCmd := cmd.NewCmdOptions(cmdOptions, "bash", "-c", task.Command)
+	taskCmd := cmd.NewCmdOptions(cmdOptions, "bash", "-c", injectSecrets(task.Command))
 
 	// Configure task logs
 	file, err := os.Create(b.GetWakespaceDir() + fmt.Sprintf("task_%d.log", task.ID))
@@ -169,12 +169,12 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	taskCmd.Env = append(taskCmd.Env, b.generateDefaultEnvVariables()...)
 	for idx := range b.Params {
 		for pkey, pval := range b.Params[idx] {
-			taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", pkey, pval))
+			taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", pkey, injectSecrets(pval)))
 		}
 	}
 
 	for key, value := range task.Env {
-		taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", key, value))
+		taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", key, injectSecrets(value)))
 	}
 
 	envFile := b.GetWorkspaceDir() + "build.env"
@@ -186,7 +186,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 		}
 	} else {
 		for key, value := range buidEnv {
-			taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", key, value))
+			taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", key, injectSecrets(value)))
 		}
 	}
 
@@ -285,7 +285,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	expandedTaskCmd := os.Expand(task.Command, getEnvMapper(taskCmd.Env))
 	if expandedTaskCmd != task.Command {
 		b.ProcessLogEntry(
-			"> Expanded command: "+os.Expand(task.Command, getEnvMapper(taskCmd.Env)), bw, task.ID, task.startedAt,
+			"> Expanded command: "+injectSecrets(expandedTaskCmd), bw, task.ID, task.startedAt,
 		)
 	}
 
@@ -498,9 +498,10 @@ func (b *Build) ProcessLogEntry(line string, buffer *bufio.Writer, taskID int, s
 	// Format and clean up the log line:
 	// - add duration and a new line to the log entry
 	// - stip out color info
+	// - redact servers from the log
 	//
 	// Note: Internal logs start with `>`
-	pline := fmt.Sprintf("[%10s] ", time.Since(startedAt).Truncate(time.Millisecond).String()) + StripColor(line) + "\n"
+	pline := fmt.Sprintf("[%10s] ", time.Since(startedAt).Truncate(time.Millisecond).String()) + StripColor(redactSecrets(line)) + "\n"
 	// Write to the task's log file
 	_, err := buffer.WriteString(pline)
 	if err != nil {

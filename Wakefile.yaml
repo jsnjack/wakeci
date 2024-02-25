@@ -1,2 +1,3 @@
 workdir: ./workdir
 jobdir: ./workdir
+secretsfile: ./secrets.yaml
