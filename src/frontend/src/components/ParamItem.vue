@@ -28,7 +28,7 @@
 </template>
 
 <script>
-const LENGTH_LIMIT = 20;
+const LENGTH_LIMIT = 30;
 
 export default {
     props: {
