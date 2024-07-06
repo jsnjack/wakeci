@@ -28,8 +28,7 @@
 </template>
 
 <script>
-// Commit message length
-const LENGTH_LIMIT = 40;
+const LENGTH_LIMIT = 20;
 
 export default {
     props: {
