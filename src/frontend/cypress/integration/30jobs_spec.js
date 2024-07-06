@@ -107,7 +107,7 @@ describe("Jobs page", function () {
             .clear()
             .type(jobName + "bad");
         cy.get("[data-cy=jobs-container]").should("contain", "No jobs found");
-        cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=filter]").click({force:true}).clear().type(jobName);
         cy.get("[data-cy=jobs-container]").should("have.length", 1);
     });
 });

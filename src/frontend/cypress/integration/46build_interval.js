@@ -38,7 +38,7 @@ concurrency: 1
         });
         cy.visit("/");
         cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=filter]").click({force:true}).clear().type(jobName);
         cy.get("[data-cy-status]").should("have.length.at.least", 2);
         cy.get("[data-cy-status]").should((items) => {
             expect(items, "2 items").to.have.length(2);

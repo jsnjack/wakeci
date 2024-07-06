@@ -49,7 +49,7 @@ tasks:
 
         cy.visit("/");
         cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=filter]").click({force:true}).clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
         cy.get("[data-cy-build]")
             .invoke("attr", "data-cy-build")
@@ -114,7 +114,7 @@ tasks:
 
         cy.visit("/");
         cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=filter]").click({force:true}).clear().type(jobName);
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
         cy.get("[data-cy-build]")
             .invoke("attr", "data-cy-build")

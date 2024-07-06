@@ -23,9 +23,9 @@ describe("Feed page", function () {
             form: true,
         });
         cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=filter]").click({force:true}).clear().type(jobName);
         cy.get("[data-cy=no-builds-found]").should("contain", "No builds found");
-        cy.get("[data-cy=filter]").clear();
+        cy.get("[data-cy=filter]").click({force:true}).clear();
         cy.request({
             url: `/api/job/${jobName}/run`,
             method: "POST",
@@ -36,7 +36,7 @@ describe("Feed page", function () {
             body: {},
             form: true,
         });
-        cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=filter]").click({force:true}).clear().type(jobName);
         cy.get("[data-cy=feed-container]").should("have.length", 1);
         cy.get("[data-cy=filtered-updates]").should("not.be.visible");
     });
@@ -70,7 +70,7 @@ describe("Feed page", function () {
             form: true,
         });
         cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=filter]").click({force:true}).clear().type(jobName);
         cy.request({
             url: `/api/job/${jobName}/run`,
             method: "POST",
@@ -155,7 +155,7 @@ run: env
         });
 
         cy.login();
-        cy.get("[data-cy=filter]").clear().type("bereza");
+        cy.get("[data-cy=filter]").click({force:true}).clear().type("bereza");
         cy.get("[data-cy=feed-container]").should("be.visible").should("have.length", 1);
     });
 
@@ -214,7 +214,7 @@ run: env
 
         cy.visit("/");
         cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=filter]").click({force:true}).clear().type(jobName);
         cy.get("[data-cy=params-container]")
             .invoke("attr", "data-cy-build")
             .then((val) => {
@@ -273,9 +273,7 @@ run: env
             form: true,
         });
         cy.login();
-        cy.get("[data-cy=filter]")
-            .clear()
-            .type('"' + jobName + '"');
+        cy.get("[data-cy=filter]").click({force: true}).clear().type('"' + jobName + '"');
         cy.get("[data-cy=open-build-button]").should("have.length", 1);
         cy.get("[data-cy-build]")
             .invoke("attr", "data-cy-build")
@@ -348,7 +346,7 @@ concurrency: 1
         });
         cy.visit("/");
         cy.login();
-        cy.get("[data-cy=filter]").clear().type(jobName);
+        cy.get("[data-cy=filter]").click({force:true}).clear().type(jobName);
         cy.get("[data-cy-status]").should("have.length", 2);
         cy.get("[data-cy-status]").should((items) => {
             expect(items, "2 items").to.have.length(2);
