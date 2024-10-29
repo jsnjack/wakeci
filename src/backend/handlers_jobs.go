@@ -112,6 +112,14 @@ func HandleJobsCreate(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(err.Error()))
 			return
 		}
+		logger.Printf("Job %s was created\n", name)
+		err = RegisterJob(path)
+		if err != nil {
+			logger.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
+		}
 	} else {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
