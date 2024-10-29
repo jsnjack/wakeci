@@ -79,6 +79,9 @@ workdir: ./wakeci
 jobdir: ./
 # Path to the file with secrets
 secretsfile: ./secrets.yaml
+# Scheduled jobs (via `interval` field) will use this timezone, if not specified
+# in the job configuration
+timezone: Europe/Amsterdam
 ```
 
 > Default password is `admin`. Don't forget to immediately change it!

@@ -51,8 +51,14 @@ func (j *Job) AddToCron() error {
 	if j.Interval == "" {
 		return nil
 	}
-	_, err := GlobalCron.AddJob(j.Interval, j)
-	Logger.Printf("Add job %s to cron with interval %s\n", j.Name, j.Interval)
+
+	intervalStr := j.Interval
+	if !strings.HasPrefix(intervalStr, "CRON_TZ=") && Config.Timezone != "" {
+		intervalStr = "CRON_TZ=" + Config.Timezone + " " + intervalStr
+	}
+
+	_, err := GlobalCron.AddJob(intervalStr, j)
+	Logger.Printf("Add job %s to cron with interval %s\n", j.Name, intervalStr)
 	return err
 }
 

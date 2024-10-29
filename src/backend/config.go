@@ -24,6 +24,8 @@ type WakeConfig struct {
 	SecretsFile string `yaml:"secretsfile"`
 	// Map of secrets retrieved from SecretsFile
 	secrets map[string]string
+	// Timezone for cron jobs (`interval` field in job files)
+	Timezone string `yaml:"timezone"`
 }
 
 // CreateWakeConfig creates new config instance
