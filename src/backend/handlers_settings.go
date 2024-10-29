@@ -46,6 +46,7 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			logger.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Header().Set("Content-Type", "text/plain")
 			w.Write([]byte(err.Error()))
 			return
 		}
@@ -57,6 +58,7 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(err.Error()))
 		return
 	}
@@ -68,6 +70,7 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(err.Error()))
 		return
 	}
@@ -82,6 +85,7 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(err.Error()))
 		return
 	}
@@ -120,6 +124,7 @@ func HandleSettingsGet(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(err.Error()))
 		return
 	}
@@ -128,8 +133,10 @@ func HandleSettingsGet(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(err.Error()))
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 	w.Write(payloadB)
 }

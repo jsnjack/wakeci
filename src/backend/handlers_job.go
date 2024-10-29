@@ -39,9 +39,11 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(err.Error()))
 		return
 	}
+	w.Header().Set("Content-Type", "text/plain")
 	w.Write([]byte(strconv.Itoa(build.ID)))
 }
 
@@ -63,6 +65,7 @@ func HandleJobGet(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(err.Error()))
 		return
 	}
@@ -73,9 +76,11 @@ func HandleJobGet(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(err.Error()))
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 	w.Write(payloadB)
 }
 
@@ -104,6 +109,7 @@ func HandleJobPost(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(err.Error()))
 		return
 	}
@@ -113,6 +119,7 @@ func HandleJobPost(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(err.Error()))
 		return
 	}
@@ -125,6 +132,7 @@ func HandleJobPost(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(err.Error()))
 		return
 	}
@@ -156,6 +164,7 @@ func HandleDeleteJob(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			logger.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Header().Set("Content-Type", "text/plain")
 			w.Write([]byte(err.Error()))
 			return
 		}
@@ -167,6 +176,7 @@ func HandleDeleteJob(w http.ResponseWriter, r *http.Request) {
 	} else {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(err.Error()))
 		return
 	}
@@ -197,6 +207,7 @@ func HandleJobSetActive(w http.ResponseWriter, r *http.Request) {
 		m := fmt.Sprintf("Invalid active flag for a job: %s\n", activeStatus)
 		logger.Printf("Invalid active flag for a job: %s\n", activeStatus)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(m))
 		return
 	}
@@ -216,8 +227,10 @@ func HandleJobSetActive(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(err.Error()))
 		return
 	}
+	w.Header().Set("Content-Type", "text/plain")
 	w.Write([]byte(activeStatus))
 }

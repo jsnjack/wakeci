@@ -119,6 +119,7 @@ func AuthMi(next http.Handler) http.Handler {
 			if err != nil {
 				logger.Println(err)
 				w.WriteHeader(http.StatusInternalServerError)
+				w.Header().Set("Content-Type", "text/plain")
 				w.Write([]byte("Another triumph"))
 				return
 			}
@@ -127,6 +128,7 @@ func AuthMi(next http.Handler) http.Handler {
 			if err != nil {
 				logger.Println(err)
 				w.WriteHeader(http.StatusForbidden)
+				w.Header().Set("Content-Type", "text/plain")
 				w.Write([]byte("Forbidden"))
 				return
 			}
@@ -139,6 +141,7 @@ func AuthMi(next http.Handler) http.Handler {
 		if err != nil {
 			logger.Println(err)
 			w.WriteHeader(http.StatusForbidden)
+			w.Header().Set("Content-Type", "text/plain")
 			w.Write([]byte("Forbidden"))
 			return
 		}
@@ -146,6 +149,7 @@ func AuthMi(next http.Handler) http.Handler {
 		if err != nil {
 			logger.Println(err)
 			w.WriteHeader(http.StatusForbidden)
+			w.Header().Set("Content-Type", "text/plain")
 			w.Write([]byte("Forbidden"))
 			return
 		}

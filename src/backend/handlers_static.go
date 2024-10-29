@@ -19,6 +19,7 @@ func HandleVueResources(h http.Handler) http.Handler {
 		switch {
 		case strings.HasPrefix(r.URL.Path, "/api/"), strings.HasPrefix(r.URL.Path, "/auth/"), strings.HasPrefix(r.URL.Path, "/storage/"):
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Header().Set("Content-Type", "text/plain")
 			logger.Printf("vue 500 %s\n", r.URL.Path)
 			return
 		}

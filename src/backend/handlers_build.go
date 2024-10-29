@@ -73,6 +73,7 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(err.Error()))
 		return
 	}
@@ -81,6 +82,7 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(err.Error()))
 		return
 	}
@@ -101,6 +103,7 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Header().Set("Content-Type", "text/plain")
 			w.Write([]byte(err.Error()))
 		}
 		return
@@ -114,9 +117,11 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(err.Error()))
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 	w.Write(payloadB)
 }
 
@@ -144,6 +149,7 @@ func HandleAbortBuild(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(err.Error()))
 		return
 	}
@@ -175,6 +181,7 @@ func HandleFlushTaskLogs(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(err.Error()))
 		return
 	}
@@ -206,6 +213,7 @@ func HandleStartBuild(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(err.Error()))
 		return
 	}

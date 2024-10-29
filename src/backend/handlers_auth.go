@@ -42,6 +42,7 @@ func HandleLogIn(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Println(err, password)
 		w.WriteHeader(http.StatusForbidden)
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte("Incorrect password"))
 		return
 	}

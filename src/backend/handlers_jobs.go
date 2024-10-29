@@ -52,6 +52,7 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(err.Error()))
 		return
 	}
@@ -59,9 +60,11 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(err.Error()))
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 	w.Write(payloadB)
 }
 
@@ -86,6 +89,7 @@ func HandleJobsCreate(w http.ResponseWriter, r *http.Request) {
 	if _, err := os.Stat(path); err == nil {
 		logger.Printf("File %s already exists\n", path)
 		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte("Job with this name already exists"))
 		return
 	} else if os.IsNotExist(err) {
@@ -96,6 +100,7 @@ func HandleJobsCreate(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			logger.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Header().Set("Content-Type", "text/plain")
 			w.Write([]byte(err.Error()))
 			return
 		}
@@ -103,12 +108,14 @@ func HandleJobsCreate(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			logger.Println(err)
 			w.WriteHeader(http.StatusBadRequest)
+			w.Header().Set("Content-Type", "text/plain")
 			w.Write([]byte(err.Error()))
 			return
 		}
 	} else {
 		logger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(err.Error()))
 		return
 	}
