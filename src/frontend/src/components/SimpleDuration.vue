@@ -16,7 +16,7 @@
 </template>
 
 <script>
-import { runningDuration, doneDuration, doneDurationSec } from "@/duration";
+import { doneDuration, doneDurationSec, runningDuration } from "@/duration";
 
 export default {
     props: {
@@ -152,7 +152,7 @@ export default {
 };
 </script>
 
-<style scoped lang="scss">
+<style scoped >
 div {
     cursor: default;
 }

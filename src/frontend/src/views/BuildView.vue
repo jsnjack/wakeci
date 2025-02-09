@@ -110,16 +110,16 @@
 </template>
 
 <script>
-import vuex from "vuex";
-import axios from "axios";
+import ArtifactItem from "@/components/ArtifactItem.vue";
 import BuildStatus from "@/components/BuildStatus.vue";
 import NotFound from "@/components/NotFound.vue";
 import ParamItem from "@/components/ParamItem.vue";
 import RunJobButton from "@/components/RunJobButton.vue";
-import TaskItem from "@/components/TaskItem.vue";
-import ArtifactItem from "@/components/ArtifactItem.vue";
 import SimpleDuration from "@/components/SimpleDuration.vue";
 import SimpleStartedAgo from "@/components/SimpleStartedAgo.vue";
+import TaskItem from "@/components/TaskItem.vue";
+import axios from "axios";
+import vuex from "vuex";
 import StartBuildNowButton from "../components/StartBuildNowButton.vue";
 
 export default {
@@ -312,4 +312,4 @@ export default {
 };
 </script>
 
-<style scoped lang="scss"></style>
+<style scoped ></style>

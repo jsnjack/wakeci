@@ -84,11 +84,11 @@
 
 <script>
 import BuildStatus from "@/components/BuildStatus.vue";
+import ParamItem from "@/components/ParamItem.vue";
 import SimpleDuration from "@/components/SimpleDuration.vue";
 import SimpleStartedAgo from "@/components/SimpleStartedAgo.vue";
-import ParamItem from "@/components/ParamItem.vue";
-import StartBuildNowButton from "./StartBuildNowButton.vue";
 import axios from "axios";
+import StartBuildNowButton from "./StartBuildNowButton.vue";
 
 const MAX_DEFAULT_NUMBER_OF_PARAMS = 3;
 
@@ -168,7 +168,7 @@ export default {
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped lang="scss">
+<style scoped >
 .feed-item {
     background-color: var(--surface-container);
     padding: 0.5rem 0.5rem !important;

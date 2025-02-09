@@ -69,8 +69,8 @@
 </template>
 
 <script>
-import axios from "axios";
 import RunJobButton from "@/components/RunJobButton.vue";
+import axios from "axios";
 
 export default {
     components: { RunJobButton },
@@ -125,4 +125,4 @@ export default {
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped lang="scss"></style>
+<style scoped ></style>

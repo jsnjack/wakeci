@@ -68,13 +68,13 @@
 
 <script>
 // importing as beercss and materialDynamicColors
+import "@/assets/main.css";
 import "beercss";
 import "material-dynamic-colors";
-import "@/assets/main.scss";
 
-import vuex from "vuex";
-import axios from "axios";
 import { getWSURL } from "@/store/communication.js";
+import axios from "axios";
+import vuex from "vuex";
 import wsMessageHandler from "./store/communication.js";
 
 export default {

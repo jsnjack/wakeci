@@ -50,8 +50,8 @@
 
 <script>
 import BuildStatus from "@/components/BuildStatus.vue";
-import TextSpinner from "@/components/TextSpinner.vue";
 import SimpleDuration from "@/components/SimpleDuration.vue";
+import TextSpinner from "@/components/TextSpinner.vue";
 import axios from "axios";
 
 const FlushContentPeriod = 500;
@@ -202,7 +202,7 @@ export default {
 };
 </script>
 
-<style lang="scss" scoped>
+<style  scoped>
 .log-container {
     overflow: auto;
 }

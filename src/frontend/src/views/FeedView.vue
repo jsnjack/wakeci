@@ -60,10 +60,10 @@
 
 <script>
 import FeedItem from "@/components/FeedItem.vue";
-import vuex from "vuex";
+import { createFilterObj, findInContainer, isFilteredUpdate } from "@/store/utils.js";
 import axios from "axios";
-import { findInContainer, isFilteredUpdate, createFilterObj } from "@/store/utils.js";
 import _ from "lodash";
+import vuex from "vuex";
 
 const FetchItemsSize = 10;
 
@@ -220,4 +220,4 @@ export default {
 };
 </script>
 
-<style scoped lang="scss"></style>
+<style scoped ></style>

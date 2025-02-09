@@ -58,13 +58,13 @@ export default {
 };
 </script>
 
-<style scoped lang="scss">
-// Disable cursor which comes from a button
+<style scoped>
+/* Disable cursor which comes from a button */
 button {
     cursor: auto;
 }
 
-// Disable light color on hover
+/* Disable light color on hover */
 button:hover {
     background-image: none;
 }

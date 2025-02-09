@@ -26,12 +26,12 @@
 </template>
 
 <script>
-import vuex from "vuex";
 import axios from "axios";
 import Codemirror from "codemirror-editor-vue3";
 import "codemirror/lib/codemirror.css";
-import "codemirror/theme/dracula.css";
 import "codemirror/mode/yaml/yaml.js";
+import "codemirror/theme/dracula.css";
+import vuex from "vuex";
 
 export default {
     components: {
@@ -105,4 +105,4 @@ export default {
 };
 </script>
 
-<style lang="scss" scoped></style>
+<style  scoped></style>

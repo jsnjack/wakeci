@@ -54,8 +54,8 @@
 
 <script>
 import RunFormItem from "@/components/RunFormItem.vue";
-import axios from "axios";
 import { generateRandomString } from "@/store/utils";
+import axios from "axios";
 
 export default {
     components: { RunFormItem },
@@ -114,4 +114,4 @@ export default {
 };
 </script>
 
-<style lang="scss" scoped></style>
+<style  scoped></style>
