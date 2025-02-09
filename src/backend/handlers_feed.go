@@ -40,7 +40,7 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 	offset, err := strconv.Atoi(offsetS)
 	if err != nil {
 		errMsg := fmt.Sprintf("Invalid offset: %q", offsetS)
-		logger.Printf(errMsg)
+		logger.Println(errMsg)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(errMsg))
