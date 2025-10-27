@@ -1,10 +1,12 @@
 <template>
     <div>
         <Codemirror
-            :value="job.fileContent"
+            v-model="job.fileContent"
             data-cy="editor"
-            :options="getOptions"
-            @input="onCodeChange"
+            :autofocus="true"
+            :indent-with-tab="true"
+            :tab-size="2"
+            :extensions="extensions"
         />
     </div>
     <nav>
@@ -26,11 +28,10 @@
 </template>
 
 <script>
+import { yaml } from "@codemirror/lang-yaml";
+import { oneDark } from "@codemirror/theme-one-dark";
 import axios from "axios";
-import Codemirror from "codemirror-editor-vue3";
-import "codemirror/lib/codemirror.css";
-import "codemirror/mode/yaml/yaml.js";
-import "codemirror/theme/dracula.css";
+import { Codemirror } from "vue-codemirror";
 import vuex from "vuex";
 
 export default {
@@ -56,21 +57,15 @@ export default {
     },
     computed: {
         ...vuex.mapState(["theme"]),
-        getOptions() {
-            return {
-                tabSize: 2,
-                mode: "text/x-yaml",
-                lineNumbers: true,
-                line: true,
-                indentUnit: 2,
-                theme: this.theme === "light" ? "default" : "dracula",
-            };
+        extensions() {
+            const exts = [yaml()];
+            if (this.theme === "dark") {
+                exts.push(oneDark);
+            }
+            return exts;
         },
     },
     methods: {
-        onCodeChange(newCode) {
-            this.job.fileContent = newCode;
-        },
         fetch() {
             axios
                 .get(`/api/job/${this.name}`)

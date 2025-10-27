@@ -1,20 +1,21 @@
 <template>
     <div class="content">
         <Codemirror
-            :value="configFormatContent"
+            v-model="configFormatContent"
             class="codemirror-viewer text-left"
-            :options="getOptions"
+            :disabled="true"
+            :extensions="extensions"
         />
     </div>
 </template>
 
 <script>
-import vuex from "vuex";
-import Codemirror from "codemirror-editor-vue3";
-import "codemirror/lib/codemirror.css";
-import "codemirror/theme/dracula.css";
-import "codemirror/mode/yaml/yaml.js";
 import description from "@/assets/configDescription.yaml?raw";
+import { yaml } from "@codemirror/lang-yaml";
+import { oneDark } from "@codemirror/theme-one-dark";
+import { EditorView } from "@codemirror/view";
+import { Codemirror } from "vue-codemirror";
+import vuex from "vuex";
 
 export default {
     components: {
@@ -22,14 +23,12 @@ export default {
     },
     computed: {
         ...vuex.mapState(["theme"]),
-        getOptions() {
-            return {
-                tabSize: 2,
-                mode: "text/x-yaml",
-                lineNumbers: false,
-                readOnly: true,
-                theme: this.theme === "light" ? "default" : "dracula",
-            };
+        extensions() {
+            const exts = [yaml(), EditorView.editable.of(false)];
+            if (this.theme === "dark") {
+                exts.push(oneDark);
+            }
+            return exts;
         },
     },
     data: function () {
