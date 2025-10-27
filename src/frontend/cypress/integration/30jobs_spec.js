@@ -44,7 +44,7 @@ describe("Jobs page", function () {
         cy.get(`[data-cy=${jobName}] [data-cy=edit-job-button]`).click();
         cy.url().should("include", "/job/" + jobName);
         for (let index = 0; index < 5; index++) {
-            cy.get("[data-cy=editor] .CodeMirror-code").type("{selectall}").type("{selectall}").type("{backspace}");
+            cy.get("[data-cy=editor] .cm-content").type("{selectall}").type("{selectall}").type("{backspace}");
         }
         cy.get("[data-cy=editor] .cm-content").type("desc: Empty job");
         cy.get("[data-cy=save-button]").click();
