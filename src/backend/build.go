@@ -167,11 +167,13 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	taskCmd.Env = os.Environ()
 	taskCmd.Dir = b.GetWorkspaceDir()
 	taskCmd.Env = append(taskCmd.Env, b.generateDefaultEnvVariables()...)
+	b.mutex.Lock()
 	for idx := range b.Params {
 		for pkey, pval := range b.Params[idx] {
 			taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", pkey, injectSecrets(pval)))
 		}
 	}
+	b.mutex.Unlock()
 
 	for key, value := range task.Env {
 		taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", key, injectSecrets(value)))
@@ -377,11 +379,13 @@ func (b *Build) runTask(task *Task) ItemStatus {
 // running a task, for example WAKE_BUILD_ID
 func (b *Build) generateDefaultEnvVariables() []string {
 	params := url.Values{}
+	b.mutex.Lock()
 	for idx := range b.Params {
 		for pkey, pval := range b.Params[idx] {
 			params.Set(pkey, pval)
 		}
 	}
+	b.mutex.Unlock()
 	var evs = []string{
 		fmt.Sprintf("WAKE_BUILD_ID=%d", b.ID),
 		fmt.Sprintf("WAKE_BUILD_WORKSPACE=%s", b.GetWorkspaceDir()),

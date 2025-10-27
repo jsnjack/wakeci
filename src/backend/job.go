@@ -320,6 +320,7 @@ func RunJob(name string, params url.Values) (*Build, error) {
 	}
 
 	// Update params from URL
+	build.mutex.Lock()
 	for idx := range build.Params {
 		for pkey := range build.Params[idx] {
 			value := params.Get(pkey)
@@ -329,6 +330,7 @@ func RunJob(name string, params url.Values) (*Build, error) {
 			}
 		}
 	}
+	build.mutex.Unlock()
 
 	GlobalQueue.Add(build)
 	GlobalQueue.Take()
