@@ -1,5 +1,3 @@
-import { toggleDurationMode } from "@/duration";
-
 const mutations = {
     WS_CONNECTED(state, connection) {
         state.ws.obj = connection;
@@ -30,8 +28,14 @@ const mutations = {
         }
     },
     SET_CURRENT_PAGE(state, value) {
-        state.currentPage = value;
-        document.title = value + " - wakeci";
+        // value can be a string or object with keys 'title' and 'icon'
+        if (typeof value === 'object' && value !== null) {
+            state.currentPage = value.title;
+            document.title = value.icon + " " + value.title + " - wakeci";
+        } else {
+            state.currentPage = value;
+            document.title = value + " - wakeci";
+        }
     },
     SET_THEME(state, value) {
         state.theme = value;

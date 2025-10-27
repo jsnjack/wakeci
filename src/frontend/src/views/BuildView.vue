@@ -267,7 +267,27 @@ export default {
             this.updateTitle();
         },
         updateTitle() {
-            this.$store.commit("SET_CURRENT_PAGE", `#${this.id} - ${this.statusUpdate.status}`);
+            const statusIcon = this.getStatusIcon(this.statusUpdate.status);
+            this.$store.commit("SET_CURRENT_PAGE", { title: `#${this.id} - ${this.statusUpdate.status}`, icon: statusIcon });
+        },
+        getStatusIcon(status) {
+            switch (status) {
+                case "failed":
+                    return "❌";
+                case "finished":
+                    return "✅";
+                case "aborted":
+                    return "🛑";
+                case "timed out":
+                    return "⏱️";
+                case "skipped":
+                    return "⤵️";
+                case "pending":
+                    return "⏳";
+                case "running":
+                    return "▶️";
+            }
+            return "";
         },
         onWSChange(value) {
             if (value) {
