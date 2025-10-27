@@ -45,7 +45,7 @@
             <div class="tooltip bottom">Delete</div>
         </button>
 
-        <dialog :class="{ active: modalDelete }">
+        <dialog :class="{ active: modalDelete }" class="padding">
             <div>
                 Are you sure you want to delete <b>{{ job.name }}</b
                 >?

@@ -1,5 +1,5 @@
 <template>
-    <dialog :class="{ active: modalOpen }">
+    <dialog :class="{ active: modalOpen }" class="padding">
         <h5>Create a new job</h5>
         <div class="field border small">
             <input

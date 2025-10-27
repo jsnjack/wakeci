@@ -22,6 +22,7 @@
     <dialog
         :id="'run-job-dialog-' + selectorID"
         ref="dialog"
+        class="padding"
     >
         <h5>{{ getModalTitle }}</h5>
         <form
