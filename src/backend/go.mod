@@ -17,7 +17,7 @@ require (
 	github.com/sasha-s/go-deadlock v0.3.6
 	github.com/swaggo/swag v1.16.6
 	go.etcd.io/bbolt v1.4.3
-	golang.org/x/crypto v0.43.0
+	golang.org/x/crypto v0.46.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
@@ -34,10 +34,10 @@ require (
 	github.com/klauspost/compress v1.16.7 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/petermattis/goid v0.0.0-20250813065127-a731cc31b4fe // indirect
-	golang.org/x/mod v0.28.0 // indirect
-	golang.org/x/net v0.45.0 // indirect
-	golang.org/x/sync v0.17.0 // indirect
-	golang.org/x/sys v0.37.0 // indirect
-	golang.org/x/text v0.30.0 // indirect
-	golang.org/x/tools v0.37.0 // indirect
+	golang.org/x/mod v0.30.0 // indirect
+	golang.org/x/net v0.47.0 // indirect
+	golang.org/x/sync v0.19.0 // indirect
+	golang.org/x/sys v0.39.0 // indirect
+	golang.org/x/text v0.32.0 // indirect
+	golang.org/x/tools v0.39.0 // indirect
 )
