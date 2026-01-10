@@ -318,7 +318,6 @@ export default {
             }
         },
         onKeyUp(event) {
-            console.log(event);
             if (event.ctrlKey && event.altKey && event.code === "KeyF") {
                 this.follow = !this.follow;
                 return;
