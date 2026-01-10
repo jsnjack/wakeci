@@ -1,3 +1,20 @@
+const lastStatuses = new Map();
+
+const handleSystemNotification = function (app, data) {
+    if (app.$store.state.notifications.includes(data.id)) {
+        const lastStatus = lastStatuses.get(data.id);
+        if (lastStatus !== data.status) {
+            if ("Notification" in window && Notification.permission === "granted") {
+                new Notification(`Build #${data.id} ${data.status}`, {
+                    body: `Job: ${data.name}`,
+                    icon: "/favicon.ico",
+                });
+            }
+            lastStatuses.set(data.id, data.status);
+        }
+    }
+};
+
 const wsMessageHandler = function (app, data) {
     const messages = data.split("\n");
     for (let i = 0; i < messages.length; i++) {
@@ -6,6 +23,8 @@ const wsMessageHandler = function (app, data) {
             app.emitter.emit(`${msg.type}:task-${msg.data.taskID}`, msg.data);
             continue;
         } else if (msg.type.startsWith("build:update:")) {
+            handleSystemNotification(app, msg.data);
+
             // For build view
             app.emitter.emit(msg.type, msg.data);
             // For feed view

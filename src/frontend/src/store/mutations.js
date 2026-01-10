@@ -41,6 +41,14 @@ const mutations = {
         state.theme = value;
         window.localStorage.setItem("theme", value);
     },
+    SUBSCRIBE_NOTIFICATION(state, buildId) {
+        if (!state.notifications.includes(buildId)) {
+            state.notifications.push(buildId);
+        }
+    },
+    UNSUBSCRIBE_NOTIFICATION(state, buildId) {
+        state.notifications = state.notifications.filter((id) => id !== buildId);
+    },
 };
 
 export default mutations;

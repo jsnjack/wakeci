@@ -10,6 +10,7 @@ const state = {
     auth: {
         isLoggedIn: false,
     },
+    notifications: [],
     currentPage: "",
     theme: "light",
 };

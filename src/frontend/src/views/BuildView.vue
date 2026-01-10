@@ -57,6 +57,10 @@
                 :status="statusUpdate.status"
                 :build-i-d="statusUpdate.id"
             />
+            <SubscribeButton
+                v-if="statusUpdate.id"
+                :build-id="statusUpdate.id"
+            />
             <RunJobButton
                 :params="statusUpdate.params"
                 :job-name="job.name"
@@ -116,6 +120,7 @@ import ParamItem from "@/components/ParamItem.vue";
 import RunJobButton from "@/components/RunJobButton.vue";
 import SimpleDuration from "@/components/SimpleDuration.vue";
 import SimpleStartedAgo from "@/components/SimpleStartedAgo.vue";
+import SubscribeButton from "@/components/SubscribeButton.vue";
 import TaskItem from "@/components/TaskItem.vue";
 import axios from "axios";
 import vuex from "vuex";
@@ -128,9 +133,9 @@ export default {
         ParamItem,
         ArtifactItem,
         RunJobButton,
+        SubscribeButton,
         SimpleDuration,
         SimpleStartedAgo,
-        ParamItem,
         NotFound,
         StartBuildNowButton,
     },
