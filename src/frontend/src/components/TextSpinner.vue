@@ -1,5 +1,5 @@
 <template>
-    <div class="center-align no-round">
+    <div class="center-align no-round no-padding">
         {{ getText }}
     </div>
 </template>
@@ -39,4 +39,8 @@ export default {
 };
 </script>
 
-<style scoped ></style>
+<style scoped >
+    div {
+        background-color: var(--surface-container);
+    }
+</style>

@@ -5,7 +5,7 @@
             class="small"
             >avg_time</i
         >
-        <div>{{ durationText }}</div>
+        <div :data-startedAt="item.startedAt">{{ durationText }}</div>
         <div
             v-if="durationTooltip"
             class="tooltip bottom"

@@ -55,7 +55,7 @@
             </button>
         </nav>
     </header>
-    <main class="responsive no-scroll">
+    <main class="responsive no-scroll medium-padding">
         <router-view />
     </main>
     <notifications

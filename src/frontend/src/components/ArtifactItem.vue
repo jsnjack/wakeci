@@ -1,5 +1,5 @@
 <template>
-    <article v-if="artifacts && artifacts.length > 0">
+    <article v-if="artifacts && artifacts.length > 0" class="border">
         <h6>Artifacts</h6>
         <div
             v-if="indexFile"

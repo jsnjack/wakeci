@@ -34,12 +34,12 @@
                 </a>
             </nav>
             <article
-                class="log-container no-padding"
+                v-if="content"
+                class="log-container no-padding border"
                 ref="logContainer"
             >
                 <pre
-                    v-if="content"
-                    class="log-line small-padding no-round"
+                    class="log-line small-padding"
                     >{{ content }}</pre
                 >
                 <TextSpinner v-show="task.status === 'running' && !hideAllLogs" />
@@ -205,6 +205,7 @@ export default {
 <style  scoped>
 .log-container {
     overflow: auto;
+    scrollbar-width: none;
 }
 .log-line {
     white-space: pre-wrap;

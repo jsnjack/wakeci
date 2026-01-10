@@ -1,6 +1,6 @@
 <template>
     <NotFound v-if="empty" />
-    <article v-if="!empty">
+    <article v-if="!empty" class="border">
         <div :class="{ row: isDesktop }">
             <div class="max medium-padding">
                 <div>
@@ -65,8 +65,7 @@
         </div>
     </article>
 
-    <article v-if="statusUpdate.params && statusUpdate.params.length > 0">
-        <div class="large-text">Parameters</div>
+    <article v-if="statusUpdate.params && statusUpdate.params.length > 0" class="border">
         <ParamItem
             v-for="(item, index) in statusUpdate.params"
             :key="index + 'param'"

@@ -33,11 +33,12 @@
         </nav>
     </dialog>
 
-    <nav class="medium-margin m l">
+    <nav class="no-margin m l">
         <div class="max"></div>
         <button
             data-cy="create-job"
             @click.prevent="toggle"
+            class="small-round"
         >
             <i>add_circle</i>
             Create a new job
