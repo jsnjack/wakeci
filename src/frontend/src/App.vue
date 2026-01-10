@@ -1,5 +1,5 @@
 <template>
-    <header>
+    <header class="fill">
         <nav>
             <router-link to="/">
                 <i class="large fill primary-text">water</i>
