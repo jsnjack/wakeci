@@ -250,14 +250,26 @@ export default {
                 append = event.append;
             }
 
+            const hasDouble = filterText.includes('"');
+            const hasSingle = filterText.includes("'");
+            let wrapped = filterText;
+            if (hasDouble && !hasSingle) {
+                wrapped = `'${filterText}'`;
+            } else if (hasSingle && !hasDouble) {
+                wrapped = `"${filterText}"`;
+            } else if (!hasDouble && !hasSingle) {
+                wrapped = `"${filterText}"`;
+            }
+
             if (append && this.filter) {
-                // Avoid adding duplicates
-                const existingTerms = this.filter.split(/\s+/).map((t) => t.replace(/^[+-]/, ""));
+                // Avoid adding duplicates by comparing unquoted values
+                const clean = (t) => t.replace(/^[+-]/, "").replace(/^["']/, "").replace(/["']$/, "");
+                const existingTerms = this.filter.split(/\s+/).map(clean);
                 if (!existingTerms.includes(filterText)) {
-                    this.filter += " +" + filterText;
+                    this.filter += " +" + wrapped;
                 }
             } else {
-                this.filter = "+" + filterText;
+                this.filter = "+" + wrapped;
             }
         },
     },
