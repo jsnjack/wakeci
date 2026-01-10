@@ -59,6 +59,7 @@
             />
             <SubscribeButton
                 v-if="statusUpdate.id"
+                :disabled="isDone ? true : null"
                 :build-id="statusUpdate.id"
             />
             <RunJobButton

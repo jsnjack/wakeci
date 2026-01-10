@@ -1,11 +1,12 @@
 <template>
     <button
         class="circle transparent"
+        :disabled="disabled"
         @click.prevent="toggleSubscription"
     >
         <i v-if="!isSubscribed">notifications_none</i>
         <i v-else>notifications_active</i>
-        <div class="tooltip bottom">
+        <div class="tooltip bottom" v-if="!disabled">
             {{ isSubscribed ? "Unsubscribe from notifications" : "Subscribe to notifications" }}
         </div>
     </button>
@@ -20,11 +21,16 @@ export default {
             type: Number,
             required: true,
         },
+        disabled: {
+            type: Boolean,
+            required: false,
+            default: false,
+        },
     },
     computed: {
         ...vuex.mapState(["notifications"]),
         isSubscribed() {
-            return this.notifications.includes(this.buildId);
+            return !this.disabled && this.notifications.includes(this.buildId);
         },
     },
     methods: {
