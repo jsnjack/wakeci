@@ -4,294 +4,177 @@ import (
 	"testing"
 )
 
-func TestSplitFilterQuery_DoubleQuotes(t *testing.T) {
-	input := `hello bye "good day"`
-	result := SplitFilterQuery(input)
-	if len(result) != 3 {
-		t.Errorf("Expected %d elements, got %s", len(result), result)
-		return
+func TestSplitFilterQuery(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []string
+	}{
+		{
+			name:     "DoubleQuotes",
+			input:    `hello bye "good day"`,
+			expected: []string{"hello", "bye", `"good day"`},
+		},
+		{
+			name:     "SingleQuotes",
+			input:    `hello bye 'good day'`,
+			expected: []string{"hello", "bye", `'good day'`},
+		},
+		{
+			name:     "OneQuote",
+			input:    `hello bye good day"`,
+			expected: []string{"hello", "bye", "good", `day"`},
+		},
+		{
+			name:     "ThreeQuotes",
+			input:    `hello 'bye "good day"`,
+			expected: []string{"hello", `'bye "good day"`},
+		},
+		{
+			name:     "FourQuotesInTheMiddle",
+			input:    `hello b"y"e "good day"`,
+			expected: []string{"hello", `b"y"e`, `"good day"`},
+		},
+		{
+			name:     "OneWord",
+			input:    `hello`,
+			expected: []string{"hello"},
+		},
+		{
+			name:     "OneWordWithSign",
+			input:    `-hello`,
+			expected: []string{"-hello"},
+		},
+		{
+			name:     "OneWordWithSignAndQuotes1",
+			input:    `-"hello"`,
+			expected: []string{`-"hello"`},
+		},
+		{
+			name:     "OneWordWithSignAndQuotes2",
+			input:    `"-hello"`,
+			expected: []string{`"-hello"`},
+		},
+		{
+			name:     "FourQuotes2",
+			input:    `""hello""`,
+			expected: []string{`""hello""`},
+		},
 	}
-	if result[2] != `"good day"` {
-		t.Errorf("Unexpected element: %s", result[2])
-		return
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := SplitFilterQuery(tt.input)
+			if len(result) != len(tt.expected) {
+				t.Errorf("Expected %d elements, got %d (%v)", len(tt.expected), len(result), result)
+				return
+			}
+			for i := range result {
+				if result[i] != tt.expected[i] {
+					t.Errorf("At index %d: expected %s, got %s", i, tt.expected[i], result[i])
+				}
+			}
+		})
 	}
 }
 
-func TestSplitFilterQuery_SingleQuotes(t *testing.T) {
-	input := `hello bye 'good day'`
-	result := SplitFilterQuery(input)
-	if len(result) != 3 {
-		t.Errorf("Expected %d elements, got %s", len(result), result)
-		return
+func TestCreateFilterRequest(t *testing.T) {
+	tests := []struct {
+		name         string
+		input        string
+		expectedAny  int
+		expectedMust int
+		expectedExcl int
+	}{
+		{
+			name:         "OneWord",
+			input:        "hello",
+			expectedAny:  1,
+			expectedMust: 0,
+			expectedExcl: 0,
+		},
+		{
+			name:         "TwoWords",
+			input:        "hello bye",
+			expectedAny:  2,
+			expectedMust: 0,
+			expectedExcl: 0,
+		},
+		{
+			name:         "Include",
+			input:        "+bye",
+			expectedAny:  0,
+			expectedMust: 1,
+			expectedExcl: 0,
+		},
+		{
+			name:         "Include2",
+			input:        "hello +bye",
+			expectedAny:  1,
+			expectedMust: 1,
+			expectedExcl: 0,
+		},
+		{
+			name:         "Include3",
+			input:        `"hello joe" +bye`,
+			expectedAny:  1,
+			expectedMust: 1,
+			expectedExcl: 0,
+		},
+		{
+			name:         "Include4",
+			input:        `"hello joe" +bye -'alabama banana'`,
+			expectedAny:  1,
+			expectedMust: 1,
+			expectedExcl: 1,
+		},
+		{
+			name:         "Include with must",
+			input:        `+"days:mon tue wed"`,
+			expectedAny:  0,
+			expectedMust: 1,
+			expectedExcl: 0,
+		},
+		{
+			name:        "Empty1",
+			input:       "",
+			expectedAny: -1, // nil
+		},
+		{
+			name:        "Empty2",
+			input:       " ",
+			expectedAny: -1, // nil
+		},
+		{
+			name:        "Empty3",
+			input:       " \n\t",
+			expectedAny: -1, // nil
+		},
 	}
-	if result[2] != `'good day'` {
-		t.Errorf("Unexpected element: %s", result[2])
-		return
-	}
-}
 
-func TestSplitFilterQuery_OneQuote(t *testing.T) {
-	input := `hello bye good day"`
-	result := SplitFilterQuery(input)
-	if len(result) != 3 {
-		t.Errorf("Expected %d elements, got %s", len(result), result)
-		return
-	}
-	if result[2] != `good day"` {
-		t.Errorf("Unexpected element: %s", result[2])
-		return
-	}
-}
-
-func TestSplitFilterQuery_ThreeQuotes(t *testing.T) {
-	input := `hello 'bye "good day"`
-	result := SplitFilterQuery(input)
-	if len(result) != 3 {
-		t.Errorf("Expected %d elements, got %s", len(result), result)
-		return
-	}
-	if result[1] != `'bye` {
-		t.Errorf("Unexpected element: %s", result[1])
-		return
-	}
-	if result[2] != `"good day"` {
-		t.Errorf("Unexpected element: %s", result[2])
-		return
-	}
-}
-
-func TestSplitFilterQuery_FourQuotesInTheMiddle(t *testing.T) {
-	input := `hello b"y"e "good day"`
-	result := SplitFilterQuery(input)
-	if len(result) != 3 {
-		t.Errorf("Expected %d elements, got %s", len(result), result)
-		return
-	}
-	if result[1] != `b"y"e` {
-		t.Errorf("Unexpected element: %s", result[1])
-		return
-	}
-	if result[2] != `"good day"` {
-		t.Errorf("Unexpected element: %s", result[2])
-		return
-	}
-}
-
-func TestSplitFilterQuery_OneWord(t *testing.T) {
-	input := `hello`
-	result := SplitFilterQuery(input)
-	if len(result) != 1 {
-		t.Errorf("Expected %d elements, got %s", len(result), result)
-		return
-	}
-}
-
-func TestSplitFilterQuery_OneWordWithSign(t *testing.T) {
-	input := `-hello`
-	result := SplitFilterQuery(input)
-	if len(result) != 1 {
-		t.Errorf("Expected %d elements, got %s", len(result), result)
-		return
-	}
-}
-
-func TestSplitFilterQuery_OneWordWithSignAndQuotes1(t *testing.T) {
-	input := `-"hello"`
-	result := SplitFilterQuery(input)
-	if len(result) != 1 {
-		t.Errorf("Expected %d elements, got %s", len(result), result)
-		return
-	}
-	if result[0] != input {
-		t.Errorf("Unexpected element: %s", result[0])
-		return
-	}
-}
-
-func TestSplitFilterQuery_OneWordWithSignAndQuotes2(t *testing.T) {
-	input := `"-hello"`
-	result := SplitFilterQuery(input)
-	if len(result) != 1 {
-		t.Errorf("Expected %d elements, got %s", len(result), result)
-		return
-	}
-	if result[0] != input {
-		t.Errorf("Unexpected element: %s", result[0])
-		return
-	}
-}
-
-func TestSplitFilterQuery_FourQuotes2(t *testing.T) {
-	input := `""hello""`
-	result := SplitFilterQuery(input)
-	if len(result) != 1 {
-		t.Errorf("Expected %d elements, got %s", len(result), result)
-		return
-	}
-	if result[0] != input {
-		t.Errorf("Unexpected element: %s", result[0])
-		return
-	}
-}
-
-func TestCreateFilterRequest_OneWord(t *testing.T) {
-	input := `hello`
-	result := CreateFilterRequest(input)
-	if len(result.ContainsAny) != 1 {
-		t.Errorf("Expected 1, got %d", len(result.ContainsAny))
-		return
-	}
-	if len(result.MustInclude) != 0 {
-		t.Errorf("Expected 0, got %d", len(result.MustInclude))
-		return
-	}
-	if len(result.MustExclude) != 0 {
-		t.Errorf("Expected 0, got %d", len(result.MustExclude))
-		return
-	}
-}
-
-func TestCreateFilterRequest_TwoWords(t *testing.T) {
-	input := `hello bye`
-	result := CreateFilterRequest(input)
-	if len(result.ContainsAny) != 2 {
-		t.Errorf("Expected 2, got %d", len(result.ContainsAny))
-		return
-	}
-	if len(result.MustInclude) != 0 {
-		t.Errorf("Expected 0, got %d", len(result.MustInclude))
-		return
-	}
-	if len(result.MustExclude) != 0 {
-		t.Errorf("Expected 0, got %d", len(result.MustExclude))
-		return
-	}
-}
-
-func TestCreateFilterRequest_Include(t *testing.T) {
-	input := `+bye`
-	result := CreateFilterRequest(input)
-	if len(result.ContainsAny) != 0 {
-		t.Errorf("Expected 0, got %d", len(result.ContainsAny))
-		return
-	}
-	if len(result.MustInclude) != 1 {
-		t.Errorf("Expected 1, got %d", len(result.MustInclude))
-		return
-	}
-	if len(result.MustExclude) != 0 {
-		t.Errorf("Expected 0, got %d", len(result.MustExclude))
-		return
-	}
-	if result.MustInclude[0] != "bye" {
-		t.Errorf("Expected bye, got %s", result.MustInclude[0])
-		return
-	}
-}
-
-func TestCreateFilterRequest_Include2(t *testing.T) {
-	input := `hello +bye`
-	result := CreateFilterRequest(input)
-	if len(result.ContainsAny) != 1 {
-		t.Errorf("Expected 1, got %d", len(result.ContainsAny))
-		return
-	}
-	if len(result.MustInclude) != 1 {
-		t.Errorf("Expected 0, got %d", len(result.MustInclude))
-		return
-	}
-	if len(result.MustExclude) != 0 {
-		t.Errorf("Expected 0, got %d", len(result.MustExclude))
-		return
-	}
-	if result.MustInclude[0] != "bye" {
-		t.Errorf("Expected bye, got %s", result.MustInclude[0])
-		return
-	}
-	if result.ContainsAny[0] != "hello" {
-		t.Errorf("Expected hello, got %s", result.ContainsAny[0])
-		return
-	}
-}
-
-func TestCreateFilterRequest_Include3(t *testing.T) {
-	input := `"hello joe" +bye`
-	result := CreateFilterRequest(input)
-	if len(result.ContainsAny) != 1 {
-		t.Errorf("Expected 1, got %d", len(result.ContainsAny))
-		return
-	}
-	if len(result.MustInclude) != 1 {
-		t.Errorf("Expected 0, got %d", len(result.MustInclude))
-		return
-	}
-	if len(result.MustExclude) != 0 {
-		t.Errorf("Expected 0, got %d", len(result.MustExclude))
-		return
-	}
-	if result.MustInclude[0] != "bye" {
-		t.Errorf("Expected bye, got %s", result.MustInclude[0])
-		return
-	}
-	if result.ContainsAny[0] != "hello joe" {
-		t.Errorf("Expected hello joe, got %s", result.ContainsAny[0])
-		return
-	}
-}
-
-func TestCreateFilterRequest_Include4(t *testing.T) {
-	input := `"hello joe" +bye -'alabama banana'`
-	result := CreateFilterRequest(input)
-	if len(result.ContainsAny) != 1 {
-		t.Errorf("Expected 1, got %d", len(result.ContainsAny))
-		return
-	}
-	if len(result.MustInclude) != 1 {
-		t.Errorf("Expected 0, got %d", len(result.MustInclude))
-		return
-	}
-	if len(result.MustExclude) != 1 {
-		t.Errorf("Expected 1, got %d", len(result.MustExclude))
-		return
-	}
-	if result.MustInclude[0] != "bye" {
-		t.Errorf("Expected bye, got %s", result.MustInclude[0])
-		return
-	}
-	if result.ContainsAny[0] != "hello joe" {
-		t.Errorf("Expected hello joe, got %s", result.ContainsAny[0])
-		return
-	}
-	if result.MustExclude[0] != "alabama banana" {
-		t.Errorf("Expected alabama banana, got %s", result.ContainsAny[0])
-		return
-	}
-}
-
-func TestCreateFilterRequest_Empty1(t *testing.T) {
-	input := ""
-	result := CreateFilterRequest(input)
-	if result != nil {
-		t.Errorf("Expected nil, got %s", result)
-		return
-	}
-}
-
-func TestCreateFilterRequest_Empty2(t *testing.T) {
-	input := " "
-	result := CreateFilterRequest(input)
-	if result != nil {
-		t.Errorf("Expected nil, got %s", result)
-		return
-	}
-}
-
-func TestCreateFilterRequest_Empty3(t *testing.T) {
-	input := " \n\t"
-	result := CreateFilterRequest(input)
-	if result != nil {
-		t.Errorf("Expected nil, got %s", result)
-		return
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := CreateFilterRequest(tt.input)
+			if tt.expectedAny == -1 {
+				if result != nil {
+					t.Errorf("Expected nil, got %+v", result)
+				}
+				return
+			}
+			if result == nil {
+				t.Error("Expected non-nil result")
+				return
+			}
+			if len(result.ContainsAny) != tt.expectedAny {
+				t.Errorf("Expected %d ContainsAny, got %d", tt.expectedAny, len(result.ContainsAny))
+			}
+			if len(result.MustInclude) != tt.expectedMust {
+				t.Errorf("Expected %d MustInclude, got %d", tt.expectedMust, len(result.MustInclude))
+			}
+			if len(result.MustExclude) != tt.expectedExcl {
+				t.Errorf("Expected %d MustExclude, got %d", tt.expectedExcl, len(result.MustExclude))
+			}
+		})
 	}
 }
 
@@ -378,6 +261,17 @@ func Test_matchesFilter(t *testing.T) {
 					update:   BuildUpdateData{Name: "regular failed build", Status: "success", Params: []map[string]string{{"env": "dev"}}},
 					expected: false,
 				},
+			},
+		},
+		{
+			name:  "Space separated param value",
+			query: `+"days:mon tue wed"`,
+			data: []struct {
+				update   BuildUpdateData
+				expected bool
+			}{
+				{update: BuildUpdateData{Status: "failed", Params: []map[string]string{{"days": "mon tue wed"}}}, expected: true},
+				{update: BuildUpdateData{Status: "finished", Params: []map[string]string{{"days": "mon"}}}, expected: false},
 			},
 		},
 	}

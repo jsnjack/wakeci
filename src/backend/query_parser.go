@@ -30,30 +30,33 @@ func CreateFilterRequest(query string) *FilterRequest {
 }
 
 func SplitFilterQuery(query string) []string {
-	data := strings.Split(query, " ")
-	for new := handleOpenQuotes(data, `"`); len(new) != len(data); {
-		data = new
-	}
-	for new := handleOpenQuotes(data, `'`); len(new) != len(data); {
-		data = new
-	}
-	return data
-}
+	var result []string
+	var current strings.Builder
+	inQuote := false
+	var quoteChar rune
 
-func handleOpenQuotes(data []string, quote string) []string {
-	for i, el := range data {
-		if strings.HasSuffix(el, quote) {
-			if i > 0 {
-				var new []string
-				new = append(data[:i-1], strings.Join(data[i-1:i+1], " "))
-				if len(data) > i+1 {
-					new = append(new, data[i+1:]...)
-				}
-				return new
+	for _, r := range query {
+		if r == '"' || r == '\'' {
+			if !inQuote {
+				inQuote = true
+				quoteChar = r
+			} else if r == quoteChar {
+				inQuote = false
 			}
+			current.WriteRune(r)
+		} else if r == ' ' && !inQuote {
+			if current.Len() > 0 {
+				result = append(result, current.String())
+				current.Reset()
+			}
+		} else {
+			current.WriteRune(r)
 		}
 	}
-	return data
+	if current.Len() > 0 {
+		result = append(result, current.String())
+	}
+	return result
 }
 
 func unquote(query string) string {
