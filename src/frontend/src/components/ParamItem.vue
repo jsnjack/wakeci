@@ -6,7 +6,7 @@
     >
         <div class="row no-space">
             <div
-                @click.prevent="setFilter"
+                @click.prevent="setFilter($event)"
                 style="word-break: break-all; flex: auto"
             >
                 {{ getText }}
@@ -82,8 +82,11 @@ export default {
                 }
             );
         },
-        setFilter() {
-            this.$emit("setFilter", this.getValue);
+        setFilter(event) {
+            this.$emit("setFilter", {
+                value: this.getName + ":" + this.getValue,
+                append: event.ctrlKey || event.metaKey,
+            });
         },
     },
     data: function () {

@@ -242,8 +242,23 @@ export default {
                 this.unsubscribe();
             }
         },
-        handleSetFilter(filterText) {
-            this.filter = "+" + filterText;
+        handleSetFilter(event) {
+            let filterText = event;
+            let append = false;
+            if (typeof event === "object" && event.value) {
+                filterText = event.value;
+                append = event.append;
+            }
+
+            if (append && this.filter) {
+                // Avoid adding duplicates
+                const existingTerms = this.filter.split(/\s+/).map((t) => t.replace(/^[+-]/, ""));
+                if (!existingTerms.includes(filterText)) {
+                    this.filter += " +" + filterText;
+                }
+            } else {
+                this.filter = "+" + filterText;
+            }
         },
     },
 };

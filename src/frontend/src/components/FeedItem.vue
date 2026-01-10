@@ -155,8 +155,8 @@ export default {
         toggleExpandParams() {
             this.expandParams = !this.expandParams;
         },
-        handleSetFilter(filterText) {
-            this.$emit("setFilter", filterText);
+        handleSetFilter(event) {
+            this.$emit("setFilter", event);
         },
     },
     data: function () {
