@@ -1,5 +1,27 @@
 <template>
-    <nav class="no-space small-margin">
+    <dialog
+        :class="{ active: isHelpDialogOpen }"
+    >
+        <h5>Search examples</h5>
+        <div class="space"></div>
+        <ul>
+            <li><code>status:failed</code> - Failed builds</li>
+            <li><code>status:failed "status:timed out"</code> - Failed or timed out builds</li>
+            <li><code>+status:failed -name:test_</code> - Failed builds, excluding builds with names containing "test_"</li>
+            <li><code>env:prod</code> - Builds with parameter "env=prod"</li>
+            <li><code>+status:failed env:prod env:uat</code> - Failed builds with "env" parameter equal to "prod" or "uat"</li>
+        </ul>
+        <nav class="right-align">
+            <button
+                class="border"
+                @click.prevent="isHelpDialogOpen = false"
+            >
+                Close
+            </button>
+        </nav>
+    </dialog>
+
+    <nav class="group connected">
         <div class="max field label prefix border left-round">
             <i>search</i>
             <input
@@ -8,14 +30,20 @@
                 :value="filter"
                 @input="(evt) => (filter = evt.target.value)"
             />
-            <label>Filter builds by ID, name, params and status</label>
+            <label>Filter builds by id, name, params and status</label>
             <progress class="circle" v-show="isFetching"></progress>
         </div>
         <button
-            class="large right-round secondary"
+            class="large no-round"
             @click.prevent="clearFilter"
         >
             <i>backspace</i>
+        </button>
+        <button
+            class="large right-round"
+            @click.prevent="isHelpDialogOpen = true"
+        >
+            <i>help</i>
         </button>
     </nav>
 
@@ -38,7 +66,7 @@
 
     <div
         v-if="sortedBuilds.length === 0 && !isFetching && !filterIsDirty"
-        class="fill medium-height middle-align center-align"
+        class="fill medium-height middle-align center-align small-margin small-round"
         data-cy="no-builds-found"
     >
         <div class="center-align">
@@ -74,6 +102,7 @@ export default {
             builds: [],
             subscription: "build:update:",
             isFetching: false, // request to the server is in progress
+            isHelpDialogOpen: false,
             filterIsDirty: false, // when user is still typing
             filter: "", // sent to the server, to filter builds out
             moreEnabled: true, // if makes sense to load more builds from the server
@@ -220,4 +249,5 @@ export default {
 };
 </script>
 
-<style scoped ></style>
+<style scoped >
+</style>

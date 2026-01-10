@@ -90,7 +90,7 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 				if filter != nil {
-					if matchesFilter(fmt.Sprintf("%v %s %s %s", msg.ID, msg.Name, msg.Status, msg.Params), filter) {
+					if matchesFilter(msg.ToFilterMatchString(), filter) {
 						count++
 						if count <= offset {
 							continue

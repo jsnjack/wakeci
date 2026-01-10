@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -105,6 +106,11 @@ func (x BuildUpdateData) MarshalJSON() ([]byte, error) {
 	// Marshal the wrapped struct, letting the JSON package handle the marshaling of any fields
 	// we're not specifically overwriting here
 	return json.Marshal(aliased)
+}
+
+// ToFilterMatchString converts BuildUpdateData to a string suitable for filter matching
+func (x BuildUpdateData) ToFilterMatchString() string {
+	return fmt.Sprintf("id:%v name:%s status:%s %s", x.ID, x.Name, x.Status, x.Params)
 }
 
 // CommandLogData ...

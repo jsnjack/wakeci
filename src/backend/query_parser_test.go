@@ -295,64 +295,102 @@ func TestCreateFilterRequest_Empty3(t *testing.T) {
 	}
 }
 
-func TestMatchesFilter_1(t *testing.T) {
-	input := "123 hello zorro pruzhany"
-	result := matchesFilter(input, nil)
-	if !result {
-		t.Errorf("Expected to match")
+func Test_matchesFilter(t *testing.T) {
+	tests := []struct {
+		name  string
+		query string
+		data  []struct {
+			update   BuildUpdateData
+			expected bool
+		}
+	}{
+		{
+			name:  "Required keyword",
+			query: "+failed",
+			data: []struct {
+				update   BuildUpdateData
+				expected bool
+			}{
+				{update: BuildUpdateData{Status: "failed"}, expected: true},
+				{update: BuildUpdateData{Status: "success"}, expected: false},
+			},
+		},
+		{
+			name:  "OR logic with phrases",
+			query: `failed "timed out"`,
+			data: []struct {
+				update   BuildUpdateData
+				expected bool
+			}{
+				{update: BuildUpdateData{Status: "failed"}, expected: true},
+				{update: BuildUpdateData{Status: "timed out"}, expected: true},
+				{update: BuildUpdateData{Status: "success"}, expected: false},
+			},
+		},
+		{
+			name:  "Requirement and exclusion",
+			query: `+failed -test_`,
+			data: []struct {
+				update   BuildUpdateData
+				expected bool
+			}{
+				{update: BuildUpdateData{Status: "failed", Name: "regular build"}, expected: true},
+				{update: BuildUpdateData{Status: "failed", Name: "test_build"}, expected: false},
+			},
+		},
+		{
+			name:  "Targeted attribute matching",
+			query: `status:failed name:myjob`,
+			data: []struct {
+				update   BuildUpdateData
+				expected bool
+			}{
+				{update: BuildUpdateData{Status: "failed"}, expected: true},
+				{update: BuildUpdateData{Name: "myjob"}, expected: true},
+				{update: BuildUpdateData{Status: "success", Name: "other"}, expected: false},
+				{update: BuildUpdateData{Status: "success", Name: "failed"}, expected: false},
+			},
+		},
+		{
+			name:  "Complex multi-condition",
+			query: `+status:failed -"test build" env:prod`,
+			data: []struct {
+				update   BuildUpdateData
+				expected bool
+			}{
+				{
+					update:   BuildUpdateData{Name: "regular build", Status: "failed", Params: []map[string]string{{"env": "prod"}}},
+					expected: true,
+				},
+				{
+					update:   BuildUpdateData{Name: "test build", Status: "failed", Params: []map[string]string{{"env": "prod"}}},
+					expected: false,
+				},
+				{
+					update:   BuildUpdateData{Name: "regular build", Status: "running", Params: []map[string]string{{"env": "prod"}}},
+					expected: false,
+				},
+				{
+					update:   BuildUpdateData{Name: "regular build", Status: "failed", Params: []map[string]string{{"env": "dev"}}},
+					expected: false,
+				},
+				{
+					update:   BuildUpdateData{Name: "regular failed build", Status: "success", Params: []map[string]string{{"env": "dev"}}},
+					expected: false,
+				},
+			},
+		},
 	}
-}
 
-func TestMatchesFilter_2(t *testing.T) {
-	input := "123 hello zorro pruzhany"
-	filter := FilterRequest{ContainsAny: []string{"hello"}}
-	result := matchesFilter(input, &filter)
-	if !result {
-		t.Errorf("Expected to match")
-	}
-}
-
-func TestMatchesFilter_3(t *testing.T) {
-	input := "123 hello zorro pruzhany"
-	filter := FilterRequest{ContainsAny: []string{"zorro", "hello", "bingo"}}
-	result := matchesFilter(input, &filter)
-	if !result {
-		t.Errorf("Expected to match")
-	}
-}
-
-func TestMatchesFilter_4(t *testing.T) {
-	input := "123 hello zorro pruzhany"
-	filter := FilterRequest{MustInclude: []string{"hello"}}
-	result := matchesFilter(input, &filter)
-	if !result {
-		t.Errorf("Expected to match")
-	}
-}
-
-func TestMatchesFilter_5(t *testing.T) {
-	input := "123 hello zorro pruzhany"
-	filter := FilterRequest{MustInclude: []string{"zombie"}}
-	result := matchesFilter(input, &filter)
-	if result {
-		t.Errorf("Expected to not match")
-	}
-}
-
-func TestMatchesFilter_6(t *testing.T) {
-	input := "123 hello zorro pruzhany"
-	filter := FilterRequest{MustInclude: []string{"123"}, MustExclude: []string{"zorro"}}
-	result := matchesFilter(input, &filter)
-	if result {
-		t.Errorf("Expected to not match")
-	}
-}
-
-func TestMatchesFilter_7(t *testing.T) {
-	input := "1293 @myjob1652038289063 finished"
-	filter := FilterRequest{ContainsAny: []string{"joe"}}
-	result := matchesFilter(input, &filter)
-	if result {
-		t.Errorf("Expected to not match")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filter := CreateFilterRequest(tt.query)
+			for i, d := range tt.data {
+				result := matchesFilter(d.update.ToFilterMatchString(), filter)
+				if result != d.expected {
+					t.Errorf("Subtest %d (%v): For query %q, expected %v, got %v", i, d.update, tt.query, d.expected, result)
+				}
+			}
+		})
 	}
 }

@@ -15,30 +15,31 @@
         <div class="page padding">
             <article>
                 <p>
-                    The search function allows you to retrieve specific builds based on their attributes, providing you with a flexible and precise filtering
-                    mechanism. With this feature, you can search for builds using the following criteria:
+                    Search for builds by <b>ID</b>, <b>name</b>, <b>parameters</b>, or <b>status</b>. Keywords are separated by spaces.
                 </p>
-
-                <p class="italic">ID, name, parameters, or status</p>
 
                 <p>
-                    The search functionality supports the use of space-separated keywords, where any of these keywords can be present in the mentioned
-                    attributes to qualify a build for retrieval. Additionally, you can include specific keywords by prefixing them with a "+" sign, ensuring
-                    that only builds containing those keywords are returned. Conversely, you can exclude certain keywords from the results by prefixing them
-                    with a "-" sign. To make your searches even more convenient, phrases can be enclosed in single or double quotes. This allows you to search
-                    for exact phrases within the build attributes.
+                    Use <code>+</code> to require a keyword, <code>-</code> to exclude it, or quotes for exact phrases. Keywords use OR
+                    logic: if any match, the build is returned.
                 </p>
 
-                <p>Here are some examples to illustrate how this search feature works:</p>
+                <p>
+                    Specific attributes can be targeted using <code>key:value</code> syntax, e.g., <code>status:failed</code> or <code>name:myjob</code>.
+                </p>
 
-                <h6>Example 1: Retrieving all failed builds</h6>
-                <code>+failed</code>
+                <h6>Examples</h6>
 
-                <h6>Example 2: Retrieving all failed and timed out builds</h6>
-                <code>failed "timed out"</code>
+                <p>Failed builds</p>
+                <code>+status:failed</code>
 
-                <h6>Example 2: Retrieving all failed builds which don't contain "test_"</h6>
-                <code>+failed -test_</code>
+                <p>Failed or timed out builds</p>
+                <code>status:failed "status:timed out"</code>
+
+                <p>Failed builds excluding "test_"</p>
+                <code>+status:failed -name:test_</code>
+
+                <p>Builds with parameter "env=prod"</p>
+                <code>+env:prod</code>
             </article>
         </div>
         <div class="page padding">
