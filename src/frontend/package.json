@@ -27,7 +27,7 @@
         "eslint-config-prettier": "^10.1.8",
         "eslint-plugin-vue": "^10.6.2",
         "javascript-time-ago": "^2.5.12",
-        "lodash": "^4.17.21",
+        "lodash": "^4.17.23",
         "material-dynamic-colors": "^1.1.2",
         "minimist": "^1.2.8",
         "mitt": "^3.0.1",
