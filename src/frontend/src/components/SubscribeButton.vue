@@ -28,9 +28,9 @@ export default {
         },
     },
     computed: {
-        ...vuex.mapState(["notifications"]),
+        ...vuex.mapState(["notifyOnBuildStatusUpdate"]),
         isSubscribed() {
-            return !this.disabled && this.notifications.includes(this.buildId);
+            return !this.disabled && this.notifyOnBuildStatusUpdate.includes(this.buildId);
         },
     },
     methods: {

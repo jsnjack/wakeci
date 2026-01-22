@@ -1,7 +1,7 @@
 const lastStatuses = new Map();
 
 const handleSystemNotification = function (app, data) {
-    if (app.$store.state.notifications.includes(data.id)) {
+    if (app.$store.state.notifyOnBuildStatusUpdate.includes(data.id)) {
         const lastStatus = lastStatuses.get(data.id);
         if (lastStatus !== data.status && lastStatus !== undefined) {
             if ("Notification" in window && Notification.permission === "granted") {

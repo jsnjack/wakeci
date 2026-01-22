@@ -42,12 +42,12 @@ const mutations = {
         window.localStorage.setItem("theme", value);
     },
     SUBSCRIBE_NOTIFICATION(state, buildId) {
-        if (!state.notifications.includes(buildId)) {
-            state.notifications.push(buildId);
+        if (!state.notifyOnBuildStatusUpdate.includes(buildId)) {
+            state.notifyOnBuildStatusUpdate.push(buildId);
         }
     },
     UNSUBSCRIBE_NOTIFICATION(state, buildId) {
-        state.notifications = state.notifications.filter((id) => id !== buildId);
+        state.notifyOnBuildStatusUpdate = state.notifyOnBuildStatusUpdate.filter((id) => id !== buildId);
     },
 };
 
