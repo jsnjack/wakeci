@@ -458,21 +458,21 @@ func (b *Build) CollectArtifacts() {
 // BroadcastUpdate sends update to all subscribed clients. Contains general
 // information about the build
 func (b *Build) BroadcastUpdate() {
-	data := b.GenerateBuildUpdateData()
+	bID := b.ID
+	data, err := b.GenerateBuildUpdateData()
+	if err != nil {
+		b.Logger.Println(err)
+		return
+	}
 	msg := MsgBroadcast{
-		Type: "build:update:" + strconv.Itoa(b.ID),
-		Data: data,
+		Type: "build:update:" + strconv.Itoa(bID),
+		Data: json.RawMessage(data),
 	}
 	WSHub.broadcast <- &msg
 
-	err := DB.Update(func(tx *bolt.Tx) error {
-		var err error
+	err = DB.Update(func(tx *bolt.Tx) error {
 		hb := tx.Bucket([]byte(HistoryBucket))
-		dataB, err := json.Marshal(data)
-		if err != nil {
-			return err
-		}
-		return hb.Put(Itob(data.ID), dataB)
+		return hb.Put(Itob(bID), data)
 	})
 	if err != nil {
 		b.Logger.Println(err)
@@ -480,10 +480,10 @@ func (b *Build) BroadcastUpdate() {
 }
 
 // GenerateBuildUpdateData generates BuildUpdateData
-func (b *Build) GenerateBuildUpdateData() *BuildUpdateData {
+func (b *Build) GenerateBuildUpdateData() ([]byte, error) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	return &BuildUpdateData{
+	updData := &BuildUpdateData{
 		ID:             b.ID,
 		Name:           b.Job.Name,
 		Status:         b.Status,
@@ -495,6 +495,8 @@ func (b *Build) GenerateBuildUpdateData() *BuildUpdateData {
 		Duration:       b.Duration,
 		ETA:            b.ETA,
 	}
+	// Return JSON to prevent concurrent map read/write issues
+	return json.Marshal(updData)
 }
 
 // ProcessLogEntry handles log messages from tasks
