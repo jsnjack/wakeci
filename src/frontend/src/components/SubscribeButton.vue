@@ -1,5 +1,6 @@
 <template>
     <button
+        data-cy="subscribe-button"
         class="circle transparent"
         :disabled="disabled"
         @click.prevent="toggleSubscription"
