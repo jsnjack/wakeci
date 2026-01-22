@@ -5,13 +5,13 @@ const handleSystemNotification = function (app, data) {
         const lastStatus = lastStatuses.get(data.id);
         if (lastStatus !== data.status && lastStatus !== undefined) {
             if ("Notification" in window && Notification.permission === "granted") {
-                new Notification(`Build #${data.id} ${data.status}`, {
-                    body: `Job: ${data.name}`,
+                new Notification(`${data.name} ${data.status}`, {
+                    body: `Build #${data.id}`,
                     icon: "/favicon.ico",
                 });
             }
-            lastStatuses.set(data.id, data.status);
         }
+        lastStatuses.set(data.id, data.status);
     }
 };
 
