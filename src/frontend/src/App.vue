@@ -1,5 +1,5 @@
 <template>
-    <header class="fill">
+    <header :class="{ fill: theme === 'light' }">
         <nav>
             <router-link to="/">
                 <i class="large fill primary-text">water</i>
