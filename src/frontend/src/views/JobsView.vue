@@ -45,7 +45,7 @@
         </button>
     </nav>
 
-    <nav class="no-space small-margin">
+    <nav class="group connected small-margin">
         <div class="max field label prefix border left-round">
             <i>filter_alt</i>
             <input
@@ -57,7 +57,7 @@
             <label>Filter jobs by name</label>
         </div>
         <button
-            class="large right-round secondary"
+            class="large right-round"
             @click.prevent="clearFilter"
         >
             <i>backspace</i>

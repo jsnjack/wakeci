@@ -13,8 +13,8 @@
             <h5 class="center-align">Welcome to wake</h5>
             <p>Start by logging in with your password</p>
             <div class="space"></div>
-            <nav class="no-space">
-                <div class="max field border left-round">
+            <nav class="group connected">
+                <div class="max field border left-round prefix round">
                     <input
                         id="password"
                         v-model="password"
@@ -22,7 +22,7 @@
                         type="password"
                     />
                 </div>
-                <button class="large right-round">Log in</button>
+                <button class="large right-round primary">Log in</button>
             </nav>
         </div>
     </form>
