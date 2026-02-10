@@ -104,10 +104,10 @@
     >
         <button
             class="small fill"
-            @click="backToTop"
+            @click="jumpToTop"
         >
             <i class="small">vertical_align_top</i>
-            Back to top
+            Jump to top
         </button>
 
         <label
@@ -344,7 +344,7 @@ export default {
                 this.hideAllLogs = !this.hideAllLogs;
             }
         },
-        backToTop() {
+        jumpToTop() {
             window.scrollTo({
                 top: 0,
             });
