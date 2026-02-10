@@ -97,20 +97,32 @@
         :build-i-d="statusUpdate.id"
     />
 
-    <label
+    <div
         v-if="!hideAllLogs"
         style="opacity: 0.8"
-        class="switch icon fixed bottom right medium-margin"
+        class="row fixed bottom right medium-margin"
     >
-        <div class="tooltip left">Toggle following logs (Ctrl + Alt + F)</div>
-        <input
-            type="checkbox"
-            v-model="follow"
-        />
-        <span>
-            <i>route</i>
-        </span>
-    </label>
+        <button
+            class="small fill"
+            @click="backToTop"
+        >
+            <i class="small">vertical_align_top</i>
+            Back to top
+        </button>
+
+        <label
+            class="switch icon"
+        >
+            <div class="tooltip left">Toggle following logs (Ctrl + Alt + F)</div>
+            <input
+                type="checkbox"
+                v-model="follow"
+            />
+            <span>
+                <i>route</i>
+            </span>
+        </label>
+    </div>
 </template>
 
 <script>
@@ -331,6 +343,11 @@ export default {
             if (event.ctrlKey && event.altKey && event.code === "KeyH") {
                 this.hideAllLogs = !this.hideAllLogs;
             }
+        },
+        backToTop() {
+            window.scrollTo({
+                top: 0,
+            });
         },
     },
 };
