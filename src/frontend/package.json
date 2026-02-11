@@ -19,7 +19,7 @@
         "@codemirror/view": "^6.39.11",
         "@kyvg/vue3-notification": "^3.4.2",
         "@vitejs/plugin-vue": "^6.0.3",
-        "axios": "^1.13.2",
+        "axios": "^1.13.5",
         "beercss": "^3.13.3",
         "codemirror": "^6.0.2",
         "cypress": "^15.9.0",
