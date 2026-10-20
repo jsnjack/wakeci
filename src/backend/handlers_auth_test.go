@@ -29,24 +29,35 @@ func newAuthTestEnv(t *testing.T) {
 		if err != nil {
 			return err
 		}
+		for _, b := range [][]byte{APIKeysBucket, GoogleAccountsBucket} {
+			if _, err := tx.CreateBucketIfNotExists(b); err != nil {
+				return err
+			}
+		}
 		return bucket.Put([]byte("password"), hash)
 	}); err != nil {
 		t.Fatalf("store test password: %v", err)
 	}
 
 	originalDB := DB
+	originalConfig := Config
 	originalSessions := GlobalSessionStorage
 	originalLimiter := globalAuthAttemptLimiter
+	originalGoogleLogins := googleLogins
+	googleLogins = &googleLoginStore{logins: make(map[string]pendingGoogleLogin)}
 	DB = db
-	GlobalSessionStorage = &SessionStorage{sessions: make(map[string]time.Time)}
+	Config = &WakeConfig{Port: "8081"}
+	GlobalSessionStorage = &SessionStorage{sessions: make(map[string]session)}
 	globalAuthAttemptLimiter = newAuthAttemptLimiter(2, time.Minute, time.Minute)
 	t.Cleanup(func() {
 		if err := db.Close(); err != nil {
 			t.Errorf("close auth test db: %v", err)
 		}
 		DB = originalDB
+		Config = originalConfig
 		GlobalSessionStorage = originalSessions
 		globalAuthAttemptLimiter = originalLimiter
+		googleLogins = originalGoogleLogins
 	})
 }
 
@@ -74,6 +85,17 @@ func TestAuthenticationRateLimit(t *testing.T) {
 			request: func() *http.Request {
 				req := httptest.NewRequest(http.MethodGet, "/api/feed", nil)
 				req.SetBasicAuth("", "wrong")
+				return req
+			},
+		},
+		{
+			name: "api key",
+			handler: AuthMi(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusNoContent)
+			})),
+			request: func() *http.Request {
+				req := httptest.NewRequest(http.MethodGet, "/api/feed", nil)
+				req.Header.Set("Authorization", "Bearer wcik_"+strings.Repeat("0", apiKeyIDLength+apiKeySecretLength))
 				return req
 			},
 		},
@@ -111,12 +133,9 @@ func TestAuthenticationRateLimit(t *testing.T) {
 
 func TestHandleLogOutClearsCookieWithSessionAttributes(t *testing.T) {
 	newAuthTestEnv(t)
-	originalConfig := Config
-	Config = &WakeConfig{Port: "8081"}
-	t.Cleanup(func() { Config = originalConfig })
 
-	GlobalSessionStorage.sessions["session-token"] = time.Now().Add(time.Hour)
-	req := httptest.NewRequest(http.MethodGet, "/auth/logout", nil)
+	GlobalSessionStorage.sessions["session-token"] = session{expires: time.Now().Add(time.Hour)}
+	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
 	req.Header.Set("X-Forwarded-Proto", "https")
 	req.AddCookie(&http.Cookie{Name: "session", Value: "session-token"})
 	rec := httptest.NewRecorder()
@@ -137,7 +156,95 @@ func TestHandleLogOutClearsCookieWithSessionAttributes(t *testing.T) {
 	if !cookie.Expires.Before(time.Now()) {
 		t.Errorf("logout cookie expiry = %v, want a past time", cookie.Expires)
 	}
-	if err := GlobalSessionStorage.Verify("session-token"); err == nil {
+	if _, err := GlobalSessionStorage.Verify("session-token"); err == nil {
 		t.Error("session remains valid after logout")
+	}
+}
+
+func TestPasswordChangeRevokesPasswordSessions(t *testing.T) {
+	for _, actor := range []string{ProviderPassword, ProviderGoogle} {
+		t.Run(actor, func(t *testing.T) {
+			newAuthTestEnv(t)
+			Config.Google = GoogleConfig{ClientID: "client-id", ClientSecret: "secret", AllowedDomains: []string{"example.com"}}
+			mustPutGoogleAccount(t, time.Now())
+			oldQueue := GlobalQueue
+			GlobalQueue = &Queue{}
+			t.Cleanup(func() { GlobalQueue = oldQueue })
+			newSession := func(p *Principal) *http.Cookie {
+				cookie, err := GlobalSessionStorage.New(httptest.NewRequest(http.MethodGet, "/", nil), p)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return cookie
+			}
+			first := newSession(passwordPrincipal(viaSession))
+			second := newSession(passwordPrincipal(viaSession))
+			google := newSession(googleUser)
+			cookie := first
+			if actor == ProviderGoogle {
+				cookie = google
+			}
+			form := url.Values{"password": {"replacement"}, "concurrentBuilds": {"1"}, "buildHistorySize": {"10"}}
+			req := httptest.NewRequest(http.MethodPost, "/api/settings", strings.NewReader(form.Encode()))
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			req.AddCookie(cookie)
+			rec := httptest.NewRecorder()
+			newRouter().ServeHTTP(rec, req)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("rotate: %d %s", rec.Code, rec.Body.String())
+			}
+			for i, old := range []*http.Cookie{first, second} {
+				if got := sessionStatus(old); got != http.StatusForbidden {
+					t.Errorf("old session %d: %d, want 403", i, got)
+				}
+			}
+			if got := sessionStatus(google); got != http.StatusOK {
+				t.Errorf("Google session: %d, want 200", got)
+			}
+			for _, password := range []string{"correct", "replacement"} {
+				form := url.Values{"password": {password}}
+				req := httptest.NewRequest(http.MethodPost, "/auth/login", strings.NewReader(form.Encode()))
+				req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+				rec := httptest.NewRecorder()
+				newRouter().ServeHTTP(rec, req)
+				want := http.StatusForbidden
+				if password == "replacement" {
+					want = http.StatusNoContent
+				}
+				if rec.Code != want {
+					t.Errorf("login with %q: %d, want %d", password, rec.Code, want)
+				}
+			}
+		})
+	}
+}
+
+// TestAPIKeyDoesNotResetPasswordLockout: someone holding any valid key
+// could otherwise guess the shared password forever, using the key to wipe
+// out each failed guess before the lockout kicks in
+func TestAPIKeyDoesNotResetPasswordLockout(t *testing.T) {
+	newAuthTestEnv(t)
+	_, token := mustCreateAPIKey(t, passwordPrincipal(viaSession), []Scope{ScopeRead}, 0, time.Now())
+	send := func(auth func(req *http.Request)) int {
+		req := httptest.NewRequest(http.MethodGet, "/auth/_isLoggedIn", nil)
+		auth(req)
+		rec := httptest.NewRecorder()
+		newRouter().ServeHTTP(rec, req)
+		return rec.Code
+	}
+	wrongPassword := func(req *http.Request) { req.SetBasicAuth("", "wrong") }
+	validKey := func(req *http.Request) { req.Header.Set("Authorization", "Bearer "+token) }
+
+	for i, step := range []struct {
+		auth       func(req *http.Request)
+		wantStatus int
+	}{
+		{wrongPassword, http.StatusForbidden},
+		{validKey, http.StatusOK},
+		{wrongPassword, http.StatusTooManyRequests},
+	} {
+		if got := send(step.auth); got != step.wantStatus {
+			t.Errorf("request %d: status = %d, want %d", i+1, got, step.wantStatus)
+		}
 	}
 }

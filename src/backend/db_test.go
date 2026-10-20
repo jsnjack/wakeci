@@ -133,7 +133,8 @@ func TestCompactDBClosesCurrentDatabaseOnEarlyError(t *testing.T) {
 func TestCompactDBReplacesDatabaseAndClosesFiles(t *testing.T) {
 	dir := t.TempDir()
 	currentDBFile := filepath.Join(dir, "wakeci.db")
-	db, err := bolt.Open(currentDBFile, 0600, nil)
+	// World-readable, as databases created before 0600 was enforced are
+	db, err := bolt.Open(currentDBFile, 0644, nil)
 	if err != nil {
 		t.Fatalf("create current database: %v", err)
 	}
@@ -157,8 +158,14 @@ func TestCompactDBReplacesDatabaseAndClosesFiles(t *testing.T) {
 	if err := CompactDB(); err != nil {
 		t.Fatalf("CompactDB: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "wakeci.db.backup")); err != nil {
-		t.Fatalf("stat database backup: %v", err)
+	for _, name := range []string{"wakeci.db", "wakeci.db.backup"} {
+		info, err := os.Stat(filepath.Join(dir, name))
+		if err != nil {
+			t.Fatalf("stat %s: %v", name, err)
+		}
+		if mode := info.Mode().Perm(); mode != dbFileMode {
+			t.Errorf("%s mode = %o, want %o: it holds refresh tokens", name, mode, dbFileMode)
+		}
 	}
 
 	compacted, err := bolt.Open(currentDBFile, 0600, &bolt.Options{Timeout: 100 * time.Millisecond})

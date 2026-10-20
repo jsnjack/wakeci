@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -26,6 +27,26 @@ func jobNameParam(r *http.Request) (string, error) {
 	if !isValidJobName(name) {
 		return "", fmt.Errorf("invalid job name: %s", name)
 	}
+	if Config.isProtectedFile(Config.JobDir + name + Config.jobsExt) {
+		return "", fmt.Errorf("%w: %s", errNotAJob, name)
+	}
+	// Only registered jobs, by their exact name: on a case-insensitive
+	// filesystem another spelling would open another job's file, and any
+	// other YAML file in jobdir isn't a job
+	registered := false
+	err := DB.View(func(tx *bolt.Tx) error {
+		registered = tx.Bucket(JobsBucket).Bucket([]byte(name)) != nil
+		return nil
+	})
+	if err != nil {
+		return "", fmt.Errorf("look up job %s: %w", name, err)
+	}
+	if !registered {
+		return "", fmt.Errorf("%w: %s", errNotAJob, name)
+	}
+	if hasTasks, err := definesTasks(Config.JobDir + name + Config.jobsExt); err != nil || !hasTasks {
+		return "", fmt.Errorf("%w: %s is not a current job", errNotAJob, name)
+	}
 	return name, nil
 }
 
@@ -33,6 +54,12 @@ func requireJobName(w http.ResponseWriter, r *http.Request, logger *slog.Logger)
 	name, err := jobNameParam(r)
 	if err == nil {
 		return name, true
+	}
+	if errors.Is(err, errNotAJob) {
+		// Indistinguishable from a job that doesn't exist
+		logger.Warn("request for a protected file", "err", err)
+		writeText(w, logger, http.StatusNotFound, "Job not found")
+		return "", false
 	}
 	logger.Warn("invalid job name", "err", err)
 	w.Header().Set("Content-Type", "text/plain")
@@ -66,7 +93,6 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Error("parse form", "err", err)
 	}
-
 	build, err := RunJob(name, r.Form)
 	if err != nil {
 		logger.Error("run job", "job", name, "err", err)
@@ -103,6 +129,10 @@ func HandleJobGet(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Header().Set("Content-Type", "text/plain")
 		writeBody(logger, w, []byte(err.Error()))
+		return
+	}
+	if !definesTasksData(data) {
+		writeText(w, logger, http.StatusNotFound, "Job not found")
 		return
 	}
 	jd := JobData{
@@ -154,6 +184,11 @@ func HandleJobPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !definesTasksData(contentB) {
+		writeText(w, logger, http.StatusBadRequest, "Job must define tasks; use tasks: [] for an empty job")
+		return
+	}
+
 	// Verify provided interval
 	err = job.verifyInterval()
 	if err != nil {
@@ -168,7 +203,7 @@ func HandleJobPost(w http.ResponseWriter, r *http.Request) {
 
 	path := Config.JobDir + name + Config.jobsExt
 
-	err = os.WriteFile(path, contentB, 0644)
+	err = writeJobFile(path, contentB, false)
 	if err != nil {
 		logger.Error("write job file", "path", path, "err", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -201,9 +236,8 @@ func HandleDeleteJob(w http.ResponseWriter, r *http.Request) {
 	path := Config.JobDir + name + Config.jobsExt
 
 	if _, err := os.Stat(path); err == nil {
-		err = os.Remove(path)
+		err = deleteJobFile(path)
 		logger.Info("job deleted", "job", name)
-		CleanupJobsBucket()
 		if err != nil {
 			logger.Error("remove job file", "path", path, "err", err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -263,6 +297,9 @@ func HandleJobSetActive(w http.ResponseWriter, r *http.Request) {
 		jb := b.Bucket([]byte(name))
 		if jb == nil {
 			return fmt.Errorf("invalid job name: %s", name)
+		}
+		if err := setJobDisabled(tx, name, activeStatus == "false"); err != nil {
+			return err
 		}
 		err := jb.Put([]byte("active"), []byte(activeStatus))
 		if err == nil {

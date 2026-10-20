@@ -11,6 +11,14 @@ tasks:
 `;
 
         cy.request({
+            url: "/api/jobs/create",
+            method: "POST",
+            auth: { user: "", pass: "admin" },
+            body: { name: jobName },
+            form: true,
+        });
+
+        cy.request({
             url: "/api/job/" + jobName,
             method: "POST",
             auth: {

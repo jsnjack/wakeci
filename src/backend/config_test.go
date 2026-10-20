@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -83,6 +84,42 @@ func TestCreateWakeConfig(t *testing.T) {
 		}
 		if !strings.HasSuffix(config.JobDir, string(os.PathSeparator)) {
 			t.Errorf("expected JobDir to end with a separator, got %q", config.JobDir)
+		}
+	})
+
+	t.Run("Google", func(t *testing.T) {
+		tests := []struct {
+			name        string
+			content     string
+			wantErr     bool
+			wantDomains []string
+		}{
+			{name: "not configured", content: "port: \"8081\"\n"},
+			{
+				name:        "normalizes domains",
+				content:     "google:\n  client_id: id\n  client_secret: secret\n  allowed_domains: [\" Example.COM \"]\n",
+				wantDomains: []string{"example.com"},
+			},
+			{name: "missing secret", content: "google:\n  client_id: id\n  allowed_domains: [example.com]\n", wantErr: true},
+			{name: "missing domains", content: "google:\n  client_id: id\n  client_secret: secret\n", wantErr: true},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				path := filepath.Join(t.TempDir(), "Wakefile.yaml")
+				if err := os.WriteFile(path, []byte(tt.content), 0644); err != nil {
+					t.Fatalf("write fixture: %v", err)
+				}
+				config, err := CreateWakeConfig(path)
+				if (err != nil) != tt.wantErr {
+					t.Fatalf("CreateWakeConfig error = %v, wantErr %t", err, tt.wantErr)
+				}
+				if err != nil {
+					return
+				}
+				if !slices.Equal(config.Google.AllowedDomains, tt.wantDomains) {
+					t.Errorf("allowed domains = %q, want %q", config.Google.AllowedDomains, tt.wantDomains)
+				}
+			})
 		}
 	})
 }

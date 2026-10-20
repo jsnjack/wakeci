@@ -28,5 +28,26 @@ describe("Settings page", function () {
         cy.get("#build-history-size").clear().type("200");
 
         cy.get("[data-cy=save-settings]").click();
+        cy.get(".notification-content").should("contain", "Saved");
+    });
+});
+
+
+describe("Settings with a session that survives password changes", function () {
+    it("does not submit the previous password again on later saves", function () {
+        cy.visit("/settings");
+        cy.login();
+        cy.get("input[type=password]").should("be.visible");
+        cy.intercept("POST", "/api/settings", { statusCode: 200, body: "" }).as("saveSettings");
+        cy.get("input[type=password]").type("do-not-save-again");
+        cy.get("[data-cy=save-settings]").click();
+        cy.wait("@saveSettings");
+        cy.get("input[type=password]").should("have.value", "");
+        cy.get("#concurrent-builds").clear().type("3");
+        cy.get("[data-cy=save-settings]").click();
+        cy.wait("@saveSettings").then(({ request }) => {
+            const body = typeof request.body === "string" ? request.body : JSON.stringify(request.body);
+            expect(body).not.to.contain("do-not-save-again");
+        });
     });
 });

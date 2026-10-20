@@ -133,3 +133,26 @@ export function generateRandomString(length) {
     }
     return result;
 }
+
+// matchJobPattern mirrors the server's: only * is special, matching any run
+// of characters
+export function matchJobPattern(pattern, name) {
+    const parts = pattern.split("*");
+    if (parts.length === 1) {
+        return pattern === name;
+    }
+    const first = parts[0];
+    const last = parts[parts.length - 1];
+    if (!name.startsWith(first)) {
+        return false;
+    }
+    let rest = name.slice(first.length);
+    for (const part of parts.slice(1, -1)) {
+        const i = rest.indexOf(part);
+        if (i < 0) {
+            return false;
+        }
+        rest = rest.slice(i + part.length);
+    }
+    return rest.endsWith(last);
+}

@@ -4,7 +4,11 @@
             method="post"
             @submit.prevent="save"
         >
-            <div class="field border small">
+            <!-- Hidden when google.disable_password turns the password off -->
+            <div
+                v-if="passwordEnabled"
+                class="field border small"
+            >
                 <input
                     type="password"
                     id="password"
@@ -53,6 +57,7 @@ export default {
     data: function () {
         return {
             password: "",
+            passwordEnabled: true,
             concurrentBuilds: 2,
             buildHistorySize: 200,
         };
@@ -64,7 +69,9 @@ export default {
     methods: {
         save() {
             const data = new FormData();
-            data.append("password", this.password);
+            if (this.passwordEnabled) {
+                data.append("password", this.password);
+            }
             data.append("concurrentBuilds", this.concurrentBuilds);
             data.append("buildHistorySize", this.buildHistorySize);
             axios
@@ -74,6 +81,7 @@ export default {
                     },
                 })
                 .then((response) => {
+                    this.password = "";
                     this.$notify({
                         text: "Saved",
                         type: "primary",
@@ -82,6 +90,12 @@ export default {
                 .catch((error) => {});
         },
         fetch() {
+            axios
+                .get("/auth/methods")
+                .then((response) => {
+                    this.passwordEnabled = response.data.password !== false;
+                })
+                .catch((error) => {});
             axios
                 .get("/api/settings")
                 .then((response) => {

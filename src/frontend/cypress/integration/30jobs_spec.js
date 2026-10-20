@@ -113,7 +113,7 @@ describe("Jobs page", function () {
         for (let index = 0; index < 5; index++) {
             cy.get("[data-cy=editor] .cm-content").type("{selectall}").type("{selectall}").type("{backspace}");
         }
-        cy.get("[data-cy=editor] .cm-content").type("desc: Empty job");
+        cy.get("[data-cy=editor] .cm-content").type("desc: Empty job{enter}tasks: []");
         cy.get("[data-cy=save-button]").click();
         cy.get(".notification-content").should("contain", "Saved");
         cy.visit("/jobs");

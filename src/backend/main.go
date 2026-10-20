@@ -27,6 +27,8 @@ import (
 const TraceLogPath = "/tmp/wakeci.log"
 
 const serverShutdownTimeout = 10 * time.Second
+const serverReadHeaderTimeout = 5 * time.Second
+const serverReadTimeout = 30 * time.Second
 
 // Version is the version of the application calculated with monova. It is
 // injected at build time via -ldflags="-X main.Version=...". The default value
@@ -136,6 +138,102 @@ func initApp() func() {
 	return cleanup
 }
 
+// newRouter wires every route to its handler and the auth scope it requires
+func newRouter() chi.Router {
+	router := chi.NewRouter()
+	router.Use(LogMi)
+	router.Use(SecurityMi)
+	router.Use(CORSMi)
+	router.Use(http.NewCrossOriginProtection().Handler)
+	router.Use(RequestSecurityMi)
+
+	read := RequireScope(ScopeRead)
+	run := RequireScope(ScopeRun)
+	write := RequireScope(ScopeWrite)
+	admin := RequireScope(ScopeAdmin)
+	// API keys can be limited to some jobs. Listings (the feed, the jobs
+	// list, websocket updates) leave out other jobs instead.
+	job := RequireJob(jobInPath, false)
+	build := RequireJob(jobOfBuildInPath, true)
+
+	router.With(AuthMi, read).Get("/ws", HandleWS)
+
+	router.Route("/auth", func(router chi.Router) {
+		router.With(AuthMi).Get("/_isLoggedIn", HandleIsLoggedIn)
+		router.Get("/methods", HandleAuthMethods)
+		router.Post("/login", HandleLogIn)
+		router.Post("/logout", HandleLogOut)
+		router.Get("/logout", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Allow", "POST")
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		})
+		router.Get("/google/login", HandleGoogleLogin)
+		router.Get("/google/callback", HandleGoogleCallback)
+	})
+
+	router.Route("/api", func(router chi.Router) {
+		router.Use(AuthMi)
+		router.With(read).Get("/feed", HandleFeedView)
+
+		router.Route("/jobs", func(router chi.Router) {
+			router.With(read).Get("/", HandleJobsView)
+			router.With(write, RequireJob(jobInForm, false)).Post("/create", HandleJobsCreate)
+		})
+
+		router.Route("/job", func(router chi.Router) {
+			router.With(run, job).Post("/{name}/run", HandleRunJob)
+			router.With(write, job).Delete("/{name}", HandleDeleteJob)
+			router.With(write, job).Post("/{name}", HandleJobPost)
+			router.With(read, job).Get("/{name}", HandleJobGet)
+			router.With(write, job).Post("/{name}/set_active", HandleJobSetActive)
+		})
+
+		router.Route("/build", func(router chi.Router) {
+			router.With(read, build).Get("/{id}", HandleGetBuild)
+			router.With(run, build).Post("/{id}/abort", HandleAbortBuild)
+			// Flushing only makes buffered log lines visible sooner
+			router.With(read, build).Post("/{id}/flush", HandleFlushTaskLogs)
+			router.With(run, build).Post("/{id}/start", HandleStartBuild)
+		})
+
+		router.With(admin).Get("/settings", HandleSettingsGet)
+		router.With(admin).Post("/settings", HandleSettingsPost)
+
+		router.Route("/keys", func(router chi.Router) {
+			router.Use(RequireSession)
+			router.Get("/", HandleAPIKeysList)
+			router.Post("/", HandleAPIKeysCreate)
+			router.Delete("/{id}", HandleAPIKeysRevoke)
+		})
+	})
+
+	// Build files, always sandboxed (see preview.go)
+	storageServer := http.HandlerFunc(serveBuildFile)
+	router.Route("/storage", func(router chi.Router) {
+		router.Use(ArtifactSecurityMi)
+		router.Use(AuthMi)
+		router.Use(read)
+		router.Use(RequireJob(jobOfStoredFile, true))
+		router.Method("GET", "/build/*", HandleWakespaceResource(storageServer))
+		router.Method("HEAD", "/build/*", HandleWakespaceResource(storageServer))
+	})
+	router.Route("/preview/{token}", func(router chi.Router) {
+		router.Use(ArtifactSecurityMi)
+		router.Method("GET", "/build/*", HandlePreview())
+		router.Method("HEAD", "/build/*", HandlePreview())
+	})
+
+	router.Route("/docs", func(router chi.Router) {
+		router.Use(StorageSecurityMi)
+		router.Get("/api/", HandleAPIDocsView)
+		router.Method("GET", "/swagger.json", http.FileServer(http.FS(APIDocs)))
+	})
+
+	vuefs := http.FileServer(http.FS(Assets))
+	router.Method("GET", "/*", HandleVueResources(vuefs))
+	return router
+}
+
 // @title wakeci API documentation
 // @version 1.0
 
@@ -156,9 +254,15 @@ func main() {
 		fatal("create work dir", err)
 	}
 
-	DB, err = bolt.Open(Config.WorkDir+"wakeci.db", 0644, nil)
+	// Owner-only, also for databases created before this was enforced
+	dbPath := Config.WorkDir + "wakeci.db"
+	DB, err = bolt.Open(dbPath, dbFileMode, nil)
 	if err != nil {
 		fatal("open db", err)
+	}
+	err = os.Chmod(dbPath, dbFileMode)
+	if err != nil {
+		fatal("restrict db permissions", err)
 	}
 	defer func() {
 		if err := DB.Close(); err != nil {
@@ -203,6 +307,16 @@ func main() {
 			return err
 		}
 
+		_, err = tx.CreateBucketIfNotExists(APIKeysBucket)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.CreateBucketIfNotExists(GoogleAccountsBucket)
+		if err != nil {
+			return err
+		}
+
 		return nil
 	})
 
@@ -211,6 +325,16 @@ func main() {
 	}
 
 	GlobalSessionStorage = CreateSessionStorage(SessionCleanupPeriod)
+
+	if Config.Google.Enabled() && passwordLoginEnabled() {
+		hash, err := readPasswordHash()
+		if err != nil {
+			fatal("check bootstrap password", err)
+		}
+		if bcrypt.CompareHashAndPassword(hash, []byte("admin")) == nil {
+			L.Warn("the default shared password is refused while Google sign-in is enabled; configure a new password or disable password login")
+		}
+	}
 
 	GlobalQueue, err = CreateQueue()
 	if err != nil {
@@ -243,64 +367,7 @@ func main() {
 		HostPolicy: autocert.HostWhitelist(Config.Hostname),
 	}
 
-	router := chi.NewRouter()
-	router.Use(LogMi)
-	router.Use(SecurityMi)
-	router.Use(CORSMi)
-
-	router.With(AuthMi).Get("/ws", HandleWS)
-
-	router.Route("/auth", func(router chi.Router) {
-		router.With(AuthMi).Get("/_isLoggedIn", HandleIsLoggedIn)
-		router.Post("/login", HandleLogIn)
-		router.Get("/logout", HandleLogOut)
-	})
-
-	router.Route("/api", func(router chi.Router) {
-		router.Use(AuthMi)
-		router.Get("/feed", HandleFeedView)
-
-		router.Route("/jobs", func(router chi.Router) {
-			router.Get("/", HandleJobsView)
-			router.Post("/create", HandleJobsCreate)
-		})
-
-		router.Route("/job", func(router chi.Router) {
-			router.Post("/{name}/run", HandleRunJob)
-			router.Delete("/{name}", HandleDeleteJob)
-			router.Post("/{name}", HandleJobPost)
-			router.Get("/{name}", HandleJobGet)
-			router.Post("/{name}/set_active", HandleJobSetActive)
-		})
-
-		router.Route("/build", func(router chi.Router) {
-			router.Get("/{id}", HandleGetBuild)
-			router.Post("/{id}/abort", HandleAbortBuild)
-			router.Post("/{id}/flush", HandleFlushTaskLogs)
-			router.Post("/{id}/start", HandleStartBuild)
-		})
-
-		router.Get("/settings", HandleSettingsGet)
-		router.Post("/settings", HandleSettingsPost)
-	})
-
-	router.Route("/storage", func(router chi.Router) {
-		// Storage server
-		router.Use(StorageSecurityMi)
-		router.Use(AuthMi)
-		storageServer := http.FileServer(http.Dir(Config.WorkDir + "wakespace"))
-		router.Method("GET", "/build/*", HandleWakespaceResource(storageServer))
-		router.Method("HEAD", "/build/*", HandleWakespaceResource(storageServer))
-	})
-
-	router.Route("/docs", func(router chi.Router) {
-		router.Use(StorageSecurityMi)
-		router.Get("/api/", HandleAPIDocsView)
-		router.Method("GET", "/swagger.json", http.FileServer(http.FS(APIDocs)))
-	})
-
-	vuefs := http.FileServer(http.FS(Assets))
-	router.Method("GET", "/*", HandleVueResources(vuefs))
+	router := newRouter()
 
 	compress, err := httpcompression.DefaultAdapter()
 	if err != nil {
@@ -309,18 +376,29 @@ func main() {
 
 	handler := compress(router)
 	server := &http.Server{
-		Addr:    ":" + Config.Port,
-		Handler: handler,
+		Addr:              ":" + Config.Port,
+		ReadHeaderTimeout: serverReadHeaderTimeout,
+		ReadTimeout:       serverReadTimeout,
+		Handler:           handler,
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	var auxiliaryServers sync.WaitGroup
+	if Config.Google.Enabled() {
+		auxiliaryServers.Add(1)
+		go func() {
+			defer auxiliaryServers.Done()
+			RunGoogleAccountChecker(ctx)
+		}()
+	}
 	serveName := "http"
 	serve := server.ListenAndServe
 
 	if Config.Port == "443" {
 		redirectServer := &http.Server{
-			Addr:    ":80",
-			Handler: certManager.HTTPHandler(nil),
+			Addr:              ":80",
+			ReadHeaderTimeout: serverReadHeaderTimeout,
+			ReadTimeout:       serverReadTimeout,
+			Handler:           certManager.HTTPHandler(nil),
 		}
 		auxiliaryServers.Add(1)
 		go func() {
@@ -334,8 +412,7 @@ func main() {
 		L.Warn("Listening on :443")
 		server.TLSConfig = &tls.Config{
 			// https://ssl-config.mozilla.org/#server=golang&version=1.13.6&config=intermediate&guideline=5.4
-			MinVersion:               tls.VersionTLS12,
-			PreferServerCipherSuites: false,
+			MinVersion: tls.VersionTLS12,
 			CipherSuites: []uint16{
 				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
 				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,

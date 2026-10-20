@@ -7,13 +7,24 @@
     <progress class="circle large" v-show="fetching"></progress>
         <div
             class="center-align"
-            v-show="!fetching"
+            v-show="!fetching && methodsLoaded"
         >
             <i class="extra">water</i>
             <h5 class="center-align">Welcome to wake</h5>
-            <p>Start by logging in with your password</p>
+            <p
+                v-if="loginError"
+                class="error-text"
+                data-cy="login-error"
+            >
+                {{ loginError }}
+            </p>
+            <p v-if="passwordEnabled">Start by logging in with your password</p>
+            <p v-else>Sign in with your company Google account</p>
             <div class="space"></div>
-            <nav class="group connected">
+            <nav
+                v-if="passwordEnabled"
+                class="group connected"
+            >
                 <div class="max field border left-round prefix round">
                     <input
                         id="password"
@@ -24,6 +35,19 @@
                 </div>
                 <button class="large right-round primary">Log in</button>
             </nav>
+            <!-- google.disable_password turns the password off server-side -->
+            <template v-if="googleEnabled">
+                <p v-if="passwordEnabled">or</p>
+                <a
+                    class="button large"
+                    :class="{ border: passwordEnabled }"
+                    data-cy="google-login"
+                    :href="googleLoginURL"
+                >
+                    <i>account_circle</i>
+                    <span>Sign in with Google</span>
+                </a>
+            </template>
         </div>
     </form>
 </template>
@@ -37,6 +61,9 @@ export default {
         return {
             fetching: true,
             password: "",
+            passwordEnabled: true,
+            googleEnabled: false,
+            methodsLoaded: false,
         };
     },
     computed: {
@@ -48,12 +75,38 @@ export default {
             }
             return redirect;
         },
+        googleLoginURL: function () {
+            return "/auth/google/login?redirect=" + encodeURIComponent(this.getRedirectURL);
+        },
+        loginError: function () {
+            switch (this.$route.query.error) {
+                case "google_not_allowed":
+                    return "Sign in with your company Google Workspace account";
+                case "google_failed":
+                    return "Google sign-in failed, please try again";
+                default:
+                    return "";
+            }
+        },
     },
     mounted() {
         this.$store.commit("SET_CURRENT_PAGE", "Login");
         this.fetch();
+        this.fetchMethods();
     },
     methods: {
+        fetchMethods() {
+            axios
+                .get("/auth/methods")
+                .then((response) => {
+                    this.passwordEnabled = response.data.password !== false;
+                    this.googleEnabled = response.data.google === true;
+                })
+                .catch((error) => {})
+                .finally(() => {
+                    this.methodsLoaded = true;
+                });
+        },
         fetch() {
             axios
                 .get("/auth/_isLoggedIn")

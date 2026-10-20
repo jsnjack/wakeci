@@ -30,6 +30,15 @@
                 <div class="tooltip bottom">Settings</div>
                 <i>settings</i>
             </router-link>
+            <router-link
+                v-if="auth.isLoggedIn"
+                to="/keys"
+                class="button circle transparent m l"
+                data-cy="nav-keys"
+            >
+                <div class="tooltip bottom">API keys</div>
+                <i>key</i>
+            </router-link>
             <button
                 class="circle transparent m l"
                 @click.prevent="toggleDarkMode"
@@ -126,7 +135,7 @@ export default {
         },
         logOut: function () {
             axios
-                .get("/auth/logout")
+                .post("/auth/logout")
                 .then((response) => {
                     this.$store.commit("LOG_OUT");
                     this.$router.push("/login");

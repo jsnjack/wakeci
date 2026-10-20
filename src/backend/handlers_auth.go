@@ -1,18 +1,37 @@
 package main
 
 import (
+	"bytes"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
-
-	bolt "go.etcd.io/bbolt"
 )
 
-// HandleIsLoggedIn returns 200 if user is logged in
+// HandleIsLoggedIn returns the logged-in Principal; AuthMi answers 403 for
+// everyone else
 func HandleIsLoggedIn(w http.ResponseWriter, r *http.Request) {
-	// See AuthMi
+	logger, ok := r.Context().Value(HL).(*slog.Logger)
+	if !ok {
+		logger = L
+	}
+	writeJSON(w, logger, principalFrom(r))
+}
+
+// AuthMethodsData lists the login methods the login page should offer
+type AuthMethodsData struct {
+	Password bool `json:"password"`
+	Google   bool `json:"google"`
+}
+
+// HandleAuthMethods tells the login page which login methods are enabled
+func HandleAuthMethods(w http.ResponseWriter, r *http.Request) {
+	logger, ok := r.Context().Value(HL).(*slog.Logger)
+	if !ok {
+		logger = L
+	}
+	writeJSON(w, logger, AuthMethodsData{Password: passwordLoginEnabled(), Google: Config.Google.Enabled()})
 }
 
 // HandleLogIn verifies password and logs the user in
@@ -21,20 +40,22 @@ func HandleLogIn(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		logger = L
 	}
+	if !passwordLoginEnabled() {
+		writeText(w, logger, http.StatusForbidden, "Password login is disabled, sign in with Google")
+		return
+	}
 	if rejectRateLimited(w, r, logger) {
 		return
 	}
 
 	// Create and store session token
-	password := r.FormValue("password")
+	password := r.PostFormValue("password")
+	if Config.Google.Enabled() && password == "admin" {
+		writeText(w, logger, http.StatusForbidden, "Incorrect password")
+		return
+	}
 
-	var hashedPassword []byte
-
-	err := DB.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(GlobalBucket))
-		hashedPassword = b.Get([]byte("password"))
-		return nil
-	})
+	hashedPassword, err := readPasswordHash()
 	if err != nil {
 		logger.Error("read password hash", "err", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -53,12 +74,27 @@ func HandleLogIn(w http.ResponseWriter, r *http.Request) {
 		writeBody(logger, w, []byte("Incorrect password"))
 		return
 	}
-	globalAuthAttemptLimiter.success(authClient(r))
 
-	c, err := GlobalSessionStorage.New(r)
+	principal := passwordPrincipal(viaSession)
+	principal.passwordFingerprint = passwordFingerprint(hashedPassword)
+	c, err := GlobalSessionStorage.New(r, principal)
 	if err != nil {
 		logger.Error("create session", "err", err)
 		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	// A password change can finish while bcrypt is checking the old hash.
+	currentHash, err := readPasswordHash()
+	if err != nil || !bytes.Equal(currentHash, hashedPassword) {
+		if deleteErr := GlobalSessionStorage.Delete(c.Value); deleteErr != nil {
+			logger.Log(r.Context(), LevelTrace, "discard session after password change", "err", deleteErr)
+		}
+		if err != nil {
+			logger.Error("recheck password hash", "err", err)
+			w.WriteHeader(http.StatusInternalServerError)
+		} else {
+			writeText(w, logger, http.StatusForbidden, "Password changed, please log in again")
+		}
 		return
 	}
 	// Set session cookie
@@ -79,6 +115,7 @@ func HandleLogOut(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			logger.Error("delete session", "err", err)
 		}
+		WSHub.Recheck()
 	}
 
 	// Set session cookie

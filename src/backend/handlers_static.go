@@ -17,10 +17,10 @@ func HandleVueResources(h http.Handler) http.Handler {
 		// First check if it is any of API, AUTH or STORAGE calls. This urls
 		// should never reach this point
 		switch {
-		case strings.HasPrefix(r.URL.Path, "/api/"), strings.HasPrefix(r.URL.Path, "/auth/"), strings.HasPrefix(r.URL.Path, "/storage/"):
-			w.WriteHeader(http.StatusInternalServerError)
+		case strings.HasPrefix(r.URL.Path, "/api/"), strings.HasPrefix(r.URL.Path, "/auth/"), strings.HasPrefix(r.URL.Path, "/storage/"), strings.HasPrefix(r.URL.Path, "/preview/"):
+			w.WriteHeader(http.StatusNotFound)
 			w.Header().Set("Content-Type", "text/plain")
-			logger.Error("vue 500", "path", r.URL.Path)
+			logger.Debug("unknown resource route", "path", logPath(r))
 			return
 		}
 
@@ -39,24 +39,6 @@ func HandleVueResources(h http.Handler) http.Handler {
 			r2.URL.Path = "/assets/"
 		}
 		logger.Debug("vue rewrite", "from", r.URL.Path, "to", r2.URL.Path)
-		h.ServeHTTP(w, r2)
-	})
-}
-
-// WakespaceResourceMi serves content of wakespace/ dir
-func HandleWakespaceResource(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger, ok := r.Context().Value(HL).(*slog.Logger)
-		if !ok {
-			logger = L
-		}
-
-		r2 := new(http.Request)
-		*r2 = *r
-		r2.URL = new(url.URL)
-		*r2.URL = *r.URL
-		r2.URL.Path = strings.TrimPrefix(r.URL.Path, "/storage/build/")
-		logger.Debug("storage rewrite", "from", r.URL.Path, "to", r2.URL.Path)
 		h.ServeHTTP(w, r2)
 	})
 }

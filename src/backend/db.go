@@ -22,12 +22,24 @@ import (
 // | active        | true    |
 var JobsBucket = []byte("jobs")
 
+// disabledJobsBucket preserves disabled names when file discovery removes a job.
+var disabledJobsBucket = []byte("disabledjobs")
+
 // GlobalBucket contains information about global configuration
 // - count: id of the build, increments
 var GlobalBucket = []byte("global")
 
 // HistoryBucket contains information about all executed builds
 var HistoryBucket = []byte("history")
+
+// APIKeysBucket contains API keys (JSON-encoded APIKey) by key ID. Only a
+// hash of each key's secret is stored.
+var APIKeysBucket = []byte("apikeys")
+
+// GoogleAccountsBucket contains every Google account that may currently use
+// wakeci (JSON-encoded googleAccount) by Principal.ID. An account is removed,
+// along with its API keys, as soon as Google stops vouching for it.
+var GoogleAccountsBucket = []byte("googleaccounts")
 
 // ByteToInt convert byte to int via string
 func ByteToInt(b []byte) (int, error) {
@@ -52,15 +64,25 @@ func Itob(v int) []byte {
 	return b
 }
 
-// CompactDB reclaims not used space in db file
+// dbFileMode keeps the db owner-only: it holds the password hash, API key
+// hashes and Google refresh tokens
+const dbFileMode = 0600
+
+// CompactDB reclaims not used space in db file. Every copy it leaves behind
+// (compacted db and backup) is owner-only, like the db itself.
 func CompactDB() (err error) {
 	currentDBFile := Config.WorkDir + "wakeci.db"
 	newDBFile := Config.WorkDir + ".compacted.wakeci.db"
 	oldDBFile := Config.WorkDir + "wakeci.db.backup"
 	L.Warn("reclaiming unused space in database", "file", currentDBFile)
+	// The current db becomes the backup by rename, keeping its mode
+	err = os.Chmod(currentDBFile, dbFileMode)
+	if err != nil {
+		return fmt.Errorf("restrict current database permissions: %w", err)
+	}
 	// Open current database
 	var oldDB *bolt.DB
-	oldDB, err = bolt.Open(currentDBFile, 0644, nil)
+	oldDB, err = bolt.Open(currentDBFile, dbFileMode, nil)
 	if err != nil {
 		return fmt.Errorf("open current database: %w", err)
 	}
@@ -79,7 +101,7 @@ func CompactDB() (err error) {
 		return fmt.Errorf("remove stale compacted database: %w", err)
 	}
 	var newDB *bolt.DB
-	newDB, err = bolt.Open(newDBFile, 0644, nil)
+	newDB, err = bolt.Open(newDBFile, dbFileMode, nil)
 	if err != nil {
 		return fmt.Errorf("open compacted database: %w", err)
 	}

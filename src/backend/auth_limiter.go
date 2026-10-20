@@ -13,6 +13,8 @@ const (
 	authMaxFailures   = 100
 	authFailureWindow = 5 * time.Minute
 	authBlockDuration = 5 * time.Minute
+	// authPruneAt is how many tracked clients trigger dropping stale ones
+	authPruneAt = 10000
 )
 
 type authAttempt struct {
@@ -77,6 +79,9 @@ func (l *authAttemptLimiter) failure(client string, now time.Time) (time.Duratio
 		attempt.blockedUntil = now.Add(l.blockDuration)
 	}
 	l.attempts[client] = attempt
+	if len(l.attempts) >= authPruneAt {
+		l.prune(now)
+	}
 
 	if attempt.blockedUntil.IsZero() {
 		return 0, false
@@ -84,18 +89,28 @@ func (l *authAttemptLimiter) failure(client string, now time.Time) (time.Duratio
 	return l.blockDuration, true
 }
 
-func (l *authAttemptLimiter) success(client string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	delete(l.attempts, client)
+// prune forgets clients whose failures have expired and who aren't
+// blocked. Successes don't reset a client's failures: behind a shared proxy
+// or NAT, one user's success would wipe out another's failed guesses.
+func (l *authAttemptLimiter) prune(now time.Time) {
+	for client, attempt := range l.attempts {
+		if now.Sub(attempt.lastFailure) >= l.failureWindow && !now.Before(attempt.blockedUntil) {
+			delete(l.attempts, client)
+		}
+	}
 }
 
+// authClient is who failed attempts are counted against: the client's
+// address, or its /64 for IPv6, which one host usually holds whole
 func authClient(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err == nil {
-		return host
+	if err != nil {
+		host = r.RemoteAddr
 	}
-	return r.RemoteAddr
+	if ip := net.ParseIP(host); ip != nil && ip.To4() == nil {
+		return ip.Mask(net.CIDRMask(64, 128)).String() + "/64"
+	}
+	return host
 }
 
 func rejectRateLimited(w http.ResponseWriter, r *http.Request, logger *slog.Logger) bool {

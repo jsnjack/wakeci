@@ -173,7 +173,7 @@ func TestProcessLogEntryCollapsesCarriageReturns(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			build := &Build{ID: 1, Logger: L}
+			build := &Build{ID: 1, Job: &Job{Name: "progress"}, Logger: L}
 			var buf bytes.Buffer
 			bw := bufio.NewWriter(&buf)
 
@@ -304,5 +304,48 @@ func TestCreateBuildUsesPrivatePermissions(t *testing.T) {
 	}
 	if got := info.Mode().Perm(); got&0o077 != 0 {
 		t.Errorf("nested artifact directory permissions = %#o, want no group or other access", got)
+	}
+}
+
+// TestCallerDataNeverExpandsSecrets: only text from the job file may refer
+// to secrets. Params a caller passes and values tasks write to build.env are
+// data, or anyone allowed to run a job could pull any secret into it.
+func TestCallerDataNeverExpandsSecrets(t *testing.T) {
+	newTestBuildEnv(t)
+	Config.secrets = map[string]string{"TOKEN": "s3cret"}
+	reference := "{{ secrets.TOKEN }}"
+
+	job := &Job{Name: "caller-data", DefaultParams: []map[string]string{{"FROM_FILE": reference}, {"FROM_CALLER": "default"}}}
+	build, err := CreateBuild(job, filepath.Join(Config.JobDir, "caller-data.yaml"))
+	if err != nil {
+		t.Fatalf("CreateBuild: %v", err)
+	}
+	build.Params[1]["FROM_CALLER"] = reference
+	build.callerParams = map[string]bool{"FROM_CALLER": true}
+	if err := os.WriteFile(build.GetWorkspaceDir()+"build.env", []byte("FROM_ENV=\""+reference+"\"\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	task := &Task{ID: 1, Command: `[[ "$FROM_FILE" == s3cret && "$FROM_CALLER" == *secrets.TOKEN* && "$FROM_ENV" == *secrets.TOKEN* ]]`, startedAt: time.Now()}
+	if status := build.runTask(task); status != StatusFinished {
+		log, _ := os.ReadFile(filepath.Join(build.GetWakespaceDir(), "task_1.log"))
+		t.Errorf("runTask status = %q, want %q; log:\n%s", status, StatusFinished, log)
+	}
+}
+
+// TestRedactionSeesThroughColours: a colour code inside a secret must not
+// hide it from redaction
+func TestRedactionSeesThroughColours(t *testing.T) {
+	newTestBuildEnv(t)
+	Config.secrets = map[string]string{"TOKEN": "s3cret"}
+	build := &Build{ID: 1, Job: &Job{Name: "colours"}, Logger: L}
+	var buf bytes.Buffer
+	bw := bufio.NewWriter(&buf)
+	build.ProcessLogEntry("token: s3\x1b[31mcr\x1b[0met", bw, 1, time.Now())
+	if err := bw.Flush(); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(buf.String(), "s3cret") {
+		t.Errorf("logged %q, want the secret redacted", buf.String())
 	}
 }

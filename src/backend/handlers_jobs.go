@@ -23,11 +23,15 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request) {
 		logger = L
 	}
 
+	allowed := jobFilter(r)
 	var data []*JobsListData
 	err := DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(JobsBucket))
 		c := b.Cursor()
 		for key, _ := c.First(); key != nil; key, _ = c.Next() {
+			if allowed != nil && !allowed(string(key)) {
+				continue
+			}
 			job := JobsListData{
 				Name: string(key),
 			}
@@ -84,7 +88,7 @@ func HandleJobsCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	name := r.FormValue("name")
-	if !isValidJobName(name) {
+	if !isValidJobName(name) || Config.isProtectedFile(Config.JobDir+name+Config.jobsExt) {
 		logger.Warn("invalid job name", "name", name)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Header().Set("Content-Type", "text/plain")
@@ -111,7 +115,7 @@ func HandleJobsCreate(w http.ResponseWriter, r *http.Request) {
 			writeBody(logger, w, []byte(err.Error()))
 			return
 		}
-		err = os.WriteFile(path, []byte(NewJobTemplate), 0644)
+		err = writeJobFile(path, []byte(NewJobTemplate), true)
 		if err != nil {
 			logger.Error("write job file", "path", path, "err", err)
 			w.WriteHeader(http.StatusBadRequest)

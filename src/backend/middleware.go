@@ -2,15 +2,17 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"strings"
 	"time"
 
-	bolt "go.etcd.io/bbolt"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -75,7 +77,7 @@ func LogMi(next http.Handler) http.Handler {
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		defer func() {
 			handlerLogger.Warn("request completed",
-				"method", r.Method, "path", r.URL.Path, "status", rec.status, "took", time.Since(startTime),
+				"method", r.Method, "path", logPath(r), "status", rec.status, "took", time.Since(startTime),
 			)
 		}()
 
@@ -100,6 +102,13 @@ func CORSMi(next http.Handler) http.Handler {
 // SecurityMi is a middleware which adds security headers
 func SecurityMi(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/auth/") {
+			w.Header().Set("Cache-Control", "no-store")
+		}
+		if strings.HasPrefix(r.URL.Path, "/storage/") || strings.HasPrefix(r.URL.Path, "/preview/") {
+			w.Header().Set("Cache-Control", "private, no-store")
+			w.Header().Set("Vary", "Cookie, Authorization")
+		}
 		w.Header().Set("referrer-policy", "no-referrer")
 		w.Header().Set("content-security-policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'")
 		w.Header().Set("x-content-type-options", "nosniff")
@@ -110,13 +119,7 @@ func SecurityMi(next http.Handler) http.Handler {
 	})
 }
 
-// StorageSecurityMi is a middleware which adds security headers specifically for storage endpoints
-// It is more relaxed than the normal one, as we want to be able to preview html pages.
-// Scripts in a previewed page may still run (self-contained reports commonly
-// embed inline JS/CSS for interactivity), but connect-src/form-action are
-// locked down so a build artifact - which can contain task-influenced
-// content - can never use that execution context to call back into wakeci's
-// own authenticated API or submit a form, even though it's served same-site.
+// StorageSecurityMi supplies default headers for API documentation.
 func StorageSecurityMi(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("referrer-policy", "no-referrer")
@@ -133,7 +136,10 @@ func StorageSecurityMi(next http.Handler) http.Handler {
 	})
 }
 
-// AuthMi checks user credentials
+// AuthMi authenticates the request and attaches its Principal to the
+// context, for RequireScope and the handlers. It accepts, in order: an API
+// key (bearer token, or basic auth password starting with "wcik_"), the shared
+// password via basic auth, and a browser session cookie.
 func AuthMi(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger, ok := r.Context().Value(HL).(*slog.Logger)
@@ -141,25 +147,48 @@ func AuthMi(next http.Handler) http.Handler {
 			logger = L
 		}
 
-		// Basic auth for API calls
+		// Scoped API keys. A valid key is never held back by the limiter: it
+		// is 256 random bits, so blocking it would protect nothing and only
+		// let anyone sharing the address lock out automation.
+		if token, ok := apiKeyFromRequest(r); ok {
+			principal, err := VerifyAPIKey(logger, token, time.Now())
+			if errors.Is(err, errInvalidAPIKey) {
+				logger.Warn("api key auth failed", "err", err)
+				if recordAuthFailure(w, r, logger) {
+					return
+				}
+				writeText(w, logger, http.StatusForbidden, "Forbidden")
+				return
+			}
+			if err != nil {
+				logger.Error("verify api key", "err", err)
+				writeText(w, logger, http.StatusInternalServerError, "Another triumph")
+				return
+			}
+			next.ServeHTTP(w, withPrincipal(r, principal))
+			return
+		}
+
+		// Basic auth with the shared password, for API calls
 		_, password, ok := r.BasicAuth()
 		if ok {
+			if Config.Google.Enabled() && password == "admin" {
+				writeText(w, logger, http.StatusForbidden, "Forbidden")
+				return
+			}
+			if !passwordLoginEnabled() {
+				logger.Warn("basic auth refused", "err", errPasswordDisabled)
+				writeText(w, logger, http.StatusForbidden, "Forbidden")
+				return
+			}
 			if rejectRateLimited(w, r, logger) {
 				return
 			}
-			var hashedPassword []byte
-
-			err := DB.View(func(tx *bolt.Tx) error {
-				b := tx.Bucket([]byte(GlobalBucket))
-				hashedPassword = b.Get([]byte("password"))
-				return nil
-			})
-
+			// A copy: it outlives the transaction, in the request context
+			hashedPassword, err := readPasswordHash()
 			if err != nil {
 				logger.Error("read password hash", "err", err)
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Header().Set("Content-Type", "text/plain")
-				writeBody(logger, w, []byte("Another triumph"))
+				writeText(w, logger, http.StatusInternalServerError, "Another triumph")
 				return
 			}
 
@@ -169,13 +198,11 @@ func AuthMi(next http.Handler) http.Handler {
 				if recordAuthFailure(w, r, logger) {
 					return
 				}
-				w.Header().Set("Content-Type", "text/plain")
-				w.WriteHeader(http.StatusForbidden)
-				writeBody(logger, w, []byte("Forbidden"))
+				writeText(w, logger, http.StatusForbidden, "Forbidden")
 				return
 			}
-			globalAuthAttemptLimiter.success(authClient(r))
-			next.ServeHTTP(w, r)
+			r = withPrincipal(r, passwordPrincipal(viaBasic))
+			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), verifiedPasswordHashKey{}, hashedPassword)))
 			return
 		}
 
@@ -183,18 +210,56 @@ func AuthMi(next http.Handler) http.Handler {
 		sessionToken, err := r.Cookie("session")
 		if err != nil {
 			logger.Warn("missing session cookie", "err", err)
-			w.WriteHeader(http.StatusForbidden)
-			w.Header().Set("Content-Type", "text/plain")
-			writeBody(logger, w, []byte("Forbidden"))
+			writeText(w, logger, http.StatusForbidden, "Forbidden")
 			return
 		}
-		err = GlobalSessionStorage.Verify(sessionToken.Value)
+		principal, err := GlobalSessionStorage.Verify(sessionToken.Value)
 		if err != nil {
 			logger.Warn("session verification failed", "err", err)
-			w.WriteHeader(http.StatusForbidden)
-			w.Header().Set("Content-Type", "text/plain")
-			writeBody(logger, w, []byte("Forbidden"))
+			writeText(w, logger, http.StatusForbidden, "Forbidden")
 			return
+		}
+		err = checkSessionPrincipal(principal, time.Now())
+		if isRevoked(err) {
+			logger.Warn("session refused", "err", err)
+			writeText(w, logger, http.StatusForbidden, "Forbidden")
+			return
+		}
+		if err != nil {
+			logger.Error("check session principal", "err", err)
+			writeText(w, logger, http.StatusInternalServerError, "Another triumph")
+			return
+		}
+		next.ServeHTTP(w, withPrincipal(r, principal))
+	})
+}
+
+const maxRequestBodyBytes = 4 << 20
+
+// RequestSecurityMi bounds and buffers unsafe request bodies before authentication.
+func RequestSecurityMi(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet, http.MethodHead, http.MethodOptions:
+			next.ServeHTTP(w, r)
+			return
+		}
+		if r.Body != nil {
+			data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxRequestBodyBytes))
+			if closeErr := r.Body.Close(); closeErr != nil {
+				L.Log(r.Context(), LevelTrace, "close request body", "err", closeErr)
+			}
+			if err != nil {
+				status := http.StatusBadRequest
+				var tooLarge *http.MaxBytesError
+				if errors.As(err, &tooLarge) {
+					status = http.StatusRequestEntityTooLarge
+				}
+				http.Error(w, http.StatusText(status), status)
+				return
+			}
+			r.Body = io.NopCloser(bytes.NewReader(data))
+			r.ContentLength = int64(len(data))
 		}
 		next.ServeHTTP(w, r)
 	})

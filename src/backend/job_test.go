@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/robfig/cron/v3"
+	bolt "go.etcd.io/bbolt"
 )
 
 func TestJobNameParamDecodesOneSafePathSegment(t *testing.T) {
@@ -21,6 +22,31 @@ func TestJobNameParamDecodesOneSafePathSegment(t *testing.T) {
 		{name: "reserved characters", path: "/api/job/job%23%3F%25%20name", want: "job#?% name", wantStatus: http.StatusOK},
 		{name: "literal escape sequence", path: "/api/job/job%2523", want: "job%23", wantStatus: http.StatusOK},
 		{name: "encoded separator", path: "/api/job/job%2Fescape", wantStatus: http.StatusBadRequest},
+	}
+
+	withTestDB(t)
+	oldConfig := Config
+	Config = &WakeConfig{JobDir: t.TempDir() + "/", jobsExt: ".yaml"}
+	t.Cleanup(func() { Config = oldConfig })
+	for _, tc := range tests {
+		if tc.want != "" {
+			if err := os.WriteFile(Config.JobDir+tc.want+Config.jobsExt, []byte("tasks: []\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	// Only registered jobs have names
+	if err := DB.Update(func(tx *bolt.Tx) error {
+		for _, tt := range tests {
+			if tt.want != "" {
+				if _, err := tx.Bucket(JobsBucket).CreateBucket([]byte(tt.want)); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
 	}
 
 	router := chi.NewRouter()

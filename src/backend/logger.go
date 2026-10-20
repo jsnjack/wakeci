@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -99,4 +100,23 @@ func writeBody(logger *slog.Logger, w http.ResponseWriter, data []byte) {
 	if _, err := w.Write(data); err != nil {
 		logger.Log(context.Background(), LevelTrace, "write response body", "err", err)
 	}
+}
+
+// writeText writes a plain-text response with status
+func writeText(w http.ResponseWriter, logger *slog.Logger, status int, msg string) {
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(status)
+	writeBody(logger, w, []byte(msg))
+}
+
+// writeJSON writes v as a JSON response
+func writeJSON(w http.ResponseWriter, logger *slog.Logger, v any) {
+	payload, err := json.Marshal(v)
+	if err != nil {
+		logger.Error("marshal response", "err", err)
+		writeText(w, logger, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	writeBody(logger, w, payload)
 }

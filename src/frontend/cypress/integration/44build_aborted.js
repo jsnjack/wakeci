@@ -9,6 +9,14 @@ tasks:
 `;
 
         cy.request({
+            url: "/api/jobs/create",
+            method: "POST",
+            auth: { user: "", pass: "admin" },
+            body: { name: jobName },
+            form: true,
+        });
+
+        cy.request({
             url: "/api/job/" + jobName,
             method: "POST",
             auth: {
@@ -65,6 +73,14 @@ on_aborted:
   - name: Aborted
     run: echo "BINGO"
 `;
+
+        cy.request({
+            url: "/api/jobs/create",
+            method: "POST",
+            auth: { user: "", pass: "admin" },
+            body: { name: jobName },
+            form: true,
+        });
 
         cy.request({
             url: "/api/job/" + jobName,
@@ -126,6 +142,14 @@ on_aborted:
 
 timeout: 1s
 `;
+
+        cy.request({
+            url: "/api/jobs/create",
+            method: "POST",
+            auth: { user: "", pass: "admin" },
+            body: { name: jobName },
+            form: true,
+        });
 
         cy.request({
             url: "/api/job/" + jobName,

@@ -66,6 +66,11 @@ type Client struct {
 	SubscribedTo []string
 	Logger       *slog.Logger
 
+	// revalidate re-checks the credential the connection opened with
+	revalidate func(now time.Time) error
+	// canSeeJob filters messages for keys limited to some jobs; nil for all
+	canSeeJob func(name string) bool
+
 	mu deadlock.Mutex
 }
 
@@ -94,7 +99,10 @@ func (c *Client) resetWriteDeadline() {
 // reads from this goroutine.
 func (c *Client) readPump() {
 	defer func() {
-		c.hub.unregister <- c
+		select {
+		case c.hub.unregister <- c:
+		case <-c.hub.stop:
+		}
 		if err := c.conn.Close(); err != nil {
 			c.Logger.Log(context.Background(), LevelTrace, "close ws connection", "err", err)
 		}
@@ -247,6 +255,12 @@ func (c *Client) HandleIncomingMessage(msg *MsgIncoming) {
 
 // HandleWS handles ws connection
 func HandleWS(w http.ResponseWriter, r *http.Request) {
+	revalidate, err := credentialCheck(r)
+	if err != nil {
+		L.Error("ws credential check", "err", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		L.Error("upgrade ws connection", "err", err)
@@ -269,6 +283,8 @@ func HandleWS(w http.ResponseWriter, r *http.Request) {
 		send:         make(chan []byte, 1024),
 		SubscribedTo: []string{},
 		Logger:       L.With("logID", logID, "host", host),
+		revalidate:   revalidate,
+		canSeeJob:    jobFilter(r),
 	}
 	client.hub.register <- client
 

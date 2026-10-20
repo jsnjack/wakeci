@@ -77,6 +77,11 @@ type Build struct {
 	pendingTasksWG sync.WaitGroup
 	abortedReason  string
 	Params         []map[string]string
+	// callerParams are the params the caller set when starting the build.
+	// They are data: unlike the job file's own values, a `{{ secrets.X }}`
+	// in them is never expanded, or anyone allowed to run a job could pull
+	// any secret into it.
+	callerParams   map[string]bool
 	Artifacts      []string // Deprecate
 	BuildArtifacts []*ArtifactInfo
 	StartedAt      time.Time
@@ -178,7 +183,10 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	b.mutex.Lock()
 	for idx := range b.Params {
 		for pkey, pval := range b.Params[idx] {
-			taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", pkey, injectSecrets(pval)))
+			if !b.callerParams[pkey] {
+				pval = injectSecrets(pval)
+			}
+			taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", pkey, pval))
 		}
 	}
 	b.mutex.Unlock()
@@ -195,8 +203,10 @@ func (b *Build) runTask(task *Task) ItemStatus {
 			return StatusFailed
 		}
 	} else {
+		// Written by tasks at run time, from whatever data they handle: values
+		// are never searched for secret references
 		for key, value := range buidEnv {
-			taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", key, injectSecrets(value)))
+			taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", key, value))
 		}
 	}
 	taskCmd.Env = append(taskCmd.Env, secretEnv...)
@@ -286,7 +296,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	expandedTaskCmd := os.Expand(task.Command, getEnvMapper(taskCmd.Env))
 	if expandedTaskCmd != task.Command {
 		b.ProcessLogEntry(
-			"> Expanded command: "+injectSecrets(expandedTaskCmd), bw, task.ID, task.startedAt,
+			"> Expanded command: "+expandedTaskCmd, bw, task.ID, task.startedAt,
 		)
 	}
 
@@ -521,6 +531,7 @@ func (b *Build) BroadcastUpdate() {
 	msg := MsgBroadcast{
 		Type: "build:update:" + strconv.Itoa(bID),
 		Data: json.RawMessage(data),
+		job:  b.Job.Name,
 	}
 	WSHub.broadcast <- &msg
 
@@ -576,7 +587,8 @@ func (b *Build) ProcessLogEntry(line string, buffer *bufio.Writer, taskID int, s
 	// - redact servers from the log
 	//
 	// Note: Internal logs start with `>`
-	pline := fmt.Sprintf("[%10s] ", time.Since(startedAt).Truncate(time.Millisecond).String()) + StripColor(redactSecrets(line)) + "\n"
+	// Colours first: a colour code inside a secret would hide it from redaction
+	pline := fmt.Sprintf("[%10s] ", time.Since(startedAt).Truncate(time.Millisecond).String()) + redactSecrets(StripColor(line)) + "\n"
 	// Write to the task's log file
 	_, err := buffer.WriteString(pline)
 	if err != nil {
@@ -590,6 +602,7 @@ func (b *Build) ProcessLogEntry(line string, buffer *bufio.Writer, taskID int, s
 			TaskID: taskID,
 			Data:   pline,
 		},
+		job: b.Job.Name,
 	}
 	WSHub.broadcast <- &msg
 }

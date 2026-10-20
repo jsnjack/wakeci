@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
 	bolt "go.etcd.io/bbolt"
 	"golang.org/x/crypto/bcrypt"
@@ -12,7 +13,7 @@ import (
 
 // HandleSettingsPost saves settings
 // @Summary      Update application settings
-// @Description  All parameters are available as query parameters and as formData
+// @Description  The password is accepted only in the form body. Other settings also accept query parameters.
 // @Tags         settings
 // @Produce      plain
 // @Param        password           formData      string   false  "Set password"
@@ -28,7 +29,11 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Password
-	password := r.FormValue("password")
+	password := r.PostFormValue("password")
+	if password != "" && !passwordLoginEnabled() {
+		writeText(w, logger, http.StatusBadRequest, "The shared password is disabled by google.disable_password")
+		return
+	}
 	if password != "" {
 		err := DB.Update(func(tx *bolt.Tx) error {
 			passwordH, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -41,6 +46,16 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return err
 			}
+			// Changing the password is how someone who knew it is cut off, so
+			// the keys made with it and its sessions go too, in the same
+			// transaction a new key would be stored in (CreateAPIKey)
+			owner := ProviderPassword + ":" + passwordUser
+			revoked, err := deleteOwnerKeys(tx, owner)
+			if err != nil {
+				return err
+			}
+			sessions := GlobalSessionStorage.DeletePrincipal(owner, time.Now())
+			logger.Warn("shared password changed", "keysRevoked", revoked, "sessionsEnded", sessions)
 			return nil
 		})
 		if err != nil {
@@ -50,6 +65,8 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 			writeBody(logger, w, []byte(err.Error()))
 			return
 		}
+		GlobalSessionStorage.DeletePrincipal(ProviderPassword+":"+passwordUser, time.Now())
+		WSHub.Recheck()
 	}
 
 	// Number of concurrent builds

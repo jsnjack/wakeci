@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -119,6 +120,13 @@ func CreateJobFromFile(path string) (*Job, error) {
 	if err != nil {
 		return nil, err
 	}
+	hasTasks, err := parseTasksDeclaration(data)
+	if err != nil {
+		return nil, fmt.Errorf("read job %s: %w", path, err)
+	}
+	if !hasTasks {
+		return nil, fmt.Errorf("%w: %s", errNotAJob, path)
+	}
 	job := Job{}
 	err = yaml.Unmarshal(data, &job)
 	if err != nil {
@@ -209,7 +217,8 @@ func GetJobNameFromPath(path string) string {
 // parameter can never contain a separator); this exists for the one handler
 // that takes a job name from form/query data instead.
 func isValidJobName(name string) bool {
-	return name != "" && !strings.ContainsAny(name, "/\\")
+	// * is the wildcard of API keys' job patterns (matchJobPattern)
+	return name != "" && !strings.ContainsAny(name, "/\\*")
 }
 
 // ScanAllJobs scans for all available jobs and saves them in database
@@ -227,17 +236,84 @@ func ScanAllJobs() {
 	}
 	for _, f := range files {
 		err := RegisterJob(f)
+		if errors.Is(err, errNotAJob) {
+			L.Debug("skipping protected file in jobdir", "file", f)
+			continue
+		}
 		if err != nil {
 			L.Error("register job", "file", f, "err", err)
 		}
 	}
 }
 
+// errNotAJob: the file is the config or the secrets file (isProtectedFile),
+// a YAML file without tasks, or a name no job is registered under
+var errNotAJob = errors.New("not a job")
+
+// definesTasks reports whether the YAML file has a top-level `tasks` key
+func definesTasks(filename string) (bool, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return false, err
+	}
+	return parseTasksDeclaration(data)
+}
+
+func definesTasksData(data []byte) bool {
+	hasTasks, err := parseTasksDeclaration(data)
+	return err == nil && hasTasks
+}
+
+func parseTasksDeclaration(data []byte) (bool, error) {
+	var document any
+	if err := yaml.Unmarshal(data, &document); err != nil {
+		return false, fmt.Errorf("parse job document: %w", err)
+	}
+	top, ok := document.(map[any]any)
+	if !ok {
+		return false, nil
+	}
+	_, hasTasks := top["tasks"]
+	return hasTasks, nil
+}
+
 // RegisterJob registers a job in database and cron
 func RegisterJob(filename string) error {
-	job, err := CreateJobFromFile(filename)
+	jobFilesMu.Lock()
+	defer jobFilesMu.Unlock()
+	return registerJob(filename)
+}
+
+func registerJob(filename string) error {
+	if Config.isProtectedFile(filename) {
+		if err := removeJobRegistration(filename); err != nil {
+			return err
+		}
+		return fmt.Errorf("%w: %s", errNotAJob, filename)
+	}
+	// With `jobdir: ./`, other YAML files (compose files, inventories) sit
+	// among the jobs; only those that define tasks are jobs
+	isJob, err := definesTasks(filename)
 	if err != nil {
 		return err
+	}
+	if !isJob {
+		if err := removeJobRegistration(filename); err != nil {
+			return err
+		}
+		return fmt.Errorf("%w: %s has no tasks", errNotAJob, filename)
+	}
+	job, err := CreateJobFromFile(filename)
+	if err != nil {
+		if errors.Is(err, errNotAJob) {
+			if removeErr := removeJobRegistration(filename); removeErr != nil {
+				return removeErr
+			}
+		}
+		return err
+	}
+	if !isValidJobName(job.Name) {
+		return fmt.Errorf("invalid job name %q: it can't contain /, \\ or *", job.Name)
 	}
 	err = DB.Update(func(tx *bolt.Tx) error {
 		jobsBucket := tx.Bucket(JobsBucket)
@@ -264,7 +340,11 @@ func RegisterJob(filename string) error {
 		}
 		isActive := jb.Get([]byte("active"))
 		if isActive == nil {
-			err = jb.Put([]byte("active"), []byte("true"))
+			active := "true"
+			if disabled := tx.Bucket(disabledJobsBucket); disabled != nil && disabled.Get([]byte(job.Name)) != nil {
+				active = "false"
+			}
+			err = jb.Put([]byte("active"), []byte(active))
 			if err != nil {
 				return err
 			}
@@ -284,13 +364,31 @@ func RegisterJob(filename string) error {
 
 // UnregisterJob removes a job from database and cron
 func UnregisterJob(filename string) {
-	jobName := GetJobNameFromPath(filename)
-	RemoveJobFromCron(jobName)
-	CleanupJobsBucket()
-	L.Info("unregistered job", "job", jobName)
+	jobFilesMu.Lock()
+	defer jobFilesMu.Unlock()
+	if err := removeJobRegistration(filename); err != nil {
+		L.Error("unregister job", "file", filename, "err", err)
+	}
+}
+
+func removeJobRegistration(filename string) error {
+	name := GetJobNameFromPath(filename)
+	err := DB.Update(func(tx *bolt.Tx) error {
+		jobs := tx.Bucket(JobsBucket)
+		return deleteJobRegistration(tx, jobs, name)
+	})
+	if err != nil {
+		return fmt.Errorf("remove job registration %q: %w", name, err)
+	}
+	RemoveJobFromCron(name)
+	L.Info("unregistered job", "job", name)
+	return nil
 }
 
 func RemoveJobFromCron(name string) {
+	if GlobalCron == nil {
+		return
+	}
 	for _, entry := range GlobalCron.Entries() {
 		entryJob, ok := entry.Job.(*Job)
 		if ok && entryJob.Name == name {
@@ -334,11 +432,13 @@ func RunJob(name string, params url.Values) (*Build, error) {
 
 	// Update params from URL
 	build.mutex.Lock()
+	build.callerParams = map[string]bool{}
 	for idx := range build.Params {
 		for pkey := range build.Params[idx] {
 			value := params.Get(pkey)
 			if value != "" {
 				build.Params[idx][pkey] = value
+				build.callerParams[pkey] = true
 				build.Logger.Debug("updating param", "key", pkey, "value", value)
 			}
 		}
@@ -385,19 +485,20 @@ func InitJobWatcher(jobDir string, jobsExt string) {
 			if !ok { // Channel was closed (i.e. Watcher.Close() was called).
 				return
 			}
-			if strings.HasSuffix(event.Name, jobsExt) {
-				if event.Has(fsnotify.Create | fsnotify.Write) {
-					L.Info("jobs dir watcher", "op", event.Op.String(), "file", event.Name)
-					err := RegisterJob(event.Name)
-					if err != nil {
-						L.Error("register job", "file", event.Name, "err", err)
-					}
-				}
-				if event.Has(fsnotify.Remove) {
-					L.Info("jobs dir watcher", "op", event.Op.String(), "file", event.Name)
-					UnregisterJob(event.Name)
-				}
-			}
+			handleJobFileEvent(event, jobsExt)
 		}
+	}
+}
+
+func handleJobFileEvent(event fsnotify.Event, jobsExt string) {
+	if !strings.HasSuffix(event.Name, jobsExt) || !event.Has(fsnotify.Create|fsnotify.Write|fsnotify.Remove|fsnotify.Rename) {
+		return
+	}
+	L.Info("jobs dir watcher", "op", event.Op.String(), "file", event.Name)
+	err := RegisterJob(event.Name)
+	if errors.Is(err, os.ErrNotExist) {
+		UnregisterJob(event.Name)
+	} else if err != nil && !errors.Is(err, errNotAJob) {
+		L.Error("register job", "file", event.Name, "err", err)
 	}
 }

@@ -26,6 +26,10 @@ export default defineConfig({
                 target: "http://localhost:8081/",
                 changeOrigin: true,
             },
+            "/preview": {
+                target: "http://localhost:8081/",
+                changeOrigin: true,
+            },
             "/docs": {
                 target: "http://localhost:8081/",
                 changeOrigin: true,

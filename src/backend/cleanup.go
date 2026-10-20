@@ -86,31 +86,47 @@ func CleanupOldBuilds(d time.Duration) {
 	}()
 }
 
-// CleanupJobsBucket verifies that items in jobs bucket have job files in
-// config dir
+// CleanupJobsBucket removes registrations whose files no longer qualify as jobs.
 func CleanupJobsBucket() {
+	jobFilesMu.Lock()
+	defer jobFilesMu.Unlock()
+	var removed []string
 	err := DB.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket(JobsBucket)
-		c := b.Cursor()
-		var toRemove [][]byte
-		for key, _ := c.First(); key != nil; key, _ = c.Next() {
+		jobs := tx.Bucket(JobsBucket)
+		cursor := jobs.Cursor()
+		for key, _ := cursor.First(); key != nil; key, _ = cursor.Next() {
 			name := string(key)
-			path := Config.JobDir + name + Config.jobsExt
-			_, err := os.Stat(path)
-			if err != nil {
-				L.Info("removing job from database", "job", name, "err", err)
-				toRemove = append(toRemove, key)
+			file := Config.JobDir + name + Config.jobsExt
+			remove := !isValidJobName(name) || Config.isProtectedFile(file)
+			if !remove {
+				hasTasks, err := definesTasks(file)
+				switch {
+				case os.IsNotExist(err):
+					remove = true
+				case err != nil:
+					// A partially written document must not erase its registration.
+					L.Warn("check registered job file", "job", name, "err", err)
+				case !hasTasks:
+					remove = true
+				}
+			}
+			if remove {
+				removed = append(removed, name)
 			}
 		}
-		for _, rk := range toRemove {
-			err := b.DeleteBucket(rk)
-			if err != nil {
-				L.Error("delete job bucket", "job", string(rk), "err", err)
+		for _, name := range removed {
+			if err := deleteJobRegistration(tx, jobs, name); err != nil {
+				return fmt.Errorf("delete stale job %q: %w", name, err)
 			}
 		}
 		return nil
 	})
 	if err != nil {
 		L.Error("clean up jobs bucket", "err", err)
+		return
+	}
+	for _, name := range removed {
+		RemoveJobFromCron(name)
+		L.Info("removed stale job registration", "job", name)
 	}
 }

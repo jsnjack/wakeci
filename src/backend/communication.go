@@ -19,6 +19,9 @@ const MsgTypeInUnsubscribe = "in:unsubscribe"
 type MsgBroadcast struct {
 	Type string      `json:"type"`
 	Data interface{} `json:"data"`
+	// job is the job the message is about, so it only reaches clients
+	// allowed to see that job
+	job string
 }
 
 // MsgIncoming ...

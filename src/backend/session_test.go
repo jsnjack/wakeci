@@ -9,6 +9,7 @@ import (
 )
 
 func TestSessionCookieSecure(t *testing.T) {
+	newAuthTestEnv(t)
 	originalConfig := Config
 	t.Cleanup(func() { Config = originalConfig })
 
@@ -37,8 +38,8 @@ func TestSessionCookieSecure(t *testing.T) {
 				req.TLS = &tls.ConnectionState{}
 			}
 
-			storage := &SessionStorage{sessions: make(map[string]time.Time)}
-			cookie, err := storage.New(req)
+			storage := &SessionStorage{sessions: make(map[string]session)}
+			cookie, err := storage.New(req, passwordPrincipal(viaSession))
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
 			}
@@ -46,5 +47,32 @@ func TestSessionCookieSecure(t *testing.T) {
 				t.Errorf("cookie.Secure = %t, want %t", cookie.Secure, tt.wantSecureCookie)
 			}
 		})
+	}
+}
+
+// TestDeletePrincipalKeepsNewerSessions: offboarding ends the sessions that
+// existed when it decided to, not ones a later login created
+func TestDeletePrincipalKeepsNewerSessions(t *testing.T) {
+	newAuthTestEnv(t)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	older, err := GlobalSessionStorage.New(req, googleUser)
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(time.Millisecond)
+	cutoff := time.Now()
+	time.Sleep(time.Millisecond)
+	newer, err := GlobalSessionStorage.New(req, googleUser)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := GlobalSessionStorage.DeletePrincipal(googleUser.ID, cutoff); n != 1 {
+		t.Errorf("deleted %d sessions, want 1", n)
+	}
+	if _, err := GlobalSessionStorage.Verify(older.Value); err == nil {
+		t.Error("the older session survived")
+	}
+	if _, err := GlobalSessionStorage.Verify(newer.Value); err != nil {
+		t.Errorf("the newer session was deleted: %v", err)
 	}
 }

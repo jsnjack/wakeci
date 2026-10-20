@@ -52,6 +52,9 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 	}
 
 	filter := CreateFilterRequest(r.URL.Query().Get("filter"))
+	allowed := jobFilter(r)
+	// Without either, every build counts towards the offset
+	filtered := filter != nil || allowed != nil
 
 	var payload []*BuildUpdateData
 	err = DB.Update(func(tx *bolt.Tx) error {
@@ -65,7 +68,7 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 		}
 		// Find starting point
 		fromB := make([]byte, 8)
-		if filter == nil {
+		if !filtered {
 			binary.BigEndian.PutUint64(fromB, binary.BigEndian.Uint64(lastK)-uint64(offset))
 		} else {
 			// If interval is specified, always iterate from the beginning to take
@@ -90,13 +93,15 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 						}
 					}
 				}
-				if filter != nil {
-					if matchesFilter(msg.ToFilterMatchString(), filter) {
-						count++
-						if count <= offset {
-							continue
-						}
-					} else {
+				if filtered {
+					if allowed != nil && !allowed(msg.Name) {
+						continue
+					}
+					if filter != nil && !matchesFilter(msg.ToFilterMatchString(), filter) {
+						continue
+					}
+					count++
+					if count <= offset {
 						continue
 					}
 				}

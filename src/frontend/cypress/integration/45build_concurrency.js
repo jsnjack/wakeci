@@ -11,6 +11,14 @@ concurrency: 0
 `;
 
         cy.request({
+            url: "/api/jobs/create",
+            method: "POST",
+            auth: { user: "", pass: "admin" },
+            body: { name: jobName },
+            form: true,
+        });
+
+        cy.request({
             url: "/api/job/" + jobName,
             method: "POST",
             auth: {
@@ -65,6 +73,14 @@ tasks:
 
 concurrency: 1
 `;
+
+        cy.request({
+            url: "/api/jobs/create",
+            method: "POST",
+            auth: { user: "", pass: "admin" },
+            body: { name: jobName },
+            form: true,
+        });
 
         cy.request({
             url: "/api/job/" + jobName,
