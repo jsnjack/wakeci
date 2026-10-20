@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -13,6 +15,83 @@ import (
 	bolt "go.etcd.io/bbolt"
 	"golang.org/x/crypto/bcrypt"
 )
+
+type passwordRotationLogHandler struct {
+	slog.Handler
+	afterInvalidation func()
+}
+
+func (h passwordRotationLogHandler) Handle(ctx context.Context, record slog.Record) error {
+	if record.Message == "shared password changed" {
+		h.afterInvalidation()
+	}
+	return h.Handler.Handle(ctx, record)
+}
+
+func TestPasswordRotationPreservesNewSessions(t *testing.T) {
+	newAuthTestEnv(t)
+	oldQueue := GlobalQueue
+	GlobalQueue = &Queue{}
+	t.Cleanup(func() { GlobalQueue = oldQueue })
+	oldCookie, err := GlobalSessionStorage.New(httptest.NewRequest(http.MethodGet, "/", nil), passwordPrincipal(viaSession))
+	if err != nil {
+		t.Fatal(err)
+	}
+	invalidated := make(chan struct{})
+	resume := make(chan struct{})
+	logger := slog.New(passwordRotationLogHandler{Handler: L.Handler(), afterInvalidation: func() {
+		close(invalidated)
+		<-resume
+	}})
+	form := url.Values{"password": {"replacement"}, "concurrentBuilds": {"1"}, "buildHistorySize": {"10"}}
+	req := httptest.NewRequest(http.MethodPost, "/api/settings", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req = req.WithContext(context.WithValue(req.Context(), HL, logger))
+	rec := httptest.NewRecorder()
+	done := make(chan struct{})
+	go func() {
+		HandleSettingsPost(rec, req)
+		close(done)
+	}()
+	<-invalidated
+
+	// Model overlapping issuance with the newly committed hash. Capture its
+	// start before resuming so either scheduling order of a later sweep is covered.
+	issuedAt := time.Now()
+	GlobalSessionStorage.mu.Lock()
+	committed := make(chan []byte, 1)
+	dbErr := make(chan error, 1)
+	go func() {
+		dbErr <- DB.Update(func(tx *bolt.Tx) error {
+			committed <- append([]byte(nil), tx.Bucket(GlobalBucket).Get([]byte("password"))...)
+			return nil
+		})
+	}()
+	close(resume)
+	hash := <-committed
+	principal := passwordPrincipal(viaSession)
+	principal.passwordFingerprint = passwordFingerprint(hash)
+	const newToken = "new-password-session"
+	now := time.Now()
+	GlobalSessionStorage.sessions[newToken] = session{created: issuedAt, expires: now.Add(SessionTTL), principal: *principal}
+	GlobalSessionStorage.mu.Unlock()
+	<-done
+	if err := <-dbErr; err != nil {
+		t.Fatal(err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("rotate: %d %s", rec.Code, rec.Body.String())
+	}
+	if err := bcrypt.CompareHashAndPassword(hash, []byte("replacement")); err != nil {
+		t.Fatalf("session did not use the committed replacement hash: %v", err)
+	}
+	if got := sessionStatus(oldCookie); got != http.StatusForbidden {
+		t.Errorf("old session: %d, want 403", got)
+	}
+	if got := sessionStatus(&http.Cookie{Name: "session", Value: newToken}); got != http.StatusOK {
+		t.Errorf("new-password session: %d, want 200", got)
+	}
+}
 
 func newAuthTestEnv(t *testing.T) {
 	t.Helper()

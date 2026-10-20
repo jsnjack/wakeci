@@ -65,7 +65,6 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 			writeBody(logger, w, []byte(err.Error()))
 			return
 		}
-		GlobalSessionStorage.DeletePrincipal(ProviderPassword+":"+passwordUser, time.Now())
 		WSHub.Recheck()
 	}
 
