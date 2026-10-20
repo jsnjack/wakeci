@@ -18,7 +18,7 @@
                         maxlength="100"
                         @input="nameError = false"
                     />
-                    <label>Name</label>
+                    <label for="key-name">Name</label>
                     <output class="invalid">Give the key a name</output>
                 </div>
             </div>
@@ -33,7 +33,7 @@
                         <option value="365">1 year</option>
                         <option value="0">Never</option>
                     </select>
-                    <label>Expires after</label>
+                    <label for="key-expiry">Expires after</label>
                 </div>
             </div>
         </div>
@@ -125,7 +125,7 @@
                     @input="jobsError = false"
                     @keydown.enter.prevent
                 />
-                <label>Name patterns</label>
+                <label for="key-patterns">Name patterns</label>
                 <output>For example test_*, vrec_*. * matches anything, and jobs added later that match are included too.</output>
                 <output class="invalid">{{ patternError }}</output>
             </div>
@@ -136,6 +136,7 @@
                     <input
                         v-model="search"
                         type="search"
+                        aria-label="Search jobs"
                         placeholder="Search jobs"
                         data-cy="job-search"
                         @keydown.enter.prevent
@@ -227,6 +228,7 @@
         <div class="field label suffix border">
             <input
                 ref="tokenInput"
+                aria-label="API key"
                 readonly
                 class="token"
                 :value="token"
