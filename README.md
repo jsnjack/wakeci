@@ -176,8 +176,8 @@ of at most 4 MiB. Logout uses `POST /auth/logout`. Passwords are accepted only
 in form bodies, never query strings. Keep a TLS reverse proxy configured to
 replace forwarded headers and deny direct public access to the backend.
 
-Credential responses and build files are not cached. The database and copies
-created by compaction use mode `0600` to protect Google refresh tokens. The
+Credential responses and build files are not cached. The work directory is
+owner-only, database copies and fresh trace logs use mode `0600`, and the
 Google account checker refuses access after 30 minutes without confirmation.
 Automated Google tests use a mock endpoint; validate suspension and revocation
 against a real Workspace tenant before relying on automatic offboarding.

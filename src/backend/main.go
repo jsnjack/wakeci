@@ -226,7 +226,10 @@ func newRouter() chi.Router {
 	router.Route("/docs", func(router chi.Router) {
 		router.Use(StorageSecurityMi)
 		router.Get("/api/", HandleAPIDocsView)
-		router.Method("GET", "/swagger.json", http.FileServer(http.FS(APIDocs)))
+		router.Method("GET", "/swagger.json", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			http.FileServer(http.FS(APIDocs)).ServeHTTP(w, r)
+		}))
 	})
 
 	vuefs := http.FileServer(http.FS(Assets))
@@ -249,7 +252,7 @@ func main() {
 	}
 
 	var err error
-	err = os.MkdirAll(Config.WorkDir, os.ModePerm)
+	err = secureWorkDir(Config.WorkDir)
 	if err != nil {
 		fatal("create work dir", err)
 	}

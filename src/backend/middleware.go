@@ -110,22 +110,22 @@ func SecurityMi(next http.Handler) http.Handler {
 			w.Header().Set("Vary", "Cookie, Authorization")
 		}
 		w.Header().Set("referrer-policy", "no-referrer")
-		w.Header().Set("content-security-policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'")
+		w.Header().Set("content-security-policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'; base-uri 'none'; object-src 'none'; form-action 'self'")
 		w.Header().Set("x-content-type-options", "nosniff")
-		if Config.Hostname != "" {
+		if isHTTPS(r) {
 			w.Header().Set("strict-transport-security", "max-age=15768000;includeSubdomains")
 		}
 		next.ServeHTTP(w, r)
 	})
 }
 
-// StorageSecurityMi supplies default headers for API documentation.
+// StorageSecurityMi supplies defaults for docs; HandleAPIDocsView adds its sandbox.
 func StorageSecurityMi(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("referrer-policy", "no-referrer")
 		w.Header().Set("content-security-policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'none'; form-action 'none'; frame-ancestors 'self'")
 		w.Header().Set("x-content-type-options", "nosniff")
-		if Config.Hostname != "" {
+		if isHTTPS(r) {
 			w.Header().Set("strict-transport-security", "max-age=15768000;includeSubdomains")
 		}
 		// Force content-type on .log requests to prevent browsers from downloading it

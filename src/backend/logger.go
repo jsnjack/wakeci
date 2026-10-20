@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"os"
+	"syscall"
 )
 
 // LevelTrace is the most verbose logging level, surfaced only via --trace.
@@ -77,7 +79,7 @@ func initLogger(tracePath, level string) func() {
 
 	cleanup := func() {}
 	if tracePath != "" {
-		f, err := os.OpenFile(tracePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+		f, err := openTraceLog(tracePath)
 		if err == nil {
 			cleanup = func() {
 				if err := f.Close(); err != nil {
@@ -85,6 +87,8 @@ func initLogger(tracePath, level string) func() {
 				}
 			}
 			handlers = append(handlers, slog.NewTextHandler(f, &slog.HandlerOptions{Level: LevelTrace}))
+		} else {
+			slog.New(slog.NewTextHandler(os.Stderr, nil)).Error("open private trace log", "err", err)
 		}
 	}
 
@@ -119,4 +123,15 @@ func writeJSON(w http.ResponseWriter, logger *slog.Logger, v any) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	writeBody(logger, w, payload)
+}
+
+func openTraceLog(path string) (*os.File, error) {
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("remove old trace log: %w", err)
+	}
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0600)
+	if err != nil {
+		return nil, fmt.Errorf("create trace log: %w", err)
+	}
+	return file, nil
 }

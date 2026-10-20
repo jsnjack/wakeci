@@ -42,6 +42,7 @@ src/backend/                 Go server (package main, module "wakeci")
   apikeys.go                 Scoped per-user API keys: storage, verification, handlers
   jobaccess.go               Limiting API keys to jobs: name patterns, RequireJob middleware
   preview.go                 Sandboxed, credential-bound report URLs; confined build files
+  file_security.go           Owner-only workdir and database copies
   google_accounts.go         Automatic offboarding: re-checks Google users, revokes keys/sessions
   auth_limiter.go            Per-client failed-auth limiter and retry/reset response headers
   middleware.go               chi middleware: per-request logger, auth, CORS, security headers
@@ -255,8 +256,11 @@ AGENTS.universal.md for the general contract.
   and limited to 4 MiB; servers bound header/body reads to 5s/30s. Passwords
   are body-only. The default `admin` password is refused while Google is on.
 - All `/api` and `/auth` responses are `no-store`; storage/preview responses
-  are `private, no-store` with `Vary: Cookie, Authorization`.
-- Never log preview tokens, including a bare preview URL.
+  are `private, no-store` with `Vary: Cookie, Authorization`. API docs use
+  pinned SRI assets in a sandbox; the public spec alone allows wildcard CORS.
+- Trace logs are recreated exclusively with `O_NOFOLLOW` at mode 0600. Startup
+  also restricts old database backups and compacted copies to 0600 and the
+  workdir to 0700. Never log preview tokens, including a bare preview URL.
 - Google error callbacks consume validated browser state. A malformed refresh
   ID token does not delete an account; it leaves verification stale. Explicit
   invalid grants, wrong subjects, disallowed domains and unverified email

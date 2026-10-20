@@ -275,6 +275,68 @@ func TestDefaultPasswordWithGoogle(t *testing.T) {
 	}
 }
 
+func TestCredentialFilesArePrivate(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"wakeci.db", "wakeci.db.backup", ".compacted.wakeci.db"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("credential"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := secureWorkDir(dir); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"", "wakeci.db", "wakeci.db.backup", ".compacted.wakeci.db"} {
+		info, err := os.Stat(filepath.Join(dir, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := os.FileMode(0600)
+		if name == "" {
+			want = 0700
+		}
+		if info.Mode().Perm() != want {
+			t.Fatalf("%s: mode %o want %o", name, info.Mode().Perm(), want)
+		}
+	}
+	target := filepath.Join(dir, "target")
+	trace := filepath.Join(dir, "trace")
+	if err := os.WriteFile(target, []byte("do not truncate"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, trace); err != nil {
+		t.Fatal(err)
+	}
+	file, err := openTraceLog(trace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.WriteString(file, "trace"); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(target)
+	if err != nil || string(data) != "do not truncate" {
+		t.Fatalf("trace followed symlink: %q %v", data, err)
+	}
+}
+
+func TestDocsAreIsolated(t *testing.T) {
+	newAuthTestEnv(t)
+	Config.Hostname = "ci.example.com"
+	rec := httptest.NewRecorder()
+	newRouter().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/docs/api/", nil))
+	if !strings.HasPrefix(rec.Header().Get("Content-Security-Policy"), "sandbox allow-scripts;") || strings.Count(rec.Body.String(), "integrity=\"sha384-") != 2 {
+		t.Fatal("docs missing sandbox or pinned dependencies")
+	}
+	rec = httptest.NewRecorder()
+	newRouter().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/docs/swagger.json", nil))
+	if rec.Header().Get("Access-Control-Allow-Origin") != "*" {
+		t.Fatal("sandbox cannot read public spec")
+	}
+}
+
 func TestGoogleErrorConsumesState(t *testing.T) {
 	newAuthTestEnv(t)
 	Config.Google = GoogleConfig{ClientID: "id", ClientSecret: "secret", AllowedDomains: []string{"example.com"}}
@@ -455,6 +517,22 @@ func TestLogoutRequiresPost(t *testing.T) {
 	}
 	if _, err := GlobalSessionStorage.Verify(cookie.Value); err != nil {
 		t.Fatal("GET ended the session")
+	}
+}
+
+func TestSecurityHeadersForTLSProxy(t *testing.T) {
+	newAuthTestEnv(t)
+	req := httptest.NewRequest(http.MethodGet, "/auth/methods", nil)
+	req.Header.Set("X-Forwarded-Proto", "https")
+	rec := httptest.NewRecorder()
+	newRouter().ServeHTTP(rec, req)
+	if rec.Header().Get("Strict-Transport-Security") == "" {
+		t.Fatal("HTTPS proxy has no HSTS")
+	}
+	for _, directive := range []string{"base-uri 'none'", "object-src 'none'", "form-action 'self'"} {
+		if !strings.Contains(rec.Header().Get("Content-Security-Policy"), directive) {
+			t.Fatalf("missing %s", directive)
+		}
 	}
 }
 
