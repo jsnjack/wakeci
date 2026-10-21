@@ -1,4 +1,49 @@
 describe("Build page - secrets", function () {
+    [false, true].forEach((override) => {
+        it(`should ${override ? "keep caller overrides literal" : "expand unchanged secret defaults"} on UI runs and re-runs`, function () {
+            const jobName = "paramsecret" + Date.now();
+            const defaultToken = "{{ secrets.TEST_KEY_1 }}";
+            const callerToken = "{{ secrets.TEST_KEY_2 }}";
+            const jobContent = `
+params:
+  - TOKEN: "${defaultToken}"
+  - NUMBER: 0
+  - EMPTY: ""
+tasks:
+  - name: Print parameter
+    run: echo "token=$TOKEN"
+`;
+            cy.request({ method: "POST", url: "/api/jobs/create", auth: { user: "", pass: "admin" }, form: true, body: { name: jobName } });
+            cy.request({ method: "POST", url: `/api/job/${jobName}`, auth: { user: "", pass: "admin" }, form: true, body: { fileContent: jobContent } });
+            cy.visit("/jobs");
+            cy.login();
+            cy.intercept("POST", `/api/job/${jobName}/run*`).as("parameterRun");
+            cy.get(`[data-cy=${jobName}] [data-cy=run-job-button]`).click();
+            cy.get("dialog.active input[name=TOKEN]").should("have.value", defaultToken);
+            if (override) {
+                cy.get("dialog.active input[name=TOKEN]").click().clear();
+                cy.get("dialog.active input[name=TOKEN]").type(callerToken, { parseSpecialCharSequences: false });
+            }
+            cy.get("dialog.active [data-cy=start-job-confirm]").click();
+
+            const checkRun = () => {
+                cy.wait("@parameterRun").then(({ request, response }) => {
+                    expect(Object.fromEntries(new URL(request.url).searchParams)).to.deep.equal(override ? { TOKEN: callerToken } : {});
+                    expect(response.statusCode).to.eq(200);
+                    cy.visit(`/build/${response.body}/`);
+                    cy.get("[data-cy=reload]").click();
+                    cy.get("body").should("contain", override ? `token=${callerToken}` : "token=***REDACTED***");
+                });
+            };
+            checkRun();
+            cy.get("[data-cy=run-job-button]").click();
+            cy.get("dialog.active input[name=TOKEN]").should("have.value", override ? callerToken : defaultToken);
+            cy.get("dialog.active [data-cy=start-job-confirm]").click();
+            checkRun();
+            cy.request({ method: "DELETE", url: `/api/job/${jobName}` });
+        });
+    });
+
     it("should use secrets and not expose them", function () {
         const jobName = "myjob" + new Date().getTime();
         const jobContent = `

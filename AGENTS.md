@@ -267,6 +267,7 @@ AGENTS.universal.md for the general contract.
   revoke access. Both successful and failed checks must respect LoginID.
 - Caller parameters and `build.env` never expand secret references. Strip
   colours before log redaction. Only job-authored values can select secrets.
+- Run dialogs omit values equal to job-defined defaults, so their secret references remain job-authored. Re-run dialogs compare with the saved job defaults, preserving previous caller overrides as literal values.
 - Write keys cannot be limited to jobs because editing a scheduled job can
   execute commands as the server. Verification refuses legacy restricted write
   keys too; creation and the UI must enforce the same boundary.

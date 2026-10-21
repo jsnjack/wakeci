@@ -64,6 +64,7 @@
             />
             <RunJobButton
                 :params="statusUpdate.params"
+                :default-params="job.defaultParams"
                 :job-name="job.name"
                 :icon="'replay'"
             />

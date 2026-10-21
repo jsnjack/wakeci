@@ -65,6 +65,10 @@ export default {
             type: null,
             required: true,
         },
+        defaultParams: {
+            type: Array,
+            default: null,
+        },
         jobName: {
             type: null,
             required: true,
@@ -88,7 +92,10 @@ export default {
     methods: {
         run(event) {
             this.toggleModal();
-            const url = `/api/job/${encodeURIComponent(this.jobName)}/run?` + new URLSearchParams(Array.from(new FormData(this.$refs.form))).toString();
+            const defaults = new Map((this.defaultParams ?? this.params ?? []).flatMap(Object.entries));
+            const overrides = Array.from(new FormData(this.$refs.form))
+                .filter(([name, value]) => value !== defaults.get(name));
+            const url = `/api/job/${encodeURIComponent(this.jobName)}/run?` + new URLSearchParams(overrides).toString();
             axios
                 .post(url)
                 .then((response) => {
