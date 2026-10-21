@@ -15,6 +15,8 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
+const defaultParamsHeader = "X-Wakeci-Default-Params"
+
 func jobNameParam(r *http.Request) (string, error) {
 	name := chi.URLParam(r, "name")
 	if r.URL.RawPath != "" {
@@ -76,6 +78,7 @@ func requireJobName(w http.ResponseWriter, r *http.Request, logger *slog.Logger)
 // @Param        name     path       string   true   "Name of the job"
 // @Param        param1   query      string   false  "Override default `params` of the job"
 // @Param        param2   formData   string   false  "Override default `params` of the job"
+// @Param        X-Wakeci-Default-Params header string false "JSON array of displayed default parameter names; only matching current values use job defaults"
 // @Success      200      {integer}  integer
 // @Failure      400      {string}   string
 // @Router       /job/{name}/run [post]
@@ -93,7 +96,14 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Error("parse form", "err", err)
 	}
-	build, err := RunJob(name, r.Form)
+	var defaultParams []string
+	if header := r.Header.Get(defaultParamsHeader); header != "" {
+		if err := json.Unmarshal([]byte(header), &defaultParams); err != nil || defaultParams == nil {
+			writeText(w, logger, http.StatusBadRequest, "Invalid default parameter names")
+			return
+		}
+	}
+	build, err := runJob(name, r.Form, defaultParams)
 	if err != nil {
 		logger.Error("run job", "job", name, "err", err)
 		w.WriteHeader(http.StatusBadRequest)

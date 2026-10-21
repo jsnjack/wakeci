@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,6 +12,67 @@ import (
 	"github.com/robfig/cron/v3"
 	bolt "go.etcd.io/bbolt"
 )
+
+func TestRunJobUsesCurrentDefaults(t *testing.T) {
+	for _, tt := range []struct {
+		name           string
+		current, value string
+		defaults       []string
+		want           string
+		caller         bool
+	}{
+		{name: "unchanged default", current: "staging", value: "staging", defaults: []string{"VALUE"}, want: "staging"},
+		{name: "stale default", current: "production", value: "staging", defaults: []string{"VALUE"}, want: "staging", caller: true},
+		{name: "unchanged secret", current: "{{ secrets.A }}", value: "{{ secrets.A }}", defaults: []string{"VALUE"}, want: "{{ secrets.A }}"},
+		{name: "stale secret", current: "{{ secrets.B }}", value: "{{ secrets.A }}", defaults: []string{"VALUE"}, want: "{{ secrets.A }}", caller: true},
+		{name: "caller matches secret default", current: "{{ secrets.B }}", value: "{{ secrets.B }}", defaults: []string{}, want: "{{ secrets.B }}", caller: true},
+		{name: "API secret override", current: "{{ secrets.B }}", value: "{{ secrets.B }}", want: "{{ secrets.B }}", caller: true},
+		{name: "empty stale default", current: "production", defaults: []string{"VALUE"}, want: "", caller: true},
+		{name: "empty caller override", current: "production", defaults: []string{}, want: "", caller: true},
+		{name: "API empty value", current: "production", want: "production"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			newTestBuildEnv(t)
+			oldQueue := GlobalQueue
+			GlobalQueue = &Queue{}
+			t.Cleanup(func() { GlobalQueue = oldQueue })
+			path := filepath.Join(Config.JobDir, "defaults.yaml")
+			content := "params:\n  - VALUE: '" + tt.current + "'\ntasks: []\n"
+			if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if err := RegisterJob(path); err != nil {
+				t.Fatal(err)
+			}
+			build, err := runJob("defaults", url.Values{"VALUE": {tt.value}}, tt.defaults)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := build.Params[0]["VALUE"]; got != tt.want {
+				t.Errorf("parameter = %q, want %q", got, tt.want)
+			}
+			if got := build.callerParams["VALUE"]; got != tt.caller {
+				t.Errorf("caller parameter = %t, want %t", got, tt.caller)
+			}
+		})
+	}
+}
+
+func TestRunJobRejectsMalformedDefaultNames(t *testing.T) {
+	for _, header := range []string{"not JSON", "null", "{}", `["VALUE", 1]`} {
+		t.Run(header, func(t *testing.T) {
+			newJobAccessTestEnv(t)
+			req := httptest.NewRequest(http.MethodPost, "/api/job/test_unit/run", nil)
+			req.SetBasicAuth("", "correct")
+			req.Header.Set(defaultParamsHeader, header)
+			rec := httptest.NewRecorder()
+			newRouter().ServeHTTP(rec, req)
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("malformed defaults: %d %s", rec.Code, rec.Body.String())
+			}
+		})
+	}
+}
 
 func TestJobNameParamDecodesOneSafePathSegment(t *testing.T) {
 	tests := []struct {

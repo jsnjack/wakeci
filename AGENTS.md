@@ -267,7 +267,7 @@ AGENTS.universal.md for the general contract.
   revoke access. Both successful and failed checks must respect LoginID.
 - Caller parameters and `build.env` never expand secret references. Strip
   colours before log redaction. Only job-authored values can select secrets.
-- Run dialogs omit values equal to job-defined defaults, so their secret references remain job-authored. Re-run dialogs compare with the saved job defaults, preserving previous caller overrides as literal values.
+- Run dialogs submit displayed values and mark unchanged defaults with the `X-Wakeci-Default-Params` JSON array header. The backend treats a marked value as job-authored only when it matches the current definition loaded for that build. Stale defaults and caller overrides stay literal, including secret references; re-runs retain displayed values after job edits. UI requests also preserve explicitly empty overrides. API requests without the header retain their existing behavior.
 - Write keys cannot be limited to jobs because editing a scheduled job can
   execute commands as the server. Verification refuses legacy restricted write
   keys too; creation and the UI must enforce the same boundary.

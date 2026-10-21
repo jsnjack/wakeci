@@ -1,4 +1,32 @@
 describe("Build page - secrets", function () {
+    [
+        { before: "staging", after: "production" },
+        { before: "{{ secrets.TEST_KEY_1 }}", after: "{{ secrets.TEST_KEY_2 }}" },
+    ].forEach(({ before, after }) => {
+        it(`should retain the displayed ${before} value when re-running after the job default changes`, function () {
+            const jobName = "changeddefault" + Date.now();
+            const definition = (value) => `params:\n  - TARGET: "${value}"\ntasks:\n  - run: echo "target=$TARGET"\n`;
+            cy.request({ method: "POST", url: "/api/jobs/create", auth: { user: "", pass: "admin" }, form: true, body: { name: jobName } });
+            cy.request({ method: "POST", url: `/api/job/${jobName}`, auth: { user: "", pass: "admin" }, form: true, body: { fileContent: definition(before) } });
+            cy.request({ method: "POST", url: `/api/job/${jobName}/run`, auth: { user: "", pass: "admin" } }).then(({ body }) => {
+                cy.visit(`/build/${body}/`);
+            });
+            cy.login();
+            cy.request({ method: "POST", url: `/api/job/${jobName}`, form: true, body: { fileContent: definition(after) } });
+            cy.intercept("POST", `/api/job/${jobName}/run*`).as("changedDefaultRun");
+            cy.get("[data-cy=run-job-button]").click();
+            cy.get("dialog.active input[name=TARGET]").should("have.value", before);
+            cy.get("dialog.active [data-cy=start-job-confirm]").click();
+            cy.wait("@changedDefaultRun").then(({ response }) => {
+                expect(response.statusCode).to.eq(200);
+                cy.visit(`/build/${response.body}/`);
+                cy.get("[data-cy=reload]").click();
+                cy.get("body").should("contain", `target=${before}`);
+            });
+            cy.request({ method: "DELETE", url: `/api/job/${jobName}` });
+        });
+    });
+
     [false, true].forEach((override) => {
         it(`should ${override ? "keep caller overrides literal" : "expand unchanged secret defaults"} on UI runs and re-runs`, function () {
             const jobName = "paramsecret" + Date.now();
@@ -28,7 +56,8 @@ tasks:
 
             const checkRun = () => {
                 cy.wait("@parameterRun").then(({ request, response }) => {
-                    expect(Object.fromEntries(new URL(request.url).searchParams)).to.deep.equal(override ? { TOKEN: callerToken } : {});
+                    expect(Object.fromEntries(new URL(request.url).searchParams)).to.deep.equal({ TOKEN: override ? callerToken : defaultToken, NUMBER: "0", EMPTY: "" });
+                    expect(JSON.parse(request.headers["x-wakeci-default-params"])).to.deep.equal(override ? ["NUMBER", "EMPTY"] : ["TOKEN", "NUMBER", "EMPTY"]);
                     expect(response.statusCode).to.eq(200);
                     cy.visit(`/build/${response.body}/`);
                     cy.get("[data-cy=reload]").click();

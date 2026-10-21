@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -400,6 +401,10 @@ func RemoveJobFromCron(name string) {
 
 // RunJob creates a new build and schedules it for execution
 func RunJob(name string, params url.Values) (*Build, error) {
+	return runJob(name, params, nil)
+}
+
+func runJob(name string, params url.Values, defaultParams []string) (*Build, error) {
 	// Check if job is enabled
 	err := DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(JobsBucket))
@@ -436,7 +441,12 @@ func RunJob(name string, params url.Values) (*Build, error) {
 	for idx := range build.Params {
 		for pkey := range build.Params[idx] {
 			value := params.Get(pkey)
-			if value != "" {
+			if params.Has(pkey) && (value != "" || defaultParams != nil) {
+				// A displayed default is job-authored only if it still matches
+				// the definition loaded for this build. Older values are literal.
+				if slices.Contains(defaultParams, pkey) && value == build.Params[idx][pkey] {
+					continue
+				}
 				build.Params[idx][pkey] = value
 				build.callerParams[pkey] = true
 				build.Logger.Debug("updating param", "key", pkey, "value", value)

@@ -93,11 +93,11 @@ export default {
         run(event) {
             this.toggleModal();
             const defaults = new Map((this.defaultParams ?? this.params ?? []).flatMap(Object.entries));
-            const overrides = Array.from(new FormData(this.$refs.form))
-                .filter(([name, value]) => value !== defaults.get(name));
-            const url = `/api/job/${encodeURIComponent(this.jobName)}/run?` + new URLSearchParams(overrides).toString();
+            const params = Array.from(new FormData(this.$refs.form));
+            const defaultNames = params.filter(([name, value]) => value === defaults.get(name)).map(([name]) => name);
+            const url = `/api/job/${encodeURIComponent(this.jobName)}/run?` + new URLSearchParams(params).toString();
             axios
-                .post(url)
+                .post(url, null, { headers: { "X-Wakeci-Default-Params": JSON.stringify(defaultNames) } })
                 .then((response) => {
                     const buildID = escapeHtml(response.data);
                     this.$notify({
