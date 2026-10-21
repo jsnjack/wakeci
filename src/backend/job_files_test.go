@@ -6,12 +6,50 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
 	bolt "go.etcd.io/bbolt"
 )
+
+func TestJobFilePermissions(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		mode os.FileMode
+	}{
+		{name: "new job", mode: 0},
+		{name: "existing private job", mode: 0600},
+		{name: "existing group-readable job", mode: 0640},
+		{name: "existing world-readable job", mode: 0644},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "job.yaml")
+			want := tt.mode
+			if tt.mode == 0 {
+				want = 0600
+			} else {
+				if err := os.WriteFile(path, []byte("tasks: []\n"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Chmod(path, tt.mode); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := writeJobFile(path, []byte("tasks: []\n"), tt.mode == 0); err != nil {
+				t.Fatal(err)
+			}
+			info, err := os.Stat(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := info.Mode().Perm(); got != want {
+				t.Errorf("job mode = %04o, want %04o", got, want)
+			}
+		})
+	}
+}
 
 func TestDisabledJobsSurviveTransientFileChanges(t *testing.T) {
 	for _, phase := range []string{"watcher empty", "cleanup empty", "watcher removed", "watcher renamed", "stale rename", "application save"} {

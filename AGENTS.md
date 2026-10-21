@@ -219,7 +219,7 @@ AGENTS.universal.md for the general contract.
 - Never log the raw password from `HandleLogIn`/basic auth — only the error.
 - Session errors omit cookie values; `Principal.LogValue` logs only identity metadata and never the password fingerprint.
 - Never log `google.client_secret` or an API key token; log key IDs instead.
-- App-owned job saves publish complete files atomically and share a mutex with registration cleanup. The `disabledjobs` bucket retains disabled names across file removal or invalidation; explicit enabling or a successful UI/API deletion clears that state. External file replacement preserves disabled state, while explicit delete/recreate starts fresh. Watcher remove/rename events re-check the current file before invalidating it.
+- App-owned job saves publish complete files atomically and share a mutex with registration cleanup. New jobs use mode 0600; updates preserve existing permissions. The `disabledjobs` bucket retains disabled names across file removal or invalidation; explicit enabling or a successful UI/API deletion clears that state. External file replacement preserves disabled state, while explicit delete/recreate starts fresh. Watcher remove/rename events re-check the current file before invalidating it.
 - Preview redirects retain the report query string, and Vite proxies `/preview` alongside `/storage`.
 - Startup removes stale registrations for non-job YAML; watcher updates also remove their database and cron entries. Malformed YAML retains registration for recovery, but routes and execution validate the current file before using it.
 - New routes must go through `newRouter` with a `RequireScope` (see

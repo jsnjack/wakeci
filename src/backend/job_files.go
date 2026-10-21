@@ -16,7 +16,7 @@ var jobFilesMu sync.Mutex
 func writeJobFile(path string, data []byte, create bool) error {
 	jobFilesMu.Lock()
 	defer jobFilesMu.Unlock()
-	mode := os.FileMode(0644)
+	mode := os.FileMode(0600)
 	if !create {
 		info, err := os.Stat(path)
 		if err != nil {
