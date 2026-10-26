@@ -86,3 +86,96 @@ func TestCreateWakeConfig(t *testing.T) {
 		}
 	})
 }
+
+func TestCreateWakeConfigGoogle(t *testing.T) {
+	tests := []struct {
+		name            string
+		content         string
+		wantErr         bool
+		wantEnabled     bool
+		wantRedirectURL string
+	}{
+		{name: "not configured", content: "port: \"8081\"\n"},
+		{
+			name:            "redirect URL from hostname",
+			content:         "hostname: ci.example.com\ngoogle:\n  clientid: id\n  clientsecret: secret\n  domain: example.com\n",
+			wantEnabled:     true,
+			wantRedirectURL: "https://ci.example.com/auth/google/callback",
+		},
+		{
+			name:            "explicit redirect URL",
+			content:         "google:\n  clientid: id\n  clientsecret: secret\n  domain: example.com\n  redirecturl: http://localhost:8080/auth/google/callback\n",
+			wantEnabled:     true,
+			wantRedirectURL: "http://localhost:8080/auth/google/callback",
+		},
+		{
+			name:    "missing secret",
+			content: "hostname: ci.example.com\ngoogle:\n  clientid: id\n  domain: example.com\n",
+			wantErr: true,
+		},
+		{
+			name:    "missing domain",
+			content: "hostname: ci.example.com\ngoogle:\n  clientid: id\n  clientsecret: secret\n",
+			wantErr: true,
+		},
+		{
+			name:    "no hostname or redirect URL",
+			content: "google:\n  clientid: id\n  clientsecret: secret\n  domain: example.com\n",
+			wantErr: true,
+		},
+		{
+			name:    "redirect URL without scheme",
+			content: "google:\n  clientid: id\n  clientsecret: secret\n  domain: example.com\n  redirecturl: ci.example.com/auth/google/callback\n",
+			wantErr: true,
+		},
+		{
+			name:    "redirect URL with another scheme",
+			content: "google:\n  clientid: id\n  clientsecret: secret\n  domain: example.com\n  redirecturl: ftp://ci.example.com/auth/google/callback\n",
+			wantErr: true,
+		},
+		{
+			name:    "redirect URL without host",
+			content: "google:\n  clientid: id\n  clientsecret: secret\n  domain: example.com\n  redirecturl: https:///auth/google/callback\n",
+			wantErr: true,
+		},
+		{
+			name:    "redirect URL with another path",
+			content: "google:\n  clientid: id\n  clientsecret: secret\n  domain: example.com\n  redirecturl: https://ci.example.com/callback\n",
+			wantErr: true,
+		},
+		{
+			name:    "redirect URL with query",
+			content: "google:\n  clientid: id\n  clientsecret: secret\n  domain: example.com\n  redirecturl: https://ci.example.com/auth/google/callback?x=1\n",
+			wantErr: true,
+		},
+		{
+			name:    "misspelled clientid",
+			content: "hostname: ci.example.com\ngoogle:\n  clinetid: id\n  clientsecret: secret\n  domain: example.com\n",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "Wakefile.yaml")
+			if err := os.WriteFile(path, []byte(tt.content), 0644); err != nil {
+				t.Fatalf("write fixture: %v", err)
+			}
+			config, err := CreateWakeConfig(path)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected an error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got := config.Google.Enabled(); got != tt.wantEnabled {
+				t.Errorf("Enabled() = %t, want %t", got, tt.wantEnabled)
+			}
+			if config.Google.RedirectURL != tt.wantRedirectURL {
+				t.Errorf("RedirectURL = %q, want %q", config.Google.RedirectURL, tt.wantRedirectURL)
+			}
+		})
+	}
+}

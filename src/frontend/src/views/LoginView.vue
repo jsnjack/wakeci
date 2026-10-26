@@ -11,7 +11,8 @@
         >
             <i class="extra">water</i>
             <h5 class="center-align">Welcome to wake</h5>
-            <p>Start by logging in with your password</p>
+            <p v-if="googleEnabled">Log in with your password or your Google account</p>
+            <p v-else>Start by logging in with your password</p>
             <div class="space"></div>
             <nav class="group connected">
                 <div class="max field border left-round prefix round">
@@ -24,6 +25,17 @@
                 </div>
                 <button class="large right-round primary">Log in</button>
             </nav>
+            <template v-if="googleEnabled">
+                <div class="space"></div>
+                <a
+                    class="button large border round google-login"
+                    :href="googleLoginURL"
+                    data-cy="google-login"
+                >
+                    <i>account_circle</i>
+                    <span>Sign in with Google</span>
+                </a>
+            </template>
         </div>
     </form>
 </template>
@@ -37,6 +49,7 @@ export default {
         return {
             fetching: true,
             password: "",
+            googleEnabled: false,
         };
     },
     computed: {
@@ -48,10 +61,15 @@ export default {
             }
             return redirect;
         },
+        googleLoginURL: function () {
+            return "/auth/google/login?redirect=" + encodeURIComponent(this.getRedirectURL);
+        },
     },
     mounted() {
         this.$store.commit("SET_CURRENT_PAGE", "Login");
+        this.showLoginError();
         this.fetch();
+        this.fetchAuthMethods();
     },
     methods: {
         fetch() {
@@ -65,6 +83,32 @@ export default {
                 .finally(() => {
                     this.fetching = false;
                 });
+        },
+        fetchAuthMethods() {
+            axios
+                .get("/auth/methods")
+                .then((response) => {
+                    this.googleEnabled = response.data.google === true;
+                })
+                .catch((error) => {});
+        },
+        showLoginError() {
+            const messages = {
+                google: "Google sign-in failed, please try again",
+                google_domain: "This Google account is not allowed to log in",
+            };
+            const { error, ...query } = this.$route.query;
+            if (error === undefined) {
+                return;
+            }
+            // Drop the error from the URL so a reload doesn't show it again
+            this.$router.replace({ query });
+            if (Object.hasOwn(messages, error)) {
+                this.$notify({
+                    text: messages[error],
+                    type: "error",
+                });
+            }
         },
         logIn() {
             const data = new FormData();
@@ -88,4 +132,10 @@ export default {
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped ></style>
+<style scoped>
+/* The button centres the icon but leaves the capital letters of the label 2px
+   above the middle; lower the label so both sit on the button's middle */
+.google-login > span {
+    transform: translateY(2px);
+}
+</style>

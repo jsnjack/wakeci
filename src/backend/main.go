@@ -212,6 +212,11 @@ func main() {
 
 	GlobalSessionStorage = CreateSessionStorage(SessionCleanupPeriod)
 
+	if Config.Google.Enabled() {
+		GlobalGoogleAuth = NewGoogleAuth(Config.Google)
+		L.Info("google sign-in enabled", "domain", Config.Google.Domain)
+	}
+
 	GlobalQueue, err = CreateQueue()
 	if err != nil {
 		fatal("create queue", err)
@@ -250,10 +255,13 @@ func main() {
 
 	router.With(AuthMi).Get("/ws", HandleWS)
 
-	router.Route("/auth", func(router chi.Router) {
+	router.Route(authRoutePrefix, func(router chi.Router) {
 		router.With(AuthMi).Get("/_isLoggedIn", HandleIsLoggedIn)
+		router.Get("/methods", HandleAuthMethods)
 		router.Post("/login", HandleLogIn)
 		router.Get("/logout", HandleLogOut)
+		router.Get(googleLoginRoute, HandleGoogleLogIn)
+		router.Get(googleCallbackRoute, HandleGoogleCallback)
 	})
 
 	router.Route("/api", func(router chi.Router) {

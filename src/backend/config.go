@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,6 +29,57 @@ type WakeConfig struct {
 	secrets map[string]string
 	// Timezone for cron jobs (`interval` field in job files)
 	Timezone string `yaml:"timezone"`
+	// Google enables "Sign in with Google" for one Google Workspace domain
+	Google GoogleConfig `yaml:"google"`
+}
+
+// GoogleConfig holds the OAuth client used for Google Workspace sign-in.
+// Leaving ClientID empty disables Google sign-in.
+type GoogleConfig struct {
+	ClientID     string `yaml:"clientid"`
+	ClientSecret string `yaml:"clientsecret"`
+	// Domain is the Google Workspace domain users must belong to
+	Domain string `yaml:"domain"`
+	// RedirectURL must match a redirect URI registered for the OAuth client.
+	// Defaults to https://<hostname>/auth/google/callback
+	RedirectURL string `yaml:"redirecturl"`
+}
+
+// Enabled reports whether Google sign-in is configured.
+func (g *GoogleConfig) Enabled() bool {
+	return g.ClientID != ""
+}
+
+// resolve checks the Google settings and fills in the default redirect URL
+func (g *GoogleConfig) resolve(hostname string) error {
+	if !g.Enabled() {
+		// Catches a misspelled clientid key, which YAML parsing ignores
+		if g.ClientSecret != "" || g.Domain != "" || g.RedirectURL != "" {
+			return fmt.Errorf("google.clientid is required when other google settings are set")
+		}
+		return nil
+	}
+	if g.ClientSecret == "" {
+		return fmt.Errorf("google.clientsecret is required when google.clientid is set")
+	}
+	if g.Domain == "" {
+		return fmt.Errorf("google.domain is required when google.clientid is set")
+	}
+	if g.RedirectURL == "" {
+		if hostname == "" {
+			return fmt.Errorf("google.redirecturl is required when hostname is not set")
+		}
+		g.RedirectURL = "https://" + hostname + GoogleCallbackPath
+	}
+	u, err := url.Parse(g.RedirectURL)
+	if err != nil {
+		return fmt.Errorf("parse google.redirecturl: %w", err)
+	}
+	if (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.Path != GoogleCallbackPath ||
+		u.RawQuery != "" || u.Fragment != "" {
+		return fmt.Errorf("google.redirecturl must look like https://<host>%s, got %q", GoogleCallbackPath, g.RedirectURL)
+	}
+	return nil
 }
 
 // CreateWakeConfig creates new config instance
@@ -65,6 +118,10 @@ func CreateWakeConfig(path string) (*WakeConfig, error) {
 
 	config.jobsExt = ".yaml"
 
+	if err := config.Google.resolve(config.Hostname); err != nil {
+		return nil, fmt.Errorf("google config: %w", err)
+	}
+
 	// Load secrets
 	if config.SecretsFile != "" {
 		L.Info("loading secrets", "file", config.SecretsFile)
@@ -100,7 +157,7 @@ func CreateWakeConfig(path string) (*WakeConfig, error) {
 		config.JobDir += string(os.PathSeparator)
 	}
 	// Log fields individually rather than the whole struct: config.secrets
-	// holds decrypted secret values and must never be logged.
+	// and config.Google.ClientSecret must never be logged.
 	L.Debug("current config",
 		"port", config.Port,
 		"hostname", config.Hostname,
@@ -108,6 +165,9 @@ func CreateWakeConfig(path string) (*WakeConfig, error) {
 		"jobdir", config.JobDir,
 		"secretsfile", config.SecretsFile,
 		"timezone", config.Timezone,
+		"google.clientid", config.Google.ClientID,
+		"google.domain", config.Google.Domain,
+		"google.redirecturl", config.Google.RedirectURL,
 	)
 	return &config, nil
 }

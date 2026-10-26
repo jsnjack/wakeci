@@ -38,7 +38,7 @@ func TestSessionCookieSecure(t *testing.T) {
 			}
 
 			storage := &SessionStorage{sessions: make(map[string]time.Time)}
-			cookie, err := storage.New(req)
+			cookie, err := storage.New(req, SessionTTL)
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
 			}

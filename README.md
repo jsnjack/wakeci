@@ -74,18 +74,39 @@ Usage of ./bin/wakeci:
 ```
 # Port to start the server on (default "8081")
 port: 8081
-# Hostname for autocert. Active only when port is 443
+# Hostname for autocert (active only when port is 443) and the default Google
+# sign-in redirect URL
 hostname: ""
 # Working directory (default ".wakeci/")
 workdir: ./wakeci
-# Configuration directory - all your job files (default "./")
-jobdir: ./
+# Configuration directory - all your job files (default "./"). Every .yaml file
+# in it can be opened as a job, so keep this file and the secrets file outside it
+jobdir: ./jobs
 # Path to the file with secrets
 secretsfile: ./secrets.yaml
 # Scheduled jobs (via `interval` field) will use this timezone, if not specified
 # in the job configuration
 timezone: Europe/Amsterdam
+# Optional "Sign in with Google" for one Google Workspace domain, next to the
+# password. Create an OAuth client of type "Web application" in Google Cloud
+# and register the redirect URL on it.
+google:
+  clientid: 1234.apps.googleusercontent.com
+  clientsecret: your-client-secret
+  # Only accounts of this Workspace domain can log in
+  domain: example.com
+  # Defaults to https://<hostname>/auth/google/callback
+  redirecturl: ""
 ```
+
+Google sign-in sessions last 12 hours, password sessions 5 days. API calls
+keep using Basic auth with the password.
+
+Every account in `google.domain` can log in. To limit sign-in to a group, set
+the OAuth consent screen to "Internal" and restrict the OAuth client to that
+group in the Google Admin console (Security, API controls, Manage third-party
+app access). Open wakeci under the same host as `redirecturl`; the sign-in
+cookie is tied to that host, so a login started from another host name fails.
 
 > Default password is `admin`. Don't forget to immediately change it!
 

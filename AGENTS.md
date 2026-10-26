@@ -35,10 +35,11 @@ src/backend/                 Go server (package main, module "wakeci")
   cleanup.go                 Periodic removal of old build workspaces/history
   eta.go                     Rolling average build duration, used for ETA display
   secrets.go                 injectSecrets: redacts/substitutes secret values in commands
-  session.go                 Cookie-based session storage (single shared password)
+  session.go                 Cookie-based in-memory session storage, per-session TTL
+  google_auth.go             Google Workspace sign-in (OpenID Connect code flow + PKCE)
   auth_limiter.go            Per-client failed-auth limiter and retry/reset response headers
   middleware.go               chi middleware: per-request logger, auth, CORS, security headers
-  handlers_*.go              HTTP handlers per resource (auth, jobs, job, build, feed, settings, static, docs)
+  handlers_*.go              HTTP handlers per resource (auth incl. Google sign-in, jobs, job, build, feed, settings, static, docs)
   wsclient.go, wshub.go      WebSocket hub: pushes build/feed updates to connected browsers
   query_parser.go            Feed search query parser (`+must -exclude "phrase" key:value`)
   docs/, assets/             swag-generated OpenAPI spec and embedded frontend build (git-ignored)
@@ -70,7 +71,13 @@ src/frontend/                Vue 3 + Vite SPA
    wakespace dir) through `ProcessLogEntry`, which also broadcasts lines to
    subscribed WebSocket clients. This log path is independent of the
    application's own diagnostic logging (see Gotchas).
-5. **Live UI updates**: `Build.BroadcastUpdate` persists build state to the
+5. **Login**: the password form posts to `/auth/login`; Google sign-in is a
+   full-page redirect `/auth/google/login` → Google → `/auth/google/callback`,
+   which checks the state cookie, exchanges the code (PKCE + client secret),
+   checks the ID token claims including `hd` against `google.domain`, and
+   creates the same kind of session cookie. API clients use Basic auth with
+   the password; `AuthMi` is unchanged.
+6. **Live UI updates**: `Build.BroadcastUpdate` persists build state to the
    `history` bucket and pushes it over `WSHub` to any client subscribed to
    that build/feed topic.
 
@@ -98,11 +105,15 @@ Smoke test: `./bin/wakeci --config Wakefile.yaml` then open
 | Field | Default | Purpose |
 |---|---|---|
 | `port` | `8081` | Listen port; `443` enables autocert + port-80 redirect |
-| `hostname` | *(empty)* | Required for autocert when `port: 443` |
+| `hostname` | *(empty)* | Required for autocert when `port: 443`; also sets CORS/HSTS and the default `google.redirecturl` |
 | `workdir` | `./wakeci` | BoltDB file, build workspaces, wakespace, certs |
-| `jobdir` | `./` | Directory scanned/watched for `*.yaml` job files |
+| `jobdir` | `./` | Directory scanned/watched for `*.yaml` job files; keep `Wakefile.yaml` and `secretsfile` outside it, since any `*.yaml` there can be opened as a job |
 | `secretsfile` | *(empty)* | YAML map of secret values, injected via `injectSecrets` |
 | `timezone` | *(empty)* | Default timezone for cron `interval` schedules |
+| `google.clientid` | *(empty)* | Google OAuth client ID; setting it enables "Sign in with Google" |
+| `google.clientsecret` | *(empty)* | Google OAuth client secret; required with `clientid` |
+| `google.domain` | *(empty)* | Google Workspace domain allowed to log in (`hd` claim); required with `clientid` |
+| `google.redirecturl` | `https://<hostname>/auth/google/callback` | Must match a redirect URI registered on the OAuth client; must be http(s) with path `/auth/google/callback`; required if `hostname` is empty |
 
 Logging flags (all commands): `--debug`/`-d` (verbose, stderr),
 `--trace` (everything, `/tmp/wakeci.log`, truncated each run). See
@@ -128,6 +139,16 @@ AGENTS.universal.md for the general contract.
 - **stdlib `flag`, not cobra.** wakeci is a single-command server with a
   handful of flags, not a multi-subcommand CLI; cobra would add a dependency
   and change flag syntax for no functional benefit.
+- **Google sign-in sits next to the password, not instead of it.** It only
+  creates a session; there are no per-user accounts or permissions. The ID
+  token is not signature-checked because it comes straight from Google's
+  token endpoint over TLS in exchange for the client secret (OpenID Connect
+  Core 3.1.3.7), which avoids a JWT/JWKS dependency. Google sessions last
+  12 hours (password sessions 5 days) because wakeci never re-checks the
+  Google account: the TTL bounds how long a suspended account's session
+  stays valid. It is not a hard revocation, since any logged-in user can
+  change the password or schedule jobs. Which Workspace users may sign in is
+  controlled in the Google Admin console, not in wakeci.
 - **fsnotify watcher and the port-80 redirect listener never crash the
   server.** Both run in the background after the server is already serving
   traffic; setup or runtime failures there are logged and the feature
@@ -141,6 +162,11 @@ AGENTS.universal.md for the general contract.
   of the whole `WakeConfig` struct — log individual fields instead (see
   `config.go`).
 - Never log the raw password from `HandleLogIn`/basic auth — only the error.
+- Never log `google.clientsecret`; `CreateWakeConfig` logs the other
+  `google.*` fields individually.
+- The Google login-state cookie is `SameSite=Lax` (the callback is a
+  cross-site top-level navigation from Google); the session cookie stays
+  `Strict`. Don't "align" them.
 - `Build.Logger`, `Cleaner.Logger`, and the per-request `HL` context logger
   are all `*slog.Logger` instances scoped with `.With(...)`; they are
   unrelated to the per-task `task_N.log` files.
