@@ -334,8 +334,7 @@ func main() {
 		L.Warn("Listening on :443")
 		server.TLSConfig = &tls.Config{
 			// https://ssl-config.mozilla.org/#server=golang&version=1.13.6&config=intermediate&guideline=5.4
-			MinVersion:               tls.VersionTLS12,
-			PreferServerCipherSuites: false,
+			MinVersion: tls.VersionTLS12,
 			CipherSuites: []uint16{
 				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
 				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
