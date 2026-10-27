@@ -36,9 +36,12 @@ const ssoStateTTL = 10 * time.Minute
 // responses are a few KB even with the 75 groups it sends at most.
 const maxSAMLResponseSize = 1 << 20
 
-// maxRedirectPathLength keeps the login state cookie well under the 4096
-// bytes browsers store per cookie
+// maxRedirectPathLength bounds the page to return to after login
 const maxRedirectPathLength = 1024
+
+// maxLoginStateCookieLength leaves room for the cookie name and attributes
+// within the 4096 bytes browsers store per cookie
+const maxLoginStateCookieLength = 3500
 
 // Error codes passed to the login page as ?error=
 const (
@@ -210,11 +213,19 @@ func HandleSSOLogIn(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	value, err := GlobalSSOAuth.sealLoginState(ssoLoginState{
+	login := ssoLoginState{
 		RequestID: requestID,
 		Redirect:  safeRedirectPath(r.URL.Query().Get("redirect")),
 		Expires:   time.Now().Add(ssoStateTTL).Unix(),
-	})
+	}
+	value, err := GlobalSSOAuth.sealLoginState(login)
+	if err == nil && len(value) > maxLoginStateCookieLength {
+		// JSON escaping can make a valid redirect several times longer (each
+		// "&" becomes "\u0026"). Drop it rather than set a cookie the browser
+		// refuses, which would fail the login.
+		login.Redirect = "/"
+		value, err = GlobalSSOAuth.sealLoginState(login)
+	}
 	if err != nil {
 		logger.Error("seal sso login state", "err", err)
 		w.WriteHeader(http.StatusInternalServerError)

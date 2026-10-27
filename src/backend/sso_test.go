@@ -359,7 +359,10 @@ func TestSSOLoginStateRedirect(t *testing.T) {
 	}{
 		{"page on this server", testLoginRedirect, testLoginRedirect},
 		{"other site", "//evil.example.com", "/"},
-		{"too long for a cookie", "/jobs?q=" + strings.Repeat("a", 3000), "/"},
+		{"too long", "/jobs?q=" + strings.Repeat("a", 3000), "/"},
+		{"longest allowed", "/" + strings.Repeat("a", maxRedirectPathLength-1), "/" + strings.Repeat("a", maxRedirectPathLength-1)},
+		// Allowed, but JSON writes each "&" as \u0026, six times its length
+		{"too long once escaped", "/?" + strings.Repeat("&", maxRedirectPathLength-2), "/"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -367,6 +370,9 @@ func TestSSOLoginStateRedirect(t *testing.T) {
 			_, cookie := startSSOLogin(t, tt.redirect)
 			if got := openTestLoginState(t, cookie).Redirect; got != tt.want {
 				t.Errorf("stored redirect = %q, want %q", got, tt.want)
+			}
+			if len(cookie.Value) > maxLoginStateCookieLength {
+				t.Errorf("cookie value is %d bytes, want at most %d", len(cookie.Value), maxLoginStateCookieLength)
 			}
 		})
 	}
