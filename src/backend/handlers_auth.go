@@ -1,9 +1,6 @@
 package main
 
 import (
-	"crypto/rand"
-	"crypto/subtle"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,25 +11,30 @@ import (
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
-	"golang.org/x/oauth2"
 
 	bolt "go.etcd.io/bbolt"
 )
 
 // Routes of the auth router, which main.go mounts at authRoutePrefix
 const (
-	authRoutePrefix     = "/auth"
-	googleRoutePrefix   = "/google/"
-	googleLoginRoute    = googleRoutePrefix + "login"
-	googleCallbackRoute = googleRoutePrefix + "callback"
+	authRoutePrefix = "/auth"
+	ssoRoutePrefix  = "/sso/"
+	ssoLoginRoute   = ssoRoutePrefix + "login"
+	ssoACSRoute     = ssoRoutePrefix + "acs"
 )
 
-// GoogleCallbackPath is where Google sends the browser back after sign-in
-const GoogleCallbackPath = authRoutePrefix + googleCallbackRoute
+// SSOACSPath is where the identity provider posts the SAML response
+const SSOACSPath = authRoutePrefix + ssoACSRoute
 
-const googleStateCookieName = "google_login"
+const ssoLoginPath = authRoutePrefix + ssoLoginRoute
 
-const googleStateTTL = 10 * time.Minute
+const ssoStateCookieName = "sso_login"
+
+const ssoStateTTL = 10 * time.Minute
+
+// maxSAMLResponseSize bounds the form posted to the ACS endpoint. Google's
+// responses are a few KB even with the 75 groups it sends at most.
+const maxSAMLResponseSize = 1 << 20
 
 // maxRedirectPathLength keeps the login state cookie well under the 4096
 // bytes browsers store per cookie
@@ -40,8 +42,8 @@ const maxRedirectPathLength = 1024
 
 // Error codes passed to the login page as ?error=
 const (
-	loginErrorGoogle       = "google"
-	loginErrorGoogleDomain = "google_domain"
+	loginErrorSSO           = "sso"
+	loginErrorSSONotAllowed = "sso_not_allowed"
 )
 
 // HandleIsLoggedIn returns 200 if user is logged in
@@ -126,7 +128,7 @@ func HandleLogOut(w http.ResponseWriter, r *http.Request) {
 
 // AuthMethods lists the login methods offered on the login page
 type AuthMethods struct {
-	Google bool `json:"google"`
+	SSO bool `json:"sso"`
 }
 
 // HandleAuthMethods returns the available login methods
@@ -136,7 +138,7 @@ func HandleAuthMethods(w http.ResponseWriter, r *http.Request) {
 		logger = L
 	}
 
-	payloadB, err := json.Marshal(AuthMethods{Google: GlobalGoogleAuth != nil})
+	payloadB, err := json.Marshal(AuthMethods{SSO: GlobalSSOAuth != nil})
 	if err != nil {
 		logger.Error("marshal auth methods", "err", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -146,52 +148,25 @@ func HandleAuthMethods(w http.ResponseWriter, r *http.Request) {
 	writeBody(logger, w, payloadB)
 }
 
-// googleLoginState is kept in a cookie from the redirect to Google until the
-// callback, binding the callback to the browser that started the login
-type googleLoginState struct {
-	State    string `json:"state"`
-	Nonce    string `json:"nonce"`
-	Verifier string `json:"verifier"`
-	Redirect string `json:"redirect"`
-}
-
-func googleStateCookie(r *http.Request) *http.Cookie {
+func ssoStateCookie() *http.Cookie {
 	return &http.Cookie{
-		Name:     googleStateCookieName,
-		Path:     authRoutePrefix + googleRoutePrefix,
+		Name:     ssoStateCookieName,
+		Path:     authRoutePrefix + ssoRoutePrefix,
 		HttpOnly: true,
-		// Lax, not Strict: the callback is a top-level navigation from Google
-		SameSite: http.SameSiteLaxMode,
-		Secure:   isHTTPS(r),
+		// None, not Lax or Strict: the identity provider posts the response
+		// cross-site, and browsers leave Lax cookies off cross-site POSTs.
+		// None requires Secure, which browsers also accept on http://localhost.
+		SameSite: http.SameSiteNoneMode,
+		Secure:   true,
 	}
 }
 
-func encodeGoogleLoginState(login googleLoginState) (string, error) {
-	data, err := json.Marshal(login)
-	if err != nil {
-		return "", fmt.Errorf("marshal login state: %w", err)
-	}
-	return base64.RawURLEncoding.EncodeToString(data), nil
-}
-
-func readGoogleLoginState(r *http.Request) (*googleLoginState, error) {
-	cookie, err := r.Cookie(googleStateCookieName)
+func readSSOLoginState(r *http.Request) (*ssoLoginState, error) {
+	cookie, err := r.Cookie(ssoStateCookieName)
 	if err != nil {
 		return nil, fmt.Errorf("read cookie: %w", err)
 	}
-	data, err := base64.RawURLEncoding.DecodeString(cookie.Value)
-	if err != nil {
-		return nil, fmt.Errorf("decode cookie: %w", err)
-	}
-	var login googleLoginState
-	if err := json.Unmarshal(data, &login); err != nil {
-		return nil, fmt.Errorf("parse cookie: %w", err)
-	}
-	if login.State == "" || login.Nonce == "" || login.Verifier == "" {
-		return nil, fmt.Errorf("incomplete login state")
-	}
-	login.Redirect = safeRedirectPath(login.Redirect)
-	return &login, nil
+	return GlobalSSOAuth.openLoginState(cookie.Value, time.Now())
 }
 
 // safeRedirectPath returns p if it is a path on this server and "/"
@@ -214,94 +189,104 @@ func redirectToLoginError(w http.ResponseWriter, r *http.Request, code string, r
 	if redirect != "/" {
 		query.Set("redirect", redirect)
 	}
-	http.Redirect(w, r, "/login?"+query.Encode(), http.StatusFound)
+	http.Redirect(w, r, "/login?"+query.Encode(), http.StatusSeeOther)
 }
 
-// HandleGoogleLogIn starts Google sign-in by redirecting the browser to Google
-func HandleGoogleLogIn(w http.ResponseWriter, r *http.Request) {
+// HandleSSOLogIn starts single sign-on by redirecting the browser to the
+// identity provider
+func HandleSSOLogIn(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {
 		logger = L
 	}
-	if GlobalGoogleAuth == nil {
+	if GlobalSSOAuth == nil {
 		http.NotFound(w, r)
 		return
 	}
 
-	login := googleLoginState{
-		State:    rand.Text(),
-		Nonce:    rand.Text(),
-		Verifier: oauth2.GenerateVerifier(),
-		Redirect: safeRedirectPath(r.URL.Query().Get("redirect")),
-	}
-	value, err := encodeGoogleLoginState(login)
+	authURL, requestID, err := GlobalSSOAuth.AuthURL()
 	if err != nil {
-		logger.Error("encode google login state", "err", err)
+		logger.Error("sso login request", "err", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	cookie := googleStateCookie(r)
+	value, err := GlobalSSOAuth.sealLoginState(ssoLoginState{
+		RequestID: requestID,
+		Redirect:  safeRedirectPath(r.URL.Query().Get("redirect")),
+		Expires:   time.Now().Add(ssoStateTTL).Unix(),
+	})
+	if err != nil {
+		logger.Error("seal sso login state", "err", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	cookie := ssoStateCookie()
 	cookie.Value = value
-	cookie.MaxAge = int(googleStateTTL / time.Second)
+	cookie.MaxAge = int(ssoStateTTL / time.Second)
 	http.SetCookie(w, cookie)
-	http.Redirect(w, r, GlobalGoogleAuth.AuthCodeURL(login.State, login.Nonce, login.Verifier), http.StatusFound)
+	http.Redirect(w, r, authURL, http.StatusFound)
 }
 
-// HandleGoogleCallback finishes Google sign-in and logs the user in
-func HandleGoogleCallback(w http.ResponseWriter, r *http.Request) {
+// HandleSSOACS receives the identity provider's SAML response (the assertion
+// consumer service) and logs the user in
+func HandleSSOACS(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {
 		logger = L
 	}
-	if GlobalGoogleAuth == nil {
+	if GlobalSSOAuth == nil {
 		http.NotFound(w, r)
 		return
 	}
 
 	// The login state is single use, whatever the outcome
-	clearCookie := googleStateCookie(r)
+	clearCookie := ssoStateCookie()
 	clearCookie.MaxAge = -1
 	http.SetCookie(w, clearCookie)
 
-	login, err := readGoogleLoginState(r)
-	if err != nil {
-		logger.Warn("google login: no valid login state", "err", err)
-		redirectToLoginError(w, r, loginErrorGoogle, "/")
-		return
-	}
-	query := r.URL.Query()
-	if subtle.ConstantTimeCompare([]byte(query.Get("state")), []byte(login.State)) != 1 {
-		logger.Warn("google login: state mismatch")
-		redirectToLoginError(w, r, loginErrorGoogle, login.Redirect)
-		return
-	}
-	code := query.Get("code")
-	if code == "" {
-		logger.Warn("google login: no code", "error", query.Get("error"))
-		redirectToLoginError(w, r, loginErrorGoogle, login.Redirect)
+	r.Body = http.MaxBytesReader(w, r.Body, maxSAMLResponseSize)
+	if err := r.ParseForm(); err != nil {
+		logger.Warn("sso login: read form", "err", err)
+		redirectToLoginError(w, r, loginErrorSSO, "/")
 		return
 	}
 
-	email, err := GlobalGoogleAuth.Exchange(r.Context(), code, login.Verifier, login.Nonce)
-	if errors.Is(err, errGoogleDomain) {
-		logger.Warn("google login: rejected", "err", err)
-		redirectToLoginError(w, r, loginErrorGoogleDomain, login.Redirect)
-		return
-	}
+	// Without a valid login state the response is still checked: an
+	// unsolicited one restarts the login below
+	requestID, redirect := "", "/"
+	login, err := readSSOLoginState(r)
 	if err != nil {
-		logger.Error("google login", "err", err)
-		redirectToLoginError(w, r, loginErrorGoogle, login.Redirect)
+		logger.Warn("sso login: no valid login state", "err", err)
+	} else {
+		requestID, redirect = login.RequestID, login.Redirect
+	}
+
+	email, err := GlobalSSOAuth.VerifyResponse(r.PostForm.Get("SAMLResponse"), requestID)
+	switch {
+	case errors.Is(err, errSSOUnsolicited):
+		// Opened from the identity provider (e.g. the Google apps menu), so
+		// there is no request to bind the response to. Start one instead.
+		logger.Info("sso login: unsolicited response, starting a new login")
+		http.Redirect(w, r, ssoLoginPath, http.StatusSeeOther)
+		return
+	case errors.Is(err, errSSOGroup):
+		logger.Warn("sso login: rejected", "err", err)
+		redirectToLoginError(w, r, loginErrorSSONotAllowed, redirect)
+		return
+	case err != nil:
+		logger.Warn("sso login failed", "err", err)
+		redirectToLoginError(w, r, loginErrorSSO, redirect)
 		return
 	}
 
-	c, err := GlobalSessionStorage.New(r, GoogleSessionTTL)
+	c, err := GlobalSessionStorage.New(r, SSOSessionTTL)
 	if err != nil {
 		logger.Error("create session", "err", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	// Warn so the default log level keeps a record of who logged in
-	logger.Warn("google login", "email", email)
+	logger.Warn("sso login", "email", email)
 	http.SetCookie(w, c)
-	http.Redirect(w, r, login.Redirect, http.StatusFound)
+	http.Redirect(w, r, redirect, http.StatusSeeOther)
 }

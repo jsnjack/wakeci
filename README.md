@@ -74,8 +74,8 @@ Usage of ./bin/wakeci:
 ```
 # Port to start the server on (default "8081")
 port: 8081
-# Hostname for autocert (active only when port is 443) and the default Google
-# sign-in redirect URL
+# Hostname for autocert (active only when port is 443) and the default
+# single sign-on URLs
 hostname: ""
 # Working directory (default ".wakeci/")
 workdir: ./wakeci
@@ -87,26 +87,42 @@ secretsfile: ./secrets.yaml
 # Scheduled jobs (via `interval` field) will use this timezone, if not specified
 # in the job configuration
 timezone: Europe/Amsterdam
-# Optional "Sign in with Google" for one Google Workspace domain, next to the
-# password. Create an OAuth client of type "Web application" in Google Cloud
-# and register the redirect URL on it.
-google:
-  clientid: 1234.apps.googleusercontent.com
-  clientsecret: your-client-secret
-  # Only accounts of this Workspace domain can log in
-  domain: example.com
-  # Defaults to https://<hostname>/auth/google/callback
-  redirecturl: ""
+# Optional single sign-on through a SAML identity provider such as Google
+# Workspace, next to the password. See "Single sign-on" below.
+sso:
+  # Metadata file downloaded from the identity provider. Keep it outside jobdir
+  idpmetadata: ./GoogleIDPMetadata.xml
+  # Comma-separated groups allowed to log in, as named in the "groups" attribute
+  groups: Developers, Ops
+  # Where the identity provider posts the response.
+  # Defaults to https://<hostname>/auth/sso/acs
+  acsurl: ""
+  # Identifies wakeci to the identity provider. Defaults to https://<hostname>
+  entityid: ""
 ```
 
-Google sign-in sessions last 12 hours, password sessions 5 days. API calls
-keep using Basic auth with the password.
+#### Single sign-on
 
-Every account in `google.domain` can log in. To limit sign-in to a group, set
-the OAuth consent screen to "Internal" and restrict the OAuth client to that
-group in the Google Admin console (Security, API controls, Manage third-party
-app access). Open wakeci under the same host as `redirecturl`; the sign-in
-cookie is tied to that host, so a login started from another host name fails.
+To set it up with Google Workspace, add a custom SAML app in the Google Admin
+console (Apps, Web and mobile apps, Add app, Add custom SAML app):
+
+1. Download the IdP metadata and point `sso.idpmetadata` at the file.
+2. Service provider details: ACS URL `https://<hostname>/auth/sso/acs`, Entity
+   ID `https://<hostname>`, Name ID format `EMAIL`, Name ID
+   `Basic Information > Primary email`.
+3. Attribute mapping: under "Group membership", pick the groups and set the app
+   attribute to `groups`. List the same group names in `sso.groups`.
+4. User access: turn the app on for those groups.
+
+Only accounts of your own Workspace can sign in to a custom SAML app, and of
+those only members of a group in `sso.groups` can log in; a rejected login
+logs the groups wakeci received. Opening wakeci from the Google apps menu
+starts a normal login. SSO sessions last 12 hours, password sessions 5 days.
+API calls keep using Basic auth with the password.
+
+Serve wakeci over HTTPS, or on localhost: Google posts the response from
+another site, which browsers only allow with a `Secure` login cookie. When
+Google renews its certificate, download the metadata again and restart wakeci.
 
 > Default password is `admin`. Don't forget to immediately change it!
 

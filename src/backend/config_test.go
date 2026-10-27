@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -87,70 +88,106 @@ func TestCreateWakeConfig(t *testing.T) {
 	})
 }
 
-func TestCreateWakeConfigGoogle(t *testing.T) {
+func TestCreateWakeConfigSSO(t *testing.T) {
+	const sso = "sso:\n  idpmetadata: idp.xml\n"
 	tests := []struct {
-		name            string
-		content         string
-		wantErr         bool
-		wantEnabled     bool
-		wantRedirectURL string
+		name         string
+		content      string
+		wantErr      bool
+		wantEnabled  bool
+		wantGroups   []string
+		wantACSURL   string
+		wantEntityID string
 	}{
 		{name: "not configured", content: "port: \"8081\"\n"},
 		{
-			name:            "redirect URL from hostname",
-			content:         "hostname: ci.example.com\ngoogle:\n  clientid: id\n  clientsecret: secret\n  domain: example.com\n",
-			wantEnabled:     true,
-			wantRedirectURL: "https://ci.example.com/auth/google/callback",
+			name:         "defaults from hostname",
+			content:      "hostname: ci.example.com\n" + sso + "  groups: Developers\n",
+			wantEnabled:  true,
+			wantGroups:   []string{"Developers"},
+			wantACSURL:   "https://ci.example.com/auth/sso/acs",
+			wantEntityID: "https://ci.example.com",
 		},
 		{
-			name:            "explicit redirect URL",
-			content:         "google:\n  clientid: id\n  clientsecret: secret\n  domain: example.com\n  redirecturl: http://localhost:8080/auth/google/callback\n",
-			wantEnabled:     true,
-			wantRedirectURL: "http://localhost:8080/auth/google/callback",
+			name:         "explicit ACS URL and entity ID",
+			content:      sso + "  groups: Developers\n  acsurl: http://localhost:8080/auth/sso/acs\n  entityid: wakeci\n",
+			wantEnabled:  true,
+			wantGroups:   []string{"Developers"},
+			wantACSURL:   "http://localhost:8080/auth/sso/acs",
+			wantEntityID: "wakeci",
 		},
 		{
-			name:    "missing secret",
-			content: "hostname: ci.example.com\ngoogle:\n  clientid: id\n  domain: example.com\n",
+			name:         "entity ID from ACS URL",
+			content:      sso + "  groups: Developers\n  acsurl: http://localhost:8080/auth/sso/acs\n",
+			wantEnabled:  true,
+			wantGroups:   []string{"Developers"},
+			wantACSURL:   "http://localhost:8080/auth/sso/acs",
+			wantEntityID: "http://localhost:8080",
+		},
+		{
+			name:         "several groups",
+			content:      "hostname: ci.example.com\n" + sso + "  groups: Developers, Ops ,,QA,\n",
+			wantEnabled:  true,
+			wantGroups:   []string{"Developers", "Ops", "QA"},
+			wantACSURL:   "https://ci.example.com/auth/sso/acs",
+			wantEntityID: "https://ci.example.com",
+		},
+		{
+			name:    "missing groups",
+			content: "hostname: ci.example.com\n" + sso,
 			wantErr: true,
 		},
 		{
-			name:    "missing domain",
-			content: "hostname: ci.example.com\ngoogle:\n  clientid: id\n  clientsecret: secret\n",
+			name:    "groups without names",
+			content: "hostname: ci.example.com\n" + sso + "  groups: \" , \"\n",
 			wantErr: true,
 		},
 		{
-			name:    "no hostname or redirect URL",
-			content: "google:\n  clientid: id\n  clientsecret: secret\n  domain: example.com\n",
+			name:    "no hostname or ACS URL",
+			content: sso + "  groups: Developers\n",
 			wantErr: true,
 		},
 		{
-			name:    "redirect URL without scheme",
-			content: "google:\n  clientid: id\n  clientsecret: secret\n  domain: example.com\n  redirecturl: ci.example.com/auth/google/callback\n",
+			name:         "plain http on loopback IP",
+			content:      sso + "  groups: Developers\n  acsurl: http://127.0.0.1:8080/auth/sso/acs\n",
+			wantEnabled:  true,
+			wantGroups:   []string{"Developers"},
+			wantACSURL:   "http://127.0.0.1:8080/auth/sso/acs",
+			wantEntityID: "http://127.0.0.1:8080",
+		},
+		{
+			name:    "plain http on another host",
+			content: sso + "  groups: Developers\n  acsurl: http://ci.example.com/auth/sso/acs\n",
 			wantErr: true,
 		},
 		{
-			name:    "redirect URL with another scheme",
-			content: "google:\n  clientid: id\n  clientsecret: secret\n  domain: example.com\n  redirecturl: ftp://ci.example.com/auth/google/callback\n",
+			name:    "ACS URL without scheme",
+			content: sso + "  groups: Developers\n  acsurl: ci.example.com/auth/sso/acs\n",
 			wantErr: true,
 		},
 		{
-			name:    "redirect URL without host",
-			content: "google:\n  clientid: id\n  clientsecret: secret\n  domain: example.com\n  redirecturl: https:///auth/google/callback\n",
+			name:    "ACS URL with another scheme",
+			content: sso + "  groups: Developers\n  acsurl: ftp://ci.example.com/auth/sso/acs\n",
 			wantErr: true,
 		},
 		{
-			name:    "redirect URL with another path",
-			content: "google:\n  clientid: id\n  clientsecret: secret\n  domain: example.com\n  redirecturl: https://ci.example.com/callback\n",
+			name:    "ACS URL without host",
+			content: sso + "  groups: Developers\n  acsurl: https:///auth/sso/acs\n",
 			wantErr: true,
 		},
 		{
-			name:    "redirect URL with query",
-			content: "google:\n  clientid: id\n  clientsecret: secret\n  domain: example.com\n  redirecturl: https://ci.example.com/auth/google/callback?x=1\n",
+			name:    "ACS URL with another path",
+			content: sso + "  groups: Developers\n  acsurl: https://ci.example.com/acs\n",
 			wantErr: true,
 		},
 		{
-			name:    "misspelled clientid",
-			content: "hostname: ci.example.com\ngoogle:\n  clinetid: id\n  clientsecret: secret\n  domain: example.com\n",
+			name:    "ACS URL with query",
+			content: sso + "  groups: Developers\n  acsurl: https://ci.example.com/auth/sso/acs?x=1\n",
+			wantErr: true,
+		},
+		{
+			name:    "misspelled idpmetadata",
+			content: "hostname: ci.example.com\nsso:\n  idpmetdata: idp.xml\n  groups: Developers\n",
 			wantErr: true,
 		},
 	}
@@ -170,11 +207,17 @@ func TestCreateWakeConfigGoogle(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if got := config.Google.Enabled(); got != tt.wantEnabled {
+			if got := config.SSO.Enabled(); got != tt.wantEnabled {
 				t.Errorf("Enabled() = %t, want %t", got, tt.wantEnabled)
 			}
-			if config.Google.RedirectURL != tt.wantRedirectURL {
-				t.Errorf("RedirectURL = %q, want %q", config.Google.RedirectURL, tt.wantRedirectURL)
+			if !slices.Equal(config.SSO.allowedGroups, tt.wantGroups) {
+				t.Errorf("allowedGroups = %q, want %q", config.SSO.allowedGroups, tt.wantGroups)
+			}
+			if config.SSO.ACSURL != tt.wantACSURL {
+				t.Errorf("ACSURL = %q, want %q", config.SSO.ACSURL, tt.wantACSURL)
+			}
+			if config.SSO.EntityID != tt.wantEntityID {
+				t.Errorf("EntityID = %q, want %q", config.SSO.EntityID, tt.wantEntityID)
 			}
 		})
 	}

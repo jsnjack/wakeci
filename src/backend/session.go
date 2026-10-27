@@ -13,10 +13,11 @@ import (
 // SessionTTL is TTL for a session cookie
 const SessionTTL = 24 * 5 * time.Hour
 
-// GoogleSessionTTL is TTL for a session created by Google sign-in. It is
-// shorter than SessionTTL because wakeci never re-checks the Google account:
-// it bounds how long a suspended or deleted account keeps access.
-const GoogleSessionTTL = 12 * time.Hour
+// SSOSessionTTL is TTL for a session created by single sign-on. It is
+// shorter than SessionTTL because wakeci never re-checks the account: it
+// bounds how long a suspended account, or one removed from the allowed
+// groups, keeps access.
+const SSOSessionTTL = 12 * time.Hour
 
 // SessionCleanupPeriod is a period to clean up expired sessions
 const SessionCleanupPeriod = 1 * time.Hour

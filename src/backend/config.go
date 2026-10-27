@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -29,55 +30,72 @@ type WakeConfig struct {
 	secrets map[string]string
 	// Timezone for cron jobs (`interval` field in job files)
 	Timezone string `yaml:"timezone"`
-	// Google enables "Sign in with Google" for one Google Workspace domain
-	Google GoogleConfig `yaml:"google"`
+	// SSO enables single sign-on through a SAML identity provider such as
+	// Google Workspace
+	SSO SSOConfig `yaml:"sso"`
 }
 
-// GoogleConfig holds the OAuth client used for Google Workspace sign-in.
-// Leaving ClientID empty disables Google sign-in.
-type GoogleConfig struct {
-	ClientID     string `yaml:"clientid"`
-	ClientSecret string `yaml:"clientsecret"`
-	// Domain is the Google Workspace domain users must belong to
-	Domain string `yaml:"domain"`
-	// RedirectURL must match a redirect URI registered for the OAuth client.
-	// Defaults to https://<hostname>/auth/google/callback
-	RedirectURL string `yaml:"redirecturl"`
+// SSOConfig sets up single sign-on through a SAML 2.0 identity provider.
+// Leaving IDPMetadata empty disables it.
+type SSOConfig struct {
+	// IDPMetadata is the path to the identity provider's SAML metadata file
+	IDPMetadata string `yaml:"idpmetadata"`
+	// Groups is a comma-separated list of the groups allowed to log in, as
+	// the identity provider names them in the groups attribute
+	Groups string `yaml:"groups"`
+	// ACSURL is where the identity provider posts the SAML response.
+	// Defaults to https://<hostname>/auth/sso/acs
+	ACSURL string `yaml:"acsurl"`
+	// EntityID identifies wakeci to the identity provider. Defaults to the
+	// scheme and host of ACSURL
+	EntityID string `yaml:"entityid"`
+	// allowedGroups is Groups split into names
+	allowedGroups []string
 }
 
-// Enabled reports whether Google sign-in is configured.
-func (g *GoogleConfig) Enabled() bool {
-	return g.ClientID != ""
+// Enabled reports whether single sign-on is configured.
+func (s *SSOConfig) Enabled() bool {
+	return s.IDPMetadata != ""
 }
 
-// resolve checks the Google settings and fills in the default redirect URL
-func (g *GoogleConfig) resolve(hostname string) error {
-	if !g.Enabled() {
-		// Catches a misspelled clientid key, which YAML parsing ignores
-		if g.ClientSecret != "" || g.Domain != "" || g.RedirectURL != "" {
-			return fmt.Errorf("google.clientid is required when other google settings are set")
+// resolve checks the SSO settings and fills in the defaults
+func (s *SSOConfig) resolve(hostname string) error {
+	if !s.Enabled() {
+		// Catches a misspelled idpmetadata key, which YAML parsing ignores
+		if s.Groups != "" || s.ACSURL != "" || s.EntityID != "" {
+			return fmt.Errorf("sso.idpmetadata is required when other sso settings are set")
 		}
 		return nil
 	}
-	if g.ClientSecret == "" {
-		return fmt.Errorf("google.clientsecret is required when google.clientid is set")
-	}
-	if g.Domain == "" {
-		return fmt.Errorf("google.domain is required when google.clientid is set")
-	}
-	if g.RedirectURL == "" {
-		if hostname == "" {
-			return fmt.Errorf("google.redirecturl is required when hostname is not set")
+	for _, group := range strings.Split(s.Groups, ",") {
+		if group = strings.TrimSpace(group); group != "" {
+			s.allowedGroups = append(s.allowedGroups, group)
 		}
-		g.RedirectURL = "https://" + hostname + GoogleCallbackPath
 	}
-	u, err := url.Parse(g.RedirectURL)
+	if len(s.allowedGroups) == 0 {
+		return fmt.Errorf("sso.groups is required when sso.idpmetadata is set")
+	}
+	if s.ACSURL == "" {
+		if hostname == "" {
+			return fmt.Errorf("sso.acsurl is required when hostname is not set")
+		}
+		s.ACSURL = "https://" + hostname + SSOACSPath
+	}
+	u, err := url.Parse(s.ACSURL)
 	if err != nil {
-		return fmt.Errorf("parse google.redirecturl: %w", err)
+		return fmt.Errorf("parse sso.acsurl: %w", err)
 	}
-	if (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.Path != GoogleCallbackPath ||
+	if (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.Path != SSOACSPath ||
 		u.RawQuery != "" || u.Fragment != "" {
-		return fmt.Errorf("google.redirecturl must look like https://<host>%s, got %q", GoogleCallbackPath, g.RedirectURL)
+		return fmt.Errorf("sso.acsurl must look like https://<host>%s, got %q", SSOACSPath, s.ACSURL)
+	}
+	// The login state cookie is Secure, which browsers only store over https
+	// and on localhost
+	if u.Scheme == "http" && u.Hostname() != "localhost" && !net.ParseIP(u.Hostname()).IsLoopback() {
+		return fmt.Errorf("sso.acsurl must use https unless the host is localhost, got %q", s.ACSURL)
+	}
+	if s.EntityID == "" {
+		s.EntityID = u.Scheme + "://" + u.Host
 	}
 	return nil
 }
@@ -118,8 +136,8 @@ func CreateWakeConfig(path string) (*WakeConfig, error) {
 
 	config.jobsExt = ".yaml"
 
-	if err := config.Google.resolve(config.Hostname); err != nil {
-		return nil, fmt.Errorf("google config: %w", err)
+	if err := config.SSO.resolve(config.Hostname); err != nil {
+		return nil, fmt.Errorf("sso config: %w", err)
 	}
 
 	// Load secrets
@@ -157,7 +175,7 @@ func CreateWakeConfig(path string) (*WakeConfig, error) {
 		config.JobDir += string(os.PathSeparator)
 	}
 	// Log fields individually rather than the whole struct: config.secrets
-	// and config.Google.ClientSecret must never be logged.
+	// must never be logged.
 	L.Debug("current config",
 		"port", config.Port,
 		"hostname", config.Hostname,
@@ -165,9 +183,10 @@ func CreateWakeConfig(path string) (*WakeConfig, error) {
 		"jobdir", config.JobDir,
 		"secretsfile", config.SecretsFile,
 		"timezone", config.Timezone,
-		"google.clientid", config.Google.ClientID,
-		"google.domain", config.Google.Domain,
-		"google.redirecturl", config.Google.RedirectURL,
+		"sso.idpmetadata", config.SSO.IDPMetadata,
+		"sso.groups", config.SSO.allowedGroups,
+		"sso.acsurl", config.SSO.ACSURL,
+		"sso.entityid", config.SSO.EntityID,
 	)
 	return &config, nil
 }

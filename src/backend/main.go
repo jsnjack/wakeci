@@ -212,9 +212,12 @@ func main() {
 
 	GlobalSessionStorage = CreateSessionStorage(SessionCleanupPeriod)
 
-	if Config.Google.Enabled() {
-		GlobalGoogleAuth = NewGoogleAuth(Config.Google)
-		L.Info("google sign-in enabled", "domain", Config.Google.Domain)
+	if Config.SSO.Enabled() {
+		GlobalSSOAuth, err = NewSSOAuth(Config.SSO)
+		if err != nil {
+			fatal("set up sso", err)
+		}
+		L.Info("sso enabled", "groups", Config.SSO.allowedGroups)
 	}
 
 	GlobalQueue, err = CreateQueue()
@@ -260,8 +263,8 @@ func main() {
 		router.Get("/methods", HandleAuthMethods)
 		router.Post("/login", HandleLogIn)
 		router.Get("/logout", HandleLogOut)
-		router.Get(googleLoginRoute, HandleGoogleLogIn)
-		router.Get(googleCallbackRoute, HandleGoogleCallback)
+		router.Get(ssoLoginRoute, HandleSSOLogIn)
+		router.Post(ssoACSRoute, HandleSSOACS)
 	})
 
 	router.Route("/api", func(router chi.Router) {

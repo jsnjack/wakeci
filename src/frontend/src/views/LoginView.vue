@@ -11,7 +11,7 @@
         >
             <i class="extra">water</i>
             <h5 class="center-align">Welcome to wake</h5>
-            <p v-if="googleEnabled">Log in with your password or your Google account</p>
+            <p v-if="ssoEnabled">Log in with your password or single sign-on</p>
             <p v-else>Start by logging in with your password</p>
             <div class="space"></div>
             <nav class="group connected">
@@ -25,15 +25,15 @@
                 </div>
                 <button class="large right-round primary">Log in</button>
             </nav>
-            <template v-if="googleEnabled">
+            <template v-if="ssoEnabled">
                 <div class="space"></div>
                 <a
-                    class="button large border round google-login"
-                    :href="googleLoginURL"
-                    data-cy="google-login"
+                    class="button large border round sso-login"
+                    :href="ssoLoginURL"
+                    data-cy="sso-login"
                 >
                     <i>account_circle</i>
-                    <span>Sign in with Google</span>
+                    <span>Sign in with SSO</span>
                 </a>
             </template>
         </div>
@@ -49,7 +49,7 @@ export default {
         return {
             fetching: true,
             password: "",
-            googleEnabled: false,
+            ssoEnabled: false,
         };
     },
     computed: {
@@ -61,8 +61,8 @@ export default {
             }
             return redirect;
         },
-        googleLoginURL: function () {
-            return "/auth/google/login?redirect=" + encodeURIComponent(this.getRedirectURL);
+        ssoLoginURL: function () {
+            return "/auth/sso/login?redirect=" + encodeURIComponent(this.getRedirectURL);
         },
     },
     mounted() {
@@ -88,14 +88,14 @@ export default {
             axios
                 .get("/auth/methods")
                 .then((response) => {
-                    this.googleEnabled = response.data.google === true;
+                    this.ssoEnabled = response.data.sso === true;
                 })
                 .catch((error) => {});
         },
         showLoginError() {
             const messages = {
-                google: "Google sign-in failed, please try again",
-                google_domain: "This Google account is not allowed to log in",
+                sso: "Single sign-on failed, please try again",
+                sso_not_allowed: "Your account is not in a group that is allowed to log in",
             };
             const { error, ...query } = this.$route.query;
             if (error === undefined) {
@@ -135,7 +135,7 @@ export default {
 <style scoped>
 /* The button centres the icon but leaves the capital letters of the label 2px
    above the middle; lower the label so both sit on the button's middle */
-.google-login > span {
+.sso-login > span {
     transform: translateY(2px);
 }
 </style>
