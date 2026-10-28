@@ -1,6 +1,9 @@
 package main
 
 import (
+	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,6 +30,74 @@ type WakeConfig struct {
 	secrets map[string]string
 	// Timezone for cron jobs (`interval` field in job files)
 	Timezone string `yaml:"timezone"`
+	// SSO enables single sign-on through a SAML identity provider such as
+	// Google Workspace
+	SSO SSOConfig `yaml:"sso"`
+}
+
+// SSOConfig sets up single sign-on through a SAML 2.0 identity provider.
+// Leaving IDPMetadata empty disables it.
+type SSOConfig struct {
+	// IDPMetadata is the path to the identity provider's SAML metadata file
+	IDPMetadata string `yaml:"idpmetadata"`
+	// Groups is a comma-separated list of the groups allowed to log in, as
+	// the identity provider names them in the groups attribute
+	Groups string `yaml:"groups"`
+	// ACSURL is where the identity provider posts the SAML response.
+	// Defaults to https://<hostname>/auth/sso/acs
+	ACSURL string `yaml:"acsurl"`
+	// EntityID identifies wakeci to the identity provider. Defaults to the
+	// scheme and host of ACSURL
+	EntityID string `yaml:"entityid"`
+	// allowedGroups is Groups split into names
+	allowedGroups []string
+}
+
+// Enabled reports whether single sign-on is configured.
+func (s *SSOConfig) Enabled() bool {
+	return s.IDPMetadata != ""
+}
+
+// resolve checks the SSO settings and fills in the defaults
+func (s *SSOConfig) resolve(hostname string) error {
+	if !s.Enabled() {
+		// Catches a misspelled idpmetadata key, which YAML parsing ignores
+		if s.Groups != "" || s.ACSURL != "" || s.EntityID != "" {
+			return fmt.Errorf("sso.idpmetadata is required when other sso settings are set")
+		}
+		return nil
+	}
+	for _, group := range strings.Split(s.Groups, ",") {
+		if group = strings.TrimSpace(group); group != "" {
+			s.allowedGroups = append(s.allowedGroups, group)
+		}
+	}
+	if len(s.allowedGroups) == 0 {
+		return fmt.Errorf("sso.groups is required when sso.idpmetadata is set")
+	}
+	if s.ACSURL == "" {
+		if hostname == "" {
+			return fmt.Errorf("sso.acsurl is required when hostname is not set")
+		}
+		s.ACSURL = "https://" + hostname + SSOACSPath
+	}
+	u, err := url.Parse(s.ACSURL)
+	if err != nil {
+		return fmt.Errorf("parse sso.acsurl: %w", err)
+	}
+	if (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.Path != SSOACSPath ||
+		u.RawQuery != "" || u.Fragment != "" {
+		return fmt.Errorf("sso.acsurl must look like https://<host>%s, got %q", SSOACSPath, s.ACSURL)
+	}
+	// The login state cookie is Secure, which browsers only store over https
+	// and on localhost
+	if u.Scheme == "http" && u.Hostname() != "localhost" && !net.ParseIP(u.Hostname()).IsLoopback() {
+		return fmt.Errorf("sso.acsurl must use https unless the host is localhost, got %q", s.ACSURL)
+	}
+	if s.EntityID == "" {
+		s.EntityID = u.Scheme + "://" + u.Host
+	}
+	return nil
 }
 
 // CreateWakeConfig creates new config instance
@@ -65,6 +136,10 @@ func CreateWakeConfig(path string) (*WakeConfig, error) {
 
 	config.jobsExt = ".yaml"
 
+	if err := config.SSO.resolve(config.Hostname); err != nil {
+		return nil, fmt.Errorf("sso config: %w", err)
+	}
+
 	// Load secrets
 	if config.SecretsFile != "" {
 		L.Info("loading secrets", "file", config.SecretsFile)
@@ -100,7 +175,7 @@ func CreateWakeConfig(path string) (*WakeConfig, error) {
 		config.JobDir += string(os.PathSeparator)
 	}
 	// Log fields individually rather than the whole struct: config.secrets
-	// holds decrypted secret values and must never be logged.
+	// must never be logged.
 	L.Debug("current config",
 		"port", config.Port,
 		"hostname", config.Hostname,
@@ -108,6 +183,10 @@ func CreateWakeConfig(path string) (*WakeConfig, error) {
 		"jobdir", config.JobDir,
 		"secretsfile", config.SecretsFile,
 		"timezone", config.Timezone,
+		"sso.idpmetadata", config.SSO.IDPMetadata,
+		"sso.groups", config.SSO.allowedGroups,
+		"sso.acsurl", config.SSO.ACSURL,
+		"sso.entityid", config.SSO.EntityID,
 	)
 	return &config, nil
 }

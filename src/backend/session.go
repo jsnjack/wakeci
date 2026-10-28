@@ -13,6 +13,12 @@ import (
 // SessionTTL is TTL for a session cookie
 const SessionTTL = 24 * 5 * time.Hour
 
+// SSOSessionTTL is TTL for a session created by single sign-on. It is
+// shorter than SessionTTL because wakeci never re-checks the account: it
+// bounds how long a suspended account, or one removed from the allowed
+// groups, keeps access.
+const SSOSessionTTL = 12 * time.Hour
+
 // SessionCleanupPeriod is a period to clean up expired sessions
 const SessionCleanupPeriod = 1 * time.Hour
 
@@ -22,27 +28,28 @@ type SessionStorage struct {
 	mu       deadlock.RWMutex
 }
 
+func isHTTPS(r *http.Request) bool {
+	forwardedProto, _, _ := strings.Cut(r.Header.Get("X-Forwarded-Proto"), ",")
+	return Config.Port == "443" || r.TLS != nil || strings.EqualFold(strings.TrimSpace(forwardedProto), "https")
+}
+
 func sessionCookie(r *http.Request) *http.Cookie {
-	cookie := &http.Cookie{
+	return &http.Cookie{
 		Name:     "session",
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
+		Secure:   isHTTPS(r),
 	}
-	forwardedProto, _, _ := strings.Cut(r.Header.Get("X-Forwarded-Proto"), ",")
-	if Config.Port == "443" || r.TLS != nil || strings.EqualFold(strings.TrimSpace(forwardedProto), "https") {
-		cookie.Secure = true
-	}
-	return cookie
 }
 
-// New creates new session and returns a cookie.
-func (s *SessionStorage) New(r *http.Request) (*http.Cookie, error) {
+// New creates new session which expires after ttl and returns a cookie.
+func (s *SessionStorage) New(r *http.Request, ttl time.Duration) (*http.Cookie, error) {
 	sessionToken, err := uuid.NewV4()
 	if err != nil {
 		return nil, err
 	}
-	expires := time.Now().Add(SessionTTL)
+	expires := time.Now().Add(ttl)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.sessions[sessionToken.String()] = expires

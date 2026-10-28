@@ -212,6 +212,14 @@ func main() {
 
 	GlobalSessionStorage = CreateSessionStorage(SessionCleanupPeriod)
 
+	if Config.SSO.Enabled() {
+		GlobalSSOAuth, err = NewSSOAuth(Config.SSO)
+		if err != nil {
+			fatal("set up sso", err)
+		}
+		L.Info("sso enabled", "groups", Config.SSO.allowedGroups)
+	}
+
 	GlobalQueue, err = CreateQueue()
 	if err != nil {
 		fatal("create queue", err)
@@ -250,10 +258,13 @@ func main() {
 
 	router.With(AuthMi).Get("/ws", HandleWS)
 
-	router.Route("/auth", func(router chi.Router) {
+	router.Route(authRoutePrefix, func(router chi.Router) {
 		router.With(AuthMi).Get("/_isLoggedIn", HandleIsLoggedIn)
+		router.Get("/methods", HandleAuthMethods)
 		router.Post("/login", HandleLogIn)
 		router.Get("/logout", HandleLogOut)
+		router.Get(ssoLoginRoute, HandleSSOLogIn)
+		router.Post(ssoACSRoute, HandleSSOACS)
 	})
 
 	router.Route("/api", func(router chi.Router) {
@@ -334,8 +345,7 @@ func main() {
 		L.Warn("Listening on :443")
 		server.TLSConfig = &tls.Config{
 			// https://ssl-config.mozilla.org/#server=golang&version=1.13.6&config=intermediate&guideline=5.4
-			MinVersion:               tls.VersionTLS12,
-			PreferServerCipherSuites: false,
+			MinVersion: tls.VersionTLS12,
 			CipherSuites: []uint16{
 				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
 				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,

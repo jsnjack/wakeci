@@ -74,18 +74,55 @@ Usage of ./bin/wakeci:
 ```
 # Port to start the server on (default "8081")
 port: 8081
-# Hostname for autocert. Active only when port is 443
+# Hostname for autocert (active only when port is 443) and the default
+# single sign-on URLs
 hostname: ""
 # Working directory (default ".wakeci/")
 workdir: ./wakeci
-# Configuration directory - all your job files (default "./")
-jobdir: ./
+# Configuration directory - all your job files (default "./"). Every .yaml file
+# in it can be opened as a job, so keep this file and the secrets file outside it
+jobdir: ./jobs
 # Path to the file with secrets
 secretsfile: ./secrets.yaml
 # Scheduled jobs (via `interval` field) will use this timezone, if not specified
 # in the job configuration
 timezone: Europe/Amsterdam
+# Optional single sign-on through a SAML identity provider such as Google
+# Workspace, next to the password. See "Single sign-on" below.
+sso:
+  # Metadata file downloaded from the identity provider. Keep it outside jobdir
+  idpmetadata: ./GoogleIDPMetadata.xml
+  # Comma-separated groups allowed to log in, as named in the "groups" attribute
+  groups: Developers, Ops
+  # Where the identity provider posts the response.
+  # Defaults to https://<hostname>/auth/sso/acs
+  acsurl: ""
+  # Identifies wakeci to the identity provider. Defaults to https://<hostname>
+  entityid: ""
 ```
+
+#### Single sign-on
+
+To set it up with Google Workspace, add a custom SAML app in the Google Admin
+console (Apps, Web and mobile apps, Add app, Add custom SAML app):
+
+1. Download the IdP metadata and point `sso.idpmetadata` at the file.
+2. Service provider details: ACS URL `https://<hostname>/auth/sso/acs`, Entity
+   ID `https://<hostname>`, Name ID format `EMAIL`, Name ID
+   `Basic Information > Primary email`.
+3. Attribute mapping: under "Group membership", pick the groups and set the app
+   attribute to `groups`. List the same group names in `sso.groups`.
+4. User access: turn the app on for those groups.
+
+Only accounts of your own Workspace can sign in to a custom SAML app, and of
+those only members of a group in `sso.groups` can log in; a rejected login
+logs the groups wakeci received. Opening wakeci from the Google apps menu
+starts a normal login. SSO sessions last 12 hours, password sessions 5 days.
+API calls keep using Basic auth with the password.
+
+Serve wakeci over HTTPS, or on localhost: Google posts the response from
+another site, which browsers only allow with a `Secure` login cookie. When
+Google renews its certificate, download the metadata again and restart wakeci.
 
 > Default password is `admin`. Don't forget to immediately change it!
 
