@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"path"
 	"strings"
 	"time"
 
@@ -110,17 +111,39 @@ func SecurityMi(next http.Handler) http.Handler {
 	})
 }
 
+// storagePDFCSP is the storage policy without the sandbox. A PDF can't run
+// scripts on this origin, and Chrome won't show one in a sandboxed page.
+const storagePDFCSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'none'; form-action 'none'; frame-ancestors 'self'"
+
+// storageCSP lets an HTML report run its scripts and load its own files, but
+// never act as the logged-in user. connect-src and form-action stop it from
+// sending requests itself. It could still get hold of another page on this
+// origin whose policy allows requests and send them from there: a frame or
+// object, a popup, or a page made up by a service worker. frame-src,
+// object-src, worker-src and the sandbox (which leaves out allow-popups)
+// close those. allow-same-origin keeps the origin, so the report's CSS,
+// scripts and images still get the SameSite session cookie.
+const storageCSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
+	"connect-src 'none'; form-action 'none'; frame-src 'none'; object-src 'none'; worker-src 'none'; " +
+	"frame-ancestors 'none'; sandbox allow-scripts allow-same-origin allow-downloads allow-forms allow-modals"
+
 // StorageSecurityMi is a middleware which adds security headers specifically for storage endpoints
 // It is more relaxed than the normal one, as we want to be able to preview html pages.
 // Scripts in a previewed page may still run (self-contained reports commonly
-// embed inline JS/CSS for interactivity), but connect-src/form-action are
-// locked down so a build artifact - which can contain task-influenced
-// content - can never use that execution context to call back into wakeci's
-// own authenticated API or submit a form, even though it's served same-site.
+// embed inline JS/CSS for interactivity), but storageCSP stops a build
+// artifact - which can contain task-influenced content - from ever calling
+// back into wakeci's own authenticated API, even though it's served same-site.
 func StorageSecurityMi(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("referrer-policy", "no-referrer")
-		w.Header().Set("content-security-policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'none'; form-action 'none'; frame-ancestors 'self'")
+		csp := storageCSP
+		// The file server picks the content type by the file's extension, and
+		// with nosniff only application/pdf shows as a PDF. The path isn't
+		// cleaned: "x.pdf/" may be a directory whose index is HTML.
+		if strings.EqualFold(path.Ext(r.URL.Path), ".pdf") {
+			csp = storagePDFCSP
+		}
+		w.Header().Set("content-security-policy", csp)
 		w.Header().Set("x-content-type-options", "nosniff")
 		if Config.Hostname != "" {
 			w.Header().Set("strict-transport-security", "max-age=15768000;includeSubdomains")

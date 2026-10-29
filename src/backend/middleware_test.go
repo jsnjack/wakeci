@@ -74,6 +74,50 @@ func TestStorageSecurityMiStillAllowsInlineScriptForReportPreviews(t *testing.T)
 	}
 }
 
+// A build artifact can't reach another page on this origin to send requests
+// from: no frames or objects, no popups, no service workers. Checked in
+// Chrome: an artifact under the earlier policy created API keys through an
+// <object> and a popup, and registered a service worker.
+func TestStorageSecurityMiIsolatesArtifacts(t *testing.T) {
+	Config = &WakeConfig{}
+	handler := StorageSecurityMi(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	for _, target := range []string{
+		"/storage/build/1/artifacts/report.html",
+		"/storage/build/1/artifacts/",
+		"/storage/build/1/artifacts/report.pdf/",
+		"/storage/build/1/artifacts/report.pdf/.",
+		"/storage/build/1/artifacts/image.svg",
+		"/storage/build/1/artifacts/noextension",
+	} {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, target, nil))
+		csp := rec.Header().Get("content-security-policy")
+		for _, want := range []string{
+			"frame-src 'none'", "object-src 'none'", "worker-src 'none'", "frame-ancestors 'none'",
+			"sandbox allow-scripts allow-same-origin",
+		} {
+			if !strings.Contains(csp, want) {
+				t.Errorf("%s: CSP %q lacks %q", target, csp, want)
+			}
+		}
+		if strings.Contains(csp, "allow-popups") || strings.Contains(csp, "allow-top-navigation") {
+			t.Errorf("%s: CSP %q lets the artifact open or navigate other windows", target, csp)
+		}
+	}
+
+	// PDFs keep the earlier policy: they can't run scripts on this origin,
+	// and Chrome won't show a sandboxed PDF
+	for _, target := range []string{"/storage/build/1/artifacts/report.pdf", "/storage/build/1/artifacts/REPORT.PDF", "/storage/build/1/x/../report.pdf"} {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, target, nil))
+		if csp := rec.Header().Get("content-security-policy"); csp != storagePDFCSP {
+			t.Errorf("%s: CSP = %q, want the PDF policy", target, csp)
+		}
+	}
+}
+
 func TestStorageSecurityMiPinsLogContentType(t *testing.T) {
 	Config = &WakeConfig{}
 	handler := StorageSecurityMi(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -215,6 +215,17 @@ AGENTS.universal.md for the general contract.
   from the UI, cron and the password are unchanged. This can't stop a job
   that sends a secret to a destination taken from a parameter; such a job
   trusts whoever can run it.
+- **Build artifacts run sandboxed on wakeci's own origin**
+  (`storageCSP` in `StorageSecurityMi`). An HTML report is built by a job and
+  opened by a logged-in user, so it must not act as that user. It can't send
+  requests (`connect-src`, `form-action`), and it can't reach another page on
+  the origin to send them from: no frames or objects, no popups (the
+  sandbox has no `allow-popups`), no service workers. It keeps its origin
+  (`allow-same-origin`) so its own CSS, scripts and images still get the
+  SameSite session cookie; an opaque origin breaks multi-file reports. PDFs
+  keep the policy without the sandbox, since Chrome won't show a sandboxed
+  PDF and a PDF can't run scripts on the origin. A separate artifact origin
+  would be stronger, but needs a second hostname and its own auth.
 - **SSO sessions last 12 hours** (password sessions 5 days) because wakeci
   never re-checks the account or its groups: the TTL bounds how long a
   suspended account, or one removed from the allowed groups, keeps access.
@@ -254,6 +265,12 @@ AGENTS.universal.md for the general contract.
   attempts. Only failures are limited: a valid key always passes, so bad
   keys from the same address (or proxy) can't lock it out. A refused build
   doesn't name its job. Never log a token; the key ID is fine.
+- Don't loosen `storageCSP`: `allow-popups`, a missing `frame-src`,
+  `object-src` or `worker-src`, or `frame-ancestors 'self'` each let an
+  artifact reach a page that can call the API (checked in Chrome: an
+  `<object>` and a popup created API keys, and a service worker registered).
+  Dropping `allow-same-origin` breaks reports' own files instead. The app
+  must keep opening artifacts with `rel="noopener"` and never frame them.
 - `HandleFeedView` scans the history in a read transaction, so a slow or
   filtered scan never holds Bolt's single write lock; builds the queue no
   longer knows are marked aborted afterwards by `markStaleBuildsAborted`,
