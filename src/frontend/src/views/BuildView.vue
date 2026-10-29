@@ -117,6 +117,7 @@
             <input
                 type="checkbox"
                 v-model="follow"
+                @change="saveFollow"
             />
             <span>
                 <i>route</i>
@@ -168,7 +169,7 @@ export default {
             },
             buildLogSubscription: "build:log:" + this.id,
             buildUpdateSubscription: "build:update:" + this.id,
-            follow: true,
+            follow: this.getSavedFollow(),
             hideAllLogs: false,
             empty: false,
         };
@@ -332,17 +333,24 @@ export default {
                         to: [this.buildLogSubscription],
                     },
                 });
-                this.follow = true;
+                this.follow = this.getSavedFollow();
             }
         },
         onKeyUp(event) {
             if (event.ctrlKey && event.altKey && event.code === "KeyF") {
                 this.follow = !this.follow;
+                this.saveFollow();
                 return;
             }
             if (event.ctrlKey && event.altKey && event.code === "KeyH") {
                 this.hideAllLogs = !this.hideAllLogs;
             }
+        },
+        getSavedFollow() {
+            return window.localStorage.getItem("follow") !== "false";
+        },
+        saveFollow() {
+            window.localStorage.setItem("follow", this.follow);
         },
         jumpToTop() {
             window.scrollTo({
