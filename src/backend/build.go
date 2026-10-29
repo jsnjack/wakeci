@@ -84,6 +84,9 @@ type Build struct {
 	ETA            int           // seconds
 	timer          *time.Timer   // A timer for Job.Timeout
 	mutex          deadlock.Mutex
+	// startedWithAPIKey means the params came from an API key, so values the
+	// job writes into build.env may be built from them
+	startedWithAPIKey bool
 }
 
 // Start starts execution of tasks in job
@@ -196,7 +199,13 @@ func (b *Build) runTask(task *Task) ItemStatus {
 		}
 	} else {
 		for key, value := range buidEnv {
-			taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", key, injectSecrets(value)))
+			// A job may write a param into build.env, and godotenv expands
+			// variables, so a key could turn a param that isn't a secret
+			// reference into one here
+			if !b.startedWithAPIKey {
+				value = injectSecrets(value)
+			}
+			taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", key, value))
 		}
 	}
 	taskCmd.Env = append(taskCmd.Env, secretEnv...)
@@ -698,7 +707,7 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 }
 
 // CreateBuild creates Build instance and all necessary files and folders in wakespace
-func CreateBuild(job *Job, jobPath string) (*Build, error) {
+func CreateBuild(job *Job, jobPath string, startedWithAPIKey bool) (*Build, error) {
 	var counti int
 	err := DB.Update(func(tx *bolt.Tx) error {
 		var err error
@@ -726,6 +735,8 @@ func CreateBuild(job *Job, jobPath string) (*Build, error) {
 		flushChannel:   make(chan bool),
 		Params:         job.DefaultParams,
 		ETA:            GetJobETA(job.Name),
+		// Set before SetBuildStatus below starts the pending tasks
+		startedWithAPIKey: startedWithAPIKey,
 	}
 	build.Logger = L.With("build", build.ID)
 

@@ -12,6 +12,7 @@ wakeci is an automation tool which helps to execute repetitive tasks
 -   easy to install - just download a binary file from Releases
 -   automatic Let's Encrypt SSL certificates
 -   parameterized builds, artifacts, intervals and timeouts - see job configuration example below
+-   API keys limited to reading, running or editing jobs, and to the jobs you pick
 -   no plugins, no extensive configuration - focus on your project instead!
 
 ### Job configuration example
@@ -118,11 +119,42 @@ Only accounts of your own Workspace can sign in to a custom SAML app, and of
 those only members of a group in `sso.groups` can log in; a rejected login
 logs the groups wakeci received. Opening wakeci from the Google apps menu
 starts a normal login. SSO sessions last 12 hours, password sessions 5 days.
-API calls keep using Basic auth with the password.
+API calls use an API key (see below) or Basic auth with the password.
 
 Serve wakeci over HTTPS, or on localhost: Google posts the response from
 another site, which browsers only allow with a `Secure` login cookie. When
 Google renews its certificate, download the metadata again and restart wakeci.
+
+#### API keys
+
+Scripts and other tools can call the API with a key instead of the password.
+Create one on the API keys page (the key icon), choose what it can do and on
+which jobs, and send it as a Bearer token:
+
+```bash
+curl -X POST -H "Authorization: Bearer wk_..." https://<hostname>/api/job/deploy/run
+```
+
+| Scope | Allows |
+|---|---|
+| `read` | the job list, job files, the feed, builds, task logs and artifacts |
+| `run` | running jobs, and aborting, starting or flushing their builds |
+| `write` | creating, editing, deleting, enabling and disabling jobs |
+
+A key covers all jobs, including jobs added later, or only the jobs you pick
+and the ones whose names match a pattern such as `test_*`. `write` always
+covers all jobs: jobs run commands on the server, so a key that can edit one
+can reach everything wakeci can. The job list and the feed only show the key's
+jobs. Keys never open the settings, key management, login or the websocket.
+Run parameters sent with a key can't reference a secret (`{{ secrets.NAME }}`)
+or contain line breaks, and in builds a key starts, `build.env` values aren't
+turned into secrets. A `run` key still chooses the job's parameters, so treat
+them as untrusted input: quote them, and don't let one pick where a job sends
+a secret, such as the URL a token is posted to.
+
+The key is shown once, when it is created; wakeci only stores a hash of it.
+Revoking a key stops it at once. Keys don't depend on the password, and
+survive restarts.
 
 > Default password is `admin`. Don't forget to immediately change it!
 

@@ -67,7 +67,7 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request) {
 		logger.Error("parse form", "err", err)
 	}
 
-	build, err := RunJob(name, r.Form)
+	build, err := RunJob(name, r.Form, apiKeyFromContext(r.Context()) != nil)
 	if err != nil {
 		logger.Error("run job", "job", name, "err", err)
 		w.WriteHeader(http.StatusBadRequest)

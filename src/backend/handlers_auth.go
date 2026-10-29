@@ -60,7 +60,7 @@ func HandleLogIn(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		logger = L
 	}
-	if rejectRateLimited(w, r, logger) {
+	if globalAuthAttemptLimiter.reject(w, r, logger) {
 		return
 	}
 
@@ -84,7 +84,7 @@ func HandleLogIn(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Never log the submitted password.
 		logger.Warn("login failed", "err", err)
-		if recordAuthFailure(w, r, logger) {
+		if globalAuthAttemptLimiter.recordFailure(w, r, logger) {
 			return
 		}
 		w.Header().Set("Content-Type", "text/plain")

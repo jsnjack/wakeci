@@ -144,7 +144,7 @@ func AuthMi(next http.Handler) http.Handler {
 		// Basic auth for API calls
 		_, password, ok := r.BasicAuth()
 		if ok {
-			if rejectRateLimited(w, r, logger) {
+			if globalAuthAttemptLimiter.reject(w, r, logger) {
 				return
 			}
 			var hashedPassword []byte
@@ -166,7 +166,7 @@ func AuthMi(next http.Handler) http.Handler {
 			err = bcrypt.CompareHashAndPassword(hashedPassword, []byte(password))
 			if err != nil {
 				logger.Warn("basic auth failed", "err", err)
-				if recordAuthFailure(w, r, logger) {
+				if globalAuthAttemptLimiter.recordFailure(w, r, logger) {
 					return
 				}
 				w.Header().Set("Content-Type", "text/plain")

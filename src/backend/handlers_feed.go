@@ -52,9 +52,16 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 	}
 
 	filter := CreateFilterRequest(r.URL.Query().Get("filter"))
+	// An API key only sees the builds of its jobs
+	apiKey := apiKeyFromContext(r.Context())
+	filtered := filter != nil || apiKey != nil
 
 	var payload []*BuildUpdateData
-	err = DB.Update(func(tx *bolt.Tx) error {
+	// Builds the history still has as pending or running but the queue no
+	// longer knows, e.g. after a restart. They are marked aborted in a
+	// separate write, so the scan never holds the database's write lock.
+	var stale []int
+	err = DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(HistoryBucket))
 		c := b.Cursor()
 		count := 0
@@ -65,7 +72,7 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 		}
 		// Find starting point
 		fromB := make([]byte, 8)
-		if filter == nil {
+		if !filtered {
 			binary.BigEndian.PutUint64(fromB, binary.BigEndian.Uint64(lastK)-uint64(offset))
 		} else {
 			// If interval is specified, always iterate from the beginning to take
@@ -78,25 +85,17 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				logger.Error("unmarshal build history entry", "err", err)
 			} else {
-				switch msg.Status {
-				case StatusPending, StatusRunning:
-					if !GlobalQueue.Verify(msg.ID) {
-						msg.Status = StatusAborted
-						updatedB, err := json.Marshal(msg)
-						if err != nil {
-							logger.Error("marshal build history entry", "build", msg.ID, "err", err)
-						} else if err := b.Put(Itob(msg.ID), updatedB); err != nil {
-							logger.Error("save build history entry", "build", msg.ID, "err", err)
-						}
-					}
+				if isStaleBuild(&msg) {
+					msg.Status = StatusAborted
+					stale = append(stale, msg.ID)
 				}
-				if filter != nil {
-					if matchesFilter(msg.ToFilterMatchString(), filter) {
-						count++
-						if count <= offset {
-							continue
-						}
-					} else {
+				if filtered {
+					if (apiKey != nil && !apiKey.CoversJob(msg.Name)) ||
+						(filter != nil && !matchesFilter(msg.ToFilterMatchString(), filter)) {
+						continue
+					}
+					count++
+					if count <= offset {
 						continue
 					}
 				}
@@ -108,6 +107,9 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 		}
 		return nil
 	})
+	if err == nil && len(stale) > 0 {
+		err = markStaleBuildsAborted(logger, stale)
+	}
 	if err != nil {
 		logger.Error("build feed query", "err", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -125,4 +127,32 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	writeBody(logger, w, payloadB)
+}
+
+// isStaleBuild reports whether the history has a build as pending or running
+// that the queue doesn't know
+func isStaleBuild(msg *BuildUpdateData) bool {
+	return (msg.Status == StatusPending || msg.Status == StatusRunning) && !GlobalQueue.Verify(msg.ID)
+}
+
+// markStaleBuildsAborted saves the builds as aborted if they are still stale,
+// since they may have changed after the feed read them
+func markStaleBuildsAborted(logger *slog.Logger, ids []int) error {
+	return DB.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(HistoryBucket)
+		for _, id := range ids {
+			var msg BuildUpdateData
+			if err := json.Unmarshal(b.Get(Itob(id)), &msg); err != nil || !isStaleBuild(&msg) {
+				continue
+			}
+			msg.Status = StatusAborted
+			updatedB, err := json.Marshal(msg)
+			if err != nil {
+				logger.Error("marshal build history entry", "build", id, "err", err)
+			} else if err := b.Put(Itob(id), updatedB); err != nil {
+				logger.Error("save build history entry", "build", id, "err", err)
+			}
+		}
+		return nil
+	})
 }

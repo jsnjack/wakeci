@@ -37,6 +37,7 @@ src/backend/                 Go server (package main, module "wakeci")
   secrets.go                 injectSecrets: redacts/substitutes secret values in commands
   session.go                 Cookie-based in-memory session storage, per-session TTL
   sso.go                     SAML single sign-on (e.g. Google Workspace): IdP metadata, response checks, login state
+  apikeys.go                 API keys: storage, management handlers, the key router with its scope and job checks
   auth_limiter.go            Per-client failed-auth limiter and retry/reset response headers
   middleware.go               chi middleware: per-request logger, auth, CORS, security headers
   handlers_*.go              HTTP handlers per resource (auth incl. SSO, jobs, job, build, feed, settings, static, docs)
@@ -80,8 +81,16 @@ src/frontend/                Vue 3 + Vite SPA
    certificate, issuer, audience, recipient, validity window and
    `InResponseTo`, then requires one of `sso.groups` in the `groups`
    attribute and creates the same kind of session cookie. API clients use
-   Basic auth with the password; `AuthMi` is unchanged.
-6. **Live UI updates**: `Build.BroadcastUpdate` persists build state to the
+   an API key or Basic auth with the password; `AuthMi` is unchanged.
+6. **API keys**: `routeAPIKeys` sends every request with
+   `Authorization: Bearer wk_...` to a separate router (`newAPIKeyRouter`)
+   that only has the routes keys may use. `APIKeyAuthMi` checks the token
+   against the hash in the `apikeys` bucket and its expiry, then each route's
+   `requireAPIKey(scope, jobResolver)` checks the scope and the job: from
+   `{name}`, or from the build's history entry for `/build/{id}` and
+   `/storage/build/{id}/...`. Anything not registered there gets 403. The
+   feed and job list filter themselves with `apiKeyFromContext`.
+7. **Live UI updates**: `Build.BroadcastUpdate` persists build state to the
    `history` bucket and pushes it over `WSHub` to any client subscribed to
    that build/feed topic.
 
@@ -179,6 +188,33 @@ AGENTS.universal.md for the general contract.
   correctly signed responses that match a valid cookie reach that map, so it
   can't be flooded. A restart invalidates logins in progress, which only
   means a retry.
+- **API keys have their own router, not a branch in `AuthMi`.** A route is
+  closed to keys until it is registered in `newAPIKeyRouter` with a scope and
+  a job resolver, so a new route can't be opened to keys by accident. Keys
+  never reach the password or session code, and never open settings, key
+  management, `/auth` or `/ws` (no long-lived connection to re-check after a
+  revoke).
+- **API key scopes**: `read` (lists, job files, builds, logs, artifacts),
+  `run` (run, abort, start, flush), `write` (create, edit, delete, enable).
+  They don't include each other. `write` requires all jobs (`AllJobs`),
+  checked at creation and again in `HasScope`, because a job runs commands on
+  the server and can reach every other job and secret.
+- **API key secrets are hashed with SHA-256, not bcrypt.** A secret is 256
+  random bits, so there is nothing to guess; bcrypt would slow down every
+  API call. Tokens are `wk_<id>_<secret>`: the ID is public (list, logs,
+  revoke), and only the hash of the secret is stored.
+- **API keys can't send run parameters that reference a secret or hold a
+  line break or NUL** (`rejectUnsafeParams`). Run parameters go through
+  `injectSecrets`, so a run key could otherwise send any secret wherever the
+  job sends that parameter; a line break would let it add variables such as
+  `BASH_ENV` to `build.env` through the documented `echo "NAME=$VALUE"`. In
+  builds a key starts (`Build.startedWithAPIKey`, passed to `CreateBuild`
+  because it starts the `on_pending` tasks), `build.env` values skip
+  `injectSecrets`, because godotenv expands variables and a job can rewrite a
+  param, so a reference could be put together after the check. Parameters
+  from the UI, cron and the password are unchanged. This can't stop a job
+  that sends a secret to a destination taken from a parameter; such a job
+  trusts whoever can run it.
 - **SSO sessions last 12 hours** (password sessions 5 days) because wakeci
   never re-checks the account or its groups: the TTL bounds how long a
   suspended account, or one removed from the allowed groups, keeps access.
@@ -207,5 +243,20 @@ AGENTS.universal.md for the general contract.
 - `Build.Logger`, `Cleaner.Logger`, and the per-request `HL` context logger
   are all `*slog.Logger` instances scoped with `.With(...)`; they are
   unrelated to the per-task `task_N.log` files.
+- When adding an API route, decide whether API keys may use it. If so,
+  register it in `newAPIKeyRouter` too, with its scope and job resolver, and
+  make list handlers filter with `apiKeyFromContext`.
+- `jobFromStorage` must read the path from `wakespacePath` and clean it like
+  `http.FileServer` does, so the build it checks is the build that is served
+  (`/storage/build/1/../2/x` is build 2).
+- API key failures count on `apiKeyAttemptLimiter`, never on
+  `globalAuthAttemptLimiter`, so a valid key can't clear failed password
+  attempts. Only failures are limited: a valid key always passes, so bad
+  keys from the same address (or proxy) can't lock it out. A refused build
+  doesn't name its job. Never log a token; the key ID is fine.
+- `HandleFeedView` scans the history in a read transaction, so a slow or
+  filtered scan never holds Bolt's single write lock; builds the queue no
+  longer knows are marked aborted afterwards by `markStaleBuildsAborted`,
+  which checks them again.
 - `go.work` only includes `src/backend`; run Go tooling (`go vet`, `go test`,
   `golangci-lint`) from inside `src/backend`, not the repo root.

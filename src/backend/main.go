@@ -203,6 +203,11 @@ func main() {
 			return err
 		}
 
+		_, err = tx.CreateBucketIfNotExists(APIKeysBucket)
+		if err != nil {
+			return err
+		}
+
 		return nil
 	})
 
@@ -293,15 +298,21 @@ func main() {
 
 		router.Get("/settings", HandleSettingsGet)
 		router.Post("/settings", HandleSettingsPost)
+
+		router.Route("/keys", func(router chi.Router) {
+			router.Get("/", HandleAPIKeysList)
+			router.Post("/", HandleAPIKeyCreate)
+			router.Delete("/{id}", HandleAPIKeyRevoke)
+		})
 	})
 
+	storage := HandleWakespaceResource(http.FileServer(http.Dir(Config.WorkDir + "wakespace")))
 	router.Route("/storage", func(router chi.Router) {
 		// Storage server
 		router.Use(StorageSecurityMi)
 		router.Use(AuthMi)
-		storageServer := http.FileServer(http.Dir(Config.WorkDir + "wakespace"))
-		router.Method("GET", "/build/*", HandleWakespaceResource(storageServer))
-		router.Method("HEAD", "/build/*", HandleWakespaceResource(storageServer))
+		router.Method("GET", "/build/*", storage)
+		router.Method("HEAD", "/build/*", storage)
 	})
 
 	router.Route("/docs", func(router chi.Router) {
@@ -318,7 +329,7 @@ func main() {
 		fatal("create compression adapter", err)
 	}
 
-	handler := compress(router)
+	handler := compress(routeAPIKeys(newAPIKeyRouter(storage), router))
 	server := &http.Server{
 		Addr:    ":" + Config.Port,
 		Handler: handler,

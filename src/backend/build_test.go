@@ -74,7 +74,7 @@ func TestSetBuildStatusWaitsForPendingTasksBeforeRunning(t *testing.T) {
 		},
 	}
 
-	build, err := CreateBuild(job, filepath.Join(Config.JobDir, "pending-race-test.yaml"))
+	build, err := CreateBuild(job, filepath.Join(Config.JobDir, "pending-race-test.yaml"), false)
 	if err != nil {
 		t.Fatalf("CreateBuild: %v", err)
 	}
@@ -234,7 +234,7 @@ func TestRunTaskInjectsSecretsIntoConditions(t *testing.T) {
 	Config.secrets = map[string]string{"FLAG": "enabled"}
 
 	job := &Job{Name: "condition-secrets-test"}
-	build, err := CreateBuild(job, filepath.Join(Config.JobDir, "condition-secrets-test.yaml"))
+	build, err := CreateBuild(job, filepath.Join(Config.JobDir, "condition-secrets-test.yaml"), false)
 	if err != nil {
 		t.Fatalf("CreateBuild: %v", err)
 	}
@@ -266,7 +266,7 @@ func TestRunTaskInjectsSecretsIntoConditions(t *testing.T) {
 func TestCreateBuildUsesPrivatePermissions(t *testing.T) {
 	newTestBuildEnv(t)
 
-	build, err := CreateBuild(&Job{Name: "private-build"}, filepath.Join(Config.JobDir, "private-build.yaml"))
+	build, err := CreateBuild(&Job{Name: "private-build"}, filepath.Join(Config.JobDir, "private-build.yaml"), false)
 	if err != nil {
 		t.Fatalf("CreateBuild: %v", err)
 	}
@@ -304,5 +304,74 @@ func TestCreateBuildUsesPrivatePermissions(t *testing.T) {
 	}
 	if got := info.Mode().Perm(); got&0o077 != 0 {
 		t.Errorf("nested artifact directory permissions = %#o, want no group or other access", got)
+	}
+}
+
+// A job may write a param into build.env, so in a build started with an API
+// key build.env values aren't turned into secrets: the key could otherwise
+// build a secret reference out of a param that isn't one
+func TestRunTaskBuildEnvSecrets(t *testing.T) {
+	newTestBuildEnv(t)
+	Config.secrets = map[string]string{"TOKEN": "s3cr3t"}
+
+	tests := []struct {
+		name       string
+		withAPIKey bool
+		want       string
+	}{
+		{"without a key", false, "s3cr3t"},
+		{"with a key", true, "{{ secrets.TOKEN }}"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			build, err := CreateBuild(&Job{Name: "build-env-secrets"}, filepath.Join(Config.JobDir, "build-env-secrets.yaml"), tt.withAPIKey)
+			if err != nil {
+				t.Fatalf("CreateBuild: %v", err)
+			}
+			tasks := []*Task{
+				// printf puts the reference together, so the command holds none
+				{ID: 1, Command: `printf 'X={%s secrets.TOKEN }}\n' '{' >> build.env`},
+				{ID: 2, Command: `printf '%s' "$X" > out.txt`},
+			}
+			for _, task := range tasks {
+				task.startedAt = time.Now()
+				if status := build.runTask(task); status != StatusFinished {
+					t.Fatalf("task %d status = %q", task.ID, status)
+				}
+			}
+			got, err := os.ReadFile(build.GetWorkspaceDir() + "out.txt")
+			if err != nil {
+				t.Fatalf("read output: %v", err)
+			}
+			if string(got) != tt.want {
+				t.Errorf("X = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// The API key flag is part of the build before CreateBuild starts the
+// pending tasks, which may read build.env too
+func TestCreateBuildSetsAPIKeyFlagBeforePendingTasks(t *testing.T) {
+	newTestBuildEnv(t)
+	Config.secrets = map[string]string{"TOKEN": "s3cr3t"}
+	job := &Job{
+		Name: "pending-build-env",
+		Tasks: []*Task{
+			{ID: 1, Kind: StatusPending, Command: `printf 'X={%s secrets.TOKEN }}\n' '{' >> build.env`},
+			{ID: 2, Kind: StatusPending, Command: `printf '%s' "$X" > out.txt`},
+		},
+	}
+	build, err := CreateBuild(job, filepath.Join(Config.JobDir, "pending-build-env.yaml"), true)
+	if err != nil {
+		t.Fatalf("CreateBuild: %v", err)
+	}
+	build.pendingTasksWG.Wait()
+	got, err := os.ReadFile(build.GetWorkspaceDir() + "out.txt")
+	if err != nil {
+		t.Fatalf("read output: %v", err)
+	}
+	if want := "{{ secrets.TOKEN }}"; string(got) != want {
+		t.Errorf("X = %q, want %q", got, want)
 	}
 }

@@ -98,27 +98,30 @@ func authClient(r *http.Request) string {
 	return r.RemoteAddr
 }
 
-func rejectRateLimited(w http.ResponseWriter, r *http.Request, logger *slog.Logger) bool {
+// reject writes a 429 response and returns true while the client is blocked
+func (l *authAttemptLimiter) reject(w http.ResponseWriter, r *http.Request, logger *slog.Logger) bool {
 	now := time.Now()
-	retryAfter, limited := globalAuthAttemptLimiter.retryAfter(authClient(r), now)
+	retryAfter, limited := l.retryAfter(authClient(r), now)
 	if !limited {
 		return false
 	}
-	writeRateLimitResponse(w, logger, retryAfter, now.Add(retryAfter))
+	l.writeRateLimitResponse(w, logger, retryAfter, now.Add(retryAfter))
 	return true
 }
 
-func recordAuthFailure(w http.ResponseWriter, r *http.Request, logger *slog.Logger) bool {
+// recordFailure counts a failed attempt, and writes a 429 response and
+// returns true if the client is now blocked
+func (l *authAttemptLimiter) recordFailure(w http.ResponseWriter, r *http.Request, logger *slog.Logger) bool {
 	now := time.Now()
-	retryAfter, limited := globalAuthAttemptLimiter.failure(authClient(r), now)
+	retryAfter, limited := l.failure(authClient(r), now)
 	if !limited {
 		return false
 	}
-	writeRateLimitResponse(w, logger, retryAfter, now.Add(retryAfter))
+	l.writeRateLimitResponse(w, logger, retryAfter, now.Add(retryAfter))
 	return true
 }
 
-func writeRateLimitResponse(
+func (l *authAttemptLimiter) writeRateLimitResponse(
 	w http.ResponseWriter,
 	logger *slog.Logger,
 	retryAfter time.Duration,
@@ -128,7 +131,7 @@ func writeRateLimitResponse(
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("Retry-After", strconv.Itoa(seconds))
 	w.Header().Set("RateLimit-Reset", strconv.Itoa(seconds))
-	w.Header().Set("X-RateLimit-Limit", strconv.Itoa(globalAuthAttemptLimiter.maxFailures))
+	w.Header().Set("X-RateLimit-Limit", strconv.Itoa(l.maxFailures))
 	w.Header().Set("X-RateLimit-Remaining", "0")
 	w.Header().Set("X-RateLimit-Reset", strconv.FormatInt(resetAt.Unix(), 10))
 	w.WriteHeader(http.StatusTooManyRequests)
