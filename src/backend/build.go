@@ -16,7 +16,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bmatcuk/doublestar"
+	"github.com/bmatcuk/doublestar/v4"
 	"github.com/sasha-s/go-deadlock"
 	"gopkg.in/yaml.v2"
 
@@ -434,7 +434,7 @@ func (b *Build) Cleanup() {
 func (b *Build) CollectArtifacts() {
 	for _, artPattern := range b.Job.Artifacts {
 		pattern := b.GetWorkspaceDir() + artPattern
-		files, err := doublestar.Glob(pattern)
+		files, err := doublestar.FilepathGlob(pattern)
 		if err != nil {
 			b.Logger.Error("glob artifacts", "pattern", pattern, "err", err)
 			continue
