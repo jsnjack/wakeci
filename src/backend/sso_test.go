@@ -119,7 +119,7 @@ func newSSOTestEnv(t *testing.T) {
 	originalSessions := GlobalSessionStorage
 	originalSSO := GlobalSSOAuth
 	Config = &WakeConfig{Port: "8081"}
-	GlobalSessionStorage = &SessionStorage{sessions: make(map[string]time.Time)}
+	GlobalSessionStorage = &SessionStorage{sessions: make(map[string]session)}
 	GlobalSSOAuth = auth
 	t.Cleanup(func() {
 		Config = originalConfig
@@ -677,8 +677,8 @@ func TestSSOACS(t *testing.T) {
 			if session == nil {
 				t.Fatal("no session cookie")
 			}
-			if err := GlobalSessionStorage.Verify(session.Value); err != nil {
-				t.Errorf("session not stored: %v", err)
+			if user, err := GlobalSessionStorage.User(session.Value); err != nil || user != testSSOEmail {
+				t.Errorf("session user = %q, %v; want %q", user, err, testSSOEmail)
 			}
 			if ttl := time.Until(session.Expires); ttl > SSOSessionTTL || ttl < SSOSessionTTL-time.Minute {
 				t.Errorf("session expires in %v, want about %v", ttl, SSOSessionTTL)

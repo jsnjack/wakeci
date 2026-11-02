@@ -199,6 +199,24 @@ AGENTS.universal.md for the general contract.
   They don't include each other. `write` requires all jobs (`AllJobs`),
   checked at creation and again in `HasScope`, because a job runs commands on
   the server and can reach every other job and secret.
+- **The admin password manages every key and alone changes the password;
+  an SSO user manages only their own keys.** An SSO user who could set the
+  password would log in with it and be the admin, so `HandleSettingsPost`
+  refuses a password change without the admin password (403, nothing
+  saved) and the settings page hides the field. Revoking a person's keys
+  also ends their sessions, first and under `apiKeyOwnersMu`, which key
+  creation takes too, so a session they still have can't make a new key.
+  This is not a role system: SSO users can still edit jobs, which runs
+  commands on the server, so they are trusted; roles are future work.
+  Sessions carry the SSO email (`session.user`, empty for the password) and
+  each key records it in `CreatedBy`. `requestUser` reads it, Basic auth
+  first like `AuthMi`. The admin password (password login or Basic auth)
+  lists and revokes every key and can revoke all keys of a person
+  (`DELETE /api/keys/?createdBy=`); an SSO user lists and revokes only keys
+  with their email, and someone else's key is a 404 to them. Offboarding is
+  this manual step: wakeci can't see a Google account go (custom SAML apps
+  get no provisioning), and keys used by agents mean their owner may never
+  sign in again, so expiring keys on inactivity would break live automation.
 - **API key secrets are hashed with SHA-256, not bcrypt.** A secret is 256
   random bits, so there is nothing to guess; bcrypt would slow down every
   API call. Tokens are `wk_<id>_<secret>`: the ID is public (list, logs,
@@ -275,5 +293,9 @@ AGENTS.universal.md for the general contract.
   filtered scan never holds Bolt's single write lock; builds the queue no
   longer knows are marked aborted afterwards by `markStaleBuildsAborted`,
   which checks them again.
+- `requestUser` takes any Basic auth as the admin password because `AuthMi`
+  has checked it first and never falls back to the cookie. Test `/api`
+  through `apiRoutes` (as `apiRouter` in the tests does), so `AuthMi` is in
+  the path.
 - `go.work` only includes `src/backend`; run Go tooling (`go vet`, `go test`,
   `golangci-lint`) from inside `src/backend`, not the repo root.

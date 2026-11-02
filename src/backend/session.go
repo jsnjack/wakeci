@@ -22,9 +22,16 @@ const SSOSessionTTL = 12 * time.Hour
 // SessionCleanupPeriod is a period to clean up expired sessions
 const SessionCleanupPeriod = 1 * time.Hour
 
+// session is an active login
+type session struct {
+	expires time.Time
+	// user is the email of a single sign-on login, empty for the password
+	user string
+}
+
 // SessionStorage is in-memory storage to keep active sessions
 type SessionStorage struct {
-	sessions map[string]time.Time
+	sessions map[string]session
 	mu       deadlock.RWMutex
 }
 
@@ -43,8 +50,9 @@ func sessionCookie(r *http.Request) *http.Cookie {
 	}
 }
 
-// New creates new session which expires after ttl and returns a cookie.
-func (s *SessionStorage) New(r *http.Request, ttl time.Duration) (*http.Cookie, error) {
+// New creates new session for user (empty for the password) which expires
+// after ttl and returns a cookie.
+func (s *SessionStorage) New(r *http.Request, ttl time.Duration, user string) (*http.Cookie, error) {
 	sessionToken, err := uuid.NewV4()
 	if err != nil {
 		return nil, err
@@ -52,7 +60,7 @@ func (s *SessionStorage) New(r *http.Request, ttl time.Duration) (*http.Cookie, 
 	expires := time.Now().Add(ttl)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.sessions[sessionToken.String()] = expires
+	s.sessions[sessionToken.String()] = session{expires: expires, user: user}
 	c := sessionCookie(r)
 	c.Value = sessionToken.String()
 	c.Expires = expires
@@ -61,16 +69,23 @@ func (s *SessionStorage) New(r *http.Request, ttl time.Duration) (*http.Cookie, 
 
 // Verify returns error if cookie is not valid
 func (s *SessionStorage) Verify(sessionToken string) error {
+	_, err := s.User(sessionToken)
+	return err
+}
+
+// User returns who logged in with a valid session: the single sign-on email,
+// or empty for the password
+func (s *SessionStorage) User(sessionToken string) (string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	val, ok := s.sessions[sessionToken]
 	if !ok {
-		return fmt.Errorf("session %s doesn't exist", sessionToken)
+		return "", fmt.Errorf("session %s doesn't exist", sessionToken)
 	}
-	if val.Before(time.Now()) {
-		return fmt.Errorf("session %s expired", sessionToken)
+	if val.expires.Before(time.Now()) {
+		return "", fmt.Errorf("session %s expired", sessionToken)
 	}
-	return nil
+	return val.user, nil
 }
 
 // Delete removes session id from storage
@@ -85,13 +100,30 @@ func (s *SessionStorage) Delete(sessionToken string) error {
 	return nil
 }
 
+// DeleteUser ends every session of a single sign-on user and returns how many
+func (s *SessionStorage) DeleteUser(user string) int {
+	if user == "" {
+		return 0
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ended := 0
+	for key, val := range s.sessions {
+		if strings.EqualFold(val.user, user) {
+			delete(s.sessions, key)
+			ended++
+		}
+	}
+	return ended
+}
+
 // Periodically cleanup expired sessions
 func (s *SessionStorage) deleteExpired() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	t := time.Now()
-	for key, exp := range s.sessions {
-		if exp.Before(t) {
+	for key, val := range s.sessions {
+		if val.expires.Before(t) {
 			delete(s.sessions, key)
 		}
 	}
@@ -110,7 +142,7 @@ func (s *SessionStorage) startCleanup(d time.Duration) {
 // CreateSessionStorage creates and returns new session storage
 func CreateSessionStorage(d time.Duration) *SessionStorage {
 	s := &SessionStorage{
-		sessions: make(map[string]time.Time),
+		sessions: make(map[string]session),
 	}
 	s.startCleanup(d)
 	return s

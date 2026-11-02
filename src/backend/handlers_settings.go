@@ -15,10 +15,11 @@ import (
 // @Description  All parameters are available as query parameters and as formData
 // @Tags         settings
 // @Produce      plain
-// @Param        password           formData      string   false  "Set password"
+// @Param        password           formData      string   false  "Set password; only with the admin password"
 // @Param        concurrentBuilds   formData      string   false  "Set max number of concurrent builds"
 // @Param        buildHistorySize   formData      string   false  "Set max number of preserved builds"
 // @Success      200      {string}   string
+// @Failure      403      {string}   string
 // @Failure      500      {string}   string
 // @Router       /settings/ [post]
 func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
@@ -30,6 +31,15 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 	// Password
 	password := r.FormValue("password")
 	if password != "" {
+		// Only the admin password may change itself: an SSO user who set it
+		// would become the admin
+		if user, err := requestUser(r); err != nil || user != "" {
+			logger.Warn("password change without the admin password", "user", user, "err", err)
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusForbidden)
+			writeBody(logger, w, []byte("Only the admin password can change the password"))
+			return
+		}
 		err := DB.Update(func(tx *bolt.Tx) error {
 			passwordH, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 			if err != nil {
@@ -104,8 +114,11 @@ func HandleSettingsGet(w http.ResponseWriter, r *http.Request) {
 		logger = L
 	}
 	var settings SettingsData
+	// The settings page only offers the password to the admin password
+	user, err := requestUser(r)
+	settings.Admin = err == nil && user == ""
 
-	err := DB.View(func(tx *bolt.Tx) error {
+	err = DB.View(func(tx *bolt.Tx) error {
 		gb := tx.Bucket(GlobalBucket)
 		cb, err := ByteToInt(gb.Get([]byte("concurrentBuilds")))
 		if err != nil {

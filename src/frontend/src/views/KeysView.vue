@@ -23,7 +23,61 @@
         </nav>
     </dialog>
 
+    <dialog
+        :class="{ active: revokingPerson }"
+        class="padding"
+    >
+        <div>
+            Revoke all {{ shownKeys.length }} keys of <b>{{ createdBy }}</b> and sign them out? Anything using the keys stops working at once.
+        </div>
+        <nav class="right-align">
+            <button
+                class="border"
+                @click.prevent="revokingPerson = false"
+            >
+                Cancel
+            </button>
+            <button
+                data-cy="revoke-person-confirm"
+                @click.prevent="revokePerson"
+            >
+                Revoke all
+            </button>
+        </nav>
+    </dialog>
+
     <nav class="no-margin">
+        <!-- Only the admin password sees other people's keys -->
+        <template v-if="admin">
+            <div class="field label suffix border small no-margin">
+                <select
+                    id="key-created-by"
+                    v-model="createdBy"
+                    data-cy="key-created-by"
+                >
+                    <option value="">Everyone</option>
+                    <option
+                        v-for="person in people"
+                        :key="person"
+                        :value="person"
+                    >
+                        {{ person }}
+                    </option>
+                    <option :value="passwordFilter">Admin password</option>
+                </select>
+                <label for="key-created-by">Created by</label>
+                <i>arrow_drop_down</i>
+            </div>
+            <button
+                v-if="createdBy !== '' && createdBy !== passwordFilter && shownKeys.length > 0"
+                class="border small-round"
+                data-cy="revoke-person"
+                @click.prevent="revokingPerson = true"
+            >
+                <i>person_remove</i>
+                <span>Revoke all keys of {{ createdBy }}</span>
+            </button>
+        </template>
         <div class="max"></div>
         <router-link
             to="/keys/new"
@@ -40,7 +94,7 @@
         data-cy="keys-list"
     >
         <div
-            v-for="key in keys"
+            v-for="key in shownKeys"
             :key="key.id"
             class="row medium-padding round small-margin key"
             :data-cy="'key-' + key.name"
@@ -57,6 +111,10 @@
                     </span>
                 </div>
                 <small class="muted">
+                    <template v-if="admin">
+                        <span data-cy="key-created-by-text">by {{ key.createdBy || "admin password" }}</span>
+                        ·
+                    </template>
                     <span
                         :title="jobsSummary(key)"
                         data-cy="key-jobs"
@@ -96,7 +154,7 @@
         </div>
 
         <div
-            v-if="keys.length === 0 && fetchingDone"
+            v-if="shownKeys.length === 0 && fetchingDone"
             class="medium-height middle-align center-align"
         >
             <div class="center-align">
@@ -115,6 +173,7 @@
 </template>
 
 <script>
+import { escapeHtml } from "@/store/utils";
 import axios from "axios";
 import TimeAgo from "javascript-time-ago";
 import en from "javascript-time-ago/locale/en.json";
@@ -126,9 +185,27 @@ export default {
     data: function () {
         return {
             keys: [],
+            // The admin password sees and revokes every key, an SSO user only their own
+            admin: false,
+            createdBy: "",
+            // Filters the keys made with the admin password; no email looks like this
+            passwordFilter: ":password",
             fetchingDone: false,
             revoking: null,
+            revokingPerson: false,
         };
+    },
+    computed: {
+        people() {
+            return [...new Set(this.keys.map((key) => key.createdBy).filter((p) => p))].sort();
+        },
+        shownKeys() {
+            if (this.createdBy === "") {
+                return this.keys;
+            }
+            const createdBy = this.createdBy === this.passwordFilter ? "" : this.createdBy;
+            return this.keys.filter((key) => key.createdBy === createdBy);
+        },
     },
     mounted() {
         this.$store.commit("SET_CURRENT_PAGE", "API keys");
@@ -139,7 +216,11 @@ export default {
             axios
                 .get("/api/keys/")
                 .then((response) => {
-                    this.keys = response.data || [];
+                    this.keys = response.data.keys || [];
+                    this.admin = response.data.admin;
+                    if (this.createdBy !== this.passwordFilter && !this.people.includes(this.createdBy)) {
+                        this.createdBy = "";
+                    }
                     this.fetchingDone = true;
                 })
                 .catch((error) => {
@@ -154,6 +235,20 @@ export default {
                 .then((response) => {
                     this.$notify({
                         text: "Key revoked",
+                        type: "primary",
+                    });
+                    this.fetch();
+                })
+                .catch((error) => {});
+        },
+        revokePerson() {
+            const person = this.createdBy;
+            this.revokingPerson = false;
+            axios
+                .delete("/api/keys/", { params: { createdBy: person } })
+                .then((response) => {
+                    this.$notify({
+                        text: `Revoked ${response.data.keys} keys of ${escapeHtml(person)} and signed them out`,
                         type: "primary",
                     });
                     this.fetch();

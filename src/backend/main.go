@@ -272,39 +272,7 @@ func main() {
 		router.Post(ssoACSRoute, HandleSSOACS)
 	})
 
-	router.Route("/api", func(router chi.Router) {
-		router.Use(AuthMi)
-		router.Get("/feed", HandleFeedView)
-
-		router.Route("/jobs", func(router chi.Router) {
-			router.Get("/", HandleJobsView)
-			router.Post("/create", HandleJobsCreate)
-		})
-
-		router.Route("/job", func(router chi.Router) {
-			router.Post("/{name}/run", HandleRunJob)
-			router.Delete("/{name}", HandleDeleteJob)
-			router.Post("/{name}", HandleJobPost)
-			router.Get("/{name}", HandleJobGet)
-			router.Post("/{name}/set_active", HandleJobSetActive)
-		})
-
-		router.Route("/build", func(router chi.Router) {
-			router.Get("/{id}", HandleGetBuild)
-			router.Post("/{id}/abort", HandleAbortBuild)
-			router.Post("/{id}/flush", HandleFlushTaskLogs)
-			router.Post("/{id}/start", HandleStartBuild)
-		})
-
-		router.Get("/settings", HandleSettingsGet)
-		router.Post("/settings", HandleSettingsPost)
-
-		router.Route("/keys", func(router chi.Router) {
-			router.Get("/", HandleAPIKeysList)
-			router.Post("/", HandleAPIKeyCreate)
-			router.Delete("/{id}", HandleAPIKeyRevoke)
-		})
-	})
+	router.Route("/api", apiRoutes)
 
 	storage := HandleWakespaceResource(http.FileServer(http.Dir(Config.WorkDir + "wakespace")))
 	router.Route("/storage", func(router chi.Router) {
@@ -379,4 +347,41 @@ func main() {
 	if err != nil {
 		L.Error("serve "+serveName, "err", err)
 	}
+}
+
+// apiRoutes registers the /api routes for logged-in users and the admin
+// password. API keys use newAPIKeyRouter instead.
+func apiRoutes(router chi.Router) {
+	router.Use(AuthMi)
+	router.Get("/feed", HandleFeedView)
+
+	router.Route("/jobs", func(router chi.Router) {
+		router.Get("/", HandleJobsView)
+		router.Post("/create", HandleJobsCreate)
+	})
+
+	router.Route("/job", func(router chi.Router) {
+		router.Post("/{name}/run", HandleRunJob)
+		router.Delete("/{name}", HandleDeleteJob)
+		router.Post("/{name}", HandleJobPost)
+		router.Get("/{name}", HandleJobGet)
+		router.Post("/{name}/set_active", HandleJobSetActive)
+	})
+
+	router.Route("/build", func(router chi.Router) {
+		router.Get("/{id}", HandleGetBuild)
+		router.Post("/{id}/abort", HandleAbortBuild)
+		router.Post("/{id}/flush", HandleFlushTaskLogs)
+		router.Post("/{id}/start", HandleStartBuild)
+	})
+
+	router.Get("/settings", HandleSettingsGet)
+	router.Post("/settings", HandleSettingsPost)
+
+	router.Route("/keys", func(router chi.Router) {
+		router.Get("/", HandleAPIKeysList)
+		router.Post("/", HandleAPIKeyCreate)
+		router.Delete("/", HandleAPIKeysRevokeBy)
+		router.Delete("/{id}", HandleAPIKeyRevoke)
+	})
 }

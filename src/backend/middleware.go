@@ -222,3 +222,18 @@ func AuthMi(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
+// requestUser returns who made a request: the single sign-on email, or empty
+// for the admin password, which alone may change the password and manage
+// every API key. AuthMi has checked the credentials already, Basic auth
+// before the session cookie, and this follows the same order.
+func requestUser(r *http.Request) (string, error) {
+	if _, _, ok := r.BasicAuth(); ok {
+		return "", nil
+	}
+	cookie, err := r.Cookie("session")
+	if err != nil {
+		return "", err
+	}
+	return GlobalSessionStorage.User(cookie.Value)
+}

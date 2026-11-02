@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/robfig/cron/v3"
 	bolt "go.etcd.io/bbolt"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // newAPIKeyTestEnv registers the jobs deploy, nightly and test_api, adds
@@ -34,10 +34,25 @@ func newAPIKeyTestEnv(t *testing.T) http.Handler {
 	GlobalCron = cron.New()
 	oldLimiter := apiKeyAttemptLimiter
 	apiKeyAttemptLimiter = newAuthAttemptLimiter(authMaxFailures, authFailureWindow, authBlockDuration)
+	oldSessions := GlobalSessionStorage
+	GlobalSessionStorage = &SessionStorage{sessions: make(map[string]session)}
+	oldPasswordLimiter := globalAuthAttemptLimiter
+	globalAuthAttemptLimiter = newAuthAttemptLimiter(authMaxFailures, authFailureWindow, authBlockDuration)
 	t.Cleanup(func() {
 		GlobalCron = oldCron
 		apiKeyAttemptLimiter = oldLimiter
+		GlobalSessionStorage = oldSessions
+		globalAuthAttemptLimiter = oldPasswordLimiter
 	})
+	hash, err := bcrypt.GenerateFromPassword([]byte("admin"), bcrypt.MinCost)
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+	if err := DB.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket(GlobalBucket).Put([]byte("password"), hash)
+	}); err != nil {
+		t.Fatalf("save password: %v", err)
+	}
 
 	for _, name := range []string{"deploy", "nightly", "test_api"} {
 		path := Config.JobDir + name + Config.jobsExt
@@ -436,14 +451,8 @@ func TestAPIKeyRejected(t *testing.T) {
 		t.Fatalf("before revoking: status = %d", rec.Code)
 	}
 	revokedID, _, _ := parseAPIKeyToken(revoked)
-	revoke := httptest.NewRequest("DELETE", "/api/keys/"+revokedID, nil)
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("id", revokedID)
-	revoke = revoke.WithContext(contextWithRouteContext(revoke, rctx))
-	revokeRec := httptest.NewRecorder()
-	HandleAPIKeyRevoke(revokeRec, revoke)
-	if revokeRec.Code != http.StatusOK {
-		t.Fatalf("revoke: status = %d; body %q", revokeRec.Code, revokeRec.Body.String())
+	if rec := manageKeys(t, "DELETE", "/api/keys/"+revokedID, adminUser, nil); rec.Code != http.StatusOK {
+		t.Fatalf("revoke: status = %d; body %q", rec.Code, rec.Body.String())
 	}
 
 	for name, bad := range map[string]string{
@@ -698,64 +707,236 @@ func TestParseAPIKeyToken(t *testing.T) {
 	}
 }
 
+// adminUser is who logs in with the admin password
+const adminUser = ""
+
+// apiRouter is the /api router of main.go, AuthMi included
+func apiRouter() http.Handler {
+	router := chi.NewRouter()
+	router.Route("/api", apiRoutes)
+	return router
+}
+
+// loginAs returns a session cookie for user: a single sign-on email, or
+// adminUser for the admin password
+func loginAs(t *testing.T, user string) *http.Cookie {
+	t.Helper()
+	cookie, err := GlobalSessionStorage.New(httptest.NewRequest("POST", "/auth/login", nil), time.Hour, user)
+	if err != nil {
+		t.Fatalf("new session: %v", err)
+	}
+	return cookie
+}
+
+// apiCall sends a request through apiRouter with the cookie, if any, and
+// lets prepare add more, e.g. Basic auth
+func apiCall(method, target string, cookie *http.Cookie, form url.Values, prepare func(*http.Request)) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(method, target, strings.NewReader(form.Encode()))
+	if form != nil {
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	}
+	if cookie != nil {
+		req.AddCookie(cookie)
+	}
+	if prepare != nil {
+		prepare(req)
+	}
+	rec := httptest.NewRecorder()
+	apiRouter().ServeHTTP(rec, req)
+	return rec
+}
+
+// manageKeys calls the API logged in as user with a new session
+func manageKeys(t *testing.T, method, target, user string, form url.Values) *httptest.ResponseRecorder {
+	t.Helper()
+	return apiCall(method, target, loginAs(t, user), form, nil)
+}
+
+func createKeyAs(t *testing.T, user, name string) NewAPIKeyData {
+	t.Helper()
+	form := url.Values{"name": {name}, "scope": {"read"}, "allJobs": {"true"}, "expiresInDays": {"30"}}
+	rec := manageKeys(t, "POST", "/api/keys/", user, form)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("create %s: status = %d; body %q", name, rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Cache-Control"); got != "no-store" {
+		t.Errorf("Cache-Control = %q, want no-store", got)
+	}
+	var created NewAPIKeyData
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode created key: %v", err)
+	}
+	return created
+}
+
+func listKeysAs(t *testing.T, user string) APIKeysData {
+	t.Helper()
+	rec := manageKeys(t, "GET", "/api/keys/", user, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list: status = %d; body %q", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "ecret") {
+		t.Errorf("list leaks a secret: %s", rec.Body.String())
+	}
+	var data APIKeysData
+	if err := json.Unmarshal(rec.Body.Bytes(), &data); err != nil {
+		t.Fatalf("decode list: %v", err)
+	}
+	return data
+}
+
+func keyNames(keys []*APIKey) []string {
+	var names []string
+	for _, key := range keys {
+		names = append(names, key.Name)
+	}
+	return names
+}
+
 func TestHandleAPIKeys(t *testing.T) {
 	router := newAPIKeyTestEnv(t)
-	create := func(name string) NewAPIKeyData {
-		form := url.Values{"name": {name}, "scope": {"read"}, "allJobs": {"true"}, "expiresInDays": {"30"}}
-		req := httptest.NewRequest("POST", "/api/keys/", strings.NewReader(form.Encode()))
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		rec := httptest.NewRecorder()
-		HandleAPIKeyCreate(rec, req)
-		if rec.Code != http.StatusOK {
-			t.Fatalf("create: status = %d; body %q", rec.Code, rec.Body.String())
-		}
-		if got := rec.Header().Get("Cache-Control"); got != "no-store" {
-			t.Errorf("Cache-Control = %q, want no-store", got)
-		}
-		var created NewAPIKeyData
-		if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
-			t.Fatalf("decode created key: %v", err)
-		}
-		return created
-	}
-	first := create("first")
+	first := createKeyAs(t, adminUser, "first")
 	time.Sleep(time.Millisecond)
-	second := create("second")
+	second := createKeyAs(t, adminUser, "second")
 	if rec := keyRequest(router, "GET", "/api/jobs/", second.Token, nil); rec.Code != http.StatusOK {
 		t.Errorf("created token: status = %d, want 200", rec.Code)
 	}
 
-	rec := httptest.NewRecorder()
-	HandleAPIKeysList(rec, httptest.NewRequest("GET", "/api/keys/", nil))
-	if strings.Contains(rec.Body.String(), "ecret") || strings.Contains(rec.Body.String(), second.Token[len(apiKeyPrefix)+13:]) {
-		t.Errorf("list leaks a secret: %s", rec.Body.String())
-	}
-	var keys []APIKey
-	if err := json.Unmarshal(rec.Body.Bytes(), &keys); err != nil {
-		t.Fatalf("decode list: %v", err)
-	}
-	if len(keys) != 2 || keys[0].ID != second.Key.ID || keys[1].ID != first.Key.ID {
-		t.Errorf("list = %+v, want second then first", keys)
+	list := listKeysAs(t, adminUser)
+	if !list.Admin || len(list.Keys) != 2 || list.Keys[0].ID != second.Key.ID || list.Keys[1].ID != first.Key.ID {
+		t.Errorf("list = %+v, want admin and second then first", list)
 	}
 
-	req := httptest.NewRequest("POST", "/api/keys/", strings.NewReader("name=x"))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rec = httptest.NewRecorder()
-	HandleAPIKeyCreate(rec, req)
-	if rec.Code != http.StatusBadRequest {
+	if rec := manageKeys(t, "POST", "/api/keys/", adminUser, url.Values{"name": {"x"}}); rec.Code != http.StatusBadRequest {
 		t.Errorf("invalid create: status = %d, want 400", rec.Code)
 	}
-
-	revoke := httptest.NewRequest("DELETE", "/api/keys/000000000000", nil)
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("id", "000000000000")
-	rec = httptest.NewRecorder()
-	HandleAPIKeyRevoke(rec, revoke.WithContext(contextWithRouteContext(revoke, rctx)))
-	if rec.Code != http.StatusNotFound {
+	if rec := manageKeys(t, "DELETE", "/api/keys/000000000000", adminUser, nil); rec.Code != http.StatusNotFound {
 		t.Errorf("revoke unknown key: status = %d, want 404", rec.Code)
+	}
+
+	// Without a valid session nothing is shown or changed
+	if rec := apiCall("GET", "/api/keys/", nil, nil, nil); rec.Code != http.StatusForbidden {
+		t.Errorf("list without a session: status = %d, want 403", rec.Code)
+	}
+	// Basic auth with the admin password is the admin too
+	rec := apiCall("GET", "/api/keys/", nil, nil, func(r *http.Request) { r.SetBasicAuth("", "admin") })
+	var basic APIKeysData
+	if err := json.Unmarshal(rec.Body.Bytes(), &basic); err != nil || !basic.Admin || len(basic.Keys) != 2 {
+		t.Errorf("list with Basic auth = %s, want admin and both keys", rec.Body.String())
 	}
 }
 
-func contextWithRouteContext(r *http.Request, rctx *chi.Context) context.Context {
-	return context.WithValue(r.Context(), chi.RouteCtxKey, rctx)
+// The admin password sees and revokes every key and can revoke all keys of
+// a person; an SSO user only sees and revokes their own
+func TestAPIKeyOwnership(t *testing.T) {
+	newAPIKeyTestEnv(t)
+	const alice, bob = "alice@example.com", "bob@example.com"
+	a1 := createKeyAs(t, alice, "a1")
+	a2 := createKeyAs(t, alice, "a2")
+	b1 := createKeyAs(t, bob, "b1")
+	adm := createKeyAs(t, adminUser, "adm")
+	for key, want := range map[*APIKey]string{a1.Key: alice, b1.Key: bob, adm.Key: ""} {
+		if key.CreatedBy != want {
+			t.Errorf("%s CreatedBy = %q, want %q", key.Name, key.CreatedBy, want)
+		}
+	}
+	alive := func(created NewAPIKeyData) bool {
+		_, err := verifyAPIKey(created.Token, time.Now())
+		return err == nil
+	}
+
+	aliceList := listKeysAs(t, alice)
+	if aliceList.Admin || !slices.Equal(sortedKeyNames(aliceList.Keys), []string{"a1", "a2"}) {
+		t.Errorf("alice sees %v (admin %t), want her own keys", keyNames(aliceList.Keys), aliceList.Admin)
+	}
+	if got := sortedKeyNames(listKeysAs(t, adminUser).Keys); !slices.Equal(got, []string{"a1", "a2", "adm", "b1"}) {
+		t.Errorf("admin sees %v, want every key", got)
+	}
+
+	// Someone else's key doesn't exist for alice
+	if rec := manageKeys(t, "DELETE", "/api/keys/"+b1.Key.ID, alice, nil); rec.Code != http.StatusNotFound || !alive(b1) {
+		t.Errorf("alice revoking bob's key: status = %d, alive %t; want 404 and alive", rec.Code, alive(b1))
+	}
+	if rec := manageKeys(t, "DELETE", "/api/keys/"+a1.Key.ID, alice, nil); rec.Code != http.StatusOK || alive(a1) {
+		t.Errorf("alice revoking her key: status = %d, alive %t; want 200 and revoked", rec.Code, alive(a1))
+	}
+
+	// Only the admin password revokes a person's keys
+	if rec := manageKeys(t, "DELETE", "/api/keys/?createdBy="+alice, bob, nil); rec.Code != http.StatusForbidden || !alive(a2) {
+		t.Errorf("bob revoking alice's keys: status = %d, alive %t; want 403 and alive", rec.Code, alive(a2))
+	}
+	if rec := manageKeys(t, "DELETE", "/api/keys/?createdBy=", adminUser, nil); rec.Code != http.StatusBadRequest {
+		t.Errorf("revoking without createdBy: status = %d, want 400", rec.Code)
+	}
+	rec := manageKeys(t, "DELETE", "/api/keys/?createdBy=Alice@Example.com", adminUser, nil)
+	var revoked RevokedData
+	if err := json.Unmarshal(rec.Body.Bytes(), &revoked); err != nil || rec.Code != http.StatusOK || revoked.Keys != 1 {
+		t.Errorf("admin revoking alice's keys: status = %d, body %q; want 200 and 1 key", rec.Code, rec.Body.String())
+	}
+	if alive(a2) || !alive(b1) || !alive(adm) {
+		t.Errorf("after revoking alice's keys: a2 %t, b1 %t, adm %t; want only a2 revoked", alive(a2), alive(b1), alive(adm))
+	}
+	if rec := manageKeys(t, "DELETE", "/api/keys/"+b1.Key.ID, adminUser, nil); rec.Code != http.StatusOK || alive(b1) {
+		t.Errorf("admin revoking bob's key: status = %d, alive %t; want 200 and revoked", rec.Code, alive(b1))
+	}
+}
+
+func sortedKeyNames(keys []*APIKey) []string {
+	names := keyNames(keys)
+	slices.Sort(names)
+	return names
+}
+
+// Revoking a person's keys also signs them out, so a session they still have
+// can't make a new key
+func TestRevokePersonEndsSessions(t *testing.T) {
+	newAPIKeyTestEnv(t)
+	const alice, bob = "alice@example.com", "bob@example.com"
+	aliceCookie, bobCookie := loginAs(t, alice), loginAs(t, bob)
+	form := url.Values{"name": {"k"}, "scope": {"write"}, "allJobs": {"true"}, "expiresInDays": {"0"}}
+	if rec := apiCall("POST", "/api/keys/", aliceCookie, form, nil); rec.Code != http.StatusOK {
+		t.Fatalf("alice creating a key: status = %d", rec.Code)
+	}
+
+	rec := manageKeys(t, "DELETE", "/api/keys/?createdBy="+alice, adminUser, nil)
+	var revoked RevokedData
+	if err := json.Unmarshal(rec.Body.Bytes(), &revoked); err != nil || revoked != (RevokedData{Keys: 1, Sessions: 1}) {
+		t.Fatalf("revoke alice: status = %d, body %q; want 1 key and 1 session", rec.Code, rec.Body.String())
+	}
+	if rec := apiCall("POST", "/api/keys/", aliceCookie, form, nil); rec.Code != http.StatusForbidden {
+		t.Errorf("alice creating a key after the revoke: status = %d, want 403", rec.Code)
+	}
+	if rec := apiCall("GET", "/api/keys/", bobCookie, nil, nil); rec.Code != http.StatusOK {
+		t.Errorf("bob after alice's revoke: status = %d, want 200", rec.Code)
+	}
+}
+
+// requestUser takes any Basic auth as the admin password because AuthMi has
+// checked it first: a wrong password next to a valid SSO cookie gets nowhere
+func TestWrongBasicAuthWithSSOCookie(t *testing.T) {
+	newAPIKeyTestEnv(t)
+	victim := createKeyAs(t, "bob@example.com", "victim")
+	aliceCookie := loginAs(t, "alice@example.com")
+	wrongPassword := func(r *http.Request) { r.SetBasicAuth("", "not-the-password") }
+	for _, call := range []struct {
+		method, target string
+		form           url.Values
+	}{
+		{"GET", "/api/keys/", nil},
+		{"DELETE", "/api/keys/?createdBy=bob@example.com", nil},
+		{"DELETE", "/api/keys/" + victim.Key.ID, nil},
+		{"POST", "/api/settings", url.Values{"password": {"taken"}, "concurrentBuilds": {"2"}, "buildHistorySize": {"200"}}},
+	} {
+		if rec := apiCall(call.method, call.target, aliceCookie, call.form, wrongPassword); rec.Code != http.StatusForbidden {
+			t.Errorf("%s %s with a wrong password: status = %d, want 403", call.method, call.target, rec.Code)
+		}
+	}
+	if _, err := verifyAPIKey(victim.Token, time.Now()); err != nil {
+		t.Errorf("bob's key after alice's attempts: %v", err)
+	}
+	// The SSO cookie alone can't change the password either
+	form := url.Values{"password": {"taken"}, "concurrentBuilds": {"2"}, "buildHistorySize": {"200"}}
+	if rec := apiCall("POST", "/api/settings", aliceCookie, form, nil); rec.Code != http.StatusForbidden {
+		t.Errorf("SSO user changing the password: status = %d, want 403", rec.Code)
+	}
 }

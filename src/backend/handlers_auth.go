@@ -94,7 +94,7 @@ func HandleLogIn(w http.ResponseWriter, r *http.Request) {
 	}
 	globalAuthAttemptLimiter.success(authClient(r))
 
-	c, err := GlobalSessionStorage.New(r, SessionTTL)
+	c, err := GlobalSessionStorage.New(r, SessionTTL, "")
 	if err != nil {
 		logger.Error("create session", "err", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -290,7 +290,7 @@ func HandleSSOACS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c, err := GlobalSessionStorage.New(r, SSOSessionTTL)
+	c, err := GlobalSessionStorage.New(r, SSOSessionTTL, email)
 	if err != nil {
 		logger.Error("create session", "err", err)
 		w.WriteHeader(http.StatusInternalServerError)

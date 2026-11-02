@@ -21,6 +21,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/sasha-s/go-deadlock"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -58,6 +59,10 @@ var apiKeyAttemptLimiter = newAuthAttemptLimiter(
 	authBlockDuration,
 )
 
+// apiKeyOwnersMu makes creating a key and revoking a person's keys take
+// turns, so a key their session creates meanwhile can't outlive the revoke
+var apiKeyOwnersMu deadlock.Mutex
+
 type contextKey string
 
 const apiKeyContextKey contextKey = "apiKey"
@@ -69,9 +74,12 @@ type APIKey struct {
 	Scopes []string `json:"scopes"`
 	// AllJobs covers every job, including jobs added later. Otherwise the key
 	// covers Jobs by exact name and the jobs that Patterns match.
-	AllJobs    bool       `json:"allJobs"`
-	Jobs       []string   `json:"jobs"`
-	Patterns   []string   `json:"patterns"`
+	AllJobs  bool     `json:"allJobs"`
+	Jobs     []string `json:"jobs"`
+	Patterns []string `json:"patterns"`
+	// CreatedBy is the single sign-on email of whoever created the key, empty
+	// if they used the password. It lets offboarding revoke a person's keys.
+	CreatedBy  string     `json:"createdBy"`
 	CreatedAt  time.Time  `json:"createdAt"`
 	ExpiresAt  *time.Time `json:"expiresAt,omitempty"`
 	LastUsedAt *time.Time `json:"lastUsedAt,omitempty"`
@@ -362,24 +370,47 @@ func writeJSON(w http.ResponseWriter, logger *slog.Logger, data any) {
 	writeBody(logger, w, payload)
 }
 
-// HandleAPIKeysList returns all API keys, newest first
+// RevokedData says how many keys and sessions revoking a person ended
+type RevokedData struct {
+	Keys     int `json:"keys"`
+	Sessions int `json:"sessions"`
+}
+
+// APIKeysData lists the API keys the requester may see
+type APIKeysData struct {
+	// Admin is true for the admin password, which sees and revokes every key
+	Admin bool      `json:"admin"`
+	Keys  []*APIKey `json:"keys"`
+}
+
+// HandleAPIKeysList returns the API keys the requester may see, newest
+// first: all of them for the admin password, their own for an SSO user
 // @Summary      List API keys
-// @Description  Secrets are never returned. Not available with an API key
+// @Description  The admin password sees every key, a single sign-on user only their own. Secrets are never returned. Not available with an API key
 // @Tags         keys
 // @Produce      json
-// @Success      200      {array}    APIKey
+// @Success      200      {object}   APIKeysData
+// @Failure      403      {string}   string
 // @Failure      500      {string}   string
 // @Router       /keys/ [get]
 func HandleAPIKeysList(w http.ResponseWriter, r *http.Request) {
 	logger := requestLogger(r)
+	user, err := requestUser(r)
+	if err != nil {
+		logger.Warn("find who lists api keys", "err", err)
+		writePlainText(w, logger, http.StatusForbidden, "Forbidden")
+		return
+	}
 	keys := []*APIKey{}
-	err := DB.View(func(tx *bolt.Tx) error {
+	err = DB.View(func(tx *bolt.Tx) error {
 		return tx.Bucket(APIKeysBucket).ForEach(func(_, data []byte) error {
 			var stored storedAPIKey
 			if err := json.Unmarshal(data, &stored); err != nil {
 				return err
 			}
-			keys = append(keys, &stored.APIKey)
+			if user == "" || strings.EqualFold(stored.CreatedBy, user) {
+				keys = append(keys, &stored.APIKey)
+			}
 			return nil
 		})
 	})
@@ -391,7 +422,7 @@ func HandleAPIKeysList(w http.ResponseWriter, r *http.Request) {
 	slices.SortFunc(keys, func(a, b *APIKey) int {
 		return b.CreatedAt.Compare(a.CreatedAt)
 	})
-	writeJSON(w, logger, keys)
+	writeJSON(w, logger, APIKeysData{Admin: user == "", Keys: keys})
 }
 
 // HandleAPIKeyCreate creates an API key
@@ -420,21 +451,93 @@ func HandleAPIKeyCreate(w http.ResponseWriter, r *http.Request) {
 		writePlainText(w, logger, http.StatusBadRequest, err.Error())
 		return
 	}
+	apiKeyOwnersMu.Lock()
+	defer apiKeyOwnersMu.Unlock()
+	key.CreatedBy, err = requestUser(r)
+	if err != nil {
+		logger.Warn("find who creates an api key", "err", err)
+		writePlainText(w, logger, http.StatusForbidden, "Forbidden")
+		return
+	}
 	token, err := saveNewAPIKey(key)
 	if err != nil {
 		logger.Error("save api key", "err", err)
 		writePlainText(w, logger, http.StatusInternalServerError, err.Error())
 		return
 	}
-	logger.Info("api key created", "apiKey", key.ID, "name", key.Name, "scopes", key.Scopes)
+	logger.Info("api key created", "apiKey", key.ID, "name", key.Name, "scopes", key.Scopes, "createdBy", key.CreatedBy)
 	// The token is in this response only
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, logger, NewAPIKeyData{Key: key, Token: token})
 }
 
-// HandleAPIKeyRevoke deletes an API key, which stops working at once
+// HandleAPIKeysRevokeBy deletes all API keys one person created and ends
+// their sessions, e.g. when they leave. Only the admin password may do this.
+// @Summary      Revoke all API keys of a person and sign them out
+// @Description  Only with the admin password; not available with an API key
+// @Tags         keys
+// @Produce      plain
+// @Param        createdBy  query      string   true   "Single sign-on email the keys were created with"
+// @Success      200        {object}   RevokedData
+// @Failure      400        {string}   string
+// @Failure      403        {string}   string
+// @Failure      500        {string}   string
+// @Router       /keys/ [delete]
+func HandleAPIKeysRevokeBy(w http.ResponseWriter, r *http.Request) {
+	logger := requestLogger(r)
+	if user, err := requestUser(r); err != nil || user != "" {
+		logger.Warn("revoke a person's api keys without the admin password", "user", user, "err", err)
+		writePlainText(w, logger, http.StatusForbidden, "Only the admin password can revoke another person's keys")
+		return
+	}
+	createdBy := strings.TrimSpace(r.URL.Query().Get("createdBy"))
+	// Required, so a bare DELETE can't revoke the keys made with the password
+	if createdBy == "" {
+		writePlainText(w, logger, http.StatusBadRequest, "createdBy is required")
+		return
+	}
+	apiKeyOwnersMu.Lock()
+	defer apiKeyOwnersMu.Unlock()
+	// Sessions first: while one is left, it could create a new key
+	result := RevokedData{Sessions: GlobalSessionStorage.DeleteUser(createdBy)}
+	err := DB.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(APIKeysBucket)
+		var ids [][]byte
+		err := b.ForEach(func(id, data []byte) error {
+			var stored storedAPIKey
+			if err := json.Unmarshal(data, &stored); err != nil {
+				return err
+			}
+			if strings.EqualFold(stored.CreatedBy, createdBy) {
+				ids = append(ids, id)
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		// Deleted after ForEach, which must not change the bucket it walks
+		for _, id := range ids {
+			if err := b.Delete(id); err != nil {
+				return err
+			}
+		}
+		result.Keys = len(ids)
+		return nil
+	})
+	if err != nil {
+		logger.Error("revoke api keys", "createdBy", createdBy, "err", err)
+		writePlainText(w, logger, http.StatusInternalServerError, err.Error())
+		return
+	}
+	logger.Info("api keys revoked", "createdBy", createdBy, "keys", result.Keys, "sessions", result.Sessions)
+	writeJSON(w, logger, result)
+}
+
+// HandleAPIKeyRevoke deletes an API key, which stops working at once. The
+// admin password may revoke any key, an SSO user only their own.
 // @Summary      Revoke an API key
-// @Description  Not available with an API key
+// @Description  The admin password may revoke any key, a single sign-on user only their own. Not available with an API key
 // @Tags         keys
 // @Produce      plain
 // @Param        id       path       string   true   "ID of the key"
@@ -444,12 +547,30 @@ func HandleAPIKeyCreate(w http.ResponseWriter, r *http.Request) {
 // @Router       /keys/{id} [delete]
 func HandleAPIKeyRevoke(w http.ResponseWriter, r *http.Request) {
 	logger := requestLogger(r)
+	user, err := requestUser(r)
+	if err != nil {
+		logger.Warn("find who revokes an api key", "err", err)
+		writePlainText(w, logger, http.StatusForbidden, "Forbidden")
+		return
+	}
 	id := chi.URLParam(r, "id")
 	errNotFound := errors.New("no such API key")
-	err := DB.Update(func(tx *bolt.Tx) error {
+	err = DB.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(APIKeysBucket)
-		if b.Get([]byte(id)) == nil {
+		data := b.Get([]byte(id))
+		if data == nil {
 			return errNotFound
+		}
+		if user != "" {
+			var stored storedAPIKey
+			if err := json.Unmarshal(data, &stored); err != nil {
+				return err
+			}
+			// An SSO user doesn't see other people's keys, so to them
+			// someone else's key doesn't exist either
+			if !strings.EqualFold(stored.CreatedBy, user) {
+				return errNotFound
+			}
 		}
 		return b.Delete([]byte(id))
 	})
@@ -460,7 +581,7 @@ func HandleAPIKeyRevoke(w http.ResponseWriter, r *http.Request) {
 		logger.Error("revoke api key", "apiKey", id, "err", err)
 		writePlainText(w, logger, http.StatusInternalServerError, err.Error())
 	default:
-		logger.Info("api key revoked", "apiKey", id)
+		logger.Info("api key revoked", "apiKey", id, "by", user)
 	}
 }
 

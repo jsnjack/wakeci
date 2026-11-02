@@ -4,7 +4,11 @@
             method="post"
             @submit.prevent="save"
         >
-            <div class="field border small">
+            <!-- Only the admin password may change the password -->
+            <div
+                v-if="admin"
+                class="field border small"
+            >
                 <input
                     type="password"
                     id="password"
@@ -53,6 +57,7 @@ export default {
     data: function () {
         return {
             password: "",
+            admin: false,
             concurrentBuilds: 2,
             buildHistorySize: 200,
         };
@@ -85,6 +90,7 @@ export default {
             axios
                 .get("/api/settings")
                 .then((response) => {
+                    this.admin = response.data.admin;
                     if (response.data.concurrentBuilds) {
                         this.concurrentBuilds = response.data.concurrentBuilds;
                     }
@@ -99,4 +105,4 @@ export default {
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped ></style>
+<style scoped></style>

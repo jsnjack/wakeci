@@ -133,11 +133,73 @@ describe("API keys", function () {
             cy.visit("/keys");
             cy.login();
             cy.get(`[data-cy='key-revoke ${suffix}']`).should("contain", "Never expires");
+            // Logged in with the admin password: every key shows who made it
+            cy.get(`[data-cy='key-revoke ${suffix}'] [data-cy=key-created-by-text]`).should("have.text", "by admin password");
             cy.get(`[data-cy='key-revoke ${suffix}'] [data-cy=revoke-key]`).click();
             cy.get("[data-cy=revoke-key-confirm]").click();
             cy.get(".notification-content").should("contain", "Key revoked");
             cy.get(`[data-cy='key-revoke ${suffix}']`).should("not.exist");
             keyRequest(token, "GET", "/api/jobs/").its("status").should("eq", 401);
         });
+    });
+
+    it("should let the admin password revoke all keys of a person", function () {
+        const key = (id, name, createdBy) => ({
+            id,
+            name,
+            createdBy,
+            scopes: ["read"],
+            allJobs: true,
+            jobs: [],
+            patterns: [],
+            createdAt: new Date().toISOString(),
+        });
+        cy.intercept("GET", "/api/keys/", {
+            admin: true,
+            keys: [
+                key("000000000001", "alice-ci", "alice@example.com"),
+                key("000000000002", "alice-bot", "alice@example.com"),
+                key("000000000003", "bob-ci", "bob@example.com"),
+                key("000000000004", "shared", ""),
+            ],
+        });
+        cy.intercept("DELETE", "/api/keys/?createdBy=alice%40example.com", { keys: 2, sessions: 1 }).as("revokePerson");
+        cy.visit("/keys");
+        cy.login();
+        cy.get("[data-cy=revoke-person]").should("not.exist");
+        cy.get("[data-cy=key-created-by]").select("alice@example.com");
+        cy.get("[data-cy=keys-list]").should("contain", "alice-ci").and("not.contain", "bob-ci");
+        cy.get("[data-cy=revoke-person]").should("contain", "alice@example.com").click();
+        cy.get("[data-cy=revoke-person-confirm]").click();
+        cy.wait("@revokePerson");
+        cy.get(".notification-content").should("contain", "Revoked 2 keys of alice@example.com and signed them out");
+
+        // Keys made with the admin password can be listed, but are revoked one by one
+        cy.get("[data-cy=key-created-by]").select("Admin password");
+        cy.get("[data-cy=keys-list]").should("contain", "shared").and("not.contain", "alice-ci");
+        cy.get("[data-cy=revoke-person]").should("not.exist");
+    });
+
+    it("should show an SSO user only their own keys", function () {
+        cy.intercept("GET", "/api/keys/", {
+            admin: false,
+            keys: [
+                {
+                    id: "000000000001",
+                    name: "my-ci",
+                    createdBy: "alice@example.com",
+                    scopes: ["run"],
+                    allJobs: true,
+                    jobs: [],
+                    patterns: [],
+                    createdAt: new Date().toISOString(),
+                },
+            ],
+        });
+        cy.visit("/keys");
+        cy.login();
+        cy.get("[data-cy=keys-list]").should("contain", "my-ci");
+        cy.get("[data-cy=key-created-by]").should("not.exist");
+        cy.get("[data-cy=key-created-by-text]").should("not.exist");
     });
 });

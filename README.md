@@ -156,6 +156,21 @@ The key is shown once, when it is created; wakeci only stores a hash of it.
 Revoking a key stops it at once. Keys don't depend on the password, and
 survive restarts.
 
+Each key records who created it. Logged in with the admin password, the API
+keys page shows every key and who made it, and can revoke all keys of a
+person, which also signs them out. People who sign in with SSO only see and
+revoke the keys they created, and only the admin password can change the
+password. Everything else is open to them, including editing jobs, which
+runs commands on the server, so only give SSO access to people you trust.
+
+wakeci can't tell on its own that a Google account is gone, so when someone
+leaves:
+
+1. Suspend or delete their Google account, so they can't sign in again.
+2. On the API keys page, logged in with the admin password, pick them under
+   "Created by" and revoke all their keys.
+3. If they knew the admin password, change it.
+
 > Default password is `admin`. Don't forget to immediately change it!
 
 ### API documentation
