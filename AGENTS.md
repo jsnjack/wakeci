@@ -206,6 +206,11 @@ AGENTS.universal.md for the general contract.
   saved) and the settings page hides the field. Revoking a person's keys
   also ends their sessions, first and under `apiKeyOwnersMu`, which key
   creation takes too, so a session they still have can't make a new key.
+  Ended sessions (revoke, logout, expiry) are passed to
+  `SessionStorage.OnEnd`, which closes the WebSockets opened with them
+  (`Hub.CloseSessions`), since `/ws` only checks auth at the upgrade. The
+  admin's person list (`APIKeysData.People`) includes everyone signed in
+  with SSO, so someone without keys can be signed out too.
   This is not a role system: SSO users can still edit jobs, which runs
   commands on the server, so they are trusted; roles are future work.
   Sessions carry the SSO email (`session.user`, empty for the password) and

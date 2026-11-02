@@ -168,7 +168,9 @@ leaves:
 
 1. Suspend or delete their Google account, so they can't sign in again.
 2. On the API keys page, logged in with the admin password, pick them under
-   "Created by" and revoke all their keys.
+   "Created by" (it lists everyone with a key or signed in) and click
+   "Revoke access". That signs them out, closes their live updates and
+   revokes their keys.
 3. If they knew the admin password, change it.
 
 > Default password is `admin`. Don't forget to immediately change it!

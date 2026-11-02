@@ -249,6 +249,7 @@ func main() {
 
 	WSHub = newHub()
 	go WSHub.run()
+	GlobalSessionStorage.OnEnd = WSHub.CloseSessions
 
 	certManager := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,

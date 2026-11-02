@@ -381,6 +381,9 @@ type APIKeysData struct {
 	// Admin is true for the admin password, which sees and revokes every key
 	Admin bool      `json:"admin"`
 	Keys  []*APIKey `json:"keys"`
+	// People, for the admin, are everyone with a key or a single sign-on
+	// session: whose access can be revoked
+	People []string `json:"people,omitempty"`
 }
 
 // HandleAPIKeysList returns the API keys the requester may see, newest
@@ -422,7 +425,32 @@ func HandleAPIKeysList(w http.ResponseWriter, r *http.Request) {
 	slices.SortFunc(keys, func(a, b *APIKey) int {
 		return b.CreatedAt.Compare(a.CreatedAt)
 	})
-	writeJSON(w, logger, APIKeysData{Admin: user == "", Keys: keys})
+	data := APIKeysData{Admin: user == "", Keys: keys}
+	if data.Admin {
+		data.People = keyPeople(keys, GlobalSessionStorage.Users())
+	}
+	writeJSON(w, logger, data)
+}
+
+// keyPeople returns everyone who created a key or is signed in with single
+// sign-on, once each ignoring case, sorted
+func keyPeople(keys []*APIKey, signedIn []string) []string {
+	seen := map[string]bool{}
+	people := []string{}
+	add := func(person string) {
+		if person != "" && !seen[strings.ToLower(person)] {
+			seen[strings.ToLower(person)] = true
+			people = append(people, person)
+		}
+	}
+	for _, key := range keys {
+		add(key.CreatedBy)
+	}
+	for _, person := range signedIn {
+		add(person)
+	}
+	slices.Sort(people)
+	return people
 }
 
 // HandleAPIKeyCreate creates an API key

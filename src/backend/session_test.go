@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 	"time"
 )
@@ -106,5 +107,40 @@ func TestSessionDeleteUser(t *testing.T) {
 		if err := storage.Verify(token); err != nil {
 			t.Errorf("%s's session ended: %v", name, err)
 		}
+	}
+}
+
+// Ended sessions are reported, so the WebSockets opened with them can close
+func TestSessionOnEnd(t *testing.T) {
+	Config = &WakeConfig{}
+	storage := &SessionStorage{sessions: make(map[string]session)}
+	var ended []string
+	storage.OnEnd = func(tokens []string) { ended = append(ended, tokens...) }
+	req := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
+	newSession := func(user string, ttl time.Duration) string {
+		cookie, err := storage.New(req, ttl, user)
+		if err != nil {
+			t.Fatalf("New() error = %v", err)
+		}
+		return cookie.Value
+	}
+	loggedOut := newSession("", time.Hour)
+	alice := newSession("alice@example.com", time.Hour)
+	expired := newSession("bob@example.com", -time.Second)
+	carol := newSession("carol@example.com", time.Hour)
+
+	if err := storage.Delete(loggedOut); err != nil {
+		t.Fatalf("Delete() error = %v", err)
+	}
+	storage.DeleteUser("alice@example.com")
+	storage.deleteExpired()
+	if want := []string{loggedOut, alice, expired}; !slices.Equal(ended, want) {
+		t.Errorf("ended = %q, want %q", ended, want)
+	}
+	if users := storage.Users(); !slices.Equal(users, []string{"carol@example.com"}) {
+		t.Errorf("Users() = %q, want carol only", users)
+	}
+	if storage.Verify(carol) != nil {
+		t.Error("carol's session ended")
 	}
 }

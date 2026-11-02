@@ -156,6 +156,8 @@ describe("API keys", function () {
         });
         cy.intercept("GET", "/api/keys/", {
             admin: true,
+            // carol is signed in but has no keys
+            people: ["alice@example.com", "bob@example.com", "carol@example.com"],
             keys: [
                 key("000000000001", "alice-ci", "alice@example.com"),
                 key("000000000002", "alice-bot", "alice@example.com"),
@@ -169,10 +171,19 @@ describe("API keys", function () {
         cy.get("[data-cy=revoke-person]").should("not.exist");
         cy.get("[data-cy=key-created-by]").select("alice@example.com");
         cy.get("[data-cy=keys-list]").should("contain", "alice-ci").and("not.contain", "bob-ci");
-        cy.get("[data-cy=revoke-person]").should("contain", "alice@example.com").click();
+        cy.get("[data-cy=revoke-person]").should("contain", "Revoke access of alice@example.com").click();
         cy.get("[data-cy=revoke-person-confirm]").click();
         cy.wait("@revokePerson");
-        cy.get(".notification-content").should("contain", "Revoked 2 keys of alice@example.com and signed them out");
+        cy.get(".notification-content").should("contain", "Signed out alice@example.com and revoked 2 keys");
+
+        // Someone signed in without keys can still be signed out
+        cy.intercept("DELETE", "/api/keys/?createdBy=carol%40example.com", { keys: 0, sessions: 1 }).as("revokeCarol");
+        cy.get("[data-cy=key-created-by]").select("carol@example.com");
+        cy.get("[data-cy=keys-list]").should("contain", "No API keys here");
+        cy.get("[data-cy=revoke-person]").click();
+        cy.get("[data-cy=revoke-person-confirm]").click();
+        cy.wait("@revokeCarol");
+        cy.get(".notification-content").should("contain", "Signed out carol@example.com and revoked 0 keys");
 
         // Keys made with the admin password can be listed, but are revoked one by one
         cy.get("[data-cy=key-created-by]").select("Admin password");

@@ -33,6 +33,16 @@ type session struct {
 type SessionStorage struct {
 	sessions map[string]session
 	mu       deadlock.RWMutex
+	// OnEnd, if set, gets the tokens of sessions that were deleted or
+	// expired, so connections opened with them can be closed. It is called
+	// without the lock held.
+	OnEnd func(tokens []string)
+}
+
+func (s *SessionStorage) ended(tokens []string) {
+	if s.OnEnd != nil && len(tokens) > 0 {
+		s.OnEnd(tokens)
+	}
 }
 
 func isHTTPS(r *http.Request) bool {
@@ -91,12 +101,13 @@ func (s *SessionStorage) User(sessionToken string) (string, error) {
 // Delete removes session id from storage
 func (s *SessionStorage) Delete(sessionToken string) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	_, ok := s.sessions[sessionToken]
+	delete(s.sessions, sessionToken)
+	s.mu.Unlock()
 	if !ok {
 		return fmt.Errorf("session %s doesn't exist", sessionToken)
 	}
-	delete(s.sessions, sessionToken)
+	s.ended([]string{sessionToken})
 	return nil
 }
 
@@ -105,28 +116,46 @@ func (s *SessionStorage) DeleteUser(user string) int {
 	if user == "" {
 		return 0
 	}
+	var ended []string
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	ended := 0
 	for key, val := range s.sessions {
 		if strings.EqualFold(val.user, user) {
 			delete(s.sessions, key)
-			ended++
+			ended = append(ended, key)
 		}
 	}
-	return ended
+	s.mu.Unlock()
+	s.ended(ended)
+	return len(ended)
+}
+
+// Users returns the single sign-on users with a valid session
+func (s *SessionStorage) Users() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	now := time.Now()
+	var users []string
+	for _, val := range s.sessions {
+		if val.user != "" && !val.expires.Before(now) {
+			users = append(users, val.user)
+		}
+	}
+	return users
 }
 
 // Periodically cleanup expired sessions
 func (s *SessionStorage) deleteExpired() {
+	var ended []string
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	t := time.Now()
 	for key, val := range s.sessions {
 		if val.expires.Before(t) {
 			delete(s.sessions, key)
+			ended = append(ended, key)
 		}
 	}
+	s.mu.Unlock()
+	s.ended(ended)
 }
 
 // Run session cleanup every t

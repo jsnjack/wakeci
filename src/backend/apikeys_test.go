@@ -940,3 +940,35 @@ func TestWrongBasicAuthWithSSOCookie(t *testing.T) {
 		t.Errorf("SSO user changing the password: status = %d, want 403", rec.Code)
 	}
 }
+
+// The admin can sign out someone who is signed in but has no keys yet, who
+// could otherwise still create one
+func TestRevokePersonWithoutKeys(t *testing.T) {
+	newAPIKeyTestEnv(t)
+	carol := loginAs(t, "carol@example.com")
+	createKeyAs(t, "alice@example.com", "a1")
+
+	if people := listKeysAs(t, adminUser).People; !slices.Equal(people, []string{"alice@example.com", "carol@example.com"}) {
+		t.Errorf("admin's people = %q, want alice and carol", people)
+	}
+	if people := listKeysAs(t, "alice@example.com").People; people != nil {
+		t.Errorf("an SSO user sees people %q", people)
+	}
+
+	rec := manageKeys(t, "DELETE", "/api/keys/?createdBy=carol@example.com", adminUser, nil)
+	var revoked RevokedData
+	if err := json.Unmarshal(rec.Body.Bytes(), &revoked); err != nil || revoked != (RevokedData{Keys: 0, Sessions: 1}) {
+		t.Fatalf("revoke carol: status = %d, body %q; want 0 keys and 1 session", rec.Code, rec.Body.String())
+	}
+	if rec := apiCall("GET", "/api/keys/", carol, nil, nil); rec.Code != http.StatusForbidden {
+		t.Errorf("carol after the revoke: status = %d, want 403", rec.Code)
+	}
+}
+
+func TestKeyPeople(t *testing.T) {
+	keys := []*APIKey{{CreatedBy: "Bob@Example.com"}, {CreatedBy: ""}, {CreatedBy: "alice@example.com"}, {CreatedBy: "bob@example.com"}}
+	got := keyPeople(keys, []string{"carol@example.com", "ALICE@example.com", ""})
+	if want := []string{"Bob@Example.com", "alice@example.com", "carol@example.com"}; !slices.Equal(got, want) {
+		t.Errorf("keyPeople = %q, want %q", got, want)
+	}
+}

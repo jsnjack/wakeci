@@ -28,7 +28,8 @@
         class="padding"
     >
         <div>
-            Revoke all {{ shownKeys.length }} keys of <b>{{ createdBy }}</b> and sign them out? Anything using the keys stops working at once.
+            Revoke access of <b>{{ createdBy }}</b
+            >? This signs them out and revokes their {{ shownKeys.length }} keys. Anything using the keys stops working at once.
         </div>
         <nav class="right-align">
             <button
@@ -41,7 +42,7 @@
                 data-cy="revoke-person-confirm"
                 @click.prevent="revokePerson"
             >
-                Revoke all
+                Revoke access
             </button>
         </nav>
     </dialog>
@@ -69,13 +70,13 @@
                 <i>arrow_drop_down</i>
             </div>
             <button
-                v-if="createdBy !== '' && createdBy !== passwordFilter && shownKeys.length > 0"
+                v-if="createdBy !== '' && createdBy !== passwordFilter"
                 class="border small-round"
                 data-cy="revoke-person"
                 @click.prevent="revokingPerson = true"
             >
                 <i>person_remove</i>
-                <span>Revoke all keys of {{ createdBy }}</span>
+                <span>Revoke access of {{ createdBy }}</span>
             </button>
         </template>
         <div class="max"></div>
@@ -159,7 +160,8 @@
         >
             <div class="center-align">
                 <i class="extra">key</i>
-                <h5>No API keys yet</h5>
+                <h5 v-if="createdBy === ''">No API keys yet</h5>
+                <h5 v-else>No API keys here</h5>
                 <p>Keys let scripts and other tools call the wakeci API.</p>
             </div>
         </div>
@@ -193,18 +195,17 @@ export default {
             fetchingDone: false,
             revoking: null,
             revokingPerson: false,
+            // Everyone with a key or signed in with SSO, from the server
+            people: [],
         };
     },
     computed: {
-        people() {
-            return [...new Set(this.keys.map((key) => key.createdBy).filter((p) => p))].sort();
-        },
         shownKeys() {
             if (this.createdBy === "") {
                 return this.keys;
             }
-            const createdBy = this.createdBy === this.passwordFilter ? "" : this.createdBy;
-            return this.keys.filter((key) => key.createdBy === createdBy);
+            const createdBy = this.createdBy === this.passwordFilter ? "" : this.createdBy.toLowerCase();
+            return this.keys.filter((key) => key.createdBy.toLowerCase() === createdBy);
         },
     },
     mounted() {
@@ -218,6 +219,7 @@ export default {
                 .then((response) => {
                     this.keys = response.data.keys || [];
                     this.admin = response.data.admin;
+                    this.people = response.data.people || [];
                     if (this.createdBy !== this.passwordFilter && !this.people.includes(this.createdBy)) {
                         this.createdBy = "";
                     }
@@ -248,7 +250,7 @@ export default {
                 .delete("/api/keys/", { params: { createdBy: person } })
                 .then((response) => {
                     this.$notify({
-                        text: `Revoked ${response.data.keys} keys of ${escapeHtml(person)} and signed them out`,
+                        text: `Signed out ${escapeHtml(person)} and revoked ${response.data.keys} keys`,
                         type: "primary",
                     });
                     this.fetch();

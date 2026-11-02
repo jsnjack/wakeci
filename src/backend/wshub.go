@@ -16,15 +16,19 @@ type Hub struct {
 
 	// Unregister requests from clients.
 	unregister chan *Client
+
+	// Sessions that ended, whose clients must be closed.
+	endedSessions chan []string
 }
 
 func newHub() *Hub {
 	L.Debug("starting wshub")
 	return &Hub{
-		broadcast:  make(chan *MsgBroadcast),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		clients:    make(map[*Client]bool),
+		broadcast:     make(chan *MsgBroadcast),
+		register:      make(chan *Client),
+		unregister:    make(chan *Client),
+		endedSessions: make(chan []string),
+		clients:       make(map[*Client]bool),
 	}
 }
 
@@ -39,6 +43,18 @@ func (h *Hub) run() {
 				client.Logger.Debug("ws connection unregistered")
 				delete(h.clients, client)
 				close(client.send)
+			}
+		case tokens := <-h.endedSessions:
+			ended := make(map[string]bool, len(tokens))
+			for _, token := range tokens {
+				ended[token] = true
+			}
+			for client := range h.clients {
+				if client.session != "" && ended[client.session] {
+					client.Logger.Info("closing ws connection: its session ended")
+					delete(h.clients, client)
+					close(client.send)
+				}
 			}
 		case message := <-h.broadcast:
 			msgB, err := json.Marshal(message)
@@ -60,4 +76,10 @@ func (h *Hub) run() {
 			}
 		}
 	}
+}
+
+// CloseSessions closes the connections opened with the sessions, e.g. when a
+// person is signed out, so they stop receiving build updates
+func (h *Hub) CloseSessions(tokens []string) {
+	h.endedSessions <- tokens
 }
