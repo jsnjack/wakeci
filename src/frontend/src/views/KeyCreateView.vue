@@ -131,7 +131,7 @@
                 class="field label prefix border"
                 :class="{ invalid: patternError !== '' }"
             >
-                <i>pattern</i>
+                <i>filter_alt</i>
                 <input
                     id="key-patterns"
                     v-model="patternText"
