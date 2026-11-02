@@ -227,6 +227,10 @@ func touchAPIKey(key *APIKey, now time.Time) error {
 		if err := json.Unmarshal(data, &stored); err != nil {
 			return err
 		}
+		// Another request may have recorded a later use since key was read
+		if stored.LastUsedAt != nil && now.Sub(*stored.LastUsedAt) < apiKeyTouchInterval {
+			return nil
+		}
 		stored.LastUsedAt = &now
 		updated, err := json.Marshal(stored)
 		if err != nil {
@@ -688,8 +692,9 @@ func APIKeyAuthMi(next http.Handler) http.Handler {
 		if err != nil {
 			logger.Warn("api key rejected", "err", err)
 			// Only failures are limited: a key can't be guessed, so blocking
-			// valid keys would only let bad ones lock them out
-			if apiKeyAttemptLimiter.recordFailure(w, r, logger) {
+			// valid keys would only let bad ones lock them out. reject also
+			// clears a block that has expired, which recordFailure doesn't.
+			if apiKeyAttemptLimiter.reject(w, r, logger) || apiKeyAttemptLimiter.recordFailure(w, r, logger) {
 				return
 			}
 			w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token"`)

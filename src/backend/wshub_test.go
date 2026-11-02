@@ -69,3 +69,47 @@ func TestEndedSessionClosesWebSocket(t *testing.T) {
 		t.Errorf("bob's WebSocket: %v, want it still open", err)
 	}
 }
+
+// A /ws request can pass AuthMi and only register after its session ended;
+// the hub checks the session again when it registers the client
+func TestHubRefusesClientOfEndedSession(t *testing.T) {
+	oldSessions := GlobalSessionStorage
+	t.Cleanup(func() { GlobalSessionStorage = oldSessions })
+	GlobalSessionStorage = &SessionStorage{sessions: make(map[string]session)}
+	hub := newHub()
+	go hub.run()
+
+	newSession := func(user string) string {
+		cookie, err := GlobalSessionStorage.New(httptest.NewRequest("POST", "/auth/login", nil), time.Hour, user)
+		if err != nil {
+			t.Fatalf("new session: %v", err)
+		}
+		return cookie.Value
+	}
+	ended, valid := newSession("alice@example.com"), newSession("bob@example.com")
+	GlobalSessionStorage.DeleteUser("alice@example.com")
+
+	client := func(session string) *Client {
+		c := &Client{hub: hub, send: make(chan []byte, 1), Logger: L, session: session}
+		hub.register <- c
+		return c
+	}
+	late, current, basic := client(ended), client(valid), client("")
+	// Unregistering one more client makes sure the hub handled the three above
+	hub.unregister <- &Client{send: make(chan []byte)}
+
+	closed := func(c *Client) bool {
+		select {
+		case _, ok := <-c.send:
+			return !ok
+		default:
+			return false
+		}
+	}
+	if !closed(late) {
+		t.Error("the client of an ended session was registered")
+	}
+	if closed(current) || closed(basic) {
+		t.Errorf("valid clients closed: session %t, Basic auth %t", closed(current), closed(basic))
+	}
+}

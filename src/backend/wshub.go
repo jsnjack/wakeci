@@ -36,6 +36,14 @@ func (h *Hub) run() {
 	for {
 		select {
 		case client := <-h.register:
+			// The session may have ended after AuthMi let the request in.
+			// Ended sessions are deleted before the hub hears of them, so a
+			// client registered after that is caught here.
+			if client.session != "" && GlobalSessionStorage.Verify(client.session) != nil {
+				client.Logger.Info("closing ws connection: its session ended")
+				close(client.send)
+				continue
+			}
 			client.Logger.Debug("ws connection registered")
 			h.clients[client] = true
 		case client := <-h.unregister:

@@ -972,3 +972,43 @@ func TestKeyPeople(t *testing.T) {
 		t.Errorf("keyPeople = %q, want %q", got, want)
 	}
 }
+
+// A request that read a stale last use doesn't overwrite a newer one written
+// meanwhile, so the once-a-minute limit holds and the time never goes back
+func TestTouchAPIKeyRechecksStoredTime(t *testing.T) {
+	newAPIKeyTestEnv(t)
+	token := createTestKey(t, url.Values{"name": {"read"}, "scope": {"read"}, "allJobs": {"true"}})
+	now := time.Now()
+	stale, err := verifyAPIKey(token, now)
+	if err != nil {
+		t.Fatalf("verifyAPIKey: %v", err)
+	}
+	// Another request records a use after this one read the key
+	fresh := *stale
+	if err := touchAPIKey(&fresh, now); err != nil {
+		t.Fatalf("touchAPIKey: %v", err)
+	}
+	if err := touchAPIKey(stale, now.Add(time.Second)); err != nil {
+		t.Fatalf("touchAPIKey: %v", err)
+	}
+	if err := touchAPIKey(stale, now.Add(-time.Second)); err != nil {
+		t.Fatalf("touchAPIKey: %v", err)
+	}
+	if stored, _ := verifyAPIKey(token, now); stored.LastUsedAt == nil || !stored.LastUsedAt.Equal(now) {
+		t.Errorf("LastUsedAt = %v, want the first recorded use %v", stored.LastUsedAt, now)
+	}
+}
+
+// Once a block on bad keys has expired, a bad key gets 401 again, not 429
+func TestAPIKeyLimiterBlockExpires(t *testing.T) {
+	router := newAPIKeyTestEnv(t)
+	apiKeyAttemptLimiter = newAuthAttemptLimiter(2, time.Minute, 50*time.Millisecond)
+	keyRequest(router, "GET", "/api/jobs/", "wk_bad", nil)
+	if rec := keyRequest(router, "GET", "/api/jobs/", "wk_bad", nil); rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("second bad key: status = %d, want 429", rec.Code)
+	}
+	time.Sleep(100 * time.Millisecond)
+	if rec := keyRequest(router, "GET", "/api/jobs/", "wk_bad", nil); rec.Code != http.StatusUnauthorized {
+		t.Errorf("bad key after the block expired: status = %d, want 401", rec.Code)
+	}
+}

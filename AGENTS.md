@@ -208,7 +208,9 @@ AGENTS.universal.md for the general contract.
   creation takes too, so a session they still have can't make a new key.
   Ended sessions (revoke, logout, expiry) are passed to
   `SessionStorage.OnEnd`, which closes the WebSockets opened with them
-  (`Hub.CloseSessions`), since `/ws` only checks auth at the upgrade. The
+  (`Hub.CloseSessions`), since `/ws` only checks auth at the upgrade. A
+  request can pass `AuthMi` and register only after its session ended, so
+  the hub checks the session again when it registers a client. The
   admin's person list (`APIKeysData.People`) includes everyone signed in
   with SSO, so someone without keys can be signed out too.
   This is not a role system: SSO users can still edit jobs, which runs
@@ -286,7 +288,9 @@ AGENTS.universal.md for the general contract.
 - API key failures count on `apiKeyAttemptLimiter`, never on
   `globalAuthAttemptLimiter`, so a valid key can't clear failed password
   attempts. Only failures are limited: a valid key always passes, so bad
-  keys from the same address (or proxy) can't lock it out. A refused build
+  keys from the same address (or proxy) can't lock it out. On a bad key,
+  `reject` runs before `recordFailure` because only `reject` clears an
+  expired block; without it bad keys get 429 forever. A refused build
   doesn't name its job. Never log a token; the key ID is fine.
 - Don't loosen `storageCSP`: `allow-popups`, a missing `frame-src`,
   `object-src` or `worker-src`, or `frame-ancestors 'self'` each let an
