@@ -171,7 +171,10 @@ leaves:
    "Created by" (it lists everyone with a key or signed in) and click
    "Revoke access". That signs them out, closes their live updates and
    revokes their keys.
-3. If they knew the admin password, change it.
+3. If they knew the admin password, change it and restart wakeci to invalidate
+   existing password sessions. This signs everyone out and interrupts running
+   builds. Then revoke all keys created with the admin password, since those
+   keys cannot be attributed to a person and survive password changes and restarts.
 
 > Default password is `admin`. Don't forget to immediately change it!
 
