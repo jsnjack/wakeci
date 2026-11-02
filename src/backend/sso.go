@@ -151,25 +151,26 @@ func (s *SSOAuth) AuthURL() (string, string, error) {
 
 // VerifyResponse checks a base64 SAML response posted by the identity
 // provider, which must answer the login request requestID, and returns the
-// user's NameID (their email in Google Workspace)
-func (s *SSOAuth) VerifyResponse(encodedResponse, requestID string) (string, error) {
+// user's NameID (their email in Google Workspace) and when the signed
+// assertion was issued
+func (s *SSOAuth) VerifyResponse(encodedResponse, requestID string) (string, time.Time, error) {
 	// Checks the signature against the metadata certificates, the issuer,
 	// destination, recipient, status and subject confirmation expiry
 	info, err := s.sp.RetrieveAssertionInfo(encodedResponse)
 	if err != nil {
-		return "", err
+		return "", time.Time{}, err
 	}
 	switch {
 	case info.WarningInfo.InvalidTime:
-		return "", fmt.Errorf("assertion is expired or not valid yet")
+		return "", time.Time{}, fmt.Errorf("assertion is expired or not valid yet")
 	case info.WarningInfo.NotInAudience:
-		return "", fmt.Errorf("assertion is for another service provider")
+		return "", time.Time{}, fmt.Errorf("assertion is for another service provider")
 	case len(info.Assertions) != 1:
-		return "", fmt.Errorf("response has %d assertions, want 1", len(info.Assertions))
+		return "", time.Time{}, fmt.Errorf("response has %d assertions, want 1", len(info.Assertions))
 	// gosaml2 only flags an audience restriction that doesn't match, so
 	// require one. RetrieveAssertionInfo has checked that Conditions exists.
 	case len(info.Assertions[0].Conditions.AudienceRestrictions) == 0:
-		return "", fmt.Errorf("assertion has no audience restriction")
+		return "", time.Time{}, fmt.Errorf("assertion has no audience restriction")
 	}
 	// Read InResponseTo from the signed assertion, not from the Response
 	// element around it, which the identity provider may leave unsigned.
@@ -177,19 +178,19 @@ func (s *SSOAuth) VerifyResponse(encodedResponse, requestID string) (string, err
 	inResponseTo := info.Assertions[0].Subject.SubjectConfirmation.SubjectConfirmationData.InResponseTo
 	switch {
 	case inResponseTo == "":
-		return "", errSSOUnsolicited
+		return "", time.Time{}, errSSOUnsolicited
 	case subtle.ConstantTimeCompare([]byte(inResponseTo), []byte(requestID)) != 1:
-		return "", fmt.Errorf("response answers another login request")
+		return "", time.Time{}, fmt.Errorf("response answers another login request")
 	case !s.useRequest(requestID, time.Now()):
-		return "", fmt.Errorf("login request %s was already answered", requestID)
+		return "", time.Time{}, fmt.Errorf("login request %s was already answered", requestID)
 	case info.NameID == "":
-		return "", fmt.Errorf("assertion has no NameID")
+		return "", time.Time{}, fmt.Errorf("assertion has no NameID")
 	}
 	groups := info.Values.GetAll(ssoGroupsAttribute)
 	if !slices.ContainsFunc(groups, s.groupAllowed) {
-		return "", fmt.Errorf("%w: %q is in groups %q", errSSOGroup, info.NameID, groups)
+		return "", time.Time{}, fmt.Errorf("%w: %q is in groups %q", errSSOGroup, info.NameID, groups)
 	}
-	return info.NameID, nil
+	return info.NameID, info.Assertions[0].IssueInstant, nil
 }
 
 // useRequest records that a login request got its response and reports

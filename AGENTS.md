@@ -212,7 +212,12 @@ AGENTS.universal.md for the general contract.
   request can pass `AuthMi` and register only after its session ended, so
   the hub checks the session again when it registers a client. The
   admin's person list (`APIKeysData.People`) includes everyone signed in
-  with SSO, so someone without keys can be signed out too.
+  with SSO, so someone without keys can be signed out too. A revoke also
+  records a cutoff per person (`SessionStorage.revoked`): an SSO login whose
+  signed assertion was issued before it, plus a minute for clock skew, is
+  refused by `NewSSO`, under the same lock as `DeleteUser`, so a login
+  obtained before the offboarding can't recreate a session. A fresh login
+  still works unless Google stopped the account.
   This is not a role system: SSO users can still edit jobs, which runs
   commands on the server, so they are trusted; roles are future work.
   Sessions carry the SSO email (`session.user`, empty for the password) and

@@ -2,9 +2,11 @@ package main
 
 import (
 	"crypto/tls"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"slices"
+	"sync"
 	"testing"
 	"time"
 )
@@ -142,5 +144,52 @@ func TestSessionOnEnd(t *testing.T) {
 	}
 	if storage.Verify(carol) != nil {
 		t.Error("carol's session ended")
+	}
+}
+
+func TestNewSSORefusesLoginsFromBeforeRevoke(t *testing.T) {
+	Config = &WakeConfig{}
+	storage := &SessionStorage{sessions: make(map[string]session)}
+	req := httptest.NewRequest(http.MethodPost, "/auth/sso/acs", nil)
+	before := time.Now()
+	storage.DeleteUser("alice@example.com")
+
+	for _, issuedAt := range []time.Time{before, time.Now(), time.Now().Add(revokedLoginLeeway / 2)} {
+		if _, err := storage.NewSSO(req, time.Hour, "Alice@Example.com", issuedAt); !errors.Is(err, errLoginRevoked) {
+			t.Errorf("login issued %v: err = %v, want errLoginRevoked", issuedAt, err)
+		}
+	}
+	if _, err := storage.NewSSO(req, time.Hour, "alice@example.com", time.Now().Add(2*revokedLoginLeeway)); err != nil {
+		t.Errorf("login issued after the revoke: %v", err)
+	}
+	if _, err := storage.NewSSO(req, time.Hour, "bob@example.com", before); err != nil {
+		t.Errorf("someone else's login: %v", err)
+	}
+}
+
+// A login checked just as the revoke runs never leaves a session behind:
+// either the revoke ends it, or the login sees the cutoff
+func TestNewSSORacingRevoke(t *testing.T) {
+	Config = &WakeConfig{}
+	req := httptest.NewRequest(http.MethodPost, "/auth/sso/acs", nil)
+	for i := 0; i < 200; i++ {
+		storage := &SessionStorage{sessions: make(map[string]session)}
+		issuedAt := time.Now()
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			if _, err := storage.NewSSO(req, time.Hour, "alice@example.com", issuedAt); err != nil && !errors.Is(err, errLoginRevoked) {
+				t.Errorf("NewSSO: %v", err)
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			storage.DeleteUser("alice@example.com")
+		}()
+		wg.Wait()
+		if users := storage.Users(); len(users) != 0 {
+			t.Fatalf("round %d: sessions left for %q", i, users)
+		}
 	}
 }

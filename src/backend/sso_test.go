@@ -136,6 +136,7 @@ type testSAMLResponse struct {
 	audience     string // empty leaves out the audience restriction
 	notBefore    time.Time
 	notOnOrAfter time.Time
+	issueInstant time.Time // when the identity provider issued the assertion
 	nameID       string
 	groups       []string // nil leaves out the attribute statement
 	status       string
@@ -154,6 +155,7 @@ func newTestSAMLResponse(requestID string) testSAMLResponse {
 		audience:     testSSOEntityID,
 		notBefore:    now.Add(-time.Minute),
 		notOnOrAfter: now.Add(5 * time.Minute),
+		issueInstant: now,
 		nameID:       testSSOEmail,
 		groups:       []string{"Sales", "Developers"},
 		status:       samlSuccess,
@@ -171,7 +173,7 @@ func (tr testSAMLResponse) assertion() *etree.Element {
 	a.CreateAttr("xmlns:saml", samlAssertionNS)
 	a.CreateAttr("ID", "_"+rand.Text())
 	a.CreateAttr("Version", "2.0")
-	a.CreateAttr("IssueInstant", samlTime(time.Now()))
+	a.CreateAttr("IssueInstant", samlTime(tr.issueInstant))
 	a.CreateElement("saml:Issuer").SetText(tr.issuer)
 
 	subject := a.CreateElement("saml:Subject")
@@ -866,5 +868,39 @@ func TestSafeRedirectPath(t *testing.T) {
 				t.Errorf("safeRedirectPath(%q) = %q, want %q", tt.in, got, tt.want)
 			}
 		})
+	}
+}
+
+// A login the identity provider issued before the person's access was
+// revoked can't recreate a session afterwards; a later one can
+func TestSSOACSAfterRevoke(t *testing.T) {
+	newSSOTestEnv(t)
+	post := func(issuedAt time.Time) *httptest.ResponseRecorder {
+		t.Helper()
+		_, cookie := startSSOLogin(t, testLoginRedirect)
+		response := newTestSAMLResponse(openTestLoginState(t, cookie).RequestID)
+		response.issueInstant = issuedAt
+		form := url.Values{"SAMLResponse": {response.encode(t)}}
+		req := httptest.NewRequest(http.MethodPost, SSOACSPath, strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.AddCookie(cookie)
+		rec := httptest.NewRecorder()
+		HandleSSOACS(rec, req)
+		return rec
+	}
+
+	issuedBefore := time.Now()
+	GlobalSessionStorage.DeleteUser(testSSOEmail)
+	rec := post(issuedBefore)
+	if got := rec.Header().Get("Location"); got != wantSSOError {
+		t.Errorf("login issued before the revoke: Location = %q, want %q", got, wantSSOError)
+	}
+	if findCookie(rec.Result().Cookies(), "session") != nil {
+		t.Error("login issued before the revoke got a session")
+	}
+
+	rec = post(time.Now().Add(2 * revokedLoginLeeway))
+	if got := rec.Header().Get("Location"); got != testLoginRedirect || findCookie(rec.Result().Cookies(), "session") == nil {
+		t.Errorf("login issued after the revoke: Location = %q, want %q and a session", got, testLoginRedirect)
 	}
 }

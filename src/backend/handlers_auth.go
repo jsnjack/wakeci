@@ -272,7 +272,7 @@ func HandleSSOACS(w http.ResponseWriter, r *http.Request) {
 		requestID, redirect = login.RequestID, login.Redirect
 	}
 
-	email, err := GlobalSSOAuth.VerifyResponse(r.PostForm.Get("SAMLResponse"), requestID)
+	email, issuedAt, err := GlobalSSOAuth.VerifyResponse(r.PostForm.Get("SAMLResponse"), requestID)
 	switch {
 	case errors.Is(err, errSSOUnsolicited):
 		// Opened from the identity provider (e.g. the Google apps menu), so
@@ -290,7 +290,14 @@ func HandleSSOACS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c, err := GlobalSessionStorage.New(r, SSOSessionTTL, email)
+	c, err := GlobalSessionStorage.NewSSO(r, SSOSessionTTL, email, issuedAt)
+	if errors.Is(err, errLoginRevoked) {
+		// A fresh login, issued after the revoke, still works unless the
+		// identity provider stopped the account
+		logger.Warn("sso login: issued before the person's access was revoked", "email", email)
+		redirectToLoginError(w, r, loginErrorSSO, redirect)
+		return
+	}
 	if err != nil {
 		logger.Error("create session", "err", err)
 		w.WriteHeader(http.StatusInternalServerError)
