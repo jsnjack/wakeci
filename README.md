@@ -167,6 +167,36 @@ make runf
 make runb
 ```
 
+#### End-to-end tests
+
+The Playwright suite runs against isolated production backends in parallel.
+It requires Google Chrome. Each worker gets a temporary database, job directory,
+test secrets, and an available port; it does not use your running server.
+
+```bash
+make testprod                             # build, then run the full E2E suite
+make testprod E2E_ARGS="--workers=4"       # choose the worker count
+make testprod E2E_ARGS="e2e/feed.spec.js"  # run one spec
+make testdev                              # run with visible browsers
+make check                                # full project validation, including E2E
+
+# After building, rerun tests without rebuilding:
+cd src/frontend
+npm test
+npm run test:open                         # interactive Playwright UI
+npx playwright show-report                # inspect the last HTML report
+```
+
+The default worker count is half the available CPUs, capped at ten. On a Ryzen
+AI 9 HX PRO 370 with 24 CPU threads, ten workers had the fastest measured median
+(13.7 seconds over nine full-suite runs); twelve took 15.3 seconds and twenty-four
+took 17.9 seconds.
+
+Tests retain screenshots, browser traces, and backend logs on failure in
+`src/frontend/test-results/`. To use Playwright's Chromium instead of Chrome,
+install it explicitly with `npx playwright install chromium` and run with
+`E2E_BROWSER_CHANNEL=chromium`.
+
 #### Update all outdated npm packages
 
 ```bash

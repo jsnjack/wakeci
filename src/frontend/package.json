@@ -8,10 +8,10 @@
         "build": "vite build",
         "lint": "eslint --ext .js,.vue --ignore-path .gitignore --fix src",
         "format": "prettier .  --write",
-        "test": "cypress run --browser=chrome --headless --config-file=cypress_prod.js",
-        "test:prod": "cypress run --browser=chrome --headless --config-file=cypress_prod.js",
-        "test:dev": "cypress run --browser=chrome --headless --config-file=cypress_dev.js",
-        "test:open": "cypress open --config-file=cypress_dev.js"
+        "test": "playwright test",
+        "test:prod": "playwright test",
+        "test:dev": "playwright test --headed",
+        "test:open": "playwright test --ui"
     },
     "dependencies": {
         "@codemirror/lang-yaml": "^6.1.3",
@@ -22,7 +22,6 @@
         "axios": "^1.21.0",
         "beercss": "^5.0.3",
         "codemirror": "^6.0.2",
-        "cypress": "^16.2.1",
         "eslint": "^10.13.0",
         "eslint-config-prettier": "^10.1.8",
         "eslint-plugin-vue": "^10.12.0",
@@ -37,5 +36,8 @@
         "vue-codemirror": "^6.1.1",
         "vue-router": "^5.4.0",
         "vuex": "^4.1.0"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.64.1"
     }
 }
