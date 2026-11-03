@@ -796,10 +796,13 @@ func buildJob(id int) (string, int, error) {
 }
 
 // rejectUnsafeParams refuses run parameters that reference a secret or hold
-// a line break or NUL. Run parameters go through injectSecrets, so without
-// the first a run key could send any secret wherever the job sends that
-// parameter; a line break would let it add variables, e.g. BASH_ENV, when a
-// job writes the parameter into build.env.
+// a quote, line break or NUL. Run parameters go through injectSecrets, so
+// without the first a run key could send any secret wherever the job sends
+// that parameter. The others would let it add variables, e.g. BASH_ENV, when
+// a job writes the parameter into build.env: godotenv starts a new variable
+// after a quoted value on the same line (TARGET="a" BASH_ENV=...), and
+// without quotes it reads the rest of the line as one value. The backtick is
+// a quote to some dotenv parsers.
 func rejectUnsafeParams(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := requestLogger(r)
@@ -814,10 +817,10 @@ func rejectUnsafeParams(next http.Handler) http.Handler {
 					"Parameter "+name+" references a secret, which isn't allowed with an API key")
 				return
 			}
-			if slices.ContainsFunc(values, func(v string) bool { return strings.ContainsAny(v, "\r\n\x00") }) {
-				logger.Warn("api key run parameter has a line break or NUL", "param", name)
+			if slices.ContainsFunc(values, func(v string) bool { return strings.ContainsAny(v, "\"'`\r\n\x00") }) {
+				logger.Warn("api key run parameter has a quote, line break or NUL", "param", name)
 				writePlainText(w, logger, http.StatusBadRequest,
-					"Parameter "+name+" has a line break or NUL, which isn't allowed with an API key")
+					"Parameter "+name+" has a quote, line break or NUL, which isn't allowed with an API key")
 				return
 			}
 		}

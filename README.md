@@ -147,8 +147,8 @@ covers all jobs: jobs run commands on the server, so a key that can edit one
 can reach everything wakeci can. The job list and the feed only show the key's
 jobs. Keys never open the settings, key management, login or the websocket.
 Run parameters sent with a key can't reference a secret (`{{ secrets.NAME }}`)
-or contain line breaks, and in builds a key starts, `build.env` values aren't
-turned into secrets. A `run` key still chooses the job's parameters, so treat
+or contain quotes or line breaks, and in builds a key starts, `build.env`
+values aren't turned into secrets. A `run` key still chooses the job's parameters, so treat
 them as untrusted input: quote them, and don't let one pick where a job sends
 a secret, such as the URL a token is posted to.
 

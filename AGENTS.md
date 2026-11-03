@@ -234,10 +234,13 @@ AGENTS.universal.md for the general contract.
   API call. Tokens are `wk_<id>_<secret>`: the ID is public (list, logs,
   revoke), and only the hash of the secret is stored.
 - **API keys can't send run parameters that reference a secret or hold a
-  line break or NUL** (`rejectUnsafeParams`). Run parameters go through
-  `injectSecrets`, so a run key could otherwise send any secret wherever the
-  job sends that parameter; a line break would let it add variables such as
-  `BASH_ENV` to `build.env` through the documented `echo "NAME=$VALUE"`. In
+  quote, line break or NUL** (`rejectUnsafeParams`). Run parameters go
+  through `injectSecrets`, so a run key could otherwise send any secret
+  wherever the job sends that parameter. A line break, or a quote on one
+  line, would let it add variables such as `BASH_ENV` to `build.env` through
+  the documented `echo "NAME=$VALUE"`: godotenv starts a new variable after
+  a quoted value (`TARGET="a" BASH_ENV=...`). Without quotes it reads the
+  rest of the line as one value, checked for godotenv v1.5.1. In
   builds a key starts (`Build.startedWithAPIKey`, passed to `CreateBuild`
   because it starts the `on_pending` tasks), `build.env` values skip
   `injectSecrets`, because godotenv expands variables and a job can rewrite a
