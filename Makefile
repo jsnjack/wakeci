@@ -43,36 +43,16 @@ test_go:
 
 test: test_go
 
-E2E_PORT := 18081
+E2E_ARGS ?=
 
-.ONESHELL:
-testprod: test_go build
-	set -e
-	TMPDIR=$$(mktemp -d)
-	mkdir -p $$TMPDIR/workdir $$TMPDIR/jobdir
-	echo "port: \"$(E2E_PORT)\"" > $$TMPDIR/Wakefile.yaml
-	echo "workdir: $$TMPDIR/workdir" >> $$TMPDIR/Wakefile.yaml
-	echo "jobdir: $$TMPDIR/jobdir" >> $$TMPDIR/Wakefile.yaml
-	echo "secretsfile: $(PWD)/secrets.yaml" >> $$TMPDIR/Wakefile.yaml
-	cleanup() {
-		code=$$?
-		kill $$WAKECI_PID 2>/dev/null
-		if [ $$code -ne 0 ]; then
-			echo "==> e2e run failed - backend trace log (/tmp/wakeci.log):"
-			tail -n 150 /tmp/wakeci.log 2>/dev/null
-		fi
-		rm -rf $$TMPDIR
-	}
-	./bin/wakeci --config $$TMPDIR/Wakefile.yaml --trace &
-	WAKECI_PID=$$!
-	trap cleanup EXIT
-	for i in $$(seq 1 40); do curl -sf http://localhost:$(E2E_PORT)/ >/dev/null 2>&1 && break; sleep 0.25; done
-	cd src/frontend && WAKECI_E2E_PORT=$(E2E_PORT) npm run test:prod
+testprod: build
+	cd src/frontend && npm run test:prod -- $(E2E_ARGS) && echo "Open the HTML report from the repository root: make testreport"
 
-# testdev assumes `make runf` and `make runb` are already running in separate
-# terminals; it is a manual/interactive dev-loop tool, not isolated e2e.
-testdev: test_go
-	cd src/frontend && npm run test:dev
+testdev: build
+	cd src/frontend && npm run test:dev -- $(E2E_ARGS)
+
+testreport:
+	cd src/frontend && npm run test:report -- $(E2E_ARGS)
 
 vet:
 	cd src/backend && go vet ./...
@@ -125,4 +105,4 @@ viewdb:
 	cp wakeci.db view.db
 	bolter -f view.db
 
-.PHONY: runb runf version clean clean_jobs testprod testdev test_go test vet fmt lint check standards buildf build release
+.PHONY: runb runf version clean clean_jobs testprod testdev testreport test_go test vet fmt lint check standards buildf build release

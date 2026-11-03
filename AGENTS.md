@@ -48,7 +48,8 @@ src/frontend/                Vue 3 + Vite SPA
   src/views/                 Pages (feed, job editor, build view, settings, docs)
   src/components/            Shared Vue components
   src/store/                 Vuex store
-  cypress/                   E2E tests (npm run test:dev / test:prod)
+  e2e/                       Playwright E2E tests and isolated backend fixtures
+  playwright.config.js       Parallel workers, Chrome, failure traces/screenshots
 ```
 
 ---
@@ -93,11 +94,28 @@ make build      # frontend (vite) + backend (swag docs + go build), outputs bin/
 make runf       # frontend dev server (npm run serve)
 make runb       # backend, rebuilt and restarted on *.go change (entr)
 make test       # backend unit tests (alias for test_go)
-make check      # fmt, vet, build, test, lint, isolated production E2E tests
+make check      # fmt, vet, build, test, lint, isolated parallel production E2E tests
+make testprod   # build once, then run Playwright E2E tests in parallel
+make testdev    # build once, then run the isolated E2E suite with visible browsers
+make testreport # open the last E2E HTML report from the repository root
 ```
 
 Smoke test: `./bin/wakeci --config Wakefile.yaml` then open
 `http://localhost:8081` (default password `admin`).
+
+E2E tests use installed Google Chrome by default. Each Playwright worker starts
+its own backend on an available port with a temporary database, job directory,
+and test secrets. Tests use separate browser contexts and unique files/job names;
+the fixture waits for the file watcher to register new jobs, removes jobs, and
+aborts unfinished builds after each test. Browser sessions for login/settings
+tests are separate from the worker's API session.
+Use `make testprod E2E_ARGS="--workers=4"` to set the worker count, or
+`E2E_ARGS="e2e/feed.spec.js"` to run selected specs. Direct `npm test` runs use
+the existing `bin/wakeci`; rebuild first after application changes. The default
+worker count is half the available CPUs, capped at ten. Failure artifacts go
+to `src/frontend/test-results/`; the HTML report goes to
+`src/frontend/playwright-report/`. Worker logs use `--debug` and private files,
+because `--trace` would make concurrent backends overwrite `/tmp/wakeci.log`.
 
 ---
 

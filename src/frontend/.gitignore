@@ -20,5 +20,6 @@ yarn-error.log*
 *.sln
 *.sw?
 
-# Cypress
-*cypress/screenshots/*
+# Playwright
+/test-results/
+/playwright-report/
