@@ -179,12 +179,13 @@ make testprod E2E_ARGS="--workers=4"       # choose the worker count
 make testprod E2E_ARGS="e2e/feed.spec.js"  # run one spec
 make testdev                              # run with visible browsers
 make check                                # full project validation, including E2E
+make testreport                           # open the last HTML report from the repo root
 
 # After building, rerun tests without rebuilding:
 cd src/frontend
 npm test
 npm run test:open                         # interactive Playwright UI
-npx playwright show-report                # inspect the last HTML report
+npm run test:report                       # inspect the last HTML report
 ```
 
 The default worker count is half the available CPUs, capped at ten. On a Ryzen

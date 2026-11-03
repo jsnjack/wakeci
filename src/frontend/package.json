@@ -11,7 +11,8 @@
         "test": "playwright test",
         "test:prod": "playwright test",
         "test:dev": "playwright test --headed",
-        "test:open": "playwright test --ui"
+        "test:open": "playwright test --ui",
+        "test:report": "playwright show-report"
     },
     "dependencies": {
         "@codemirror/lang-yaml": "^6.1.3",

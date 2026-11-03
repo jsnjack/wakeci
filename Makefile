@@ -46,10 +46,13 @@ test: test_go
 E2E_ARGS ?=
 
 testprod: build
-	cd src/frontend && npm run test:prod -- $(E2E_ARGS)
+	cd src/frontend && npm run test:prod -- $(E2E_ARGS) && echo "Open the HTML report from the repository root: make testreport"
 
 testdev: build
 	cd src/frontend && npm run test:dev -- $(E2E_ARGS)
+
+testreport:
+	cd src/frontend && npm run test:report -- $(E2E_ARGS)
 
 vet:
 	cd src/backend && go vet ./...
@@ -102,4 +105,4 @@ viewdb:
 	cp wakeci.db view.db
 	bolter -f view.db
 
-.PHONY: runb runf version clean clean_jobs testprod testdev test_go test vet fmt lint check standards buildf build release
+.PHONY: runb runf version clean clean_jobs testprod testdev testreport test_go test vet fmt lint check standards buildf build release
