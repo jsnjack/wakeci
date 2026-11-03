@@ -50,7 +50,9 @@ test("should escape HTML in a job name shown in notifications", async ({ page, w
     await createJob(page, name);
     await row(page, prefix).getByTestId("run-job-button").click();
     await row(page, prefix).getByTestId("start-job-confirm").click();
-    await expect(page.locator(".notification-content").last()).toContainText("has been scheduled");
+    const notification = page.locator(".notification-content").filter({ hasText: "has been scheduled" });
+    await expect(notification).toContainText(`${name} has been scheduled`);
+    await expect(notification.locator("img")).toHaveCount(0);
     expect(await page.evaluate(() => window.__xssTriggered)).toBeUndefined();
 });
 

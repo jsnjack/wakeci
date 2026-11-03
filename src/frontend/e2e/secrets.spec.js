@@ -19,4 +19,8 @@ tasks:
     await expect(page.locator("body")).toContainText("my API key is ***REDACTED***");
     await expect(page.locator("body")).toContainText("and from env ***REDACTED***");
     await expect(page.locator("body")).toContainText("Unknown secret <no value>");
+    const logs = page.locator(".log-line");
+    await expect(logs).toContainText(/^\[[^\]\n]+\] My secret is \*\*\*REDACTED\*\*\*/m);
+    await expect(logs).not.toContainText("test1");
+    await expect(logs).not.toContainText("test2");
 });
