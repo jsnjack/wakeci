@@ -70,6 +70,16 @@ test("should reset websocket failures after logging in again", async ({ page }) 
     await page.getByTestId("logout").click();
     await expect(page).toHaveURL(/\/login/);
     await login(page);
+    await expect(page).toHaveURL(/\/$/);
+    const loginRedirects = [];
+    page.on("framenavigated", (frame) => {
+        if (frame === page.mainFrame() && new URL(frame.url()).pathname === "/login") {
+            loginRedirects.push(frame.url());
+        }
+    });
+    const attempts = await page.evaluate(() => window.__wsAttempts);
     await page.evaluate(() => window.__pendingWebSocket.emit("close", {}));
+    await expect.poll(() => page.evaluate(() => window.__wsAttempts)).toBe(attempts + 1);
+    expect(loginRedirects).toEqual([]);
     await expect(page).toHaveURL(/\/$/);
 });

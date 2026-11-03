@@ -14,6 +14,17 @@ function row(page, name) {
         .filter({ hasText: name });
 }
 
+async function deleteJob(page, name) {
+    const job = page.getByTestId(name);
+    await job.getByTestId("delete-job-button").click();
+    const refreshed = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/jobs/" && response.request().method() === "GET");
+    await job.getByTestId("delete-job-confirm").click();
+    const response = await refreshed;
+    expect(response.status()).toBe(200);
+    expect(((await response.json()) || []).map((item) => item.name)).not.toContain(name);
+    await expect(job).toHaveCount(0);
+}
+
 test("should handle API network errors without crashing", async ({ page }) => {
     await page.route("**/api/jobs/", (route) => route.abort());
     await page.goto("/jobs");
@@ -38,9 +49,7 @@ test("should delete a job", async ({ page }) => {
     await page.goto("/jobs");
     await createJob(page, name);
     await expect(page.getByTestId(name)).toBeVisible();
-    await page.getByTestId(name).getByTestId("delete-job-button").click();
-    await page.getByTestId(name).getByTestId("delete-job-confirm").click();
-    await expect(page.getByTestId(name)).toHaveCount(0);
+    await deleteJob(page, name);
 });
 
 test("should escape HTML in a job name shown in notifications", async ({ page, wake }) => {
@@ -62,15 +71,19 @@ test("should handle reserved URL characters in a job name", async ({ page, wake 
     await row(page, name).getByTestId("run-job-button").click();
     await row(page, name).getByTestId("start-job-confirm").click();
     await expect(page.locator(".notification-content")).toContainText(`${name} has been scheduled`);
+    const build = page.locator(".notification-content a[href^='/build/']");
+    await expect(build).toHaveAttribute("href", /^\/build\/\d+\/$/);
+    await build.click();
+    await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
+    await expect(page.locator("[data-cy-status]").first()).toHaveAttribute("data-cy-status", "finished");
+    await page.goto("/jobs");
     await row(page, name).getByTestId("edit-job-button").click();
     await expect(page).toHaveURL(`${wake.url}/job/${encodeURIComponent(name)}`);
     await expect(page.locator("[data-cy=editor] .cm-content")).toContainText("desc: New job");
     await page.getByTestId("save-button").click();
     await expect(page.locator(".notification-content").last()).toContainText("Saved");
     await page.goto("/jobs");
-    await row(page, name).getByTestId("delete-job-button").click();
-    await row(page, name).getByTestId("delete-job-confirm").click();
-    await expect(row(page, name)).toHaveCount(0);
+    await deleteJob(page, name);
 });
 
 test("should edit a job", async ({ page, wake }) => {
