@@ -559,3 +559,22 @@ func TestRunTaskConditionOutcomes(t *testing.T) {
 		})
 	}
 }
+
+// TestWaitForConditionEndsAsTimeoutFires is a regression test: when the
+// condition exited 0 just as the timer fired, waitForCondition reported a
+// timeout with a nil error, and checkCondition panicked on condErr.Error()
+func TestWaitForConditionEndsAsTimeoutFires(t *testing.T) {
+	build := &Build{Logger: L}
+	for i := 0; i < 100; i++ {
+		command := exec.Command("bash", "-c", "true")
+		if err := command.Start(); err != nil {
+			t.Fatalf("start condition: %v", err)
+		}
+		// Let it exit, so both the timer and Wait are ready at once
+		time.Sleep(5 * time.Millisecond)
+		timedOut, _, err := build.waitForCondition(command, 1, 0, nil, func() {})
+		if timedOut && err == nil {
+			t.Fatal("timedOut with a nil error: the condition finished, it didn't time out")
+		}
+	}
+}

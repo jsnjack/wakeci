@@ -485,7 +485,12 @@ func (b *Build) waitForCondition(condCmd *exec.Cmd, taskID int, timeout time.Dur
 	if err := condCmd.Process.Kill(); err != nil {
 		b.Logger.Log(context.Background(), LevelTrace, "kill condition process", "task", taskID, "err", err)
 	}
-	return timedOut, aborted, <-waitDone
+	err = <-waitDone
+	// The condition exited on its own just as the timer fired
+	if timedOut && err == nil {
+		return false, false, nil
+	}
+	return timedOut, aborted, err
 }
 
 // Generate default set of environmental variables that are injected before
