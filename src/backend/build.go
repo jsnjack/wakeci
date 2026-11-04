@@ -753,14 +753,13 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 			if err != nil {
 				b.Logger.Error("parse job timeout", "timeout", b.Job.Timeout, "err", err)
 			} else {
-				b.timer = time.NewTimer(duration)
-				go func() {
-					<-b.timer.C
+				// AfterFunc leaves no goroutine behind when Cleanup stops it
+				b.timer = time.AfterFunc(duration, func() {
 					b.Logger.Warn("build timed out", "build", b.ID)
 					if abortErr := GlobalQueue.Abort(b.ID, StatusTimedOut); abortErr != nil {
 						b.Logger.Error("abort timed out build", "build", b.ID, "err", abortErr)
 					}
-				}()
+				})
 			}
 		}
 		b.runOnStatusTasks(status)

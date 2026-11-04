@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -507,5 +508,30 @@ func TestAbortBuildThroughAPI(t *testing.T) {
 	}
 	if workspaceHas(build, "main") {
 		t.Error("main task ran after the abort")
+	}
+}
+
+// TestTimeoutTimerLeavesNoGoroutine is a regression test: the goroutine that
+// waited for the job timeout blocked forever once Cleanup stopped the timer
+func TestTimeoutTimerLeavesNoGoroutine(t *testing.T) {
+	build := abortTestBuild(t, &Job{Name: "timer-leak", Timeout: "1h", Tasks: []*Task{
+		{ID: 0, Command: "true", Kind: KindMain},
+	}})
+	build.Start()
+	if build.Status != StatusFinished {
+		t.Fatalf("build status = %q, want %q", build.Status, StatusFinished)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		buf := make([]byte, 1<<20)
+		stacks := string(buf[:runtime.Stack(buf, true)])
+		if !strings.Contains(stacks, "SetBuildStatus.func") {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("a timeout goroutine is still waiting:\n%s", stacks)
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
