@@ -535,3 +535,34 @@ func TestTimeoutTimerLeavesNoGoroutine(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 }
+
+// TestFlushLogsDuringCondition is a regression test: flush requests were read
+// only while a command ran, so the log of a task waiting in its `if`
+// condition stayed empty
+func TestFlushLogsDuringCondition(t *testing.T) {
+	build := abortTestBuild(t, &Job{Name: "flush-condition", Tasks: []*Task{
+		{ID: 0, If: "touch started; sleep 10", Command: "true", Kind: KindMain},
+	}})
+	done := startBuild(build)
+	waitForFile(t, build, "started")
+
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		if err := GlobalQueue.FlushLogs(build.ID); err != nil {
+			t.Fatalf("FlushLogs: %v", err)
+		}
+		log, err := os.ReadFile(build.taskLogPath(0))
+		if err == nil && strings.Contains(string(log), "> Checking `if` condition") {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Errorf("task log = %q after flushing, want the condition line", log)
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if err := GlobalQueue.Abort(build.ID, StatusAborted); err != nil {
+		t.Fatalf("Abort: %v", err)
+	}
+	waitDone(t, done, 2*time.Second)
+}

@@ -430,7 +430,12 @@ func (b *Build) checkCondition(task *Task, kind, expr, script string, env []stri
 		)
 		return StatusFailed
 	}
-	condTimedOut, condAborted, condErr := b.waitForCondition(condCmd, task.ID, WHEN_EVAL_TIMEOUT*time.Second, abort.c)
+	flush := func() {
+		if err := bw.Flush(); err != nil {
+			b.Logger.Error("flush task log", "task", task.ID, "err", err)
+		}
+	}
+	condTimedOut, condAborted, condErr := b.waitForCondition(condCmd, task.ID, WHEN_EVAL_TIMEOUT*time.Second, abort.c, flush)
 	if condAborted {
 		reason := abort.stopped()
 		b.logAbort(reason, bw, task)
@@ -455,8 +460,9 @@ func (b *Build) checkCondition(task *Task, kind, expr, script string, env []stri
 }
 
 // waitForCondition waits for the condition command. It kills the command
-// when timeout passes (timedOut) or abort is closed (aborted)
-func (b *Build) waitForCondition(condCmd *exec.Cmd, taskID int, timeout time.Duration, abort <-chan struct{}) (timedOut, aborted bool, err error) {
+// when timeout passes (timedOut) or abort is closed (aborted), and calls
+// flush when the log is asked to be flushed meanwhile
+func (b *Build) waitForCondition(condCmd *exec.Cmd, taskID int, timeout time.Duration, abort <-chan struct{}, flush func()) (timedOut, aborted bool, err error) {
 	waitDone := make(chan error, 1)
 	go func() {
 		waitDone <- condCmd.Wait()
@@ -464,13 +470,17 @@ func (b *Build) waitForCondition(condCmd *exec.Cmd, taskID int, timeout time.Dur
 
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
-	select {
-	case err := <-waitDone:
-		return false, false, err
-	case <-timer.C:
-		timedOut = true
-	case <-abort:
-		aborted = true
+	for !timedOut && !aborted {
+		select {
+		case err := <-waitDone:
+			return false, false, err
+		case <-timer.C:
+			timedOut = true
+		case <-abort:
+			aborted = true
+		case <-b.flushChannel:
+			flush()
+		}
 	}
 	if err := condCmd.Process.Kill(); err != nil {
 		b.Logger.Log(context.Background(), LevelTrace, "kill condition process", "task", taskID, "err", err)

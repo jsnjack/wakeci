@@ -224,7 +224,7 @@ func TestWaitForCondition(t *testing.T) {
 			}
 			build := &Build{Logger: L}
 			start := time.Now()
-			timedOut, aborted, err := build.waitForCondition(command, 1, tt.timeout, tt.abort)
+			timedOut, aborted, err := build.waitForCondition(command, 1, tt.timeout, tt.abort, func() {})
 			if timedOut != tt.wantTimedOut {
 				t.Errorf("timedOut = %t, want %t", timedOut, tt.wantTimedOut)
 			}
