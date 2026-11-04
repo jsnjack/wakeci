@@ -72,7 +72,10 @@ src/frontend/                Vue 3 + Vite SPA
    `go-cmd`, streaming stdout/stderr into `task_N.log` (in the build's
    wakespace dir) through `ProcessLogEntry`, which also broadcasts lines to
    subscribed WebSocket clients. This log path is independent of the
-   application's own diagnostic logging (see Gotchas).
+   application's own diagnostic logging (see Gotchas). An abort (the API or
+   the job `timeout`) goes through `Queue.Abort` to `Build.requestAbort`,
+   which closes the channel of the build's current `abortScope`; `runTask`,
+   the condition wait, `runOnStatusTasks` and `Start` all check it.
 5. **Login**: the password form posts to `/auth/login`. Single sign-on is a
    SAML 2.0 SP-initiated flow: `/auth/sso/login` redirects to the identity
    provider with an AuthnRequest and sets a signed login-state cookie holding
@@ -264,6 +267,17 @@ AGENTS.universal.md for the general contract.
   suspended account, or one removed from the allowed groups, keeps access.
   It is not a hard revocation, since any logged-in user can change the
   password or schedule jobs.
+- **An abort is a closed channel, not a send.** The build spends time
+  outside a running command (setup, `when`/`if` checks, between tasks,
+  hooks), so a signal sent to whoever listens at that moment was lost, and
+  a blocking send froze the queue. A closed channel stays readable and
+  closing never blocks. Each group of tasks gets a fresh scope
+  (`nextAbortScope`) only if the previous one was aborted, so the abort that
+  stopped the main tasks doesn't also stop `on_aborted`, `finally` always
+  runs, and an abort that arrives between two groups stops the next one.
+  A build aborted while queued moves to `Queue.aborting`: it can't be
+  started and holds no concurrency slot, but `Abort` still reaches its
+  `on_aborted` and `finally` tasks.
 - **fsnotify watcher and the port-80 redirect listener never crash the
   server.** Both run in the background after the server is already serving
   traffic; setup or runtime failures there are logged and the feature

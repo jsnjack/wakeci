@@ -67,3 +67,30 @@ timeout: 1s
     await page.getByTestId("reload").nth(1).click();
     await expect(page.locator("body")).toContainText("BONGO");
 });
+
+test("should time out a build while a task checks its condition", async ({ page, wake }) => {
+    const name = await wake.createJob(`
+desc: Timeout in a condition
+tasks:
+  - name: First
+    run: "true"
+  - name: Wait in the condition
+    if: sleep 30
+    run: echo SHOULD-NOT-RUN
+on_aborted:
+  - name: Aborted
+    run: echo BONGO
+timeout: 1s
+`);
+    const id = await wake.runJob(name);
+    await wake.waitForBuild(id, "timed out");
+    await wake.livePage(`/build/${id}`);
+    await expect(page.locator("[data-cy-status]").first()).toHaveAttribute("data-cy-status", "timed out");
+    await expect(page.locator("[data-cy-status]")).toHaveCount(4);
+    await expect(page.locator("[data-cy-status]").nth(2)).toHaveAttribute("data-cy-status", "timed out");
+    await page.getByTestId("reload").nth(1).click();
+    await page.getByTestId("reload").nth(2).click();
+    await expect(page.locator("body")).toContainText("> Timed out.");
+    await expect(page.locator("body")).toContainText("BONGO");
+    await expect(page.locator("body")).not.toContainText("SHOULD-NOT-RUN");
+});

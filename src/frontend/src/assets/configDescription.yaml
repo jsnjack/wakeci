@@ -70,6 +70,9 @@ interval: "@daily"
 
 # Abort the job if it takes more than specified amount of time to finish
 # Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
+# The time counts from the start of the `on_running` tasks until the build
+# ends, `finally` tasks included. A timeout works like an abort (see below);
+# when it stops the main tasks, the build status is `timed out`
 timeout: 5m30s
 
 # Adjust build position in the queue
@@ -87,6 +90,14 @@ concurrency: 0
 #  - `on_failed` - when the status of the build changes to `failed`
 #  - `on_finished` - when the status of the build changes to `finished`
 # Note: If one of the commands failed, it doesn't fail the whole build
+#
+# An abort (by a user or the `timeout`) stops the task that runs, including a
+# `when` or `if` check, and is kept until the build acts on it:
+#  - while the build is queued or in `on_running` and main tasks: no more of
+#    them run, the build is `aborted` and the `on_aborted` tasks run
+#  - in `on_finished`, `on_failed` or `on_aborted` tasks: the rest of that
+#    group is skipped and the build keeps its status
+#  - `finally` tasks run in every case; an abort during them skips the rest
 on_pending:
   - name: Log a call
     run: logger "Looking for a suitable cow"
