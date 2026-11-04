@@ -55,8 +55,14 @@ func HandleWakespaceResource(h http.Handler) http.Handler {
 		*r2 = *r
 		r2.URL = new(url.URL)
 		*r2.URL = *r.URL
-		r2.URL.Path = strings.TrimPrefix(r.URL.Path, "/storage/build/")
+		r2.URL.Path = wakespacePath(r)
 		logger.Debug("storage rewrite", "from", r.URL.Path, "to", r2.URL.Path)
 		h.ServeHTTP(w, r2)
 	})
+}
+
+// wakespacePath returns the path in the wakespace dir that a storage request
+// asks for
+func wakespacePath(r *http.Request) string {
+	return strings.TrimPrefix(r.URL.Path, "/storage/build/")
 }

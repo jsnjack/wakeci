@@ -24,6 +24,15 @@
             </router-link>
             <router-link
                 v-if="auth.isLoggedIn"
+                to="/keys"
+                class="button circle transparent m l"
+                data-cy="nav-keys"
+            >
+                <div class="tooltip bottom">API keys</div>
+                <i>key</i>
+            </router-link>
+            <router-link
+                v-if="auth.isLoggedIn"
                 to="/settings"
                 class="button circle transparent m l"
             >

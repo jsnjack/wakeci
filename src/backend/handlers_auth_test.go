@@ -38,7 +38,7 @@ func newAuthTestEnv(t *testing.T) {
 	originalSessions := GlobalSessionStorage
 	originalLimiter := globalAuthAttemptLimiter
 	DB = db
-	GlobalSessionStorage = &SessionStorage{sessions: make(map[string]time.Time)}
+	GlobalSessionStorage = &SessionStorage{sessions: make(map[string]session)}
 	globalAuthAttemptLimiter = newAuthAttemptLimiter(2, time.Minute, time.Minute)
 	t.Cleanup(func() {
 		if err := db.Close(); err != nil {
@@ -115,7 +115,7 @@ func TestHandleLogOutClearsCookieWithSessionAttributes(t *testing.T) {
 	Config = &WakeConfig{Port: "8081"}
 	t.Cleanup(func() { Config = originalConfig })
 
-	GlobalSessionStorage.sessions["session-token"] = time.Now().Add(time.Hour)
+	GlobalSessionStorage.sessions["session-token"] = session{expires: time.Now().Add(time.Hour)}
 	req := httptest.NewRequest(http.MethodGet, "/auth/logout", nil)
 	req.Header.Set("X-Forwarded-Proto", "https")
 	req.AddCookie(&http.Cookie{Name: "session", Value: "session-token"})

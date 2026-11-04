@@ -6,6 +6,8 @@ import BuildView from "./views/BuildView.vue";
 import SettingsView from "./views/SettingsView.vue";
 import JobEditView from "./views/JobEditView.vue";
 import HelpView from "./views/HelpView.vue";
+import KeysView from "./views/KeysView.vue";
+import KeyCreateView from "./views/KeyCreateView.vue";
 
 import { requireAuth } from "./auth";
 
@@ -55,6 +57,18 @@ const router = createRouter({
             path: "/settings",
             name: "settings",
             component: SettingsView,
+            beforeEnter: requireAuth,
+        },
+        {
+            path: "/keys",
+            name: "keys",
+            component: KeysView,
+            beforeEnter: requireAuth,
+        },
+        {
+            path: "/keys/new",
+            name: "keyCreate",
+            component: KeyCreateView,
             beforeEnter: requireAuth,
         },
         {

@@ -124,6 +124,8 @@ type CommandLogData struct {
 type SettingsData struct {
 	ConcurrentBuilds int `json:"concurrentBuilds"`
 	BuildHistorySize int `json:"buildHistorySize"`
+	// Admin is true for the admin password, which alone may change it
+	Admin bool `json:"admin"`
 }
 
 // JobData used for editing a job

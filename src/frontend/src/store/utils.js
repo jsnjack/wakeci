@@ -133,3 +133,26 @@ export function generateRandomString(length) {
     }
     return result;
 }
+
+// matchJobPattern works like matchJobPattern on the server: * matches any run
+// of characters and every other character only itself
+export function matchJobPattern(pattern, name) {
+    const parts = pattern.split("*");
+    if (parts.length === 1) {
+        return pattern === name;
+    }
+    if (!name.startsWith(parts[0])) {
+        return false;
+    }
+    let rest = name.slice(parts[0].length);
+    // Taking each middle part at its first match leaves the most room for the
+    // ones after it
+    for (const part of parts.slice(1, -1)) {
+        const i = rest.indexOf(part);
+        if (i < 0) {
+            return false;
+        }
+        rest = rest.slice(i + part.length);
+    }
+    return rest.endsWith(parts[parts.length - 1]);
+}

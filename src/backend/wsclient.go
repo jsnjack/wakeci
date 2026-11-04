@@ -66,6 +66,10 @@ type Client struct {
 	SubscribedTo []string
 	Logger       *slog.Logger
 
+	// session is the session cookie the connection was opened with, empty
+	// for Basic auth. The hub closes the connection when the session ends.
+	session string
+
 	mu deadlock.Mutex
 }
 
@@ -269,6 +273,7 @@ func HandleWS(w http.ResponseWriter, r *http.Request) {
 		send:         make(chan []byte, 1024),
 		SubscribedTo: []string{},
 		Logger:       L.With("logID", logID, "host", host),
+		session:      wsSession(r),
 	}
 	client.hub.register <- client
 
@@ -276,4 +281,17 @@ func HandleWS(w http.ResponseWriter, r *http.Request) {
 	// new goroutines.
 	go client.writePump()
 	go client.readPump()
+}
+
+// wsSession returns the session a WebSocket is opened with: the session
+// cookie, unless AuthMi let it in with Basic auth, which it checks first
+func wsSession(r *http.Request) string {
+	if _, _, ok := r.BasicAuth(); ok {
+		return ""
+	}
+	cookie, err := r.Cookie("session")
+	if err != nil {
+		return ""
+	}
+	return cookie.Value
 }

@@ -23,11 +23,15 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request) {
 		logger = L
 	}
 
+	apiKey := apiKeyFromContext(r.Context())
 	var data []*JobsListData
 	err := DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(JobsBucket))
 		c := b.Cursor()
 		for key, _ := c.First(); key != nil; key, _ = c.Next() {
+			if apiKey != nil && !apiKey.CoversJob(string(key)) {
+				continue
+			}
 			job := JobsListData{
 				Name: string(key),
 			}

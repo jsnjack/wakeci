@@ -29,6 +29,9 @@ var GlobalBucket = []byte("global")
 // HistoryBucket contains information about all executed builds
 var HistoryBucket = []byte("history")
 
+// APIKeysBucket contains API keys by ID, see storedAPIKey
+var APIKeysBucket = []byte("apikeys")
+
 // ByteToInt convert byte to int via string
 func ByteToInt(b []byte) (int, error) {
 	bs := string(b)

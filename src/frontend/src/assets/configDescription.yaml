@@ -59,6 +59,8 @@ tasks:
 #  - artifacts are collected only for builds with status `finished` or `failed`
 #  - `on_finished`, `on_failed` tasks are executed before artifacts are collected
 #  - `finally` tasks are executed after artifacts are collected
+#  - HTML artifacts open sandboxed: their scripts run and their own files load,
+#    but they can't call wakeci, open new windows or embed other pages
 artifacts:
   - "*.tar.gz"
 

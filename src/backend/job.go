@@ -66,7 +66,7 @@ func (j *Job) AddToCron() error {
 // Run is used to run a job via cron
 func (j *Job) Run() {
 	var params url.Values
-	build, err := RunJob(j.Name, params)
+	build, err := RunJob(j.Name, params, false)
 	if err != nil {
 		L.Error("schedule build via cron", "job", j.Name, "err", err)
 		return
@@ -301,7 +301,7 @@ func RemoveJobFromCron(name string) {
 }
 
 // RunJob creates a new build and schedules it for execution
-func RunJob(name string, params url.Values) (*Build, error) {
+func RunJob(name string, params url.Values, startedWithAPIKey bool) (*Build, error) {
 	// Check if job is enabled
 	err := DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(JobsBucket))
@@ -327,7 +327,7 @@ func RunJob(name string, params url.Values) (*Build, error) {
 	if err != nil {
 		return nil, err
 	}
-	build, err := CreateBuild(job, jobFile)
+	build, err := CreateBuild(job, jobFile, startedWithAPIKey)
 	if err != nil {
 		return nil, err
 	}
