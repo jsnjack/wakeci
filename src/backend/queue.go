@@ -10,8 +10,11 @@ import (
 
 // Queue represents queued and running builds
 type Queue struct {
-	queued           []*Build
-	running          []*Build
+	queued  []*Build
+	running []*Build
+	// aborting holds builds aborted while queued, until their on_aborted and
+	// finally tasks end. They hold no concurrency slot
+	aborting         []*Build
 	mutex            deadlock.Mutex
 	concurrentBuilds int
 }
@@ -122,24 +125,26 @@ func (q *Queue) Remove(id int) {
 			return
 		}
 	}
+	for i, ex := range q.aborting {
+		if ex.ID == id {
+			q.aborting = append(q.aborting[:i], q.aborting[i+1:]...)
+			return
+		}
+	}
 	L.Warn("build not found in queue", "build", id)
 }
 
-// Verify returns true if a build with provided id is queued or running
+// Verify returns true if a build with provided id is queued or running,
+// including the tasks of a queued abort
 func (q *Queue) Verify(id int) bool {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
-	for _, item := range q.running {
-		if item.ID == id {
-			return true
-		}
-	}
 	for _, item := range q.queued {
 		if item.ID == id {
 			return true
 		}
 	}
-	return false
+	return q.find(id) != nil
 }
 
 // Abort schedules build to be aborted. A running build records the request
@@ -147,27 +152,44 @@ func (q *Queue) Verify(id int) bool {
 // the tasks that run, whatever it is doing when the request arrives.
 func (q *Queue) Abort(id int, reason string) error {
 	q.mutex.Lock()
-	var running *Build
-	for _, item := range q.running {
-		if item.ID == id {
-			running = item
-			break
-		}
-	}
-	if running == nil {
-		for _, item := range q.queued {
+	build := q.find(id)
+	dequeued := false
+	if build == nil {
+		// Leave the queue under the lock, so Take can't start it
+		for i, item := range q.queued {
 			if item.ID == id {
-				q.mutex.Unlock()
-				go item.SetBuildStatus(StatusAborted)
-				return nil
+				build = item
+				q.queued = append(q.queued[:i], q.queued[i+1:]...)
+				q.aborting = append(q.aborting, build)
+				dequeued = true
+				break
 			}
 		}
-		q.mutex.Unlock()
-		return fmt.Errorf("Build %d not found in Q", id)
 	}
 	q.mutex.Unlock()
+	if build == nil {
+		return fmt.Errorf("Build %d not found in Q", id)
+	}
 
-	running.requestAbort(reason)
+	// Stops on_pending tasks of a queued build, too
+	build.requestAbort(reason)
+	if dequeued {
+		// Waits for the on_pending tasks, then runs on_aborted and finally
+		go build.SetBuildStatus(StatusAborted)
+	}
+	return nil
+}
+
+// find returns the build with id that is running or running the tasks of a
+// queued abort. The caller holds q.mutex
+func (q *Queue) find(id int) *Build {
+	for _, list := range [][]*Build{q.running, q.aborting} {
+		for _, item := range list {
+			if item.ID == id {
+				return item
+			}
+		}
+	}
 	return nil
 }
 
@@ -175,13 +197,7 @@ func (q *Queue) Abort(id int, reason string) error {
 // never blocks.
 func (q *Queue) FlushLogs(id int) error {
 	q.mutex.Lock()
-	var running *Build
-	for _, item := range q.running {
-		if item.ID == id {
-			running = item
-			break
-		}
-	}
+	running := q.find(id)
 	q.mutex.Unlock()
 	if running == nil {
 		return fmt.Errorf("Build is not running")

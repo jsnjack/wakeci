@@ -1,8 +1,10 @@
 package main
 
 import (
+	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -380,5 +382,130 @@ func TestAbortDuringHooks(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// queuedAbortBuild creates a build of job and adds it to a GlobalQueue that
+// runs nothing, so it stays queued
+func queuedAbortBuild(t *testing.T, job *Job) *Build {
+	t.Helper()
+	newTestBuildEnv(t)
+	oldQueue := GlobalQueue
+	GlobalQueue = &Queue{}
+	t.Cleanup(func() { GlobalQueue = oldQueue })
+	build, err := CreateBuild(job, filepath.Join(Config.JobDir, job.Name+".yaml"), false)
+	if err != nil {
+		t.Fatalf("CreateBuild: %v", err)
+	}
+	GlobalQueue.Add(build)
+	return build
+}
+
+// waitGone waits until the build leaves the queue, which Cleanup does last
+func waitGone(t *testing.T, build *Build) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for GlobalQueue.Verify(build.ID) {
+		if time.Now().After(deadline) {
+			t.Fatal("build never left the queue")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// TestAbortQueuedBuild is a regression test: aborting a queued build ran its
+// on_aborted tasks in the background but left it queued, so the queue could
+// still start it, and a running on_pending task wasn't stopped
+func TestAbortQueuedBuild(t *testing.T) {
+	build := queuedAbortBuild(t, &Job{Name: "abort-queued", Tasks: []*Task{
+		{ID: 0, Command: "touch pending; sleep 10", Kind: StatusPending},
+		{ID: 1, Command: "touch main", Kind: KindMain},
+		{ID: 2, Command: "echo x >> hook", Kind: StatusAborted},
+	}})
+	waitForFile(t, build, "pending")
+
+	start := time.Now()
+	if err := GlobalQueue.Abort(build.ID, StatusAborted); err != nil {
+		t.Fatalf("Abort: %v", err)
+	}
+	// Free a slot: the aborted build must not start
+	GlobalQueue.SetConcurrency(1)
+	waitGone(t, build)
+
+	if took := time.Since(start); took > 3*time.Second {
+		t.Errorf("abort took %v, want the on_pending task stopped promptly", took)
+	}
+	if build.Status != StatusAborted {
+		t.Errorf("build status = %q, want %q", build.Status, StatusAborted)
+	}
+	if workspaceHas(build, "main") {
+		t.Error("main task of an aborted queued build ran")
+	}
+	hook, err := os.ReadFile(build.GetWorkspaceDir() + "hook")
+	if err != nil || string(hook) != "x\n" {
+		t.Errorf("on_aborted output = %q, %v, want it to run once", hook, err)
+	}
+	if err := GlobalQueue.Abort(build.ID, StatusAborted); err == nil {
+		t.Error("Abort after cleanup: want an error for a build that is gone")
+	}
+}
+
+// TestAbortQueuedBuildTwice checks that a build aborted while queued is still
+// found while its on_aborted tasks run, so a second abort can stop them
+func TestAbortQueuedBuildTwice(t *testing.T) {
+	build := queuedAbortBuild(t, &Job{Name: "abort-queued-twice", Tasks: []*Task{
+		{ID: 0, Command: "touch main", Kind: KindMain},
+		{ID: 1, Command: "touch hook1; sleep 10", Kind: StatusAborted},
+		{ID: 2, Command: "touch hook2", Kind: StatusAborted},
+		{ID: 3, Command: "touch final", Kind: FinalTask},
+	}})
+	if err := GlobalQueue.Abort(build.ID, StatusAborted); err != nil {
+		t.Fatalf("Abort: %v", err)
+	}
+	waitForFile(t, build, "hook1")
+	if !GlobalQueue.Verify(build.ID) {
+		t.Error("Verify = false while the on_aborted tasks run")
+	}
+	if err := GlobalQueue.FlushLogs(build.ID); err != nil {
+		t.Errorf("FlushLogs while the on_aborted tasks run: %v", err)
+	}
+	if err := GlobalQueue.Abort(build.ID, StatusAborted); err != nil {
+		t.Fatalf("second Abort: %v", err)
+	}
+	waitGone(t, build)
+
+	if workspaceHas(build, "hook2") {
+		t.Error("on_aborted task ran after the second abort")
+	}
+	if !workspaceHas(build, "final") {
+		t.Error("finally task didn't run")
+	}
+	if workspaceHas(build, "main") {
+		t.Error("main task of an aborted queued build ran")
+	}
+}
+
+// TestAbortBuildThroughAPI aborts a build through the HTTP API while it waits
+// in an `if` condition, where the abort used to be dropped
+func TestAbortBuildThroughAPI(t *testing.T) {
+	build := abortTestBuild(t, &Job{Name: "abort-api", Tasks: []*Task{
+		{ID: 0, If: "touch started; sleep 10", Command: "touch main", Kind: KindMain},
+	}})
+	oldSessions := GlobalSessionStorage
+	GlobalSessionStorage = &SessionStorage{sessions: make(map[string]session)}
+	t.Cleanup(func() { GlobalSessionStorage = oldSessions })
+
+	done := startBuild(build)
+	waitForFile(t, build, "started")
+	rec := apiCall("POST", "/api/build/"+strconv.Itoa(build.ID)+"/abort", loginAs(t, adminUser), nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("abort: status %d, body %q", rec.Code, rec.Body.String())
+	}
+	waitDone(t, done, 2*time.Second)
+	if build.Status != StatusAborted {
+		t.Errorf("build status = %q, want %q", build.Status, StatusAborted)
+	}
+	if workspaceHas(build, "main") {
+		t.Error("main task ran after the abort")
 	}
 }
