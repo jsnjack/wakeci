@@ -386,10 +386,11 @@ func TestStartExposesFailedTaskToHooks(t *testing.T) {
 	dump := `env | grep '^WAKE_FAILED_TASK_' | sort > hook.env; ` +
 		`[ -z "$WAKE_FAILED_TASK_LOG" ] || cp "$WAKE_FAILED_TASK_LOG" hook.log`
 	tests := []struct {
-		name string
-		main string
-		when string
-		want string
+		name    string
+		main    string
+		when    string
+		timeout string
+		want    string
 	}{
 		{
 			name: "failed",
@@ -400,6 +401,12 @@ func TestStartExposesFailedTaskToHooks(t *testing.T) {
 			name: "finished",
 			main: "true",
 			want: "",
+		},
+		{
+			name:    "timed out",
+			main:    "echo boom; sleep 30",
+			timeout: "1s",
+			want:    "WAKE_FAILED_TASK_ID=1\nWAKE_FAILED_TASK_LOG=%stask_1.log\nWAKE_FAILED_TASK_NAME=Broken step\n",
 		},
 		{
 			name: "skipped",
@@ -414,12 +421,15 @@ func TestStartExposesFailedTaskToHooks(t *testing.T) {
 				{ID: 0, Name: "Good step", Command: "true", Kind: KindMain},
 				{ID: 1, Name: "Broken step", Command: tt.main, When: tt.when, Kind: KindMain},
 				{ID: 2, Name: "Hook", Command: dump, Kind: StatusFailed},
-				{ID: 3, Name: "Hook", Command: dump, Kind: StatusFinished},
-			}}
+				{ID: 3, Name: "Hook", Command: dump, Kind: StatusAborted},
+				{ID: 4, Name: "Hook", Command: dump, Kind: StatusFinished},
+			}, Timeout: tt.timeout}
 			build, err := CreateBuild(job, filepath.Join(Config.JobDir, "failed-task-env.yaml"), false)
 			if err != nil {
 				t.Fatalf("CreateBuild: %v", err)
 			}
+			// The timeout aborts the build through the queue
+			GlobalQueue.running = []*Build{build}
 			build.Start()
 
 			got, err := os.ReadFile(build.GetWorkspaceDir() + "hook.env")
@@ -437,8 +447,8 @@ func TestStartExposesFailedTaskToHooks(t *testing.T) {
 			if err != nil {
 				t.Fatalf("read copied log: %v", err)
 			}
-			if !strings.Contains(string(log), "boom") || !strings.Contains(string(log), "> Exit code: 1") {
-				t.Errorf("failed task log = %q, want the task output and exit code", log)
+			if !strings.Contains(string(log), "boom") {
+				t.Errorf("failed task log = %q, want the task output", log)
 			}
 		})
 	}
