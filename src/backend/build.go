@@ -777,6 +777,8 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 	case StatusFailed:
 		b.runOnStatusTasks(status)
 		b.CollectArtifacts()
+		// An abort during the on_failed tasks stops them, not finally
+		b.nextAbortScope()
 		b.runOnStatusTasks(FinalTask)
 		b.Duration = time.Since(b.StartedAt)
 		b.Cleanup()
@@ -784,6 +786,8 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 	case StatusFinished:
 		b.runOnStatusTasks(status)
 		b.CollectArtifacts()
+		// An abort during the on_finished tasks stops them, not finally
+		b.nextAbortScope()
 		b.runOnStatusTasks(FinalTask)
 		b.Duration = time.Since(b.StartedAt)
 		b.Cleanup()

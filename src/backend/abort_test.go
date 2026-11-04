@@ -264,3 +264,121 @@ func TestAbortScope(t *testing.T) {
 		})
 	}
 }
+
+// TestAbortDuringHooks checks that an abort during the tasks that run after
+// the main tasks stops the rest of their group, still runs finally, and
+// keeps the build result
+func TestAbortDuringHooks(t *testing.T) {
+	abort := func(t *testing.T, b *Build, marker string) {
+		waitForFile(t, b, marker)
+		if err := GlobalQueue.Abort(b.ID, StatusAborted); err != nil {
+			t.Errorf("Abort: %v", err)
+		}
+	}
+	tests := []struct {
+		name    string
+		timeout string
+		main    string
+		tasks   []*Task
+		// trigger stops the build at the right moment, if set
+		trigger func(t *testing.T, b *Build)
+		want    ItemStatus
+		ran     []string
+		notRan  []string
+	}{
+		{
+			name: "on_finished",
+			main: "true",
+			tasks: []*Task{
+				{ID: 1, Command: "touch hook1; sleep 10", Kind: StatusFinished},
+				{ID: 2, Command: "touch hook2", Kind: StatusFinished},
+				{ID: 3, Command: "touch final", Kind: FinalTask},
+			},
+			trigger: func(t *testing.T, b *Build) { abort(t, b, "hook1") },
+			want:    StatusFinished,
+			ran:     []string{"final"},
+			notRan:  []string{"hook2"},
+		},
+		{
+			name: "on_failed",
+			main: "false",
+			tasks: []*Task{
+				{ID: 1, Command: "touch hook1; sleep 10", Kind: StatusFailed},
+				{ID: 2, Command: "touch hook2", Kind: StatusFailed},
+				{ID: 3, Command: "touch final", Kind: FinalTask},
+			},
+			trigger: func(t *testing.T, b *Build) { abort(t, b, "hook1") },
+			want:    StatusFailed,
+			ran:     []string{"final"},
+			notRan:  []string{"hook2"},
+		},
+		{
+			name: "timeout in on_finished",
+			// The timer runs until cleanup, so it also covers these tasks
+			timeout: "300ms",
+			main:    "true",
+			tasks: []*Task{
+				{ID: 1, Command: "sleep 10", Kind: StatusFinished},
+				{ID: 2, Command: "touch hook2", Kind: StatusFinished},
+				{ID: 3, Command: "touch final", Kind: FinalTask},
+			},
+			want:   StatusFinished,
+			ran:    []string{"final"},
+			notRan: []string{"hook2"},
+		},
+		{
+			name: "second abort in on_aborted",
+			main: "touch main; sleep 10",
+			tasks: []*Task{
+				{ID: 1, Command: "touch hook1; sleep 10", Kind: StatusAborted},
+				{ID: 2, Command: "touch hook2", Kind: StatusAborted},
+				{ID: 3, Command: "touch final", Kind: FinalTask},
+			},
+			trigger: func(t *testing.T, b *Build) {
+				abort(t, b, "main")
+				abort(t, b, "hook1")
+			},
+			want:   StatusAborted,
+			ran:    []string{"final"},
+			notRan: []string{"hook2"},
+		},
+		{
+			name: "finally",
+			main: "true",
+			tasks: []*Task{
+				{ID: 1, Command: "touch final1; sleep 10", Kind: FinalTask},
+				{ID: 2, Command: "touch final2", Kind: FinalTask},
+			},
+			trigger: func(t *testing.T, b *Build) { abort(t, b, "final1") },
+			want:    StatusFinished,
+			notRan:  []string{"final2"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			job := &Job{Name: "abort-hooks", Timeout: tt.timeout, Tasks: append(
+				[]*Task{{ID: 0, Command: tt.main, Kind: KindMain}}, tt.tasks...,
+			)}
+			build := abortTestBuild(t, job)
+			done := startBuild(build)
+			if tt.trigger != nil {
+				tt.trigger(t, build)
+			}
+			waitDone(t, done, 5*time.Second)
+
+			if build.Status != tt.want {
+				t.Errorf("build status = %q, want %q", build.Status, tt.want)
+			}
+			for _, name := range tt.ran {
+				if !workspaceHas(build, name) {
+					t.Errorf("%s task didn't run", name)
+				}
+			}
+			for _, name := range tt.notRan {
+				if workspaceHas(build, name) {
+					t.Errorf("%s task ran after the abort", name)
+				}
+			}
+		})
+	}
+}
