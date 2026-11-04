@@ -55,11 +55,13 @@ func (q *Queue) Take() {
 			L.Debug("nothing to run")
 		}
 	}
+	running, queued := len(q.running), len(q.queued)
 	q.mutex.Unlock()
 	if toRun && foundItem {
 		q.Take()
+		return
 	}
-	L.Debug("queue status", "running", len(q.running), "queued", len(q.queued))
+	L.Debug("queue status", "running", running, "queued", queued)
 }
 
 // TakeNow takes the build from the queue and starts executing it now
@@ -80,8 +82,8 @@ func (q *Queue) TakeNow(buildID int) error {
 	}
 	q.mutex.Unlock()
 
+	// Take logs the queue lengths
 	q.Take()
-	L.Debug("queue status", "running", len(q.running), "queued", len(q.queued))
 	if !foundItem {
 		return fmt.Errorf("build with id %d is not in the queue", buildID)
 	}

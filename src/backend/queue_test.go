@@ -108,3 +108,31 @@ func TestQueueAbortReturnsErrorForUnknownBuild(t *testing.T) {
 		t.Error("expected an error for an unknown build id")
 	}
 }
+
+// TestQueueTakeWhileAborting is a regression test for a data race, caught
+// with -race: Take and TakeNow logged the queue lengths after releasing
+// q.mutex, while Remove and Abort change the queue under it
+func TestQueueTakeWhileAborting(t *testing.T) {
+	newTestBuildEnv(t)
+	oldQueue := GlobalQueue
+	GlobalQueue = &Queue{}
+	t.Cleanup(func() { GlobalQueue = oldQueue })
+	for i := 1; i <= 20; i++ {
+		GlobalQueue.Add(&Build{ID: i, Job: &Job{Name: "take-race"}, Logger: L})
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < 200; i++ {
+			GlobalQueue.Take()
+			if err := GlobalQueue.TakeNow(1000); err == nil {
+				t.Error("TakeNow of an unknown build: want an error")
+			}
+		}
+	}()
+	for i := 1; i <= 20; i++ {
+		GlobalQueue.Remove(i)
+	}
+	<-done
+}
