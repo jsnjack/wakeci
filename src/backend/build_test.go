@@ -388,6 +388,7 @@ func TestStartExposesFailedTaskToHooks(t *testing.T) {
 	tests := []struct {
 		name string
 		main string
+		when string
 		want string
 	}{
 		{
@@ -400,12 +401,18 @@ func TestStartExposesFailedTaskToHooks(t *testing.T) {
 			main: "true",
 			want: "",
 		},
+		{
+			name: "skipped",
+			main: "exit 1",
+			when: "1 == 2",
+			want: "",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			job := &Job{Name: "failed-task-env", Tasks: []*Task{
 				{ID: 0, Name: "Good step", Command: "true", Kind: KindMain},
-				{ID: 1, Name: "Broken step", Command: tt.main, Kind: KindMain},
+				{ID: 1, Name: "Broken step", Command: tt.main, When: tt.when, Kind: KindMain},
 				{ID: 2, Name: "Hook", Command: dump, Kind: StatusFailed},
 				{ID: 3, Name: "Hook", Command: dump, Kind: StatusFinished},
 			}}

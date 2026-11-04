@@ -107,20 +107,12 @@ func (b *Build) Start() {
 
 		task.Status = status
 		task.duration = time.Since(task.startedAt)
-		if status != StatusFinished {
+		switch status {
+		case StatusFailed, StatusAborted, StatusTimedOut:
 			b.mutex.Lock()
 			b.failedTask = task
 			b.mutex.Unlock()
-		}
-		switch status {
-		case StatusFailed:
-			b.SetBuildStatus(StatusFailed)
-			return
-		case StatusAborted:
-			b.SetBuildStatus(StatusAborted)
-			return
-		case StatusTimedOut:
-			b.SetBuildStatus(StatusTimedOut)
+			b.SetBuildStatus(status)
 			return
 		}
 		b.BroadcastUpdate()
