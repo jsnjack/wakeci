@@ -199,16 +199,21 @@ func TestProcessLogEntryCollapsesCarriageReturns(t *testing.T) {
 }
 
 func TestWaitForCondition(t *testing.T) {
+	closed := make(chan struct{})
+	close(closed)
 	tests := []struct {
 		name         string
 		command      string
 		timeout      time.Duration
+		abort        chan struct{}
 		wantTimedOut bool
+		wantAborted  bool
 		wantError    bool
 	}{
 		{name: "command completes", command: "true", timeout: time.Second},
 		{name: "command is false", command: "false", timeout: time.Second, wantError: true},
 		{name: "command times out", command: "sleep 1", timeout: 20 * time.Millisecond, wantTimedOut: true, wantError: true},
+		{name: "build is aborted", command: "sleep 10", timeout: 5 * time.Second, abort: closed, wantAborted: true, wantError: true},
 	}
 
 	for _, tt := range tests {
@@ -218,12 +223,19 @@ func TestWaitForCondition(t *testing.T) {
 				t.Fatalf("start condition: %v", err)
 			}
 			build := &Build{Logger: L}
-			err, timedOut := build.waitForCondition(command, 1, tt.timeout)
+			start := time.Now()
+			timedOut, aborted, err := build.waitForCondition(command, 1, tt.timeout, tt.abort)
 			if timedOut != tt.wantTimedOut {
 				t.Errorf("timedOut = %t, want %t", timedOut, tt.wantTimedOut)
 			}
+			if aborted != tt.wantAborted {
+				t.Errorf("aborted = %t, want %t", aborted, tt.wantAborted)
+			}
 			if (err != nil) != tt.wantError {
 				t.Errorf("error = %v, wantError %t", err, tt.wantError)
+			}
+			if took := time.Since(start); took > 2*time.Second {
+				t.Errorf("took %v, want the command killed promptly", took)
 			}
 		})
 	}

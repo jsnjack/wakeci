@@ -11,10 +11,7 @@ import (
 // (or one that hasn't started/has finished) has no listener, so the send -
 // and every other Queue method waiting on q.mutex - would block forever.
 func TestQueueAbortDoesNotBlockWithoutARunningTask(t *testing.T) {
-	build := &Build{
-		ID:             1,
-		abortedChannel: make(chan string),
-	}
+	build := &Build{ID: 1}
 	q := &Queue{running: []*Build{build}}
 
 	done := make(chan error, 1)
@@ -79,35 +76,29 @@ func TestQueueFlushLogsDoesNotBlockWithoutARunningTask(t *testing.T) {
 	}
 }
 
-// TestQueueAbortDeliversToRunningTask verifies the fix doesn't break the
-// normal case: a task actively receiving on abortedChannel must still get
-// the abort signal.
+// TestQueueAbortDeliversToRunningTask verifies that a running build gets the
+// abort, and keeps it until the build checks it: Abort used to drop the
+// signal when no task was receiving at that moment
 func TestQueueAbortDeliversToRunningTask(t *testing.T) {
-	build := &Build{
-		ID:             3,
-		abortedChannel: make(chan string),
-	}
+	build := &Build{ID: 3}
 	q := &Queue{running: []*Build{build}}
-
-	received := make(chan string, 1)
-	go func() {
-		received <- <-build.abortedChannel
-	}()
-
-	// Give the goroutine above a chance to start receiving.
-	time.Sleep(50 * time.Millisecond)
+	abort := build.currentAbort()
 
 	if err := q.Abort(3, StatusAborted); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	// A later abort, e.g. the timeout, keeps the first reason
+	if err := q.Abort(3, StatusTimedOut); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	select {
-	case reason := <-received:
-		if reason != StatusAborted {
-			t.Errorf("expected reason %q, got %q", StatusAborted, reason)
-		}
+	case <-abort.c:
 	case <-time.After(2 * time.Second):
-		t.Fatal("abort signal was not delivered to the running task")
+		t.Fatal("abort signal was not delivered to the running build")
+	}
+	if reason := abort.stopped(); reason != StatusAborted {
+		t.Errorf("expected reason %q, got %q", StatusAborted, reason)
 	}
 }
 

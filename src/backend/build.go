@@ -72,10 +72,8 @@ type Build struct {
 	Job            *Job
 	Status         ItemStatus
 	Logger         *slog.Logger
-	abortedChannel chan string
 	flushChannel   chan bool // Instructs to flush bw
 	pendingTasksWG sync.WaitGroup
-	abortedReason  string
 	Params         []map[string]string
 	Artifacts      []string // Deprecate
 	BuildArtifacts []*ArtifactInfo
@@ -90,6 +88,80 @@ type Build struct {
 	// failedTask is the main task that stopped the build, exposed to the
 	// on_failed, on_aborted and finally tasks
 	failedTask *Task
+	// abort is the abort request for the tasks that run now, guarded by mutex
+	abort *abortScope
+}
+
+// abortScope is one abort request. Its channel is closed when the abort is
+// requested, and a closed channel stays readable: an abort that arrives while
+// no command runs (setup, between tasks) is seen by the next check instead of
+// being lost
+type abortScope struct {
+	reason string // Set once, before c is closed
+	c      chan struct{}
+}
+
+func newAbortScope() *abortScope {
+	return &abortScope{c: make(chan struct{})}
+}
+
+// stopped returns the abort reason, or "" if no abort was requested. Reading
+// reason after receiving from the closed channel needs no lock
+func (s *abortScope) stopped() string {
+	select {
+	case <-s.c:
+		return s.reason
+	default:
+		return ""
+	}
+}
+
+// currentAbort returns the abort scope of the tasks that run now
+func (b *Build) currentAbort() *abortScope {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+	if b.abort == nil {
+		b.abort = newAbortScope()
+	}
+	return b.abort
+}
+
+// requestAbort asks the build to stop the tasks that run now, with reason
+// StatusAborted or StatusTimedOut. It never blocks; the first reason wins
+func (b *Build) requestAbort(reason string) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+	if b.abort == nil {
+		b.abort = newAbortScope()
+	}
+	if b.abort.reason != "" {
+		return
+	}
+	b.abort.reason = reason
+	close(b.abort.c)
+}
+
+// nextAbortScope starts a new scope if the current one was aborted, so the
+// next group of tasks (on_aborted, finally) runs. A scope that wasn't aborted
+// is kept, so an abort that arrives between two groups stops the next one
+func (b *Build) nextAbortScope() {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+	if b.abort == nil || b.abort.reason != "" {
+		b.abort = newAbortScope()
+	}
+}
+
+// logAbort writes why the task was stopped to its log
+func (b *Build) logAbort(reason string, bw *bufio.Writer, task *Task) {
+	switch reason {
+	case StatusTimedOut:
+		b.ProcessLogEntry("> Timed out.", bw, task.ID, task.startedAt)
+	case StatusAborted:
+		b.ProcessLogEntry("> Aborted by a user.", bw, task.ID, task.startedAt)
+	default:
+		b.Logger.Warn("unhandled abort method", "task", task.ID, "reason", reason)
+	}
 }
 
 // Start starts execution of tasks in job
@@ -98,6 +170,12 @@ func (b *Build) Start() {
 	for _, task := range b.Job.Tasks {
 		if task.Kind != KindMain {
 			continue
+		}
+		// An abort that arrived during on_running tasks or between tasks
+		if reason := b.currentAbort().stopped(); reason != "" {
+			b.Logger.Info("build aborted between tasks", "reason", reason)
+			b.SetBuildStatus(ItemStatus(reason))
+			return
 		}
 		task.Status = StatusRunning
 		task.startedAt = time.Now()
@@ -129,8 +207,14 @@ func (b *Build) runOnStatusTasks(status ItemStatus) {
 	if status == StatusPending {
 		defer b.pendingTasksWG.Done()
 	}
+	abort := b.currentAbort()
 	for _, task := range b.Job.Tasks {
 		if task.Kind == string(status) {
+			// An abort stops the rest of the group
+			if reason := abort.stopped(); reason != "" {
+				b.Logger.Info("skipping tasks after abort", "kind", status, "reason", reason)
+				return
+			}
 			task.Status = StatusRunning
 			task.startedAt = time.Now()
 			b.BroadcastUpdate()
@@ -148,6 +232,7 @@ func (b *Build) runOnStatusTasks(status ItemStatus) {
 func (b *Build) runTask(task *Task) ItemStatus {
 	b.Logger.Debug("task started", "task", task.ID)
 	defer b.Logger.Debug("task completed", "task", task.ID)
+	abort := b.currentAbort()
 	// Disable output buffering, enable streaming
 	// Modify default streaming buffer size (thanks, webpack)
 	cmdOptions := cmd.Options{
@@ -212,14 +297,20 @@ func (b *Build) runTask(task *Task) ItemStatus {
 
 	// `when` is a bash test expression, `if` is a command
 	if task.When != "" {
-		if status := b.checkCondition(task, "when", task.When, "[[ %s ]]", taskCmd.Env, taskCmd.Dir, bw); status != "" {
+		if status := b.checkCondition(task, "when", task.When, "[[ %s ]]", taskCmd.Env, taskCmd.Dir, bw, abort); status != "" {
 			return status
 		}
 	}
 	if task.If != "" {
-		if status := b.checkCondition(task, "if", task.If, "%s", taskCmd.Env, taskCmd.Dir, bw); status != "" {
+		if status := b.checkCondition(task, "if", task.If, "%s", taskCmd.Env, taskCmd.Dir, bw, abort); status != "" {
 			return status
 		}
+	}
+
+	// An abort that arrived during setup or the conditions
+	if reason := abort.stopped(); reason != "" {
+		b.logAbort(reason, bw, task)
+		return ItemStatus(reason)
 	}
 
 	// Add executed command to logs
@@ -234,6 +325,9 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	// Print STDOUT and STDERR lines streaming from Cmd
 	// See example https://github.com/go-cmd/cmd/blob/master/examples/blocking-streaming/main.go
 	doneChan := make(chan struct{})
+	abortC := abort.c
+	// Written by the goroutine below, read after doneChan is closed
+	var abortedReason string
 	go func() {
 		defer close(doneChan)
 		for taskCmd.Stdout != nil || taskCmd.Stderr != nil {
@@ -250,23 +344,24 @@ func (b *Build) runTask(task *Task) ItemStatus {
 					continue
 				}
 				b.ProcessLogEntry(line, bw, task.ID, task.startedAt)
-			case abortedDetails := <-b.abortedChannel:
-				b.abortedReason = abortedDetails
-				b.Logger.Info("aborting task", "task", task.ID, "reason", abortedDetails)
-				switch abortedDetails {
-				case StatusTimedOut:
-					b.ProcessLogEntry("> Timed out.", bw, task.ID, task.startedAt)
-				case StatusAborted:
-					b.ProcessLogEntry("> Aborted by a user.", bw, task.ID, task.startedAt)
-				default:
-					b.Logger.Warn("unhandled abort method", "task", task.ID, "reason", abortedDetails)
-				}
+			case <-abortC:
+				// The channel stays closed; stop selecting on it
+				abortC = nil
+				abortedReason = abort.reason
+				b.Logger.Info("aborting task", "task", task.ID, "reason", abortedReason)
+				b.logAbort(abortedReason, bw, task)
 				// taskCmd.Stop() send SIGTERM signal to the command. Most of the time it works just fine, however
 				// there are applications which will just ignore it or are in busy state and can't handle the signal.
 				// Here we start a timer for SIGTERM to succeed and if it doesn't, SIGKILL is sent
 				abortTimer := time.AfterFunc(ABORT_TIMEOUT*time.Second, func() {
 					b.ProcessLogEntry("> Killing the command...", bw, task.ID, task.startedAt)
-					if killErr := syscall.Kill(taskCmd.Status().PID, syscall.SIGKILL); killErr != nil {
+					// PID 0 means the command never started; kill(0) would
+					// signal wakeci's own process group
+					pid := taskCmd.Status().PID
+					if pid <= 0 {
+						return
+					}
+					if killErr := syscall.Kill(pid, syscall.SIGKILL); killErr != nil {
 						b.Logger.Error("kill aborted task", "task", task.ID, "err", killErr)
 					}
 				})
@@ -296,12 +391,9 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	// Cmd has finished but wait for goroutine to print all lines
 	<-doneChan
 
-	// Abort message was recieved via channel
-	if b.abortedReason != "" {
-		reason := b.abortedReason
-		// Toggle status back for OnStatus tasks
-		b.abortedReason = ""
-		return ItemStatus(reason)
+	// The command was stopped because of an abort
+	if abortedReason != "" {
+		return ItemStatus(abortedReason)
 	}
 
 	b.ProcessLogEntry(fmt.Sprintf("> Exit code: %d", status.Exit), bw, task.ID, task.startedAt)
@@ -320,7 +412,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 // checkCondition evaluates a task's `when` or `if` condition, with script
 // wrapping the condition into a bash command. It returns an empty status when
 // the task should run, otherwise the status the task ends with
-func (b *Build) checkCondition(task *Task, kind, expr, script string, env []string, dir string, bw *bufio.Writer) ItemStatus {
+func (b *Build) checkCondition(task *Task, kind, expr, script string, env []string, dir string, bw *bufio.Writer, abort *abortScope) ItemStatus {
 	condition, conditionSecretEnv := injectCommandSecrets(expr)
 	condCmd := exec.Command("bash", "-c", fmt.Sprintf(script, condition))
 	condCmd.Env = append(env, conditionSecretEnv...)
@@ -338,7 +430,12 @@ func (b *Build) checkCondition(task *Task, kind, expr, script string, env []stri
 		)
 		return StatusFailed
 	}
-	condErr, condTimedOut := b.waitForCondition(condCmd, task.ID, WHEN_EVAL_TIMEOUT*time.Second)
+	condTimedOut, condAborted, condErr := b.waitForCondition(condCmd, task.ID, WHEN_EVAL_TIMEOUT*time.Second, abort.c)
+	if condAborted {
+		reason := abort.stopped()
+		b.logAbort(reason, bw, task)
+		return ItemStatus(reason)
+	}
 	if condTimedOut {
 		b.ProcessLogEntry(
 			fmt.Sprintf("> Condition timeouted: %s", condErr.Error()),
@@ -357,7 +454,9 @@ func (b *Build) checkCondition(task *Task, kind, expr, script string, env []stri
 	return ""
 }
 
-func (b *Build) waitForCondition(condCmd *exec.Cmd, taskID int, timeout time.Duration) (error, bool) {
+// waitForCondition waits for the condition command. It kills the command
+// when timeout passes (timedOut) or abort is closed (aborted)
+func (b *Build) waitForCondition(condCmd *exec.Cmd, taskID int, timeout time.Duration, abort <-chan struct{}) (timedOut, aborted bool, err error) {
 	waitDone := make(chan error, 1)
 	go func() {
 		waitDone <- condCmd.Wait()
@@ -367,13 +466,16 @@ func (b *Build) waitForCondition(condCmd *exec.Cmd, taskID int, timeout time.Dur
 	defer timer.Stop()
 	select {
 	case err := <-waitDone:
-		return err, false
+		return false, false, err
 	case <-timer.C:
-		if err := condCmd.Process.Kill(); err != nil {
-			b.Logger.Log(context.Background(), LevelTrace, "kill condition process", "task", taskID, "err", err)
-		}
-		return <-waitDone, true
+		timedOut = true
+	case <-abort:
+		aborted = true
 	}
+	if err := condCmd.Process.Kill(); err != nil {
+		b.Logger.Log(context.Background(), LevelTrace, "kill condition process", "task", taskID, "err", err)
+	}
+	return timedOut, aborted, <-waitDone
 }
 
 // Generate default set of environmental variables that are injected before
@@ -663,8 +765,11 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		}
 		b.runOnStatusTasks(status)
 	case StatusAborted, StatusTimedOut:
-		// We run on_aborted handlers for builds aborted by a user or timed out
+		// We run on_aborted handlers for builds aborted by a user or timed out.
+		// The abort that stopped the build mustn't stop them too
+		b.nextAbortScope()
 		b.runOnStatusTasks(StatusAborted)
+		b.nextAbortScope()
 		b.runOnStatusTasks(FinalTask)
 		b.Duration = time.Since(b.StartedAt)
 		b.Cleanup()
@@ -714,12 +819,12 @@ func CreateBuild(job *Job, jobPath string, startedWithAPIKey bool) (*Build, erro
 	}
 
 	build := Build{
-		Job:            job,
-		ID:             counti,
-		abortedChannel: make(chan string),
-		flushChannel:   make(chan bool),
-		Params:         job.DefaultParams,
-		ETA:            GetJobETA(job.Name),
+		Job:          job,
+		ID:           counti,
+		abort:        newAbortScope(),
+		flushChannel: make(chan bool),
+		Params:       job.DefaultParams,
+		ETA:          GetJobETA(job.Name),
 		// Set before SetBuildStatus below starts the pending tasks
 		startedWithAPIKey: startedWithAPIKey,
 	}

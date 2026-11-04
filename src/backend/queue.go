@@ -142,11 +142,9 @@ func (q *Queue) Verify(id int) bool {
 	return false
 }
 
-// Abort schedules build to be aborted. abortedChannel is only received while
-// a task is actively running (see Build.runTask), so the send must never
-// happen while holding q.mutex: a build between tasks, or one that hasn't
-// started/has already finished, would have no listener, blocking the send
-// forever and freezing every other Queue method for the life of the process.
+// Abort schedules build to be aborted. A running build records the request
+// (Build.requestAbort), which never blocks and is kept until the build stops
+// the tasks that run, whatever it is doing when the request arrives.
 func (q *Queue) Abort(id int, reason string) error {
 	q.mutex.Lock()
 	var running *Build
@@ -169,18 +167,12 @@ func (q *Queue) Abort(id int, reason string) error {
 	}
 	q.mutex.Unlock()
 
-	select {
-	case running.abortedChannel <- reason:
-	default:
-		// No task is currently running to receive the signal (e.g. between
-		// tasks). Nothing more to do safely without blocking; the caller can
-		// retry.
-	}
+	running.requestAbort(reason)
 	return nil
 }
 
-// FlushLogs instructs to flush logs. See Abort's comment: the send must
-// happen outside q.mutex and must never block.
+// FlushLogs instructs to flush logs. The send happens outside q.mutex and
+// never blocks.
 func (q *Queue) FlushLogs(id int) error {
 	q.mutex.Lock()
 	var running *Build
