@@ -398,12 +398,13 @@ func TestStartExposesFailedTaskToHooks(t *testing.T) {
 	dump := `env | grep -E '^WAKE_(BUILD_STATUS|FAILED_TASK_)' | sort > hook.env; ` +
 		`[ -z "$WAKE_FAILED_TASK_LOG" ] || cp "$WAKE_FAILED_TASK_LOG" hook.log`
 	tests := []struct {
-		name       string
-		main       string
-		when       string
-		timeout    string
-		abortAfter time.Duration
-		want       string
+		name string
+		main string
+		when string
+		// stopWith is sent to the build like Queue.Abort does, once the
+		// broken step runs
+		stopWith string
+		want     string
 	}{
 		{
 			name: "failed",
@@ -416,16 +417,16 @@ func TestStartExposesFailedTaskToHooks(t *testing.T) {
 			want: "WAKE_BUILD_STATUS=finished\n",
 		},
 		{
-			name:    "timed out",
-			main:    "echo boom; sleep 30",
-			timeout: "1s",
-			want:    "WAKE_BUILD_STATUS=timed out\nWAKE_FAILED_TASK_ID=1\nWAKE_FAILED_TASK_LOG=%stask_1.log\nWAKE_FAILED_TASK_NAME=Broken step\n",
+			name:     "timed out",
+			main:     "echo boom; touch started; sleep 30",
+			stopWith: StatusTimedOut,
+			want:     "WAKE_BUILD_STATUS=timed out\nWAKE_FAILED_TASK_ID=1\nWAKE_FAILED_TASK_LOG=%stask_1.log\nWAKE_FAILED_TASK_NAME=Broken step\n",
 		},
 		{
-			name:       "aborted",
-			main:       "echo boom; sleep 30",
-			abortAfter: 500 * time.Millisecond,
-			want:       "WAKE_BUILD_STATUS=aborted\nWAKE_FAILED_TASK_ID=1\nWAKE_FAILED_TASK_LOG=%stask_1.log\nWAKE_FAILED_TASK_NAME=Broken step\n",
+			name:     "aborted",
+			main:     "echo boom; touch started; sleep 30",
+			stopWith: StatusAborted,
+			want:     "WAKE_BUILD_STATUS=aborted\nWAKE_FAILED_TASK_ID=1\nWAKE_FAILED_TASK_LOG=%stask_1.log\nWAKE_FAILED_TASK_NAME=Broken step\n",
 		},
 		{
 			name: "skipped",
@@ -442,21 +443,17 @@ func TestStartExposesFailedTaskToHooks(t *testing.T) {
 				{ID: 2, Name: "Hook", Command: dump, Kind: StatusFailed},
 				{ID: 3, Name: "Hook", Command: dump, Kind: StatusAborted},
 				{ID: 4, Name: "Hook", Command: dump, Kind: StatusFinished},
-			}, Timeout: tt.timeout}
+			}}
 			build, err := CreateBuild(job, filepath.Join(Config.JobDir, "failed-task-env.yaml"), false)
 			if err != nil {
 				t.Fatalf("CreateBuild: %v", err)
 			}
-			// Timeouts and aborts reach the build through the queue
-			GlobalQueue.running = []*Build{build}
-			if tt.abortAfter > 0 {
-				time.AfterFunc(tt.abortAfter, func() {
-					if err := GlobalQueue.Abort(build.ID, StatusAborted); err != nil {
-						t.Errorf("Abort: %v", err)
-					}
-				})
+			done := make(chan struct{})
+			if tt.stopWith != "" {
+				go stopWhenStarted(t, build, tt.stopWith, done)
 			}
 			build.Start()
+			close(done)
 
 			got, err := os.ReadFile(build.GetWorkspaceDir() + "hook.env")
 			if err != nil {
@@ -589,6 +586,26 @@ func TestWaitForConditionEndsAsTimeoutFires(t *testing.T) {
 		timedOut, _, err := build.waitForCondition(command, 1, 0, nil, func() {})
 		if timedOut && err == nil {
 			t.Fatal("timedOut with a nil error: the condition finished, it didn't time out")
+		}
+	}
+}
+
+// stopWhenStarted waits until the running step creates the "started" file,
+// then aborts the build with reason, as Queue.Abort and the timeout timer do
+func stopWhenStarted(t *testing.T, build *Build, reason string, done <-chan struct{}) {
+	deadline := time.After(10 * time.Second)
+	for {
+		if _, err := os.Stat(build.GetWorkspaceDir() + "started"); err == nil {
+			build.requestAbort(reason)
+			return
+		}
+		select {
+		case <-done:
+			return
+		case <-deadline:
+			t.Errorf("step didn't start")
+			return
+		case <-time.After(10 * time.Millisecond):
 		}
 	}
 }
