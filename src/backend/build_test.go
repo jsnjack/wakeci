@@ -375,3 +375,64 @@ func TestCreateBuildSetsAPIKeyFlagBeforePendingTasks(t *testing.T) {
 		t.Errorf("X = %q, want %q", got, want)
 	}
 }
+
+func TestStartExposesFailedTaskToHooks(t *testing.T) {
+	newTestBuildEnv(t)
+	oldQueue := GlobalQueue
+	GlobalQueue = &Queue{}
+	t.Cleanup(func() { GlobalQueue = oldQueue })
+
+	// The hook copies the log too, to check it is complete when hooks run
+	dump := `env | grep '^WAKE_FAILED_TASK_' | sort > hook.env; ` +
+		`[ -z "$WAKE_FAILED_TASK_LOG" ] || cp "$WAKE_FAILED_TASK_LOG" hook.log`
+	tests := []struct {
+		name string
+		main string
+		want string
+	}{
+		{
+			name: "failed",
+			main: "echo boom; exit 1",
+			want: "WAKE_FAILED_TASK_ID=1\nWAKE_FAILED_TASK_LOG=%stask_1.log\nWAKE_FAILED_TASK_NAME=Broken step\n",
+		},
+		{
+			name: "finished",
+			main: "true",
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			job := &Job{Name: "failed-task-env", Tasks: []*Task{
+				{ID: 0, Name: "Good step", Command: "true", Kind: KindMain},
+				{ID: 1, Name: "Broken step", Command: tt.main, Kind: KindMain},
+				{ID: 2, Name: "Hook", Command: dump, Kind: StatusFailed},
+				{ID: 3, Name: "Hook", Command: dump, Kind: StatusFinished},
+			}}
+			build, err := CreateBuild(job, filepath.Join(Config.JobDir, "failed-task-env.yaml"), false)
+			if err != nil {
+				t.Fatalf("CreateBuild: %v", err)
+			}
+			build.Start()
+
+			got, err := os.ReadFile(build.GetWorkspaceDir() + "hook.env")
+			if err != nil {
+				t.Fatalf("read hook output: %v", err)
+			}
+			want := strings.Replace(tt.want, "%s", build.GetWakespaceDir(), 1)
+			if string(got) != want {
+				t.Errorf("hook env = %q, want %q", got, want)
+			}
+			if want == "" {
+				return
+			}
+			log, err := os.ReadFile(build.GetWorkspaceDir() + "hook.log")
+			if err != nil {
+				t.Fatalf("read copied log: %v", err)
+			}
+			if !strings.Contains(string(log), "boom") || !strings.Contains(string(log), "> Exit code: 1") {
+				t.Errorf("failed task log = %q, want the task output and exit code", log)
+			}
+		})
+	}
+}
