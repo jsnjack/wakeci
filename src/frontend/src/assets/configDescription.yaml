@@ -108,8 +108,8 @@ finally:
     run: ls -alh
 # Default environmetal variables, inject by wake:
 # "WAKE_BUILD_ID" - current build id, e.g. 169
-# "WAKE_BUILD_STATUS" - status of the build when the task starts: running,
-#                       failed, aborted, "timed out" or finished. Quote it in
+# "WAKE_BUILD_STATUS" - status of the build when the task starts: pending,
+#                       running, failed, aborted, "timed out" or finished. Quote it in
 #                       `when`, e.g. when: '"$WAKE_BUILD_STATUS" == "timed out"'
 # "WAKE_BUILD_WORKSPACE" - path to the build's workspace, e.g. ~/workspace/169/
 # "WAKE_JOB_NAME" - name of the job, e.g. ask_a_cow
