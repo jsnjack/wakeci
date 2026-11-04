@@ -458,6 +458,10 @@ func TestAbortQueuedBuild(t *testing.T) {
 	if workspaceHas(build, "main") {
 		t.Error("main task of an aborted queued build ran")
 	}
+	// It never started, so it has no duration
+	if build.Duration != 0 {
+		t.Errorf("duration = %v, want 0 for a build that never started", build.Duration)
+	}
 	hook, err := os.ReadFile(build.GetWorkspaceDir() + "hook")
 	if err != nil || string(hook) != "x\n" {
 		t.Errorf("on_aborted output = %q, %v, want it to run once", hook, err)

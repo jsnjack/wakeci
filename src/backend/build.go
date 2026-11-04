@@ -759,6 +759,16 @@ func (b *Build) GetTasksStatus() []*TaskStatus {
 	return info
 }
 
+// setDuration records how long the build ran. A build aborted while queued
+// never started, and time.Since of a zero StartedAt is the maximum duration
+func (b *Build) setDuration() {
+	if b.StartedAt.IsZero() {
+		b.Duration = 0
+		return
+	}
+	b.Duration = time.Since(b.StartedAt)
+}
+
 // SetBuildStatus sets the status of the builds
 func (b *Build) SetBuildStatus(status ItemStatus) {
 	// Pending status tasks must finish before any fields for the next status
@@ -802,7 +812,7 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		b.runOnStatusTasks(StatusAborted)
 		b.nextAbortScope()
 		b.runOnStatusTasks(FinalTask)
-		b.Duration = time.Since(b.StartedAt)
+		b.setDuration()
 		b.Cleanup()
 		b.BroadcastUpdate()
 	case StatusFailed:
@@ -811,7 +821,7 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		// An abort during the on_failed tasks stops them, not finally
 		b.nextAbortScope()
 		b.runOnStatusTasks(FinalTask)
-		b.Duration = time.Since(b.StartedAt)
+		b.setDuration()
 		b.Cleanup()
 		b.BroadcastUpdate()
 	case StatusFinished:
@@ -820,7 +830,7 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		// An abort during the on_finished tasks stops them, not finally
 		b.nextAbortScope()
 		b.runOnStatusTasks(FinalTask)
-		b.Duration = time.Since(b.StartedAt)
+		b.setDuration()
 		b.Cleanup()
 		err := RecordBuildDuration(b.Job.Name, int(b.Duration))
 		if err != nil {
