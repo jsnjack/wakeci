@@ -46,7 +46,7 @@ on_failed:
     - name: Send notification to Slack
       run: >-
           python ${WAKE_CONFIG_DIR}utils/notify_slack.py
-          -t "Job ${WAKE_JOB_NAME} has failed <${WAKE_URL}build/${WAKE_BUILD_ID}|#${WAKE_BUILD_ID}>"
+          -t "Job ${WAKE_JOB_NAME} has failed at '${WAKE_FAILED_TASK_NAME}' <${WAKE_URL}build/${WAKE_BUILD_ID}|#${WAKE_BUILD_ID}>"
           -k error
 
 on_finished:

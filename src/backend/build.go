@@ -87,6 +87,9 @@ type Build struct {
 	// startedWithAPIKey means the params came from an API key, so values the
 	// job writes into build.env may be built from them
 	startedWithAPIKey bool
+	// failedTask is the main task that stopped the build, exposed to the
+	// on_failed, on_aborted and finally tasks
+	failedTask *Task
 }
 
 // Start starts execution of tasks in job
@@ -105,14 +108,11 @@ func (b *Build) Start() {
 		task.Status = status
 		task.duration = time.Since(task.startedAt)
 		switch status {
-		case StatusFailed:
-			b.SetBuildStatus(StatusFailed)
-			return
-		case StatusAborted:
-			b.SetBuildStatus(StatusAborted)
-			return
-		case StatusTimedOut:
-			b.SetBuildStatus(StatusTimedOut)
+		case StatusFailed, StatusAborted, StatusTimedOut:
+			b.mutex.Lock()
+			b.failedTask = task
+			b.mutex.Unlock()
+			b.SetBuildStatus(status)
 			return
 		}
 		b.BroadcastUpdate()
@@ -159,7 +159,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	taskCmd := cmd.NewCmdOptions(cmdOptions, "bash", "-c", command)
 
 	// Configure task logs
-	file, err := os.Create(b.GetWakespaceDir() + fmt.Sprintf("task_%d.log", task.ID))
+	file, err := os.Create(b.taskLogPath(task.ID))
 	bw := bufio.NewWriter(file)
 	defer func() {
 		if flushErr := bw.Flush(); flushErr != nil {
@@ -414,6 +414,7 @@ func (b *Build) generateDefaultEnvVariables() []string {
 			params.Set(pkey, pval)
 		}
 	}
+	failedTask := b.failedTask
 	b.mutex.Unlock()
 	var evs = []string{
 		fmt.Sprintf("WAKE_BUILD_ID=%d", b.ID),
@@ -421,6 +422,13 @@ func (b *Build) generateDefaultEnvVariables() []string {
 		fmt.Sprintf("WAKE_JOB_NAME=%s", b.Job.Name),
 		fmt.Sprintf("WAKE_JOB_PARAMS=%s", params.Encode()),
 		fmt.Sprintf("WAKE_CONFIG_DIR=%s", Config.JobDir),
+	}
+	if failedTask != nil {
+		evs = append(evs,
+			fmt.Sprintf("WAKE_FAILED_TASK_ID=%d", failedTask.ID),
+			fmt.Sprintf("WAKE_FAILED_TASK_NAME=%s", failedTask.Name),
+			fmt.Sprintf("WAKE_FAILED_TASK_LOG=%s", b.taskLogPath(failedTask.ID)),
+		)
 	}
 	if Config.Port == "443" {
 		evs = append(evs, fmt.Sprintf("WAKE_URL=https://%s/", Config.Hostname))
@@ -613,6 +621,11 @@ func (b *Build) GetWorkspaceDir() string {
 // stored
 func (b *Build) GetWakespaceDir() string {
 	return Config.WorkDir + "wakespace/" + strconv.Itoa(b.ID) + "/"
+}
+
+// taskLogPath returns the path to the output log of the task
+func (b *Build) taskLogPath(taskID int) string {
+	return b.GetWakespaceDir() + fmt.Sprintf("task_%d.log", taskID)
 }
 
 // GetArtifactsDir returns location of artifacts folder

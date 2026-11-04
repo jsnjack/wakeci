@@ -104,6 +104,13 @@ finally:
 # "WAKE_CONFIG_DIR" - path to the directory with all job configuration files,
 #                     e.g. ~/jobs/
 # "WAKE_URL" - URL of the service, e.g. https://myci.space/
+#
+# Set only after a main task failed, timed out or was aborted, so they reach
+# the `on_failed`, `on_aborted` and `finally` tasks:
+# "WAKE_FAILED_TASK_ID" - id of the task that stopped the build, e.g. 3
+# "WAKE_FAILED_TASK_NAME" - name of that task, e.g. Run tests
+# "WAKE_FAILED_TASK_LOG" - path to that task's output log, e.g. to send its
+#                          last lines in a notification
 
 # To modify or introduce new environmental variables during the build execution,
 # create `build.env` file in WAKE_BUILD_WORKSPACE directory.
