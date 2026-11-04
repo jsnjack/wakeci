@@ -143,3 +143,5 @@ finally:
 #  - variables from `params` section
 #  - variables from `env` section
 #  - variables from `build.env` file
+#  - `WAKE_BUILD_STATUS` and `WAKE_FAILED_TASK_*`, which nothing overrides, so
+#    hooks always see how the build really stopped
