@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { test, expect } from "./fixtures.js";
 
@@ -203,4 +204,21 @@ test("should show an SSO user only their own keys", async ({ page }) => {
     await expect(page.getByTestId("keys-list")).toContainText("my-ci");
     await expect(page.getByTestId("key-created-by")).toHaveCount(0);
     await expect(page.getByTestId("key-created-by-text")).toHaveCount(0);
+});
+
+test("should give a run-only key a working curl example", async ({ page, wake }) => {
+    // Valid job names can hold characters the shell treats specially
+    const job = await wake.createJob(jobContent("legacy"), `release(legacy)'s-${randomUUID()}`);
+    await page.goto("/keys/new");
+    await page.getByTestId("key-name").fill(`run ${randomUUID()}`);
+    await page.getByTestId("scope-read").uncheck({ force: true });
+    await page.getByTestId("scope-run").check({ force: true });
+    await page.getByTestId("jobs-selected").check({ force: true });
+    await page.getByTestId(`key-job-${job}`).locator("input").check({ force: true });
+    await page.getByTestId("create-key").click();
+
+    const example = await page.getByTestId("new-key-example").innerText();
+    expect(example).toContain(`/api/job/${encodeURIComponent(job).replaceAll("'", "%27")}/run'`);
+    // bash -n only parses: it throws on a syntax error and runs nothing
+    execFileSync("bash", ["-n", "-c", example]);
 });

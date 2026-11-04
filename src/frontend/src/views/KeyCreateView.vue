@@ -351,15 +351,18 @@ export default {
         // A request the new key is allowed to make
         example() {
             const curl = `curl -H "Authorization: Bearer ${this.token}"`;
+            // Single-quoted for the shell: encodeURIComponent leaves ( ) and '
+            // as they are, and %27 stands in for ' inside the quotes
+            const url = (path) => `'${(this.origin + path).replaceAll("'", "%27")}'`;
             const scopes = this.createdKey.scopes;
             if (scopes.includes("read")) {
-                return `${curl} ${this.origin}/api/feed`;
+                return `${curl} ${url("/api/feed")}`;
             }
             if (scopes.includes("run")) {
                 const job = this.createdKey.jobs[0] || "JOB_NAME";
-                return `${curl} -X POST ${this.origin}/api/job/${encodeURIComponent(job)}/run`;
+                return `${curl} -X POST ${url(`/api/job/${encodeURIComponent(job)}/run`)}`;
             }
-            return `${curl} -X POST -d name=NEW_JOB ${this.origin}/api/jobs/create`;
+            return `${curl} -X POST -d name=NEW_JOB ${url("/api/jobs/create")}`;
         },
     },
     watch: {
