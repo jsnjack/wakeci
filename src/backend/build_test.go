@@ -453,3 +453,97 @@ func TestStartExposesFailedTaskToHooks(t *testing.T) {
 		})
 	}
 }
+
+// TestRunTaskConditionOutcomes pins what `when` and `if` do with the task and
+// what they write to its log
+func TestRunTaskConditionOutcomes(t *testing.T) {
+	newTestBuildEnv(t)
+	job := &Job{Name: "condition-outcomes"}
+	build, err := CreateBuild(job, filepath.Join(Config.JobDir, "condition-outcomes.yaml"), false)
+	if err != nil {
+		t.Fatalf("CreateBuild: %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		task    *Task
+		want    ItemStatus
+		wantLog []string
+		notLog  []string
+	}{
+		{
+			name: "when true",
+			task: &Task{When: "${WAKE_BUILD_ID} == 1", Command: "echo ran"},
+			want: StatusFinished,
+			wantLog: []string{
+				"> Checking `when` condition: ${WAKE_BUILD_ID} == 1",
+				"> Expanded condition: 1 == 1",
+				"> Condition is true",
+				"ran",
+			},
+		},
+		{
+			name: "when false",
+			task: &Task{When: "1 == 2", Command: "echo ran"},
+			want: StatusSkipped,
+			wantLog: []string{
+				"> Checking `when` condition: 1 == 2",
+				"> Condition is false: exit status 1. Skipping the task",
+			},
+			notLog: []string{"> Running command"},
+		},
+		{
+			name:    "if true",
+			task:    &Task{If: "true", Command: "echo ran"},
+			want:    StatusFinished,
+			wantLog: []string{"> Checking `if` condition: true", "> Condition is true", "ran"},
+		},
+		{
+			name: "if false",
+			task: &Task{If: "exit 3", Command: "echo ran"},
+			want: StatusSkipped,
+			wantLog: []string{
+				"> Checking `if` condition: exit 3",
+				"> Condition is false: exit status 3. Skipping the task",
+			},
+			notLog: []string{"> Running command"},
+		},
+		{
+			name:    "when false skips if",
+			task:    &Task{When: "1 == 2", If: "true", Command: "echo ran"},
+			want:    StatusSkipped,
+			wantLog: []string{"> Checking `when` condition: 1 == 2"},
+			notLog:  []string{"> Checking `if` condition", "> Running command"},
+		},
+		{
+			name:    "when and if true",
+			task:    &Task{When: "1 == 1", If: "true", Command: "echo ran"},
+			want:    StatusFinished,
+			wantLog: []string{"> Checking `when` condition", "> Checking `if` condition", "ran"},
+		},
+	}
+
+	for i, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.task.ID = i
+			tt.task.startedAt = time.Now()
+			if status := build.runTask(tt.task); status != tt.want {
+				t.Errorf("runTask status = %q, want %q", status, tt.want)
+			}
+			log, err := os.ReadFile(build.taskLogPath(i))
+			if err != nil {
+				t.Fatalf("read task log: %v", err)
+			}
+			for _, line := range tt.wantLog {
+				if !strings.Contains(string(log), line) {
+					t.Errorf("log = %q, want it to contain %q", log, line)
+				}
+			}
+			for _, line := range tt.notLog {
+				if strings.Contains(string(log), line) {
+					t.Errorf("log = %q, want no %q", log, line)
+				}
+			}
+		})
+	}
+}
