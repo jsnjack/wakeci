@@ -23,3 +23,13 @@ test("should modify settings", async ({ page }) => {
     await page.getByTestId("save-settings").click();
     await expect(page.locator(".notification-content")).toContainText("Saved");
 });
+
+test("should not offer the password to SSO users", async ({ page }) => {
+    await page.route("**/api/settings", (route) =>
+        route.request().method() === "GET" ? route.fulfill({ json: { concurrentBuilds: 2, buildHistorySize: 200, admin: false } }) : route.continue(),
+    );
+    await page.goto("/settings");
+    await login(page);
+    await expect(page.locator("#concurrent-builds")).toBeVisible();
+    await expect(page.locator("input[type=password]")).toHaveCount(0);
+});
