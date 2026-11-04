@@ -87,7 +87,9 @@ buildf:
 
 build: buildf bin/wakeci
 
-release: build
+# Releases only what passes the Go tests and the full E2E suite against the
+# production build (testprod builds it)
+release: test testprod
 	grm release jsnjack/wakeci -f bin/${BINARY} -t "v`monova`"
 
 .ONESHELL:
