@@ -155,6 +155,22 @@ func TestAbortReachesBuildOutsideRunningCommand(t *testing.T) {
 			want:   StatusAborted,
 			failed: -1,
 		},
+		{
+			// No main task checks the abort, so Start must check it after them
+			name: "on_running task without main tasks",
+			job: &Job{Tasks: []*Task{
+				{ID: 0, Command: "touch started; sleep 10", Kind: StatusRunning},
+				{ID: 1, Command: "touch on_running", Kind: StatusRunning},
+			}},
+			abort: func(t *testing.T, b *Build) {
+				waitForFile(t, b, "started")
+				if err := GlobalQueue.Abort(b.ID, StatusAborted); err != nil {
+					t.Errorf("Abort: %v", err)
+				}
+			},
+			want:   StatusAborted,
+			failed: -1,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

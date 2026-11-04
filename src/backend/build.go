@@ -120,6 +120,12 @@ func (s *abortScope) stopped() string {
 func (b *Build) currentAbort() *abortScope {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
+	return b.abortLocked()
+}
+
+// abortLocked returns the current scope, creating it for a Build made
+// without CreateBuild. The caller holds b.mutex
+func (b *Build) abortLocked() *abortScope {
 	if b.abort == nil {
 		b.abort = newAbortScope()
 	}
@@ -131,14 +137,12 @@ func (b *Build) currentAbort() *abortScope {
 func (b *Build) requestAbort(reason string) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	if b.abort == nil {
-		b.abort = newAbortScope()
-	}
-	if b.abort.reason != "" {
+	scope := b.abortLocked()
+	if scope.reason != "" {
 		return
 	}
-	b.abort.reason = reason
-	close(b.abort.c)
+	scope.reason = reason
+	close(scope.c)
 }
 
 // nextAbortScope starts a new scope if the current one was aborted, so the
@@ -147,7 +151,7 @@ func (b *Build) requestAbort(reason string) {
 func (b *Build) nextAbortScope() {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	if b.abort == nil || b.abort.reason != "" {
+	if b.abortLocked().reason != "" {
 		b.abort = newAbortScope()
 	}
 }
@@ -171,10 +175,7 @@ func (b *Build) Start() {
 		if task.Kind != KindMain {
 			continue
 		}
-		// An abort that arrived during on_running tasks or between tasks
-		if reason := b.currentAbort().stopped(); reason != "" {
-			b.Logger.Info("build aborted between tasks", "reason", reason)
-			b.SetBuildStatus(ItemStatus(reason))
+		if b.stopIfAborted() {
 			return
 		}
 		task.Status = StatusRunning
@@ -195,7 +196,23 @@ func (b *Build) Start() {
 		}
 		b.BroadcastUpdate()
 	}
+	// After the last main task, or in a job without main tasks
+	if b.stopIfAborted() {
+		return
+	}
 	b.SetBuildStatus(StatusFinished)
+}
+
+// stopIfAborted ends the build with the abort reason if an abort arrived
+// during the on_running tasks or outside a main task's command
+func (b *Build) stopIfAborted() bool {
+	reason := b.currentAbort().stopped()
+	if reason == "" {
+		return false
+	}
+	b.Logger.Info("build aborted between tasks", "reason", reason)
+	b.SetBuildStatus(ItemStatus(reason))
+	return true
 }
 
 // runOnStatusTasks runs tasks on status change. When status is StatusPending,
