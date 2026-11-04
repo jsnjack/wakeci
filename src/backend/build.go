@@ -524,6 +524,7 @@ func (b *Build) generateDefaultEnvVariables() []string {
 	b.mutex.Unlock()
 	var evs = []string{
 		fmt.Sprintf("WAKE_BUILD_ID=%d", b.ID),
+		fmt.Sprintf("WAKE_BUILD_STATUS=%s", b.Status),
 		fmt.Sprintf("WAKE_BUILD_WORKSPACE=%s", b.GetWorkspaceDir()),
 		fmt.Sprintf("WAKE_JOB_NAME=%s", b.Job.Name),
 		fmt.Sprintf("WAKE_JOB_PARAMS=%s", params.Encode()),

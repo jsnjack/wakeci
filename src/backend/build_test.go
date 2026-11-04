@@ -395,36 +395,43 @@ func TestStartExposesFailedTaskToHooks(t *testing.T) {
 	t.Cleanup(func() { GlobalQueue = oldQueue })
 
 	// The hook copies the log too, to check it is complete when hooks run
-	dump := `env | grep '^WAKE_FAILED_TASK_' | sort > hook.env; ` +
+	dump := `env | grep -E '^WAKE_(BUILD_STATUS|FAILED_TASK_)' | sort > hook.env; ` +
 		`[ -z "$WAKE_FAILED_TASK_LOG" ] || cp "$WAKE_FAILED_TASK_LOG" hook.log`
 	tests := []struct {
-		name    string
-		main    string
-		when    string
-		timeout string
-		want    string
+		name       string
+		main       string
+		when       string
+		timeout    string
+		abortAfter time.Duration
+		want       string
 	}{
 		{
 			name: "failed",
 			main: "echo boom; exit 1",
-			want: "WAKE_FAILED_TASK_ID=1\nWAKE_FAILED_TASK_LOG=%stask_1.log\nWAKE_FAILED_TASK_NAME=Broken step\n",
+			want: "WAKE_BUILD_STATUS=failed\nWAKE_FAILED_TASK_ID=1\nWAKE_FAILED_TASK_LOG=%stask_1.log\nWAKE_FAILED_TASK_NAME=Broken step\n",
 		},
 		{
 			name: "finished",
 			main: "true",
-			want: "",
+			want: "WAKE_BUILD_STATUS=finished\n",
 		},
 		{
 			name:    "timed out",
 			main:    "echo boom; sleep 30",
 			timeout: "1s",
-			want:    "WAKE_FAILED_TASK_ID=1\nWAKE_FAILED_TASK_LOG=%stask_1.log\nWAKE_FAILED_TASK_NAME=Broken step\n",
+			want:    "WAKE_BUILD_STATUS=timed out\nWAKE_FAILED_TASK_ID=1\nWAKE_FAILED_TASK_LOG=%stask_1.log\nWAKE_FAILED_TASK_NAME=Broken step\n",
+		},
+		{
+			name:       "aborted",
+			main:       "echo boom; sleep 30",
+			abortAfter: 500 * time.Millisecond,
+			want:       "WAKE_BUILD_STATUS=aborted\nWAKE_FAILED_TASK_ID=1\nWAKE_FAILED_TASK_LOG=%stask_1.log\nWAKE_FAILED_TASK_NAME=Broken step\n",
 		},
 		{
 			name: "skipped",
 			main: "exit 1",
 			when: "1 == 2",
-			want: "",
+			want: "WAKE_BUILD_STATUS=finished\n",
 		},
 	}
 	for _, tt := range tests {
@@ -440,8 +447,15 @@ func TestStartExposesFailedTaskToHooks(t *testing.T) {
 			if err != nil {
 				t.Fatalf("CreateBuild: %v", err)
 			}
-			// The timeout aborts the build through the queue
+			// Timeouts and aborts reach the build through the queue
 			GlobalQueue.running = []*Build{build}
+			if tt.abortAfter > 0 {
+				time.AfterFunc(tt.abortAfter, func() {
+					if err := GlobalQueue.Abort(build.ID, StatusAborted); err != nil {
+						t.Errorf("Abort: %v", err)
+					}
+				})
+			}
 			build.Start()
 
 			got, err := os.ReadFile(build.GetWorkspaceDir() + "hook.env")
@@ -452,7 +466,7 @@ func TestStartExposesFailedTaskToHooks(t *testing.T) {
 			if string(got) != want {
 				t.Errorf("hook env = %q, want %q", got, want)
 			}
-			if want == "" {
+			if !strings.Contains(want, "WAKE_FAILED_TASK_LOG") {
 				return
 			}
 			log, err := os.ReadFile(build.GetWorkspaceDir() + "hook.log")
