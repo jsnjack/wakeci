@@ -311,6 +311,8 @@ func (b *Build) runTask(task *Task) ItemStatus {
 		}
 	}
 	taskCmd.Env = append(taskCmd.Env, secretEnv...)
+	// Last, so a task's env or build.env can't change them
+	taskCmd.Env = append(taskCmd.Env, b.buildStateEnvVariables()...)
 
 	// `when` is a bash test expression, `if` is a command
 	if task.When != "" {
@@ -520,7 +522,6 @@ func (b *Build) generateDefaultEnvVariables() []string {
 			params.Set(pkey, pval)
 		}
 	}
-	failedTask := b.failedTask
 	b.mutex.Unlock()
 	var evs = []string{
 		fmt.Sprintf("WAKE_BUILD_ID=%d", b.ID),
@@ -529,17 +530,28 @@ func (b *Build) generateDefaultEnvVariables() []string {
 		fmt.Sprintf("WAKE_JOB_PARAMS=%s", params.Encode()),
 		fmt.Sprintf("WAKE_CONFIG_DIR=%s", Config.JobDir),
 	}
+	if Config.Port == "443" {
+		evs = append(evs, fmt.Sprintf("WAKE_URL=https://%s/", Config.Hostname))
+	} else {
+		evs = append(evs, fmt.Sprintf("WAKE_URL=http://localhost:%s/", Config.Port))
+	}
+	return evs
+}
+
+// buildStateEnvVariables returns the build's status and the task that stopped
+// it, which hooks use to decide what to report
+func (b *Build) buildStateEnvVariables() []string {
+	b.mutex.Lock()
+	status := b.Status
+	failedTask := b.failedTask
+	b.mutex.Unlock()
+	evs := []string{fmt.Sprintf("WAKE_BUILD_STATUS=%s", status)}
 	if failedTask != nil {
 		evs = append(evs,
 			fmt.Sprintf("WAKE_FAILED_TASK_ID=%d", failedTask.ID),
 			fmt.Sprintf("WAKE_FAILED_TASK_NAME=%s", failedTask.Name),
 			fmt.Sprintf("WAKE_FAILED_TASK_LOG=%s", b.taskLogPath(failedTask.ID)),
 		)
-	}
-	if Config.Port == "443" {
-		evs = append(evs, fmt.Sprintf("WAKE_URL=https://%s/", Config.Hostname))
-	} else {
-		evs = append(evs, fmt.Sprintf("WAKE_URL=http://localhost:%s/", Config.Port))
 	}
 	return evs
 }
@@ -775,7 +787,9 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 	// are changed or broadcast.
 	b.pendingTasksWG.Wait()
 	b.Logger.Info("build status", "status", status)
+	b.mutex.Lock()
 	b.Status = status
+	b.mutex.Unlock()
 	if status == StatusRunning {
 		b.StartedAt = time.Now()
 	}
