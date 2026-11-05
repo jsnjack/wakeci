@@ -207,6 +207,7 @@ func (s *SessionStorage) User(sessionToken string) (string, error) {
 	defer s.mu.RUnlock()
 	val, ok := s.sessions[sessionKey(sessionToken)]
 	if !ok {
+		// Never put the token in the error: it is logged
 		return "", errors.New("session doesn't exist")
 	}
 	if val.expires.Before(time.Now()) {

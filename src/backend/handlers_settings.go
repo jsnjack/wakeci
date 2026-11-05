@@ -28,6 +28,11 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 		logger = L
 	}
 
+	// The audit log says whether the request changes the password (the
+	// outcome says if it did), never what to
+	addAuditAttrs(r, "passwordChange", r.FormValue("password") != "",
+		"concurrentBuilds", r.FormValue("concurrentBuilds"), "buildHistorySize", r.FormValue("buildHistorySize"))
+
 	// Password
 	password := r.FormValue("password")
 	if password != "" {

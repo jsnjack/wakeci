@@ -41,6 +41,7 @@ src/backend/                 Go server (package main, module "wakeci")
   sso.go                     SAML single sign-on (e.g. Google Workspace): IdP metadata, response checks, login state
   apikeys.go                 API keys: storage, management handlers, the key router with its scope and job checks
   auth_limiter.go            Per-client failed-auth limiter and retry/reset response headers
+  audit.go                   Audit log: who did what, AuditMi and the table of audited routes
   middleware.go               chi middleware: per-request logger, auth, CORS, security headers
   handlers_*.go              HTTP handlers per resource (auth incl. SSO, jobs, job, build, feed, queue, settings, static, docs)
   wsclient.go, wshub.go      WebSocket hub: pushes build/feed updates to connected browsers
@@ -117,6 +118,14 @@ src/frontend/                Vue 3 + Vite SPA
    downloads it next to the binary, checks the sha256 digest GitHub lists and
    that `--version` prints the version, hard-links the old binary to
    `<binary>.previous`, renames the new one over it, then `BeginStop`.
+10. **Audit log**: `LogMi` gives each request a `requestInfo` (log ID, IP,
+    `X-Forwarded-For`); `AuthMi` and `APIKeyAuthMi` record who made it with
+    `setRequestUser` once the credentials check out, and the request line
+    names them. `AuditMi`, registered before the auth middleware on both
+    routers, writes one `msg=audit` line for every request that can change
+    something, with the event from `auditedRoutes`, what handlers added with
+    `addAuditAttrs`, and the status. Logins, logouts and scheduled builds
+    call `audit` / `auditScheduled` themselves.
 
 ---
 
@@ -189,6 +198,18 @@ AGENTS.universal.md for the general contract.
   (`L`, `--debug`/`--trace`) is separate from per-build task output
   (`task_N.log` via `ProcessLogEntry`), which is a product feature shown to
   users, not a diagnostic stream — never route one through the other.
+- **The audit log is a third path** (`auditLogger`, always on, stderr,
+  text, `msg=audit`): a record for auditors of who did what, from where,
+  not diagnostics, so `--debug` doesn't turn it off. One line per sign-in
+  and per change; reads are left to the request line, which names the
+  user the same way, to keep the audit log small enough to read. `AuditMi`
+  wraps the routers instead of each handler calling it, so every error
+  branch and every refusal (by `AuthMi`, a key's scope, a missing route) is
+  recorded with its status, and it finds the route with its own `auditMux`
+  because the auth middleware refuses requests before chi has matched them.
+  `ip` is the connection's address; `X-Forwarded-For` is logged next to it
+  as sent, never trusted, since anyone can set it and wakeci doesn't know
+  if a proxy is in front.
 - **Per-request/per-build loggers carry context via `slog.Logger.With`**
   (request ID + host, or build ID) rather than a shared global, so log lines
   from concurrent builds/requests stay attributable.
@@ -371,6 +392,13 @@ AGENTS.universal.md for the general contract.
 - When adding an API route, decide whether API keys may use it. If so,
   register it in `newAPIKeyRouter` too, with its scope and job resolver, and
   make list handlers filter with `apiKeyFromContext`.
+- A new route that changes something needs an entry in `auditedRoutes`
+  (`TestAuditedRoutes` fails without one). Audit attrs carry names and IDs,
+  never passwords, tokens, secrets or run parameter values; errors that may
+  be logged must not contain them either (session errors don't name the
+  token).
+- Login handlers start with `withRequestInfo`, so `setRequestUser` and
+  `audit` share one `requestInfo` even when called without `LogMi` (tests).
 - `jobFromStorage` must read the path from `wakespacePath` and clean it like
   `http.FileServer` does, so the build it checks is the build that is served
   (`/storage/build/1/../2/x` is build 2).
