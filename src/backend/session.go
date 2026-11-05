@@ -119,10 +119,11 @@ func (s *SessionStorage) User(sessionToken string) (string, error) {
 	defer s.mu.RUnlock()
 	val, ok := s.sessions[sessionToken]
 	if !ok {
-		return "", fmt.Errorf("session %s doesn't exist", sessionToken)
+		// Never put the token in the error: it is logged
+		return "", fmt.Errorf("session doesn't exist")
 	}
 	if val.expires.Before(time.Now()) {
-		return "", fmt.Errorf("session %s expired", sessionToken)
+		return "", fmt.Errorf("session expired")
 	}
 	return val.user, nil
 }
@@ -134,7 +135,7 @@ func (s *SessionStorage) Delete(sessionToken string) error {
 	delete(s.sessions, sessionToken)
 	s.mu.Unlock()
 	if !ok {
-		return fmt.Errorf("session %s doesn't exist", sessionToken)
+		return fmt.Errorf("session doesn't exist")
 	}
 	s.ended([]string{sessionToken})
 	return nil

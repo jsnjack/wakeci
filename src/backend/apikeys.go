@@ -498,6 +498,7 @@ func HandleAPIKeyCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Info("api key created", "apiKey", key.ID, "name", key.Name, "scopes", key.Scopes, "createdBy", key.CreatedBy)
+	addAuditAttrs(r, apiKeyAuditAttrs(key)...)
 	// The token is in this response only
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, logger, NewAPIKeyData{Key: key, Token: token})
@@ -517,6 +518,7 @@ func HandleAPIKeyCreate(w http.ResponseWriter, r *http.Request) {
 // @Router       /keys/ [delete]
 func HandleAPIKeysRevokeBy(w http.ResponseWriter, r *http.Request) {
 	logger := requestLogger(r)
+	addAuditAttrs(r, "person", r.URL.Query().Get("createdBy"))
 	if user, err := requestUser(r); err != nil || user != "" {
 		logger.Warn("revoke a person's api keys without the admin password", "user", user, "err", err)
 		writePlainText(w, logger, http.StatusForbidden, "Only the admin password can revoke another person's keys")
@@ -563,6 +565,7 @@ func HandleAPIKeysRevokeBy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Info("api keys revoked", "createdBy", createdBy, "keys", result.Keys, "sessions", result.Sessions)
+	addAuditAttrs(r, "keys", result.Keys, "sessions", result.Sessions)
 	writeJSON(w, logger, result)
 }
 
@@ -593,16 +596,17 @@ func HandleAPIKeyRevoke(w http.ResponseWriter, r *http.Request) {
 		if data == nil {
 			return errNotFound
 		}
-		if user != "" {
-			var stored storedAPIKey
-			if err := json.Unmarshal(data, &stored); err != nil {
-				return err
-			}
-			// An SSO user doesn't see other people's keys, so to them
-			// someone else's key doesn't exist either
-			if !strings.EqualFold(stored.CreatedBy, user) {
-				return errNotFound
-			}
+		var stored storedAPIKey
+		if err := json.Unmarshal(data, &stored); err != nil {
+			return err
+		}
+		// An SSO user doesn't see other people's keys, so to them
+		// someone else's key doesn't exist either
+		if user != "" && !strings.EqualFold(stored.CreatedBy, user) {
+			return errNotFound
+		}
+		if stored.CreatedBy != "" {
+			addAuditAttrs(r, "createdBy", stored.CreatedBy)
 		}
 		return b.Delete([]byte(id))
 	})
@@ -615,6 +619,20 @@ func HandleAPIKeyRevoke(w http.ResponseWriter, r *http.Request) {
 	default:
 		logger.Info("api key revoked", "apiKey", id, "by", user)
 	}
+}
+
+// apiKeyAuditAttrs describe a new key in the audit log: what it may do, never
+// its secret
+func apiKeyAuditAttrs(key *APIKey) []any {
+	jobs := "all"
+	if !key.AllJobs {
+		jobs = strings.Join(append(slices.Clone(key.Jobs), key.Patterns...), ",")
+	}
+	expires := "never"
+	if key.ExpiresAt != nil {
+		expires = key.ExpiresAt.Format(time.RFC3339)
+	}
+	return []any{"key", key.ID, "name", key.Name, "scopes", strings.Join(key.Scopes, ","), "jobs", jobs, "expires", expires}
 }
 
 // routeAPIKeys sends requests that carry an API key to keyRouter and all
@@ -641,6 +659,8 @@ func newAPIKeyRouter(storage http.Handler) http.Handler {
 	router.Use(LogMi)
 	router.Use(SecurityMi)
 	router.Use(CORSMi)
+	// Before the key is checked, so refused changes are audited too
+	router.Use(AuditMi)
 	router.Use(APIKeyAuthMi)
 
 	router.Route("/api", func(router chi.Router) {
@@ -694,7 +714,13 @@ func APIKeyAuthMi(next http.Handler) http.Handler {
 			// Only failures are limited: a key can't be guessed, so blocking
 			// valid keys would only let bad ones lock them out. reject also
 			// clears a block that has expired, which recordFailure doesn't.
-			if apiKeyAttemptLimiter.reject(w, r, logger) || apiKeyAttemptLimiter.recordFailure(w, r, logger) {
+			if apiKeyAttemptLimiter.reject(w, r, logger) {
+				return
+			}
+			blocked := apiKeyAttemptLimiter.recordFailure(w, r, logger)
+			// The error names the key ID at most, never the secret
+			audit(r, "login.apikey", "failed", append([]any{"reason", err.Error()}, blockedAttrs(blocked)...)...)
+			if blocked {
 				return
 			}
 			w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token"`)
@@ -702,6 +728,7 @@ func APIKeyAuthMi(next http.Handler) http.Handler {
 			return
 		}
 		logger = logger.With("apiKey", key.ID)
+		setRequestUser(r, "apikey", key.CreatedBy, key.ID)
 		if err := touchAPIKey(key, now); err != nil {
 			logger.Error("record api key use", "err", err)
 		}

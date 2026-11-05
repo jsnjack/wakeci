@@ -88,6 +88,7 @@ func HandleJobsCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	name := r.FormValue("name")
+	addAuditAttrs(r, "job", name)
 	if !isValidJobName(name) {
 		logger.Warn("invalid job name", "name", name)
 		w.WriteHeader(http.StatusBadRequest)

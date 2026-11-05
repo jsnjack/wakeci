@@ -656,7 +656,9 @@ func TestSSOACS(t *testing.T) {
 				req.AddCookie(cookie)
 			}
 			rec := httptest.NewRecorder()
+			events, _ := captureAudit(t)
 			HandleSSOACS(rec, req)
+			checkSSOAudit(t, events(), tt.wantLocation, strings.Join(response.groups, ","))
 
 			if rec.Code != http.StatusSeeOther {
 				t.Fatalf("status = %d, want %d", rec.Code, http.StatusSeeOther)
@@ -873,6 +875,42 @@ func TestSafeRedirectPath(t *testing.T) {
 
 // A login the identity provider issued before the person's access was
 // revoked can't recreate a session afterwards; a later one can
+// checkSSOAudit checks the audit event of a login that went to location:
+// one login.sso event, except for an unsolicited response, which restarts
+// the login
+func checkSSOAudit(t *testing.T, events []auditEvent, location, groups string) {
+	t.Helper()
+	switch location {
+	case ssoLoginPath:
+		if len(events) != 0 {
+			t.Errorf("audit events for a restarted login: %v", events)
+		}
+	case testLoginRedirect:
+		event := onlyAuditEvent(t, events)
+		checkAuditEvent(t, event, map[string]string{
+			"event": "login.sso", "outcome": "ok", "auth": "sso", "user": testSSOEmail, "reason": "",
+		})
+		if got, ok := event["groups"]; !ok || got != groups {
+			t.Errorf("groups = %q, want %q", got, groups)
+		}
+	case wantSSONotAllowed:
+		event := onlyAuditEvent(t, events)
+		checkAuditEvent(t, event, map[string]string{
+			"event": "login.sso", "outcome": "rejected", "auth": "", "user": testSSOEmail, "reason": "in no allowed group",
+		})
+		// No groups at all is worth seeing: the identity provider sends none
+		if got, ok := event["groups"]; !ok || got != groups {
+			t.Errorf("groups = %q, want %q", got, groups)
+		}
+	default:
+		event := onlyAuditEvent(t, events)
+		checkAuditEvent(t, event, map[string]string{"event": "login.sso", "outcome": "failed", "auth": "", "user": ""})
+		if event["reason"] == "" {
+			t.Error("no reason")
+		}
+	}
+}
+
 func TestSSOACSAfterRevoke(t *testing.T) {
 	newSSOTestEnv(t)
 	post := func(issuedAt time.Time) *httptest.ResponseRecorder {
@@ -891,7 +929,12 @@ func TestSSOACSAfterRevoke(t *testing.T) {
 
 	issuedBefore := time.Now()
 	GlobalSessionStorage.DeleteUser(testSSOEmail)
+	events, _ := captureAudit(t)
 	rec := post(issuedBefore)
+	checkAuditEvent(t, onlyAuditEvent(t, events()), map[string]string{
+		"event": "login.sso", "outcome": "rejected", "auth": "", "user": testSSOEmail,
+		"reason": "issued before the person's access was revoked",
+	})
 	if got := rec.Header().Get("Location"); got != wantSSOError {
 		t.Errorf("login issued before the revoke: Location = %q, want %q", got, wantSSOError)
 	}

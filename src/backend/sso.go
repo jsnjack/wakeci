@@ -150,27 +150,26 @@ func (s *SSOAuth) AuthURL() (string, string, error) {
 }
 
 // VerifyResponse checks a base64 SAML response posted by the identity
-// provider, which must answer the login request requestID, and returns the
-// user's NameID (their email in Google Workspace) and when the signed
-// assertion was issued
-func (s *SSOAuth) VerifyResponse(encodedResponse, requestID string) (string, time.Time, error) {
+// provider, which must answer the login request requestID, and returns who
+// it logs in. A user in no allowed group gets an *ssoGroupError.
+func (s *SSOAuth) VerifyResponse(encodedResponse, requestID string) (*ssoLogin, error) {
 	// Checks the signature against the metadata certificates, the issuer,
 	// destination, recipient, status and subject confirmation expiry
 	info, err := s.sp.RetrieveAssertionInfo(encodedResponse)
 	if err != nil {
-		return "", time.Time{}, err
+		return nil, err
 	}
 	switch {
 	case info.WarningInfo.InvalidTime:
-		return "", time.Time{}, fmt.Errorf("assertion is expired or not valid yet")
+		return nil, fmt.Errorf("assertion is expired or not valid yet")
 	case info.WarningInfo.NotInAudience:
-		return "", time.Time{}, fmt.Errorf("assertion is for another service provider")
+		return nil, fmt.Errorf("assertion is for another service provider")
 	case len(info.Assertions) != 1:
-		return "", time.Time{}, fmt.Errorf("response has %d assertions, want 1", len(info.Assertions))
+		return nil, fmt.Errorf("response has %d assertions, want 1", len(info.Assertions))
 	// gosaml2 only flags an audience restriction that doesn't match, so
 	// require one. RetrieveAssertionInfo has checked that Conditions exists.
 	case len(info.Assertions[0].Conditions.AudienceRestrictions) == 0:
-		return "", time.Time{}, fmt.Errorf("assertion has no audience restriction")
+		return nil, fmt.Errorf("assertion has no audience restriction")
 	}
 	// Read InResponseTo from the signed assertion, not from the Response
 	// element around it, which the identity provider may leave unsigned.
@@ -178,19 +177,45 @@ func (s *SSOAuth) VerifyResponse(encodedResponse, requestID string) (string, tim
 	inResponseTo := info.Assertions[0].Subject.SubjectConfirmation.SubjectConfirmationData.InResponseTo
 	switch {
 	case inResponseTo == "":
-		return "", time.Time{}, errSSOUnsolicited
+		return nil, errSSOUnsolicited
 	case subtle.ConstantTimeCompare([]byte(inResponseTo), []byte(requestID)) != 1:
-		return "", time.Time{}, fmt.Errorf("response answers another login request")
+		return nil, fmt.Errorf("response answers another login request")
 	case !s.useRequest(requestID, time.Now()):
-		return "", time.Time{}, fmt.Errorf("login request %s was already answered", requestID)
+		return nil, fmt.Errorf("login request %s was already answered", requestID)
 	case info.NameID == "":
-		return "", time.Time{}, fmt.Errorf("assertion has no NameID")
+		return nil, fmt.Errorf("assertion has no NameID")
 	}
 	groups := info.Values.GetAll(ssoGroupsAttribute)
 	if !slices.ContainsFunc(groups, s.groupAllowed) {
-		return "", time.Time{}, fmt.Errorf("%w: %q is in groups %q", errSSOGroup, info.NameID, groups)
+		return nil, &ssoGroupError{email: info.NameID, groups: groups}
 	}
-	return info.NameID, info.Assertions[0].IssueInstant, nil
+	return &ssoLogin{email: info.NameID, groups: groups, issuedAt: info.Assertions[0].IssueInstant}, nil
+}
+
+// ssoLogin is who a verified SAML response logs in
+type ssoLogin struct {
+	// email is the NameID, the email in Google Workspace
+	email string
+	// groups are those the identity provider sent, which for Google are
+	// the mapped groups the user is in
+	groups []string
+	// issuedAt is when the signed assertion was issued
+	issuedAt time.Time
+}
+
+// ssoGroupError means the user signed in but is in none of the allowed
+// groups. It keeps who it was for the audit log.
+type ssoGroupError struct {
+	email  string
+	groups []string
+}
+
+func (e *ssoGroupError) Error() string {
+	return fmt.Sprintf("%s: %q is in groups %q", errSSOGroup, e.email, e.groups)
+}
+
+func (e *ssoGroupError) Unwrap() error {
+	return errSSOGroup
 }
 
 // useRequest records that a login request got its response and reports

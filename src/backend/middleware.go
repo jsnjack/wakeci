@@ -50,22 +50,15 @@ func (rec *statusRecorder) Flush() {
 }
 
 // LogMi is a middleware that creates a new logger per request and writes an
-// access log line (method, path, status, duration) unconditionally, since
-// request traffic is core operational visibility for an HTTP service.
+// access log line (method, path, status, duration, and who made the request
+// once the auth middleware knows) unconditionally, since request traffic is
+// core operational visibility for an HTTP service.
 func LogMi(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		startTime := time.Now()
 
-		logID := GenerateRandomString(5)
-
-		// Get IP address of a user
-		host, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err != nil {
-			L.Error("split remote addr", "addr", r.RemoteAddr, "err", err)
-			host = r.RemoteAddr
-		}
-
-		handlerLogger := L.With("logID", logID, "host", host)
+		r, info := withRequestInfo(r)
+		handlerLogger := L.With("logID", info.logID, "host", info.ip)
 
 		// Get new context with key-value "settings"
 		ctx := context.WithValue(r.Context(), HL, handlerLogger)
@@ -75,9 +68,12 @@ func LogMi(next http.Handler) http.Handler {
 
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		defer func() {
-			handlerLogger.Warn("request completed",
-				"method", r.Method, "path", r.URL.Path, "status", rec.status, "took", time.Since(startTime),
-			)
+			attrs := []any{"method", r.Method, "path", r.URL.Path, "status", rec.status, "took", time.Since(startTime)}
+			attrs = append(attrs, info.who()...)
+			if info.forwardedFor != "" {
+				attrs = append(attrs, "forwardedFor", info.forwardedFor)
+			}
+			handlerLogger.Warn("request completed", attrs...)
 		}()
 
 		// Call actual handler
@@ -189,7 +185,9 @@ func AuthMi(next http.Handler) http.Handler {
 			err = bcrypt.CompareHashAndPassword(hashedPassword, []byte(password))
 			if err != nil {
 				logger.Warn("basic auth failed", "err", err)
-				if globalAuthAttemptLimiter.recordFailure(w, r, logger) {
+				blocked := globalAuthAttemptLimiter.recordFailure(w, r, logger)
+				audit(r, "login.basic", "failed", blockedAttrs(blocked)...)
+				if blocked {
 					return
 				}
 				w.Header().Set("Content-Type", "text/plain")
@@ -198,6 +196,7 @@ func AuthMi(next http.Handler) http.Handler {
 				return
 			}
 			globalAuthAttemptLimiter.success(authClient(r))
+			setRequestUser(r, "basic", "", "")
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -211,7 +210,7 @@ func AuthMi(next http.Handler) http.Handler {
 			writeBody(logger, w, []byte("Forbidden"))
 			return
 		}
-		err = GlobalSessionStorage.Verify(sessionToken.Value)
+		user, err := GlobalSessionStorage.User(sessionToken.Value)
 		if err != nil {
 			logger.Warn("session verification failed", "err", err)
 			w.WriteHeader(http.StatusForbidden)
@@ -219,6 +218,7 @@ func AuthMi(next http.Handler) http.Handler {
 			writeBody(logger, w, []byte("Forbidden"))
 			return
 		}
+		setRequestUser(r, sessionAuth(user), user, "")
 		next.ServeHTTP(w, r)
 	})
 }

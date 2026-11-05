@@ -178,6 +178,51 @@ leaves:
 
 > Default password is `admin`. Don't forget to immediately change it!
 
+#### Audit log
+
+wakeci writes one line for every sign-in and every change, saying who did
+what, from where and whether it worked. The lines go to stderr with the other
+logs, whatever `--debug` says, and start with `msg=audit`. Under systemd,
+`journalctl -u wakeci | grep msg=audit` shows them; ship stderr to your log
+system to read several servers together.
+
+```
+time=2026-11-05T11:02:03Z level=INFO msg=audit server=ci.example.com event=login.sso outcome=ok auth=sso user=alice@example.com groups=Developers ip=198.51.100.4 logID=Xk2pQ
+time=2026-11-05T11:02:41Z level=INFO msg=audit server=ci.example.com event=build.run outcome=ok auth=sso user=alice@example.com job=deploy build=1234 params=TARGET status=200 method=POST path=/api/job/deploy/run ip=198.51.100.4 logID=b7RtM
+time=2026-11-05T11:05:10Z level=INFO msg=audit server=ci.example.com event=login.sso outcome=rejected user=bob@example.com groups=Marketing reason="in no allowed group" ip=203.0.113.8 logID=Qe9Zs
+```
+
+| Field | Meaning |
+|---|---|
+| `server` | `hostname` from the config, or the machine's name |
+| `event` | what happened, see below |
+| `outcome` | `ok`, `failed`, or `rejected` for a login refused by group or revoke; `status` is the HTTP status |
+| `auth` | how the request signed in: `password` (session from the admin password), `sso`, `basic` (Basic auth with the password) or `apikey` |
+| `user` | the SSO email; for an API key, the email of who created it. Empty for the admin password, which isn't a person |
+| `apiKey` | the ID of the API key used |
+| `ip` | the address the connection came from |
+| `forwardedFor` | the `X-Forwarded-For` header, if the request had one. Anyone can send it: behind a proxy, `ip` is the proxy and this is what it passed on; without one, it can be made up |
+| `logID` | the same ID as the request's `request completed` line |
+
+| Events | |
+|---|---|
+| `login.password`, `login.basic`, `login.sso`, `login.apikey` | sign-ins; failures have a `reason`, SSO logins the `groups` the identity provider sent, and the failure that blocks an address for too many attempts has `blocked=true` |
+| `logout` | |
+| `build.run`, `build.abort`, `build.start`, `build.flush` | with `job` and `build`; a run lists the names of its parameters, and a scheduled one has `trigger=interval` and no user |
+| `job.create`, `job.edit`, `job.delete`, `job.set_active` | with `job` |
+| `settings.change` | the new values, and `passwordChange=true` if the password was sent |
+| `key.create`, `key.revoke`, `access.revoke` | the key, its scopes and jobs; revoking someone's access names the `person` and how many keys and sessions it ended |
+
+Refused attempts are recorded too, e.g. an SSO user trying to change the
+password, or an API key without the `run` scope trying to run a job. The log
+never contains passwords, tokens, secrets or the values of run parameters.
+
+Opening pages, logs and artifacts isn't an audit event, but every request's
+`request completed` line names who made it the same way. Requests from an
+address blocked for too many failed attempts are only in those lines. Job
+files changed on the server's disk, not through wakeci, aren't attributed to
+anyone.
+
 ### API documentation
 
 See full description [here](https://github.com/jsnjack/wakeci/blob/master/API.md)
