@@ -4,37 +4,57 @@
         method="post"
         @submit.prevent="logIn"
     >
-    <progress class="circle large" v-show="fetching"></progress>
+        <progress
+            class="circle large"
+            v-show="fetching"
+        ></progress>
         <div
             class="center-align"
-            v-show="!fetching"
+            v-if="!fetching"
         >
             <i class="extra">water</i>
             <h5 class="center-align">Welcome to wake</h5>
-            <p v-if="ssoEnabled">Log in with your password or single sign-on</p>
-            <p v-else>Start by logging in with your password</p>
-            <div class="space"></div>
-            <nav class="group connected">
-                <div class="max field border left-round prefix round">
-                    <input
-                        id="password"
-                        v-model="password"
-                        class="form-input text-center"
-                        type="password"
-                    />
-                </div>
-                <button class="large right-round primary">Log in</button>
-            </nav>
             <template v-if="ssoEnabled">
+                <p>Sign in with your work account</p>
                 <div class="space"></div>
                 <a
-                    class="button large border round sso-login"
+                    class="button large round icon-label login-option"
                     :href="ssoLoginURL"
                     data-cy="sso-login"
                 >
                     <i>account_circle</i>
                     <span>Sign in with SSO</span>
                 </a>
+                <div class="login-or">or</div>
+                <!-- The password field only exists once asked for, so password
+                     managers don't offer to fill it on every visit -->
+                <button
+                    v-if="!showPassword"
+                    type="button"
+                    class="border large round icon-label login-option"
+                    data-cy="admin-login"
+                    @click="revealPassword"
+                >
+                    <i>key</i>
+                    <span>Sign in as admin</span>
+                </button>
+            </template>
+            <p v-else>Start by logging in with your password</p>
+            <template v-if="!ssoEnabled || showPassword">
+                <div class="space"></div>
+                <nav class="group connected">
+                    <div class="max field border left-round prefix round">
+                        <input
+                            id="password"
+                            ref="password"
+                            v-model="password"
+                            class="form-input text-center"
+                            type="password"
+                            aria-label="Admin password"
+                        />
+                    </div>
+                    <button class="large right-round primary">Log in</button>
+                </nav>
             </template>
         </div>
     </form>
@@ -50,6 +70,7 @@ export default {
             fetching: true,
             password: "",
             ssoEnabled: false,
+            showPassword: false,
         };
     },
     computed: {
@@ -68,29 +89,33 @@ export default {
     mounted() {
         this.$store.commit("SET_CURRENT_PAGE", "Login");
         this.showLoginError();
-        this.fetch();
-        this.fetchAuthMethods();
+        // Wait for both, so the page doesn't show the password field and then
+        // swap it for single sign-on
+        Promise.allSettled([this.fetch(), this.fetchAuthMethods()]).then(() => {
+            this.fetching = false;
+        });
     },
     methods: {
         fetch() {
-            axios
+            return axios
                 .get("/auth/_isLoggedIn")
                 .then((response) => {
                     this.$store.commit("LOG_IN");
                     this.$router.replace(this.getRedirectURL);
                 })
-                .catch((error) => {})
-                .finally(() => {
-                    this.fetching = false;
-                });
+                .catch((error) => {});
         },
         fetchAuthMethods() {
-            axios
+            return axios
                 .get("/auth/methods")
                 .then((response) => {
                     this.ssoEnabled = response.data.sso === true;
                 })
                 .catch((error) => {});
+        },
+        revealPassword() {
+            this.showPassword = true;
+            this.$nextTick(() => this.$refs.password.focus());
         },
         showLoginError() {
             const messages = {
@@ -135,7 +160,28 @@ export default {
 <style scoped>
 /* The button centres the icon but leaves the capital letters of the label 2px
    above the middle; lower the label so both sit on the button's middle */
-.sso-login > span {
+.icon-label > span {
     transform: translateY(2px);
+}
+/* Single sign-on, "or" and the admin password line up in one column */
+.login-option {
+    box-sizing: border-box;
+    width: 16rem;
+}
+/* A line on each side of "or", between single sign-on and the admin
+   password. Not called a divider: BeerCSS styles [class*=divider] as a line. */
+.login-or {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 16rem;
+    margin: 1.25rem auto;
+    color: var(--outline);
+}
+.login-or::before,
+.login-or::after {
+    content: "";
+    flex: 1;
+    border-top: 1px solid var(--outline-variant);
 }
 </style>

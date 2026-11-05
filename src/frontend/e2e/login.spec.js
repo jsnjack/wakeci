@@ -10,11 +10,33 @@ test("should not offer single sign-on when it isn't configured", async ({ page }
     await expect(page.getByTestId("sso-login")).toHaveCount(0);
 });
 
-test("should offer single sign-on and keep the redirect", async ({ page }) => {
+test("should offer single sign-on first and the password only when asked", async ({ page }) => {
     await page.route("**/auth/methods", (route) => route.fulfill({ json: { sso: true } }));
     await page.goto("/login?redirect=/jobs");
     await expect(page.getByTestId("sso-login")).toHaveAttribute("href", "/auth/sso/login?redirect=%2Fjobs");
-    await expect(page.locator("#password")).toBeVisible();
+    // No password field in the page, so password managers have nothing to fill
+    await expect(page.locator("input[type=password]")).toHaveCount(0);
+
+    await page.getByTestId("admin-login").click();
+    await expect(page.locator("#password")).toBeFocused();
+    await expect(page.getByTestId("admin-login")).toHaveCount(0);
+    await login(page);
+    await expect(page).toHaveURL(/\/jobs$/);
+});
+
+test("should not show the password field before it knows about single sign-on", async ({ page }) => {
+    let answer;
+    const answered = new Promise((resolve) => (answer = resolve));
+    await page.route("**/auth/methods", async (route) => {
+        await answered;
+        await route.fulfill({ json: { sso: true } });
+    });
+    await page.goto("/login");
+    await expect(page.locator("progress")).toBeVisible();
+    await expect(page.locator("input[type=password]")).toHaveCount(0);
+    answer();
+    await expect(page.getByTestId("sso-login")).toBeVisible();
+    await expect(page.locator("input[type=password]")).toHaveCount(0);
 });
 
 test("should explain a rejected account and keep the redirect", async ({ page }) => {
