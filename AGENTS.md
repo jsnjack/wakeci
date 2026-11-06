@@ -334,7 +334,9 @@ AGENTS.universal.md for the general contract.
   make list handlers filter with `apiKeyFromContext`.
 - A new route that changes something needs an entry in `auditedRoutes`
   (`TestAuditedRoutes` fails without one). Audit attrs carry names and IDs,
-  never passwords, tokens, secrets or run parameter values; errors that may
+  never passwords, tokens, secrets or run parameter values, nor names a
+  client made up: a JSON body sent as a form is one name, secret and all,
+  so a run logs only the job's own parameter names (`usedParams`); errors that may
   be logged must not contain them either (session errors don't name the
   token). What a route acts on comes from the URL in `auditedRoutes`
   (`attrs`), so a request refused before the handler still names it; a

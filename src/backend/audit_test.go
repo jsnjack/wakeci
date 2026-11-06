@@ -181,14 +181,14 @@ func TestAuditActions(t *testing.T) {
 			form: url.Values{"TARGET": {"prod"}, "VERSION": {"1"}},
 			want: map[string]string{
 				"event": "build.run", "outcome": "ok", "status": "200", "auth": "sso", "user": alice,
-				"job": "deploy", "params": `["TARGET","VERSION"]`, "paramsOmitted": "", "method": "POST", "path": "/api/job/deploy/run",
+				"job": "deploy", "params": `["TARGET"]`, "ignoredParams": "1", "method": "POST", "path": "/api/job/deploy/run",
 			},
 		},
 		{
-			// Not the same as parameters A and B
-			name: "run with a comma in a parameter name", user: alice, method: "POST", target: "/api/job/deploy/run",
-			form: url.Values{"A,B": {"1"}},
-			want: map[string]string{"event": "build.run", "outcome": "ok", "params": `["A,B"]`},
+			// A parameter sent empty keeps the job's value
+			name: "run with an empty parameter", user: alice, method: "POST", target: "/api/job/deploy/run",
+			form: url.Values{"TARGET": {""}},
+			want: map[string]string{"event": "build.run", "outcome": "ok", "params": "", "ignoredParams": "1"},
 		},
 		{
 			name: "run with Basic auth", method: "POST", target: "/api/job/deploy/run", basic: true,
@@ -350,29 +350,22 @@ func TestAuditValuesAreBounded(t *testing.T) {
 	cookie := loginAs(t, "alice@example.com")
 	long := strings.Repeat("P", 1<<20)
 
-	events, _ := captureAudit(t)
-	form := url.Values{long: {"x"}}
+	events, raw := captureAudit(t)
+	form := url.Values{long: {"x"}, "TARGET": {"prod"}}
 	for i := range 300 {
 		form.Set(fmt.Sprintf("A%03d", i), "y")
 	}
 	if rec := apiCall("POST", "/api/job/deploy/run", cookie, form, nil); rec.Code != http.StatusOK {
 		t.Fatalf("run: %d %s", rec.Code, rec.Body)
 	}
-	event := onlyAuditEvent(t, events())
-	var params []string
-	if err := json.Unmarshal([]byte(event["params"]), &params); err != nil {
-		t.Fatalf("params isn't a JSON list: %v", err)
-	}
-	if len(event["params"]) > maxAuditValueLength || len(params) == 0 || params[0] != "A000" {
-		t.Errorf("params has %d bytes and %d names, want at most %d bytes from A000", len(event["params"]), len(params), maxAuditValueLength)
-	}
-	if want := fmt.Sprint(len(form) - len(params)); event["paramsOmitted"] != want {
-		t.Errorf("paramsOmitted = %q, want %s", event["paramsOmitted"], want)
+	checkAuditEvent(t, onlyAuditEvent(t, events()), map[string]string{"params": `["TARGET"]`, "ignoredParams": "301"})
+	if len(raw.String()) > 2*maxAuditValueLength {
+		t.Errorf("the audit line has %d bytes", len(raw.String()))
 	}
 
 	events, _ = captureAudit(t)
 	apiCall("POST", "/api/job/"+long+"/run", cookie, nil, nil)
-	event = onlyAuditEvent(t, events())
+	event := onlyAuditEvent(t, events())
 	if want := long[:maxAuditValueLength] + "..."; event["job"] != want {
 		t.Errorf("job has %d bytes, want %d ending in ...", len(event["job"]), len(want))
 	}
@@ -402,6 +395,26 @@ func TestAuditHandlerPanic(t *testing.T) {
 	checkAuditEvent(t, onlyAuditEvent(t, events()), map[string]string{
 		"event": "build.run", "outcome": "failed", "status": "500", "panic": "true", "job": "deploy", "build": "7",
 	})
+}
+
+// Only the names of the job's own parameters are logged: anything else a
+// client sends can hold a secret, e.g. a JSON body sent with curl -d, which
+// arrives as one form name
+func TestAuditRunLogsOnlyJobParams(t *testing.T) {
+	newAuditTestEnv(t)
+	events, raw := captureAudit(t)
+	req := httptest.NewRequest("POST", "/api/job/deploy/run", strings.NewReader(`{"TOKEN":"s3cret-value"}`))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(loginAs(t, "alice@example.com"))
+	rec := httptest.NewRecorder()
+	apiRouter().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("run: %d %s", rec.Code, rec.Body)
+	}
+	checkAuditEvent(t, onlyAuditEvent(t, events()), map[string]string{"event": "build.run", "params": "", "ignoredParams": "1"})
+	if strings.Contains(raw.String(), "s3cret-value") {
+		t.Errorf("the audit log has the secret: %s", raw)
+	}
 }
 
 func TestAuditListAttrs(t *testing.T) {

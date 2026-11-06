@@ -121,6 +121,11 @@ func auditListAttrs(key string, names []string) []any {
 	list := []string{}
 	size := len("[]")
 	for _, name := range names {
+		// Checked first, so a huge name isn't encoded only to be left out;
+		// encoding never makes a name shorter
+		if size+len(name)+len(`"",`) > maxAuditValueLength {
+			continue
+		}
 		encoded, err := json.Marshal(name)
 		if err != nil || size+len(encoded)+len(",") > maxAuditValueLength {
 			continue

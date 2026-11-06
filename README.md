@@ -208,14 +208,16 @@ time=2026-11-05T11:05:10Z level=INFO msg=audit server=ci.example.com event=login
 |---|---|
 | `login.password`, `login.basic`, `login.sso`, `login.apikey` | sign-ins, including ones the server failed to check; failures other than a wrong password have a `reason`, SSO logins the `groups` the identity provider sent, and the failure that blocks an address for too many attempts has `blocked=true` |
 | `logout` | |
-| `build.run`, `build.abort`, `build.start`, `build.flush` | with `job` and `build`; a run lists the names of its parameters in `params`, and a scheduled one has `trigger=interval` and no user |
+| `build.run`, `build.abort`, `build.start`, `build.flush` | with `job` and `build`; a run lists the job parameters it set in `params` (names only) and how many other names it sent in `ignoredParams`, and a scheduled one has `trigger=interval` and no user |
 | `job.create`, `job.edit`, `job.delete`, `job.set_active` | with `job`; a create that failed after writing the job file has `fileCreated=true`, since the file can still be added as a job |
 | `settings.change` | the new values, and `passwordChange=true` if the password was sent |
 | `key.create`, `key.revoke`, `access.revoke` | the key, its scopes, `allJobs`, and otherwise its `jobs` and `patterns` as JSON lists; revoking someone's access names the `person` and how many `sessions` and `keys` it ended. Sessions end first, so a revoke that failed may still have `sessions` |
 
 Refused attempts are recorded too, e.g. an SSO user trying to change the
 password, or an API key without the `run` scope trying to run a job. The log
-never contains passwords, tokens, secrets or the values of run parameters.
+never contains passwords, tokens, secrets or the values of run parameters,
+nor parameter names the job doesn't have, which can hold anything (`curl -d`
+with a JSON body sends the whole body as one name).
 Values longer than 1024 bytes are cut and end in `...`. Lists of names
 (`groups`, `params`, `jobs`, `patterns`) are JSON, so a name with a comma
 keeps its boundaries; they stay valid within 1024 bytes by leaving names out,
