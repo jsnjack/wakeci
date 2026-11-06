@@ -241,7 +241,7 @@ time=2026-11-05T11:05:10Z level=INFO msg=audit server=ci.example.com event=login
 | `user` | the SSO email; for an API key, the email of who created it. Empty for the admin password, which isn't a person |
 | `apiKey` | the ID of the API key used |
 | `ip` | the address the connection came from |
-| `forwardedFor` | the `X-Forwarded-For` header, if the request had one. Anyone can send it: behind a proxy, `ip` is the proxy and this is what it passed on; without one, it can be made up |
+| `forwardedFor` | the `X-Forwarded-For` header, if the request had one. Anyone can send it: behind a proxy, `ip` is the proxy and this is what it passed on; without one, it can be made up. A long header keeps its start and its end, where a proxy adds the address it saw |
 | `logID` | the same ID as the request's `request completed` line |
 
 | Events | |
@@ -256,12 +256,14 @@ time=2026-11-05T11:05:10Z level=INFO msg=audit server=ci.example.com event=login
 Refused attempts are recorded too, e.g. an SSO user trying to change the
 password, or an API key without the `run` scope trying to run a job. The log
 never contains passwords, tokens, secrets or the values of run parameters.
+Values longer than 1024 bytes are cut and end in `...`.
 
-Opening pages, logs and artifacts isn't an audit event, but every request's
-`request completed` line names who made it the same way. Requests from an
-address blocked for too many failed attempts are only in those lines. Job
-files changed on the server's disk, not through wakeci, aren't attributed to
-anyone.
+Reading isn't an audit event, but the `request completed` line of every API
+call, task log and artifact names who made it the same way. The app's pages
+themselves are public files without data, so their lines name no one; the
+data a page shows comes from API calls. Requests from an address blocked for
+too many failed attempts are only in those lines. Job files changed on the
+server's disk, not through wakeci, aren't attributed to anyone.
 
 ### API documentation
 

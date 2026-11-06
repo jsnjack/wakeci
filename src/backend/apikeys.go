@@ -518,7 +518,6 @@ func HandleAPIKeyCreate(w http.ResponseWriter, r *http.Request) {
 // @Router       /keys/ [delete]
 func HandleAPIKeysRevokeBy(w http.ResponseWriter, r *http.Request) {
 	logger := requestLogger(r)
-	addAuditAttrs(r, "person", r.URL.Query().Get("createdBy"))
 	if user, err := requestUser(r); err != nil || user != "" {
 		logger.Warn("revoke a person's api keys without the admin password", "user", user, "err", err)
 		writePlainText(w, logger, http.StatusForbidden, "Only the admin password can revoke another person's keys")
