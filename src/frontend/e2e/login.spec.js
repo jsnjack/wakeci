@@ -39,6 +39,15 @@ test("should not show the password field before it knows about single sign-on", 
     await expect(page.locator("input[type=password]")).toHaveCount(0);
 });
 
+test("should offer the password if it can't find out about single sign-on", async ({ page }) => {
+    // Never answered: the page stops waiting after 5 seconds
+    await page.route("**/auth/methods", () => {});
+    await page.goto("/login");
+    await expect(page.locator("progress")).toBeVisible();
+    await expect(page.locator("#password")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId("sso-login")).toHaveCount(0);
+});
+
 test("should explain a rejected account and keep the redirect", async ({ page }) => {
     await page.route("**/auth/methods", (route) => route.fulfill({ json: { sso: true } }));
     await page.goto("/login?error=sso_not_allowed&redirect=/jobs");

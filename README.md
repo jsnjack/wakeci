@@ -209,9 +209,9 @@ time=2026-11-05T11:05:10Z level=INFO msg=audit server=ci.example.com event=login
 | `login.password`, `login.basic`, `login.sso`, `login.apikey` | sign-ins; failures have a `reason`, SSO logins the `groups` the identity provider sent, and the failure that blocks an address for too many attempts has `blocked=true` |
 | `logout` | |
 | `build.run`, `build.abort`, `build.start`, `build.flush` | with `job` and `build`; a run lists the names of its parameters, and a scheduled one has `trigger=interval` and no user |
-| `job.create`, `job.edit`, `job.delete`, `job.set_active` | with `job` |
+| `job.create`, `job.edit`, `job.delete`, `job.set_active` | with `job`; a create that failed after writing the job file has `fileCreated=true`, since the file can still be added as a job |
 | `settings.change` | the new values, and `passwordChange=true` if the password was sent |
-| `key.create`, `key.revoke`, `access.revoke` | the key, its scopes and jobs; revoking someone's access names the `person` and how many keys and sessions it ended |
+| `key.create`, `key.revoke`, `access.revoke` | the key, its scopes, `allJobs`, and otherwise its `jobs` and `patterns` as JSON lists; revoking someone's access names the `person` and how many `sessions` and `keys` it ended. Sessions end first, so a revoke that failed may still have `sessions` |
 
 Refused attempts are recorded too, e.g. an SSO user trying to change the
 password, or an API key without the `run` scope trying to run a job. The log
