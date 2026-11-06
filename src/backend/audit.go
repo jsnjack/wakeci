@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net"
@@ -110,6 +111,29 @@ func forwardedFor(r *http.Request) string {
 		value = value[:forwardedForStart] + "..." + value[len(value)-(maxForwardedForLength-forwardedForStart):]
 	}
 	return value
+}
+
+// auditListAttrs records names as a JSON list under key, so names with
+// commas or spaces keep their boundaries. The list stays valid JSON within
+// maxAuditValueLength: names that don't fit are left out and counted under
+// key+"Omitted".
+func auditListAttrs(key string, names []string) []any {
+	list := []string{}
+	size := len("[]")
+	for _, name := range names {
+		encoded, err := json.Marshal(name)
+		if err != nil || size+len(encoded)+len(",") > maxAuditValueLength {
+			continue
+		}
+		size += len(encoded) + len(",")
+		list = append(list, name)
+	}
+	encoded, _ := json.Marshal(list)
+	attrs := []any{key, string(encoded)}
+	if omitted := len(names) - len(list); omitted > 0 {
+		attrs = append(attrs, key+"Omitted", omitted)
+	}
+	return attrs
 }
 
 // boundAuditValues cuts string values longer than maxAuditValueLength,

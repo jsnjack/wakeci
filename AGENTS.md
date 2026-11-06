@@ -212,7 +212,9 @@ AGENTS.universal.md for the general contract.
   as sent, never trusted, since anyone can set it and wakeci doesn't know
   if a proxy is in front. A long header keeps its start and its end, where
   a proxy appends. `audit` cuts every string value at 1024 bytes, so a
-  client can't write huge lines (e.g. with a long parameter name).
+  client can't write huge lines (e.g. with a long URL). Lists of names go
+  through `auditListAttrs`: JSON, since names can hold commas, kept valid
+  within the limit by leaving names out and counting them.
 - **Per-request/per-build loggers carry context via `slog.Logger.With`**
   (request ID + host, or build ID) rather than a shared global, so log lines
   from concurrent builds/requests stay attributable.

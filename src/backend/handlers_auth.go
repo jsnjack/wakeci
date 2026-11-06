@@ -120,14 +120,16 @@ func HandleLogOut(w http.ResponseWriter, r *http.Request) {
 
 	sessionToken, err := r.Cookie("session")
 	if err == nil {
-		// Only a session that is still valid is someone logging out
-		if user, err := GlobalSessionStorage.User(sessionToken.Value); err == nil {
-			setRequestUser(r, sessionAuth(user), user, "")
-			audit(r, "logout", "ok")
-		}
+		user, userErr := GlobalSessionStorage.User(sessionToken.Value)
 		err = GlobalSessionStorage.Delete(sessionToken.Value)
 		if err != nil {
 			logger.Error("delete session", "err", err)
+		}
+		// Only ending a session that was still valid is someone logging out:
+		// of two logouts at once, only the one that deleted it
+		if userErr == nil && err == nil {
+			setRequestUser(r, sessionAuth(user), user, "")
+			audit(r, "logout", "ok")
 		}
 	}
 

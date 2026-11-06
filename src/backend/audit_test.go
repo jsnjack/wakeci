@@ -181,8 +181,14 @@ func TestAuditActions(t *testing.T) {
 			form: url.Values{"TARGET": {"prod"}, "VERSION": {"1"}},
 			want: map[string]string{
 				"event": "build.run", "outcome": "ok", "status": "200", "auth": "sso", "user": alice,
-				"job": "deploy", "params": "TARGET,VERSION", "method": "POST", "path": "/api/job/deploy/run",
+				"job": "deploy", "params": `["TARGET","VERSION"]`, "paramsOmitted": "", "method": "POST", "path": "/api/job/deploy/run",
 			},
+		},
+		{
+			// Not the same as parameters A and B
+			name: "run with a comma in a parameter name", user: alice, method: "POST", target: "/api/job/deploy/run",
+			form: url.Values{"A,B": {"1"}},
+			want: map[string]string{"event": "build.run", "outcome": "ok", "params": `["A,B"]`},
 		},
 		{
 			name: "run with Basic auth", method: "POST", target: "/api/job/deploy/run", basic: true,
@@ -338,17 +344,61 @@ func TestAuditActions(t *testing.T) {
 }
 
 // A request can't write a huge audit line, e.g. with a long parameter name
+// or URL, and lists stay valid JSON
 func TestAuditValuesAreBounded(t *testing.T) {
 	newAuditTestEnv(t)
-	events, _ := captureAudit(t)
+	cookie := loginAs(t, "alice@example.com")
 	long := strings.Repeat("P", 1<<20)
-	rec := apiCall("POST", "/api/job/deploy/run", loginAs(t, "alice@example.com"), url.Values{long: {"x"}, "A": {"y"}}, nil)
-	if rec.Code != http.StatusOK {
+
+	events, _ := captureAudit(t)
+	form := url.Values{long: {"x"}}
+	for i := range 300 {
+		form.Set(fmt.Sprintf("A%03d", i), "y")
+	}
+	if rec := apiCall("POST", "/api/job/deploy/run", cookie, form, nil); rec.Code != http.StatusOK {
 		t.Fatalf("run: %d %s", rec.Code, rec.Body)
 	}
-	params := onlyAuditEvent(t, events())["params"]
-	if want := "A," + long[:maxAuditValueLength-2] + "..."; params != want {
-		t.Errorf("params has %d bytes, want %d ending in ...", len(params), len(want))
+	event := onlyAuditEvent(t, events())
+	var params []string
+	if err := json.Unmarshal([]byte(event["params"]), &params); err != nil {
+		t.Fatalf("params isn't a JSON list: %v", err)
+	}
+	if len(event["params"]) > maxAuditValueLength || len(params) == 0 || params[0] != "A000" {
+		t.Errorf("params has %d bytes and %d names, want at most %d bytes from A000", len(event["params"]), len(params), maxAuditValueLength)
+	}
+	if want := fmt.Sprint(len(form) - len(params)); event["paramsOmitted"] != want {
+		t.Errorf("paramsOmitted = %q, want %s", event["paramsOmitted"], want)
+	}
+
+	events, _ = captureAudit(t)
+	apiCall("POST", "/api/job/"+long+"/run", cookie, nil, nil)
+	event = onlyAuditEvent(t, events())
+	if want := long[:maxAuditValueLength] + "..."; event["job"] != want {
+		t.Errorf("job has %d bytes, want %d ending in ...", len(event["job"]), len(want))
+	}
+	if len(event["path"]) != maxAuditValueLength+len("...") {
+		t.Errorf("path has %d bytes, want %d", len(event["path"]), maxAuditValueLength+len("..."))
+	}
+}
+
+func TestAuditListAttrs(t *testing.T) {
+	if got := fmt.Sprint(auditListAttrs("jobs", nil)); got != "[jobs []]" {
+		t.Errorf("no names: %s", got)
+	}
+	if got := fmt.Sprint(auditListAttrs("jobs", []string{"all", "a,b", `"q"`})); got != `[jobs ["all","a,b","\"q\""]]` {
+		t.Errorf("names: %s", got)
+	}
+	var many []string
+	for i := range 500 {
+		many = append(many, fmt.Sprintf("job_%03d", i))
+	}
+	attrs := auditListAttrs("jobs", many)
+	var list []string
+	if err := json.Unmarshal([]byte(attrs[1].(string)), &list); err != nil || len(attrs[1].(string)) > maxAuditValueLength {
+		t.Fatalf("list of %d bytes isn't JSON within the limit: %v", len(attrs[1].(string)), err)
+	}
+	if len(attrs) != 4 || attrs[2] != "jobsOmitted" || attrs[3] != len(many)-len(list) {
+		t.Errorf("omitted: %v, kept %d", attrs[2:], len(list))
 	}
 }
 
@@ -435,6 +485,27 @@ func TestAuditKeyRevoke(t *testing.T) {
 	}
 	checkAuditEvent(t, onlyAuditEvent(t, events()), map[string]string{
 		"event": "key.revoke", "outcome": "ok", "auth": "password", "key": id, "createdBy": "bob@example.com",
+	})
+}
+
+// The admin password can revoke a key that can't be read; to an SSO user
+// it isn't theirs
+func TestAuditKeyRevokeUnreadable(t *testing.T) {
+	newAuditTestEnv(t)
+	if err := DB.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket(APIKeysBucket).Put([]byte("broken"), []byte("not json"))
+	}); err != nil {
+		t.Fatalf("break a key: %v", err)
+	}
+	if rec := apiCall("DELETE", "/api/keys/broken", loginAs(t, "alice@example.com"), nil, nil); rec.Code != http.StatusInternalServerError {
+		t.Errorf("SSO user: %d, want 500", rec.Code)
+	}
+	events, _ := captureAudit(t)
+	if rec := apiCall("DELETE", "/api/keys/broken", loginAs(t, adminUser), nil, nil); rec.Code != http.StatusOK {
+		t.Fatalf("admin: %d %s, want 200", rec.Code, rec.Body)
+	}
+	checkAuditEvent(t, onlyAuditEvent(t, events()), map[string]string{
+		"event": "key.revoke", "outcome": "ok", "key": "broken", "createdBy": "",
 	})
 }
 
