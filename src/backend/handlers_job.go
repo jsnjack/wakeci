@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"maps"
 	"net/http"
 	"net/url"
 	"os"
@@ -77,13 +76,37 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request) {
 		writeBody(logger, w, []byte(err.Error()))
 		return
 	}
-	// Parameter names only: their values can hold anything, e.g. passwords
 	addAuditAttrs(r, "build", build.ID)
-	if len(r.Form) > 0 {
-		addAuditAttrs(r, auditListAttrs("params", slices.Sorted(maps.Keys(r.Form)))...)
+	used, ignored := usedParams(build, r.Form)
+	if len(used) > 0 {
+		addAuditAttrs(r, auditListAttrs("params", used)...)
+	}
+	if ignored > 0 {
+		addAuditAttrs(r, "ignoredParams", ignored)
 	}
 	w.Header().Set("Content-Type", "text/plain")
 	writeBody(logger, w, []byte(strconv.Itoa(build.ID)))
+}
+
+// usedParams returns the names of the job's parameters that params set, and
+// how many other names params has. Only names go in the audit log, since
+// values can hold anything, e.g. passwords; and only the job's own names,
+// since a name the job doesn't have can hold anything too: curl -d with a
+// JSON body sends the whole body as one name.
+func usedParams(build *Build, params url.Values) ([]string, int) {
+	build.mutex.Lock()
+	defer build.mutex.Unlock()
+	var used []string
+	for _, group := range build.Params {
+		for name := range group {
+			if params.Get(name) != "" {
+				used = append(used, name)
+			}
+		}
+	}
+	slices.Sort(used)
+	used = slices.Compact(used)
+	return used, len(params) - len(used)
 }
 
 // HandleJobGet returns content of a specific job file
