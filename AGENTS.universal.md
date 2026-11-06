@@ -45,7 +45,7 @@ Missing tools print an install command and exit — never auto-install silently.
 make check      # full validation gate — run after every change
 make test       # tests only
 make build      # compile only
-make standards  # refresh AGENTS.universal.md from the standards repo (if present)
+make standards  # refresh all applicable convention files from the standards repo (if present)
 ```
 
 ---
@@ -107,15 +107,21 @@ errors through the UI itself.
   than one place gets a named constant.
 - **No dead code.** Remove unused code. If something is temporarily disabled,
   replace it with a TODO comment explaining why and what needs to happen.
-- **Comments earn their place.** Write one only when the fact isn't obvious from
-  the code itself: the reason something is done a certain way, a link to an
-  external reference (ticket or advisory ID, URL), a warning about an easy way to
-  break the code, or a rule the code depends on that you can't see by reading it.
-  Never restate what the code or config does, describe the steps the code already
-  shows, repeat what a name already says, add reassurance ("safe", "read-only",
-  "no changes"), or put process and opinions in code (those belong in docs).
-  Default to no comment; match how much the surrounding file comments. When
-  unsure, leave it out.
+- **Comments earn their place.** Default to no comment. Write one only when it
+  explains a fact that isn't obvious from the code itself. Keep concise "why"
+  comments that explain the origin of a non-obvious value, a security or sandbox
+  invariant, a compatibility quirk or workaround, an easy way to break the code,
+  an invisible rule the code depends on, or an upstream reference (ticket,
+  advisory ID, or URL). Prefer one line; use more only when one line would omit
+  necessary context.
+  Never write AI diary or proof-of-work notes, including verification reports.
+  Never narrate mechanical control flow, restate what code or configuration does,
+  merely repeat a name or type signature, add reassurance ("safe", "read-only",
+  "no changes"), or put process and opinions in code (those belong in
+  documentation).
+  Required public-symbol documentation and actionable TODOs are exceptions, but
+  they must add information beyond the symbol name or signature. Match how much
+  the surrounding file comments; when unsure, leave it out.
 
 ---
 
@@ -169,11 +175,55 @@ breaks has no value.
   should not block others.
 - Every new exported function gets a test. Every bug fix gets a regression test.
 
+### GUI tests
+
+GUI tests, smoke checks and screenshot scripts run in the background, so the
+user is never interrupted: they never open a window, take the focus, play a
+sound, open a link or change a setting on the user's desktop. This covers
+temporary and ad hoc launchers too.
+
+- Every project with GUI tests keeps one wrapper script, conventionally
+  `scripts/headless-gui.sh`. Copy
+  [headless-gui.sh](https://github.com/jsnjack/standards/blob/master/headless-gui.sh)
+  from the standards repository and adapt it. Makefile targets and every ad
+  hoc GUI command run through it, for example
+  `scripts/headless-gui.sh go test ./internal/ui -run TestX -count=1`. Never
+  type `dbus-run-session` by hand.
+- The wrapper gives the command a private display (Xvfb or a headless
+  compositor), unsets the desktop's `WAYLAND_DISPLAY` and `WAYLAND_SOCKET`,
+  and starts a private D-Bus session bus with `dbus-run-session`.
+- Before the bus starts, the wrapper sets `XDG_RUNTIME_DIR` to a fresh
+  temporary directory with mode `0700`, one per session. A private bus or Xvfb
+  alone is not enough: a document portal started on a bus that shares
+  `/run/user/$UID` unmounts the desktop's `doc` filesystem, and every Flatpak
+  app then fails with `bwrap: Can't find source path /run/user/$UID/doc/by-app/…`
+  ([upstream bug](https://github.com/flatpak/xdg-desktop-portal/issues/2140)).
+  When the command needs the desktop's runtime directory (rootless Podman), the
+  wrapper instead starts the bus with a configuration that lists no service
+  directories, so no portal can start.
+- The wrapper puts stub `xdg-open` and browser launchers first on `PATH`, uses
+  settings that cannot change the desktop's (`GSETTINGS_BACKEND=memory` or a
+  private keyfile), and never touches the desktop's clipboard.
+- The wrapper cleans up the test's children, private mounts and temporary
+  directory on success and failure. It fails the run when `/run/user/$UID/doc`
+  was mounted before the run and is gone after it.
+- A run that needs the desktop's session bus, for example for the keyring,
+  starts no bus of its own and still uses a private display with
+  `WAYLAND_DISPLAY` unset.
+- Browser tests run headless. A headed run is an explicit opt-in target, never
+  the default.
+- Never unmount the desktop's document portal or restart its services as part
+  of a test. If Flatpak apps stop starting, restore the mount with
+  `systemctl --user restart xdg-document-portal.service`, then find the run
+  that removed it.
+
 ---
 
 ## Never
 
 - Never skip `make check` before reporting the task as complete.
+- Never run a GUI test or app on the user's desktop, and never start
+  `dbus-run-session` by hand; use the project's GUI wrapper.
 - Never swallow errors silently — always log or return with context.
 - Never log to stderr in TUI applications.
 - Never auto-install missing tools — print the install command and exit.
@@ -182,5 +232,5 @@ breaks has no value.
 - Never change code outside the scope of the current task.
 - Never add a dependency without explicit justification and agreement.
 - Never change existing behaviour silently — always flag it first.
-- Never commit on behalf of the user.
+- Never commit or push on behalf of the user unless they explicitly ask for it.
 - Never write a commit message without an `M`/`m`/`p` version prefix.
