@@ -180,14 +180,17 @@ AGENTS.universal.md for the general contract.
   text, `msg=audit`): a record for auditors of who did what, from where,
   not diagnostics, so `--debug` doesn't turn it off. One line per sign-in
   and per change; reads are left to the request line, which names the
-  user the same way, to keep the audit log small enough to read. `AuditMi`
+  user the same way on every route behind `AuthMi` (the SPA's pages are
+  public and name no one), to keep the audit log small enough to read. `AuditMi`
   wraps the routers instead of each handler calling it, so every error
   branch and every refusal (by `AuthMi`, a key's scope, a missing route) is
   recorded with its status, and it finds the route with its own `auditMux`
   because the auth middleware refuses requests before chi has matched them.
   `ip` is the connection's address; `X-Forwarded-For` is logged next to it
   as sent, never trusted, since anyone can set it and wakeci doesn't know
-  if a proxy is in front.
+  if a proxy is in front. A long header keeps its start and its end, where
+  a proxy appends. `audit` cuts every string value at 1024 bytes, so a
+  client can't write huge lines (e.g. with a long parameter name).
 - **Per-request/per-build loggers carry context via `slog.Logger.With`**
   (request ID + host, or build ID) rather than a shared global, so log lines
   from concurrent builds/requests stay attributable.
@@ -330,7 +333,13 @@ AGENTS.universal.md for the general contract.
   (`TestAuditedRoutes` fails without one). Audit attrs carry names and IDs,
   never passwords, tokens, secrets or run parameter values; errors that may
   be logged must not contain them either (session errors don't name the
-  token).
+  token). What a route acts on comes from the URL in `auditedRoutes`
+  (`attrs`), so a request refused before the handler still names it; a
+  pattern ending in `/` also matches without it, as chi serves a mounted
+  router's root.
+- A handler that changes several things checks them all before saving any,
+  then saves them in one transaction (`HandleSettingsPost`), so a request
+  that fails changed nothing and its audit outcome is true.
 - Login handlers start with `withRequestInfo`, so `setRequestUser` and
   `audit` share one `requestInfo` even when called without `LogMi` (tests).
 - `jobFromStorage` must read the path from `wakespacePath` and clean it like

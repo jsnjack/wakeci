@@ -39,8 +39,17 @@ func auditServerName(hostname string) string {
 	return name
 }
 
-// maxForwardedForLength bounds the X-Forwarded-For header in the logs
-const maxForwardedForLength = 256
+// maxForwardedForLength bounds the X-Forwarded-For header in the logs.
+// A proxy appends the address it saw to the end, after whatever the client
+// sent, so a longer header keeps its start and its end.
+const (
+	maxForwardedForLength = 256
+	forwardedForStart     = 64
+)
+
+// maxAuditValueLength bounds each value in the audit log, so a request can't
+// write a huge line, e.g. with a long parameter name
+const maxAuditValueLength = 1024
 
 // requestInfo is what the request line and the audit log know about a
 // request. LogMi creates it, the auth middleware records who made the
@@ -98,9 +107,20 @@ func clientIP(r *http.Request) string {
 func forwardedFor(r *http.Request) string {
 	value := strings.Join(r.Header.Values("X-Forwarded-For"), ", ")
 	if len(value) > maxForwardedForLength {
-		value = value[:maxForwardedForLength] + "..."
+		value = value[:forwardedForStart] + "..." + value[len(value)-(maxForwardedForLength-forwardedForStart):]
 	}
 	return value
+}
+
+// boundAuditValues cuts string values longer than maxAuditValueLength,
+// marking the cut with "..."
+func boundAuditValues(attrs []any) []any {
+	for i, attr := range attrs {
+		if value, ok := attr.(string); ok && len(value) > maxAuditValueLength {
+			attrs[i] = value[:maxAuditValueLength] + "..."
+		}
+	}
+	return attrs
 }
 
 // setRequestUser records who made the request, for its request line and
@@ -159,13 +179,13 @@ func audit(r *http.Request, event, outcome string, attrs ...any) {
 	all = append(all, attrs...)
 	all = append(all, info.from()...)
 	all = append(all, "logID", info.logID)
-	auditLogger.Info("audit", all...)
+	auditLogger.Info("audit", boundAuditValues(all)...)
 }
 
 // auditScheduled writes an audit event that no request caused, e.g. a build
 // started by its job's interval
 func auditScheduled(event, outcome string, attrs ...any) {
-	auditLogger.Info("audit", append([]any{"event", event, "outcome", outcome}, attrs...)...)
+	auditLogger.Info("audit", boundAuditValues(append([]any{"event", event, "outcome", outcome}, attrs...))...)
 }
 
 // blockedAttrs marks the failed attempt that blocked the client
@@ -177,10 +197,11 @@ func blockedAttrs(blocked bool) []any {
 }
 
 // auditedRoute names the audit event of a route that changes something,
-// and finds what it acts on from the URL parameters
+// and finds what it acts on from the URL, so a request refused before the
+// handler still names it
 type auditedRoute struct {
 	event string
-	attrs func(param func(name string) string) []any
+	attrs func(r *http.Request, param func(name string) string) []any
 }
 
 // auditedRoutes are the routes that change something, by method and chi
@@ -198,15 +219,14 @@ var auditedRoutes = map[string]auditedRoute{
 	"POST /api/settings":              {event: "settings.change"},
 	"POST /api/keys/":                 {event: "key.create"},
 	"DELETE /api/keys/{id}":           {event: "key.revoke", attrs: keyOfURL},
-	// The handler adds the person
-	"DELETE /api/keys/": {event: "access.revoke"},
+	"DELETE /api/keys/":               {event: "access.revoke", attrs: personOfURL},
 }
 
-func jobOfURL(param func(string) string) []any {
+func jobOfURL(_ *http.Request, param func(string) string) []any {
 	return []any{"job", param("name")}
 }
 
-func buildOfURL(param func(string) string) []any {
+func buildOfURL(_ *http.Request, param func(string) string) []any {
 	attrs := []any{"build", param("id")}
 	if id, err := strconv.Atoi(param("id")); err == nil {
 		if job, _, err := buildJob(id); err == nil {
@@ -216,8 +236,12 @@ func buildOfURL(param func(string) string) []any {
 	return attrs
 }
 
-func keyOfURL(param func(string) string) []any {
+func keyOfURL(_ *http.Request, param func(string) string) []any {
 	return []any{"key", param("id")}
+}
+
+func personOfURL(r *http.Request, _ func(string) string) []any {
+	return []any{"person", r.URL.Query().Get("createdBy")}
 }
 
 // auditMux matches a request to its audited route. AuditMi runs before the
@@ -244,6 +268,14 @@ func findAuditedRoute(r *http.Request) (auditedRoute, func(string) string, bool)
 	}
 	rctx := chi.NewRouteContext()
 	pattern := auditMux.Find(rctx, r.Method, path)
+	// A route ending in "/" is the root of a mounted router, which chi also
+	// serves without the slash: POST /api/keys creates a key
+	if pattern == "" && !strings.HasSuffix(path, "/") {
+		rctx.Reset()
+		if found := auditMux.Find(rctx, r.Method, path+"/"); strings.HasSuffix(found, "/") {
+			pattern = found
+		}
+	}
 	route, ok := auditedRoutes[r.Method+" "+pattern]
 	param := func(name string) string {
 		value := rctx.URLParam(name)
@@ -284,7 +316,7 @@ func AuditMi(next http.Handler) http.Handler {
 		if route, param, ok := findAuditedRoute(r); ok {
 			event = route.event
 			if route.attrs != nil {
-				attrs = route.attrs(param)
+				attrs = route.attrs(r, param)
 			}
 		}
 		attrs = append(attrs, info.attrs...)

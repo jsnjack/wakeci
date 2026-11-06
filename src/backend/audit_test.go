@@ -266,6 +266,25 @@ func TestAuditActions(t *testing.T) {
 			name: "revoke access as an SSO user", user: alice, method: "DELETE", target: "/api/keys/?createdBy=bob%40example.com",
 			want: map[string]string{"event": "access.revoke", "outcome": "failed", "status": "403", "person": "bob@example.com"},
 		},
+		{
+			name: "revoke access without logging in", method: "DELETE", target: "/api/keys/?createdBy=bob%40example.com",
+			want: map[string]string{"event": "access.revoke", "outcome": "failed", "status": "403", "person": "bob@example.com"},
+		},
+		{
+			// A router mounted at /keys serves /keys as /keys/
+			name: "create a key without the slash", user: alice, method: "POST", target: "/api/keys",
+			form: url.Values{"name": {"ci"}, "scope": {"read"}, "allJobs": {"true"}, "expiresInDays": {"0"}},
+			want: map[string]string{"event": "key.create", "outcome": "ok", "name": "ci", "path": "/api/keys"},
+		},
+		{
+			name: "revoke access without the slash", user: ":admin", method: "DELETE", target: "/api/keys?createdBy=bob%40example.com",
+			want: map[string]string{"event": "access.revoke", "outcome": "ok", "person": "bob@example.com", "keys": "0"},
+		},
+		{
+			name: "a route that only exists with the slash", user: alice, method: "POST", target: "/api/settings/",
+			form: settingsForm,
+			want: map[string]string{"event": "request", "outcome": "failed", "status": "404"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -302,6 +321,40 @@ func TestAuditActions(t *testing.T) {
 				t.Errorf("the audit log has the new password: %s", raw)
 			}
 		})
+	}
+}
+
+// A request can't write a huge audit line, e.g. with a long parameter name
+func TestAuditValuesAreBounded(t *testing.T) {
+	newAuditTestEnv(t)
+	events, _ := captureAudit(t)
+	long := strings.Repeat("P", 1<<20)
+	rec := apiCall("POST", "/api/job/deploy/run", loginAs(t, "alice@example.com"), url.Values{long: {"x"}, "A": {"y"}}, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("run: %d %s", rec.Code, rec.Body)
+	}
+	params := onlyAuditEvent(t, events())["params"]
+	if want := "A," + long[:maxAuditValueLength-2] + "..."; params != want {
+		t.Errorf("params has %d bytes, want %d ending in ...", len(params), len(want))
+	}
+}
+
+// A proxy appends the address it saw to X-Forwarded-For, so a long header
+// keeps its end as well as its start
+func TestForwardedForKeepsBothEnds(t *testing.T) {
+	r := httptest.NewRequest("GET", "/", nil)
+	r.Header.Add("X-Forwarded-For", "203.0.113.1, "+strings.Repeat("9", 1000))
+	r.Header.Add("X-Forwarded-For", "198.51.100.4")
+	got := forwardedFor(r)
+	if !strings.HasPrefix(got, "203.0.113.1, 999") || !strings.HasSuffix(got, "999, 198.51.100.4") || !strings.Contains(got, "...") {
+		t.Errorf("forwardedFor = %q, want its start, ... and its end", got)
+	}
+	if len(got) != maxForwardedForLength+len("...") {
+		t.Errorf("forwardedFor has %d bytes, want %d", len(got), maxForwardedForLength+len("..."))
+	}
+	r.Header.Set("X-Forwarded-For", "203.0.113.1, 198.51.100.4")
+	if got := forwardedFor(r); got != "203.0.113.1, 198.51.100.4" {
+		t.Errorf("short forwardedFor = %q, want it unchanged", got)
 	}
 }
 
@@ -454,7 +507,7 @@ func TestAuditPasswordLogin(t *testing.T) {
 		return rec.Code
 	}
 
-	events, raw := captureAudit(t)
+	events, _ := captureAudit(t)
 	if code := login("admin"); code != http.StatusNoContent {
 		t.Fatalf("login: %d", code)
 	}
@@ -462,15 +515,15 @@ func TestAuditPasswordLogin(t *testing.T) {
 		"event": "login.password", "outcome": "ok", "auth": "password", "forwardedFor": "203.0.113.9", "ip": "192.0.2.1",
 	})
 
-	for i, want := range []map[string]string{
+	for _, want := range []map[string]string{
 		{"event": "login.password", "outcome": "failed", "auth": "", "blocked": ""},
 		{"event": "login.password", "outcome": "failed", "blocked": "true"},
 	} {
-		events, _ = captureAudit(t)
+		events, raw := captureAudit(t)
 		login("wrong-password-123")
 		checkAuditEvent(t, onlyAuditEvent(t, events()), want)
-		if i == 1 && strings.Contains(raw.String(), "wrong-password-123") {
-			t.Error("the audit log has the password")
+		if strings.Contains(raw.String(), "wrong-password-123") {
+			t.Errorf("the audit log has the password: %s", raw)
 		}
 	}
 
