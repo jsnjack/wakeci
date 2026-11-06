@@ -533,6 +533,8 @@ func HandleAPIKeysRevokeBy(w http.ResponseWriter, r *http.Request) {
 	defer apiKeyOwnersMu.Unlock()
 	// Sessions first: while one is left, it could create a new key
 	result := RevokedData{Sessions: GlobalSessionStorage.DeleteUser(createdBy)}
+	// Recorded now: the sessions have ended even if deleting the keys fails
+	addAuditAttrs(r, "sessions", result.Sessions)
 	err := DB.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(APIKeysBucket)
 		var ids [][]byte
@@ -564,7 +566,7 @@ func HandleAPIKeysRevokeBy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Info("api keys revoked", "createdBy", createdBy, "keys", result.Keys, "sessions", result.Sessions)
-	addAuditAttrs(r, "keys", result.Keys, "sessions", result.Sessions)
+	addAuditAttrs(r, "keys", result.Keys)
 	writeJSON(w, logger, result)
 }
 
@@ -623,15 +625,29 @@ func HandleAPIKeyRevoke(w http.ResponseWriter, r *http.Request) {
 // apiKeyAuditAttrs describe a new key in the audit log: what it may do, never
 // its secret
 func apiKeyAuditAttrs(key *APIKey) []any {
-	jobs := "all"
-	if !key.AllJobs {
-		jobs = strings.Join(append(slices.Clone(key.Jobs), key.Patterns...), ",")
-	}
 	expires := "never"
 	if key.ExpiresAt != nil {
 		expires = key.ExpiresAt.Format(time.RFC3339)
 	}
-	return []any{"key", key.ID, "name", key.Name, "scopes", strings.Join(key.Scopes, ","), "jobs", jobs, "expires", expires}
+	attrs := []any{"key", key.ID, "name", key.Name, "scopes", strings.Join(key.Scopes, ","), "allJobs", key.AllJobs}
+	if !key.AllJobs {
+		// JSON lists: a job name can hold a comma, or be "all"
+		attrs = append(attrs, "jobs", auditList(key.Jobs), "patterns", auditList(key.Patterns))
+	}
+	return append(attrs, "expires", expires)
+}
+
+// auditList writes names as a JSON list, so names with commas or spaces
+// keep their boundaries
+func auditList(names []string) string {
+	if names == nil {
+		names = []string{}
+	}
+	list, err := json.Marshal(names)
+	if err != nil {
+		return fmt.Sprint(names)
+	}
+	return string(list)
 }
 
 // routeAPIKeys sends requests that carry an API key to keyRouter and all

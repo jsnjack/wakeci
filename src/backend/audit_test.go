@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"slices"
 	"strings"
 	"sync"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	bolt "go.etcd.io/bbolt"
 )
 
 // syncBuffer is a bytes.Buffer that builds started by a test can write to
@@ -255,8 +257,14 @@ func TestAuditActions(t *testing.T) {
 			form: url.Values{"name": {"ci"}, "scope": {"read", "run"}, "job": {"deploy"}, "pattern": {"night*"}, "expiresInDays": {"0"}},
 			want: map[string]string{
 				"event": "key.create", "outcome": "ok", "name": "ci", "scopes": "read,run",
-				"jobs": "deploy,night*", "expires": "never",
+				"allJobs": "false", "jobs": `["deploy"]`, "patterns": `["night*"]`, "expires": "never",
 			},
+		},
+		{
+			// Neither can pass for a key that covers all jobs, or for two jobs
+			name: "create a key for a job called all and one with a comma", user: alice, method: "POST", target: "/api/keys/",
+			form: url.Values{"name": {"odd"}, "scope": {"read"}, "job": {"all", "a,b"}, "expiresInDays": {"0"}},
+			want: map[string]string{"event": "key.create", "outcome": "ok", "allJobs": "false", "jobs": `["all","a,b"]`, "patterns": "[]"},
 		},
 		{
 			name: "revoke access", user: ":admin", method: "DELETE", target: "/api/keys/?createdBy=bob%40example.com",
@@ -265,6 +273,11 @@ func TestAuditActions(t *testing.T) {
 		{
 			name: "revoke access as an SSO user", user: alice, method: "DELETE", target: "/api/keys/?createdBy=bob%40example.com",
 			want: map[string]string{"event": "access.revoke", "outcome": "failed", "status": "403", "person": "bob@example.com"},
+		},
+		{
+			// Trimmed like the handler, so it names the account revoked
+			name: "revoke access with spaces", user: ":admin", method: "DELETE", target: "/api/keys/?createdBy=%20bob%40example.com%20",
+			want: map[string]string{"event": "access.revoke", "outcome": "ok", "person": "bob@example.com"},
 		},
 		{
 			name: "revoke access without logging in", method: "DELETE", target: "/api/keys/?createdBy=bob%40example.com",
@@ -358,6 +371,50 @@ func TestForwardedForKeepsBothEnds(t *testing.T) {
 	}
 }
 
+// A create that fails after writing the job file says so: the file stays,
+// and the watcher or a restart can still add the job
+func TestAuditJobCreateLeavesFile(t *testing.T) {
+	newAuditTestEnv(t)
+	// A value where the job's bucket goes makes registering it fail
+	if err := DB.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket(JobsBucket).Put([]byte("audit_broken"), []byte("x"))
+	}); err != nil {
+		t.Fatalf("break the job's bucket: %v", err)
+	}
+	events, _ := captureAudit(t)
+	rec := apiCall("POST", "/api/jobs/create", loginAs(t, "alice@example.com"), url.Values{"name": {"audit_broken"}}, nil)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("create: %d %s, want 500", rec.Code, rec.Body)
+	}
+	checkAuditEvent(t, onlyAuditEvent(t, events()), map[string]string{
+		"event": "job.create", "outcome": "failed", "job": "audit_broken", "fileCreated": "true",
+	})
+	if _, err := os.Stat(Config.JobDir + "audit_broken" + Config.jobsExt); err != nil {
+		t.Errorf("the job file: %v", err)
+	}
+}
+
+// Sessions end before the keys are deleted, so a revoke that fails after
+// ending them still says how many it ended
+func TestAuditAccessRevokeFailsAfterSessions(t *testing.T) {
+	newAuditTestEnv(t)
+	loginAs(t, "bob@example.com")
+	// A key that can't be read makes deleting the keys fail
+	if err := DB.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket(APIKeysBucket).Put([]byte("broken"), []byte("not json"))
+	}); err != nil {
+		t.Fatalf("break a key: %v", err)
+	}
+	events, _ := captureAudit(t)
+	rec := apiCall("DELETE", "/api/keys/?createdBy=bob%40example.com", loginAs(t, adminUser), nil, nil)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("revoke: %d %s, want 500", rec.Code, rec.Body)
+	}
+	checkAuditEvent(t, onlyAuditEvent(t, events()), map[string]string{
+		"event": "access.revoke", "outcome": "failed", "person": "bob@example.com", "sessions": "1", "keys": "",
+	})
+}
+
 func TestAuditRunBuildID(t *testing.T) {
 	newAuditTestEnv(t)
 	events, _ := captureAudit(t)
@@ -386,7 +443,7 @@ func TestAuditKeyCreateHasNoSecret(t *testing.T) {
 	events, raw := captureAudit(t)
 	created := createKeyAs(t, "alice@example.com", "ci")
 	checkAuditEvent(t, onlyAuditEvent(t, events()), map[string]string{
-		"event": "key.create", "key": created.Key.ID, "jobs": "all", "scopes": "read",
+		"event": "key.create", "key": created.Key.ID, "allJobs": "true", "jobs": "", "patterns": "", "scopes": "read",
 	})
 	_, secret, _ := parseAPIKeyToken(created.Token)
 	if strings.Contains(raw.String(), secret) {

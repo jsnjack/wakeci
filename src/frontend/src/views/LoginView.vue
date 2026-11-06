@@ -106,8 +106,10 @@ export default {
                 .catch((error) => {});
         },
         fetchAuthMethods() {
+            // The page waits for this, so it can't wait forever: without an
+            // answer it offers the password
             return axios
-                .get("/auth/methods")
+                .get("/auth/methods", { timeout: 5000 })
                 .then((response) => {
                     this.ssoEnabled = response.data.sso === true;
                 })

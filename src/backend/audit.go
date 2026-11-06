@@ -241,7 +241,8 @@ func keyOfURL(_ *http.Request, param func(string) string) []any {
 }
 
 func personOfURL(r *http.Request, _ func(string) string) []any {
-	return []any{"person", r.URL.Query().Get("createdBy")}
+	// Trimmed like HandleAPIKeysRevokeBy, so it names the account revoked
+	return []any{"person", strings.TrimSpace(r.URL.Query().Get("createdBy"))}
 }
 
 // auditMux matches a request to its audited route. AuditMi runs before the
