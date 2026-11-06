@@ -69,9 +69,11 @@ func (j *Job) Run() {
 	build, err := RunJob(j.Name, params, false)
 	if err != nil {
 		L.Error("schedule build via cron", "job", j.Name, "err", err)
+		auditScheduled("build.run", "failed", "trigger", "interval", "job", j.Name, "reason", err.Error())
 		return
 	}
 	build.Logger.Info("build scheduled via cron", "job", j.Name)
+	auditScheduled("build.run", "ok", "trigger", "interval", "job", j.Name, "build", build.ID)
 }
 
 // Used to verify interval before saving after editing

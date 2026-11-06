@@ -88,6 +88,7 @@ func HandleJobsCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	name := r.FormValue("name")
+	addAuditAttrs(r, "job", name)
 	if !isValidJobName(name) {
 		logger.Warn("invalid job name", "name", name)
 		w.WriteHeader(http.StatusBadRequest)
@@ -127,6 +128,8 @@ func HandleJobsCreate(w http.ResponseWriter, r *http.Request) {
 		err = RegisterJob(path)
 		if err != nil {
 			logger.Error("register job", "job", name, "err", err)
+			// The file stays, so the watcher or a restart can still add the job
+			addAuditAttrs(r, "fileCreated", true)
 			w.WriteHeader(http.StatusInternalServerError)
 			writeBody(logger, w, []byte(err.Error()))
 			return

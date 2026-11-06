@@ -106,6 +106,52 @@ func TestSettingsPasswordNeedsAdmin(t *testing.T) {
 	}
 }
 
+// A request saves all its settings or none, so a password isn't changed by a
+// request that fails, and its audit outcome is true
+func TestSettingsAllOrNothing(t *testing.T) {
+	setting := func(name string) int {
+		var value int
+		if err := DB.View(func(tx *bolt.Tx) error {
+			var err error
+			value, err = ByteToInt(tx.Bucket(GlobalBucket).Get([]byte(name)))
+			return err
+		}); err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		return value
+	}
+	for name, form := range map[string]url.Values{
+		"invalid concurrentBuilds": {"password": {"changed"}, "concurrentBuilds": {"x"}, "buildHistorySize": {"100"}},
+		"invalid buildHistorySize": {"password": {"changed"}, "concurrentBuilds": {"3"}, "buildHistorySize": {"x"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			newSettingsTestEnv(t)
+			rec := settingsRequest(t, HandleSettingsPost, "POST", "", form)
+			if rec.Code != http.StatusInternalServerError {
+				t.Errorf("status = %d, want 500", rec.Code)
+			}
+			if !passwordIs(t, "admin") {
+				t.Error("the password changed")
+			}
+			if got := setting("concurrentBuilds"); got != 2 || GlobalQueue.concurrentBuilds != 0 {
+				t.Errorf("concurrentBuilds = %d saved, %d in the queue; want 2 and unchanged", got, GlobalQueue.concurrentBuilds)
+			}
+			if got := setting("buildHistorySize"); got != 200 {
+				t.Errorf("buildHistorySize = %d, want 200", got)
+			}
+		})
+	}
+
+	newSettingsTestEnv(t)
+	form := url.Values{"password": {"changed"}, "concurrentBuilds": {"3"}, "buildHistorySize": {"100"}}
+	if rec := settingsRequest(t, HandleSettingsPost, "POST", "", form); rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if !passwordIs(t, "changed") || setting("concurrentBuilds") != 3 || GlobalQueue.concurrentBuilds != 3 || setting("buildHistorySize") != 100 {
+		t.Errorf("valid settings weren't all saved")
+	}
+}
+
 func TestSettingsGetAdmin(t *testing.T) {
 	newSettingsTestEnv(t)
 	for user, want := range map[string]bool{"": true, "def@example.com": false} {

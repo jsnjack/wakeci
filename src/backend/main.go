@@ -121,6 +121,7 @@ func initApp() func() {
 		cleanup()
 		os.Exit(1)
 	}
+	initAuditLogger(os.Stderr, auditServerName(Config.Hostname))
 
 	if *compactDBFlag {
 		err = CompactDB()
@@ -353,6 +354,8 @@ func main() {
 // apiRoutes registers the /api routes for logged-in users and the admin
 // password. API keys use newAPIKeyRouter instead.
 func apiRoutes(router chi.Router) {
+	// Before AuthMi, so refused changes are audited too
+	router.Use(AuditMi)
 	router.Use(AuthMi)
 	router.Get("/feed", HandleFeedView)
 

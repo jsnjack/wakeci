@@ -56,6 +56,7 @@ func HandleIsLoggedIn(w http.ResponseWriter, r *http.Request) {
 
 // HandleLogIn verifies password and logs the user in
 func HandleLogIn(w http.ResponseWriter, r *http.Request) {
+	r, _ = withRequestInfo(r)
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {
 		logger = L
@@ -76,6 +77,7 @@ func HandleLogIn(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		logger.Error("read password hash", "err", err)
+		audit(r, "login.password", "failed", "reason", "read password hash: "+err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -84,7 +86,9 @@ func HandleLogIn(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Never log the submitted password.
 		logger.Warn("login failed", "err", err)
-		if globalAuthAttemptLimiter.recordFailure(w, r, logger) {
+		blocked := globalAuthAttemptLimiter.recordFailure(w, r, logger)
+		audit(r, "login.password", "failed", blockedAttrs(blocked)...)
+		if blocked {
 			return
 		}
 		w.Header().Set("Content-Type", "text/plain")
@@ -97,9 +101,12 @@ func HandleLogIn(w http.ResponseWriter, r *http.Request) {
 	c, err := GlobalSessionStorage.New(r, SessionTTL, "")
 	if err != nil {
 		logger.Error("create session", "err", err)
+		audit(r, "login.password", "failed", "reason", "create session: "+err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	setRequestUser(r, "password", "", "")
+	audit(r, "login.password", "ok")
 	// Set session cookie
 	http.SetCookie(w, c)
 	w.WriteHeader(http.StatusNoContent)
@@ -107,6 +114,7 @@ func HandleLogIn(w http.ResponseWriter, r *http.Request) {
 
 // HandleLogOut logs the user out
 func HandleLogOut(w http.ResponseWriter, r *http.Request) {
+	r, _ = withRequestInfo(r)
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {
 		logger = L
@@ -114,9 +122,16 @@ func HandleLogOut(w http.ResponseWriter, r *http.Request) {
 
 	sessionToken, err := r.Cookie("session")
 	if err == nil {
+		user, userErr := GlobalSessionStorage.User(sessionToken.Value)
 		err = GlobalSessionStorage.Delete(sessionToken.Value)
 		if err != nil {
 			logger.Error("delete session", "err", err)
+		}
+		// Only ending a session that was still valid is someone logging out:
+		// of two logouts at once, only the one that deleted it
+		if userErr == nil && err == nil {
+			setRequestUser(r, sessionAuth(user), user, "")
+			audit(r, "logout", "ok")
 		}
 	}
 
@@ -241,6 +256,7 @@ func HandleSSOLogIn(w http.ResponseWriter, r *http.Request) {
 // HandleSSOACS receives the identity provider's SAML response (the assertion
 // consumer service) and logs the user in
 func HandleSSOACS(w http.ResponseWriter, r *http.Request) {
+	r, _ = withRequestInfo(r)
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {
 		logger = L
@@ -258,6 +274,7 @@ func HandleSSOACS(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxSAMLResponseSize)
 	if err := r.ParseForm(); err != nil {
 		logger.Warn("sso login: read form", "err", err)
+		audit(r, "login.sso", "failed", "reason", err.Error())
 		redirectToLoginError(w, r, loginErrorSSO, "/")
 		return
 	}
@@ -272,7 +289,8 @@ func HandleSSOACS(w http.ResponseWriter, r *http.Request) {
 		requestID, redirect = login.RequestID, login.Redirect
 	}
 
-	email, issuedAt, err := GlobalSSOAuth.VerifyResponse(r.PostForm.Get("SAMLResponse"), requestID)
+	account, err := GlobalSSOAuth.VerifyResponse(r.PostForm.Get("SAMLResponse"), requestID)
+	var groupErr *ssoGroupError
 	switch {
 	case errors.Is(err, errSSOUnsolicited):
 		// Opened from the identity provider (e.g. the Google apps menu), so
@@ -280,31 +298,38 @@ func HandleSSOACS(w http.ResponseWriter, r *http.Request) {
 		logger.Info("sso login: unsolicited response, starting a new login")
 		http.Redirect(w, r, ssoLoginPath, http.StatusSeeOther)
 		return
-	case errors.Is(err, errSSOGroup):
+	case errors.As(err, &groupErr):
 		logger.Warn("sso login: rejected", "err", err)
+		audit(r, "login.sso", "rejected", append([]any{"user", groupErr.email, "reason", "in no allowed group"},
+			auditListAttrs("groups", groupErr.groups)...)...)
 		redirectToLoginError(w, r, loginErrorSSONotAllowed, redirect)
 		return
 	case err != nil:
 		logger.Warn("sso login failed", "err", err)
+		audit(r, "login.sso", "failed", "reason", err.Error())
 		redirectToLoginError(w, r, loginErrorSSO, redirect)
 		return
 	}
 
-	c, err := GlobalSessionStorage.NewSSO(r, SSOSessionTTL, email, issuedAt)
+	c, err := GlobalSessionStorage.NewSSO(r, SSOSessionTTL, account.email, account.issuedAt)
 	if errors.Is(err, errLoginRevoked) {
 		// A fresh login, issued after the revoke, still works unless the
 		// identity provider stopped the account
-		logger.Warn("sso login: issued before the person's access was revoked", "email", email)
+		logger.Warn("sso login: issued before the person's access was revoked", "email", account.email)
+		audit(r, "login.sso", "rejected", append([]any{"user", account.email, "reason", "issued before the person's access was revoked"},
+			auditListAttrs("groups", account.groups)...)...)
 		redirectToLoginError(w, r, loginErrorSSO, redirect)
 		return
 	}
 	if err != nil {
 		logger.Error("create session", "err", err)
+		audit(r, "login.sso", "failed", append([]any{"user", account.email, "reason", "create session: " + err.Error()},
+			auditListAttrs("groups", account.groups)...)...)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	// Warn so the default log level keeps a record of who logged in
-	logger.Warn("sso login", "email", email)
+	setRequestUser(r, "sso", account.email, "")
+	audit(r, "login.sso", "ok", auditListAttrs("groups", account.groups)...)
 	http.SetCookie(w, c)
 	http.Redirect(w, r, redirect, http.StatusSeeOther)
 }
