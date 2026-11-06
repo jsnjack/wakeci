@@ -246,7 +246,7 @@ time=2026-11-05T11:05:10Z level=INFO msg=audit server=ci.example.com event=login
 
 | Events | |
 |---|---|
-| `login.password`, `login.basic`, `login.sso`, `login.apikey` | sign-ins; failures have a `reason`, SSO logins the `groups` the identity provider sent, and the failure that blocks an address for too many attempts has `blocked=true` |
+| `login.password`, `login.basic`, `login.sso`, `login.apikey` | sign-ins, including ones the server failed to check; failures other than a wrong password have a `reason`, SSO logins the `groups` the identity provider sent, and the failure that blocks an address for too many attempts has `blocked=true` |
 | `logout` | |
 | `build.run`, `build.abort`, `build.start`, `build.flush` | with `job` and `build`; a run lists the names of its parameters in `params`, and a scheduled one has `trigger=interval` and no user |
 | `job.create`, `job.edit`, `job.delete`, `job.set_active` | with `job`; a create that failed after writing the job file has `fileCreated=true`, since the file can still be added as a job |
