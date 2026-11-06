@@ -381,6 +381,29 @@ func TestAuditValuesAreBounded(t *testing.T) {
 	}
 }
 
+// A handler that panics is still audited, and the panic isn't swallowed
+func TestAuditHandlerPanic(t *testing.T) {
+	newAuditTestEnv(t)
+	router := chi.NewRouter()
+	router.Use(AuditMi)
+	router.Post("/api/job/{name}/run", func(w http.ResponseWriter, r *http.Request) {
+		addAuditAttrs(r, "build", 7)
+		panic("boom")
+	})
+	events, _ := captureAudit(t)
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Error("the panic was swallowed")
+			}
+		}()
+		router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", "/api/job/deploy/run", nil))
+	}()
+	checkAuditEvent(t, onlyAuditEvent(t, events()), map[string]string{
+		"event": "build.run", "outcome": "failed", "status": "500", "panic": "true", "job": "deploy", "build": "7",
+	})
+}
+
 func TestAuditListAttrs(t *testing.T) {
 	if got := fmt.Sprint(auditListAttrs("jobs", nil)); got != "[jobs []]" {
 		t.Errorf("no names: %s", got)

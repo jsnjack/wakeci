@@ -334,22 +334,32 @@ func AuditMi(next http.Handler) http.Handler {
 		}
 		r, info := withRequestInfo(r)
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
-		next.ServeHTTP(rec, r)
-
-		event := "request"
-		var attrs []any
-		if route, param, ok := findAuditedRoute(r); ok {
-			event = route.event
-			if route.attrs != nil {
-				attrs = route.attrs(r, param)
+		// Deferred, so a handler that panics is recorded too; the panic
+		// carries on to net/http, which ends the request
+		completed := false
+		defer func() {
+			event := "request"
+			var attrs []any
+			if route, param, ok := findAuditedRoute(r); ok {
+				event = route.event
+				if route.attrs != nil {
+					attrs = route.attrs(r, param)
+				}
 			}
-		}
-		attrs = append(attrs, info.attrs...)
-		attrs = append(attrs, "status", rec.status, "method", r.Method, "path", r.URL.Path)
-		outcome := "ok"
-		if rec.status >= http.StatusBadRequest {
-			outcome = "failed"
-		}
-		audit(r, event, outcome, attrs...)
+			attrs = append(attrs, info.attrs...)
+			status := rec.status
+			if !completed {
+				status = http.StatusInternalServerError
+				attrs = append(attrs, "panic", true)
+			}
+			attrs = append(attrs, "status", status, "method", r.Method, "path", r.URL.Path)
+			outcome := "ok"
+			if status >= http.StatusBadRequest {
+				outcome = "failed"
+			}
+			audit(r, event, outcome, attrs...)
+		}()
+		next.ServeHTTP(rec, r)
+		completed = true
 	})
 }

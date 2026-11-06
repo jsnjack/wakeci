@@ -184,7 +184,8 @@ AGENTS.universal.md for the general contract.
   public and name no one), to keep the audit log small enough to read. `AuditMi`
   wraps the routers instead of each handler calling it, so every error
   branch and every refusal (by `AuthMi`, a key's scope, a missing route) is
-  recorded with its status, and it finds the route with its own `auditMux`
+  recorded with its status (it writes the event in a defer, so a handler
+  that panics is recorded too), and it finds the route with its own `auditMux`
   because the auth middleware refuses requests before chi has matched them.
   `ip` is the connection's address; `X-Forwarded-For` is logged next to it
   as sent, never trusted, since anyone can set it and wakeci doesn't know

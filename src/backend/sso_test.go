@@ -472,6 +472,12 @@ func TestSSOACS(t *testing.T) {
 			wantLocation: wantSSONotAllowed,
 		},
 		{
+			// Logged as one group, not as Dev and Ops
+			name:         "in a group with a comma in its name",
+			response:     func(r *testSAMLResponse) { r.groups = []string{"Dev, Ops"} },
+			wantLocation: wantSSONotAllowed,
+		},
+		{
 			name:         "no groups attribute",
 			response:     func(r *testSAMLResponse) { r.groups = nil },
 			wantLocation: wantSSONotAllowed,
@@ -658,7 +664,11 @@ func TestSSOACS(t *testing.T) {
 			rec := httptest.NewRecorder()
 			events, _ := captureAudit(t)
 			HandleSSOACS(rec, req)
-			checkSSOAudit(t, events(), tt.wantLocation, strings.Join(response.groups, ","))
+			groups, err := json.Marshal(append([]string{}, response.groups...))
+			if err != nil {
+				t.Fatalf("encode groups: %v", err)
+			}
+			checkSSOAudit(t, events(), tt.wantLocation, string(groups))
 
 			if rec.Code != http.StatusSeeOther {
 				t.Fatalf("status = %d, want %d", rec.Code, http.StatusSeeOther)
