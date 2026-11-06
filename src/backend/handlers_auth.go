@@ -77,6 +77,7 @@ func HandleLogIn(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		logger.Error("read password hash", "err", err)
+		audit(r, "login.password", "failed", "reason", "read password hash: "+err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -100,6 +101,7 @@ func HandleLogIn(w http.ResponseWriter, r *http.Request) {
 	c, err := GlobalSessionStorage.New(r, SessionTTL, "")
 	if err != nil {
 		logger.Error("create session", "err", err)
+		audit(r, "login.password", "failed", "reason", "create session: "+err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -321,6 +323,8 @@ func HandleSSOACS(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		logger.Error("create session", "err", err)
+		audit(r, "login.sso", "failed", append([]any{"user", account.email, "reason", "create session: " + err.Error()},
+			auditListAttrs("groups", account.groups)...)...)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

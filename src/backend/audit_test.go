@@ -688,6 +688,36 @@ func TestAuditPasswordLogin(t *testing.T) {
 	}
 }
 
+// A sign-in the server fails to check is recorded too
+func TestAuditLoginServerError(t *testing.T) {
+	newAuditTestEnv(t)
+	if err := DB.Close(); err != nil {
+		t.Fatalf("close the database: %v", err)
+	}
+
+	events, _ := captureAudit(t)
+	req := httptest.NewRequest("POST", "/auth/login", strings.NewReader(url.Values{"password": {"admin"}}.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	HandleLogIn(rec, req)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("login: %d, want 500", rec.Code)
+	}
+	event := onlyAuditEvent(t, events())
+	checkAuditEvent(t, event, map[string]string{"event": "login.password", "outcome": "failed", "auth": ""})
+	if !strings.HasPrefix(event["reason"], "read password hash: ") {
+		t.Errorf("reason = %q", event["reason"])
+	}
+
+	events, _ = captureAudit(t)
+	apiCall("GET", "/api/jobs/", nil, nil, func(r *http.Request) { r.SetBasicAuth("", "admin") })
+	event = onlyAuditEvent(t, events())
+	checkAuditEvent(t, event, map[string]string{"event": "login.basic", "outcome": "failed", "auth": ""})
+	if !strings.HasPrefix(event["reason"], "read password hash: ") {
+		t.Errorf("reason = %q", event["reason"])
+	}
+}
+
 func TestAuditBasicAuthFailure(t *testing.T) {
 	newAuditTestEnv(t)
 	events, _ := captureAudit(t)

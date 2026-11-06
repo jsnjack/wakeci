@@ -176,6 +176,7 @@ func AuthMi(next http.Handler) http.Handler {
 
 			if err != nil {
 				logger.Error("read password hash", "err", err)
+				audit(r, "login.basic", "failed", "reason", "read password hash: "+err.Error())
 				w.WriteHeader(http.StatusInternalServerError)
 				w.Header().Set("Content-Type", "text/plain")
 				writeBody(logger, w, []byte("Another triumph"))
