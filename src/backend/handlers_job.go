@@ -10,7 +10,6 @@ import (
 	"os"
 	"slices"
 	"strconv"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
 	bolt "go.etcd.io/bbolt"
@@ -81,7 +80,7 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request) {
 	// Parameter names only: their values can hold anything, e.g. passwords
 	addAuditAttrs(r, "build", build.ID)
 	if len(r.Form) > 0 {
-		addAuditAttrs(r, "params", strings.Join(slices.Sorted(maps.Keys(r.Form)), ","))
+		addAuditAttrs(r, auditListAttrs("params", slices.Sorted(maps.Keys(r.Form)))...)
 	}
 	w.Header().Set("Content-Type", "text/plain")
 	writeBody(logger, w, []byte(strconv.Itoa(build.ID)))

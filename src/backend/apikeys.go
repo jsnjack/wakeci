@@ -598,15 +598,20 @@ func HandleAPIKeyRevoke(w http.ResponseWriter, r *http.Request) {
 			return errNotFound
 		}
 		var stored storedAPIKey
-		if err := json.Unmarshal(data, &stored); err != nil {
-			return err
+		decodeErr := json.Unmarshal(data, &stored)
+		if user != "" {
+			if decodeErr != nil {
+				return decodeErr
+			}
+			// An SSO user doesn't see other people's keys, so to them
+			// someone else's key doesn't exist either
+			if !strings.EqualFold(stored.CreatedBy, user) {
+				return errNotFound
+			}
 		}
-		// An SSO user doesn't see other people's keys, so to them
-		// someone else's key doesn't exist either
-		if user != "" && !strings.EqualFold(stored.CreatedBy, user) {
-			return errNotFound
-		}
-		if stored.CreatedBy != "" {
+		// The admin password can delete a key that can't be read, which
+		// then has no creator to record
+		if decodeErr == nil && stored.CreatedBy != "" {
 			addAuditAttrs(r, "createdBy", stored.CreatedBy)
 		}
 		return b.Delete([]byte(id))
@@ -632,22 +637,10 @@ func apiKeyAuditAttrs(key *APIKey) []any {
 	attrs := []any{"key", key.ID, "name", key.Name, "scopes", strings.Join(key.Scopes, ","), "allJobs", key.AllJobs}
 	if !key.AllJobs {
 		// JSON lists: a job name can hold a comma, or be "all"
-		attrs = append(attrs, "jobs", auditList(key.Jobs), "patterns", auditList(key.Patterns))
+		attrs = append(attrs, auditListAttrs("jobs", key.Jobs)...)
+		attrs = append(attrs, auditListAttrs("patterns", key.Patterns)...)
 	}
 	return append(attrs, "expires", expires)
-}
-
-// auditList writes names as a JSON list, so names with commas or spaces
-// keep their boundaries
-func auditList(names []string) string {
-	if names == nil {
-		names = []string{}
-	}
-	list, err := json.Marshal(names)
-	if err != nil {
-		return fmt.Sprint(names)
-	}
-	return string(list)
 }
 
 // routeAPIKeys sends requests that carry an API key to keyRouter and all

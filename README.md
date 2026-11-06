@@ -188,7 +188,7 @@ system to read several servers together.
 
 ```
 time=2026-11-05T11:02:03Z level=INFO msg=audit server=ci.example.com event=login.sso outcome=ok auth=sso user=alice@example.com groups=Developers ip=198.51.100.4 logID=Xk2pQ
-time=2026-11-05T11:02:41Z level=INFO msg=audit server=ci.example.com event=build.run outcome=ok auth=sso user=alice@example.com job=deploy build=1234 params=TARGET status=200 method=POST path=/api/job/deploy/run ip=198.51.100.4 logID=b7RtM
+time=2026-11-05T11:02:41Z level=INFO msg=audit server=ci.example.com event=build.run outcome=ok auth=sso user=alice@example.com job=deploy build=1234 params="[\"TARGET\"]" status=200 method=POST path=/api/job/deploy/run ip=198.51.100.4 logID=b7RtM
 time=2026-11-05T11:05:10Z level=INFO msg=audit server=ci.example.com event=login.sso outcome=rejected user=bob@example.com groups=Marketing reason="in no allowed group" ip=203.0.113.8 logID=Qe9Zs
 ```
 
@@ -208,7 +208,7 @@ time=2026-11-05T11:05:10Z level=INFO msg=audit server=ci.example.com event=login
 |---|---|
 | `login.password`, `login.basic`, `login.sso`, `login.apikey` | sign-ins; failures have a `reason`, SSO logins the `groups` the identity provider sent, and the failure that blocks an address for too many attempts has `blocked=true` |
 | `logout` | |
-| `build.run`, `build.abort`, `build.start`, `build.flush` | with `job` and `build`; a run lists the names of its parameters, and a scheduled one has `trigger=interval` and no user |
+| `build.run`, `build.abort`, `build.start`, `build.flush` | with `job` and `build`; a run lists the names of its parameters in `params`, and a scheduled one has `trigger=interval` and no user |
 | `job.create`, `job.edit`, `job.delete`, `job.set_active` | with `job`; a create that failed after writing the job file has `fileCreated=true`, since the file can still be added as a job |
 | `settings.change` | the new values, and `passwordChange=true` if the password was sent |
 | `key.create`, `key.revoke`, `access.revoke` | the key, its scopes, `allJobs`, and otherwise its `jobs` and `patterns` as JSON lists; revoking someone's access names the `person` and how many `sessions` and `keys` it ended. Sessions end first, so a revoke that failed may still have `sessions` |
@@ -216,7 +216,10 @@ time=2026-11-05T11:05:10Z level=INFO msg=audit server=ci.example.com event=login
 Refused attempts are recorded too, e.g. an SSO user trying to change the
 password, or an API key without the `run` scope trying to run a job. The log
 never contains passwords, tokens, secrets or the values of run parameters.
-Values longer than 1024 bytes are cut and end in `...`.
+Values longer than 1024 bytes are cut and end in `...`. Lists of names
+(`params`, `jobs`, `patterns`) are JSON, so a name with a comma keeps its
+boundaries; they stay valid within 1024 bytes by leaving names out, and say
+how many in `paramsOmitted`, `jobsOmitted` or `patternsOmitted`.
 
 Reading isn't an audit event, but the `request completed` line of every API
 call, task log and artifact names who made it the same way. The app's pages
