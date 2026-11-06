@@ -298,8 +298,8 @@ func HandleSSOACS(w http.ResponseWriter, r *http.Request) {
 		return
 	case errors.As(err, &groupErr):
 		logger.Warn("sso login: rejected", "err", err)
-		audit(r, "login.sso", "rejected", "user", groupErr.email, "groups", strings.Join(groupErr.groups, ","),
-			"reason", "in no allowed group")
+		audit(r, "login.sso", "rejected", append([]any{"user", groupErr.email, "reason", "in no allowed group"},
+			auditListAttrs("groups", groupErr.groups)...)...)
 		redirectToLoginError(w, r, loginErrorSSONotAllowed, redirect)
 		return
 	case err != nil:
@@ -314,8 +314,8 @@ func HandleSSOACS(w http.ResponseWriter, r *http.Request) {
 		// A fresh login, issued after the revoke, still works unless the
 		// identity provider stopped the account
 		logger.Warn("sso login: issued before the person's access was revoked", "email", account.email)
-		audit(r, "login.sso", "rejected", "user", account.email, "groups", strings.Join(account.groups, ","),
-			"reason", "issued before the person's access was revoked")
+		audit(r, "login.sso", "rejected", append([]any{"user", account.email, "reason", "issued before the person's access was revoked"},
+			auditListAttrs("groups", account.groups)...)...)
 		redirectToLoginError(w, r, loginErrorSSO, redirect)
 		return
 	}
@@ -325,7 +325,7 @@ func HandleSSOACS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setRequestUser(r, "sso", account.email, "")
-	audit(r, "login.sso", "ok", "groups", strings.Join(account.groups, ","))
+	audit(r, "login.sso", "ok", auditListAttrs("groups", account.groups)...)
 	http.SetCookie(w, c)
 	http.Redirect(w, r, redirect, http.StatusSeeOther)
 }
