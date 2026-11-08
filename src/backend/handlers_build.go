@@ -198,13 +198,15 @@ func HandleFlushTaskLogs(w http.ResponseWriter, r *http.Request) {
 
 // HandleStartBuild takes the build from the queue and starts to run it immediately
 // @Summary      Takes the build from the queue and starts to run it immediately, ignorring the number of allowed concurrent builds and concurrency parameter
+// @Description  Not while wakeci is stopping (409)
 // @Tags         build
 // @Produce      plain
 // @Param        id       path    integer   true  "Build ID"
 // @Success      200      {string}   string
 // @Failure      500      {string}   http.StatusInternalServerError
 // @Failure      404      {string}   http.StatusNotFound
-// @Router       /build/{id}/abort [post]
+// @Failure      409      {string}   string
+// @Router       /build/{id}/start [post]
 func HandleStartBuild(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {
@@ -220,6 +222,10 @@ func HandleStartBuild(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	err = GlobalQueue.TakeNow(id)
+	if errors.Is(err, ErrQueueStopping) {
+		writePlainText(w, logger, http.StatusConflict, err.Error())
+		return
+	}
 	if err != nil {
 		logger.Error("start build", "build", id, "err", err)
 		w.WriteHeader(http.StatusNotFound)

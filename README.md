@@ -100,7 +100,46 @@ sso:
   acsurl: ""
   # Identifies wakeci to the identity provider. Defaults to https://<hostname>
   entityid: ""
+# How long a stopping wakeci waits for running builds before it aborts them
+# (default 30m). See "Restarts and updates" below.
+draintimeout: 30m
 ```
+
+#### Restarts and updates
+
+When wakeci gets SIGTERM or SIGINT, it stops starting builds and waits for
+the running ones to end. Builds still running after `draintimeout` are
+aborted, so their `on_aborted` and `finally` tasks run, with up to two more
+minutes for them. Queued builds, and builds started while wakeci waits, stay
+in the queue and start after the restart. Their `on_pending` tasks don't run
+again. A second signal aborts the running builds at once, and a third one
+stops wakeci without waiting for their `on_aborted` and `finally` tasks.
+Builds that were running when wakeci was killed are shown as aborted after the
+restart. Sessions survive restarts, and open pages reconnect on their own; after
+an update they reload to get the new version.
+
+Under systemd, let wakeci send the signal to its builds itself and give it
+time to wait for them, as in [config/wakeci.service](config/wakeci.service):
+
+```
+KillMode=mixed
+# Longer than draintimeout plus 3 minutes
+TimeoutStopSec=35min
+```
+
+`systemctl restart` then blocks until wakeci stopped; add `--no-block` to
+return at once.
+
+The card at the top of the settings page shows the running version and asks
+GitHub for the latest release, at most every 10 minutes. If it is newer,
+"Update to <version>" downloads it, checks its sha256 digest and that it runs,
+replaces the binary and keeps the old one as `wakeci.previous`. Then wakeci
+stops as on SIGTERM and starts the new binary in the same process. To roll
+back, move `wakeci.previous` back and restart. wakeci can't update itself if
+it can't write to the directory of its binary, or if the binary has file
+capabilities from `setcap`, which a new file wouldn't have; use
+`AmbientCapabilities=CAP_NET_BIND_SERVICE` in the systemd unit to listen on
+port 443 instead.
 
 #### Single sign-on
 
@@ -171,10 +210,11 @@ leaves:
    "Created by" (it lists everyone with a key or signed in) and click
    "Revoke access". That signs them out, closes their live updates and
    revokes their keys.
-3. If they knew the admin password, change it and restart wakeci to invalidate
-   existing password sessions. This signs everyone out and interrupts running
-   builds. Then revoke all keys created with the admin password, since those
-   keys cannot be attributed to a person and survive password changes and restarts.
+3. If they knew the admin password, change it. That ends every other session
+   logged in with the password; sessions survive restarts, so a restart
+   doesn't. Then revoke all keys created with the admin password, since those
+   keys cannot be attributed to a person and survive password changes and
+   restarts.
 
 > Default password is `admin`. Don't forget to immediately change it!
 
@@ -203,7 +243,6 @@ sudo alternatives --config go
 
 ```bash
 sudo dnf install entr
-go install github.com/swaggo/swag/cmd/swag@latest
 
 # cd src/frontend
 npm install

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -142,8 +143,21 @@ func initApp() func() {
 // @BasePath /api
 func main() {
 	cleanup := initApp()
-	defer cleanup()
+	restart := run(cleanup)
+	if restart {
+		// Keeps the PID, so a service manager sees the same process
+		L.Warn("restarting", "binary", executablePath)
+		err := syscall.Exec(executablePath, os.Args, os.Environ())
+		L.Error("restart", "err", err)
+		cleanup()
+		os.Exit(1)
+	}
+	cleanup()
+}
 
+// run starts the server and returns once it stopped, true if it must start
+// again because the binary was updated
+func run(cleanup func()) bool {
 	fatal := func(msg string, err error) {
 		L.Error(msg, "err", err)
 		cleanup()
@@ -151,6 +165,11 @@ func main() {
 	}
 
 	var err error
+	executablePath, err = resolveExecutable()
+	if err != nil {
+		fatal("find the running binary", err)
+	}
+
 	err = os.MkdirAll(Config.WorkDir, os.ModePerm)
 	if err != nil {
 		fatal("create work dir", err)
@@ -208,6 +227,16 @@ func main() {
 			return err
 		}
 
+		_, err = tx.CreateBucketIfNotExists(QueueBucket)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.CreateBucketIfNotExists(SessionsBucket)
+		if err != nil {
+			return err
+		}
+
 		return nil
 	})
 
@@ -215,7 +244,10 @@ func main() {
 		fatal("bootstrap db", err)
 	}
 
-	GlobalSessionStorage = CreateSessionStorage(SessionCleanupPeriod)
+	GlobalSessionStorage, err = CreateSessionStorage(SessionCleanupPeriod, DB)
+	if err != nil {
+		fatal("load sessions", err)
+	}
 
 	if Config.SSO.Enabled() {
 		GlobalSSOAuth, err = NewSSOAuth(Config.SSO)
@@ -229,6 +261,19 @@ func main() {
 	if err != nil {
 		fatal("create queue", err)
 	}
+
+	// Builds broadcast their updates, also the restored ones
+	WSHub = newHub()
+	go WSHub.run()
+	GlobalSessionStorage.OnEnd = WSHub.CloseSessions
+
+	// Runs after the cron jobs ended, so builds they queued are saved with
+	// their on_pending tasks done
+	defer func() {
+		if !GlobalQueue.waitQueuedHooks(stopPendingTasksTimeout) {
+			L.Warn("stopping before the on_pending tasks of queued builds ended")
+		}
+	}()
 
 	GlobalCron = cron.New()
 	GlobalCron.Start()
@@ -245,11 +290,17 @@ func main() {
 
 	CleanupJobsBucket()
 	ScanAllJobs()
-	CleanupOldBuilds(BuildCleanupPeriod)
 
-	WSHub = newHub()
-	go WSHub.run()
-	GlobalSessionStorage.OnEnd = WSHub.CloseSessions
+	err = RestoreQueue(GlobalQueue)
+	if err != nil {
+		fatal("restore queue", err)
+	}
+	err = MarkInterruptedBuilds()
+	if err != nil {
+		L.Error("mark interrupted builds", "err", err)
+	}
+
+	CleanupOldBuilds(BuildCleanupPeriod)
 
 	certManager := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
@@ -303,10 +354,33 @@ func main() {
 		Addr:    ":" + Config.Port,
 		Handler: handler,
 	}
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+
+	// A signal or an update stops the server once the running builds ended
+	signals := make(chan os.Signal, 4)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(signals)
+	ctx, stop := context.WithCancel(context.Background())
+	defer stop()
+	go func() {
+		select {
+		case sig := <-signals:
+			L.Warn("stopping", "signal", sig)
+			GlobalQueue.BeginStop(time.Now().Add(Config.drainTimeout), "")
+		case <-GlobalQueue.Stopping():
+		}
+		drainQueue(GlobalQueue, signals, stopHookTimeout)
+		stop()
+	}()
+
+	// Builds start only once the port is bound, so a failure to listen
+	// can't cut them short
+	listener, err := net.Listen("tcp", server.Addr)
+	if err != nil {
+		fatal("listen", err)
+	}
 	var auxiliaryServers sync.WaitGroup
 	serveName := "http"
-	serve := server.ListenAndServe
+	serve := func() error { return server.Serve(listener) }
 
 	if Config.Port == "443" {
 		redirectServer := &http.Server{
@@ -337,17 +411,20 @@ func main() {
 			GetCertificate: certManager.GetCertificate,
 		}
 		serveName = "tls"
-		serve = func() error { return server.ListenAndServeTLS("", "") }
+		serve = func() error { return server.ServeTLS(listener, "", "") }
 	} else {
 		L.Warn("Listening on :" + Config.Port)
 	}
 
+	GlobalQueue.Take()
 	err = serveUntilShutdown(ctx, serve, server.Shutdown)
 	stop()
 	auxiliaryServers.Wait()
 	if err != nil {
 		L.Error("serve "+serveName, "err", err)
+		return false
 	}
+	return GlobalQueue.Status().RestartVersion != ""
 }
 
 // apiRoutes registers the /api routes for logged-in users and the admin
@@ -378,6 +455,13 @@ func apiRoutes(router chi.Router) {
 
 	router.Get("/settings", HandleSettingsGet)
 	router.Post("/settings", HandleSettingsPost)
+
+	router.Get("/queue/", HandleQueueGet)
+
+	router.Route("/update", func(router chi.Router) {
+		router.Get("/", HandleUpdateGet)
+		router.Post("/", HandleUpdatePost)
+	})
 
 	router.Route("/keys", func(router chi.Router) {
 		router.Get("/", HandleAPIKeysList)

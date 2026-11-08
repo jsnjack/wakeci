@@ -1,6 +1,9 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -9,6 +12,7 @@ import (
 
 	"github.com/gofrs/uuid/v5"
 	"github.com/sasha-s/go-deadlock"
+	bolt "go.etcd.io/bbolt"
 )
 
 // SessionTTL is TTL for a session cookie
@@ -38,23 +42,101 @@ type session struct {
 	user string
 }
 
-// SessionStorage is in-memory storage to keep active sessions
+// storedSession is a session as SessionsBucket keeps it
+type storedSession struct {
+	Expires time.Time `json:"expires"`
+	User    string    `json:"user"`
+}
+
+// sessionKey identifies the session with token in SessionStorage and
+// SessionsBucket. It is a hash, so the stored sessions can't be used to log in
+func sessionKey(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
+}
+
+// SessionStorage keeps the active sessions in memory and, with a db, in
+// SessionsBucket, so they survive a restart
 type SessionStorage struct {
+	// sessions by the sessionKey of their token
 	sessions map[string]session
 	mu       deadlock.RWMutex
-	// OnEnd, if set, gets the tokens of sessions that were deleted or
+	// db keeps the sessions across restarts; nil keeps them in memory only
+	db *bolt.DB
+	// saveMu is held from a change of sessions until it is saved, so changes
+	// reach db in the order they happen: a session deleted by a revoke
+	// can't be saved again after the deletion and come back after a restart
+	saveMu deadlock.Mutex
+	// OnEnd, if set, gets the keys of sessions that were deleted or
 	// expired, so connections opened with them can be closed. It is called
 	// without the lock held.
-	OnEnd func(tokens []string)
+	OnEnd func(keys []string)
 	// revoked holds when each single sign-on user's access was revoked, by
 	// lowercased email, for as long as a login issued before could arrive
 	revoked map[string]time.Time
 }
 
-func (s *SessionStorage) ended(tokens []string) {
-	if s.OnEnd != nil && len(tokens) > 0 {
-		s.OnEnd(tokens)
+func (s *SessionStorage) ended(keys []string) {
+	if s.OnEnd != nil && len(keys) > 0 {
+		s.OnEnd(keys)
 	}
+}
+
+// save writes saved and deletes deleted in db. The caller holds saveMu
+func (s *SessionStorage) save(saved map[string]session, deleted []string) {
+	if s.db == nil || (len(saved) == 0 && len(deleted) == 0) {
+		return
+	}
+	err := s.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(SessionsBucket)
+		for key, val := range saved {
+			data, err := json.Marshal(storedSession{Expires: val.expires, User: val.user})
+			if err != nil {
+				return err
+			}
+			if err := b.Put([]byte(key), data); err != nil {
+				return err
+			}
+		}
+		for _, key := range deleted {
+			if err := b.Delete([]byte(key)); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		L.Error("save sessions", "saved", len(saved), "deleted", len(deleted), "err", err)
+	}
+}
+
+// load reads the sessions saved in db and deletes the expired ones
+func (s *SessionStorage) load() error {
+	now := time.Now()
+	var expired []string
+	err := s.db.View(func(tx *bolt.Tx) error {
+		return tx.Bucket(SessionsBucket).ForEach(func(k, v []byte) error {
+			var stored storedSession
+			if err := json.Unmarshal(v, &stored); err != nil {
+				L.Error("decode saved session", "err", err)
+				expired = append(expired, string(k))
+				return nil
+			}
+			if stored.Expires.Before(now) {
+				expired = append(expired, string(k))
+				return nil
+			}
+			s.sessions[string(k)] = session{expires: stored.Expires, user: stored.User}
+			return nil
+		})
+	})
+	if err != nil {
+		return fmt.Errorf("load sessions: %w", err)
+	}
+	s.saveMu.Lock()
+	defer s.saveMu.Unlock()
+	s.save(nil, expired)
+	return nil
 }
 
 func isHTTPS(r *http.Request) bool {
@@ -91,15 +173,21 @@ func (s *SessionStorage) create(r *http.Request, ttl time.Duration, user string,
 		return nil, err
 	}
 	expires := time.Now().Add(ttl)
+	key := sessionKey(sessionToken.String())
+	s.saveMu.Lock()
+	defer s.saveMu.Unlock()
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	// Under the lock DeleteUser takes, so a login can't slip in between a
 	// revoke's cutoff and its deletion of the sessions
 	if revokedAt, ok := s.revoked[strings.ToLower(user)]; ok && issuedAt != nil &&
 		!issuedAt.After(revokedAt.Add(revokedLoginLeeway)) {
+		s.mu.Unlock()
 		return nil, errLoginRevoked
 	}
-	s.sessions[sessionToken.String()] = session{expires: expires, user: user}
+	created := session{expires: expires, user: user}
+	s.sessions[key] = created
+	s.mu.Unlock()
+	s.save(map[string]session{key: created}, nil)
 	c := sessionCookie(r)
 	c.Value = sessionToken.String()
 	c.Expires = expires
@@ -117,27 +205,54 @@ func (s *SessionStorage) Verify(sessionToken string) error {
 func (s *SessionStorage) User(sessionToken string) (string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	val, ok := s.sessions[sessionToken]
+	val, ok := s.sessions[sessionKey(sessionToken)]
 	if !ok {
-		return "", fmt.Errorf("session %s doesn't exist", sessionToken)
+		return "", errors.New("session doesn't exist")
 	}
 	if val.expires.Before(time.Now()) {
-		return "", fmt.Errorf("session %s expired", sessionToken)
+		return "", errors.New("session expired")
 	}
 	return val.user, nil
 }
 
 // Delete removes session id from storage
 func (s *SessionStorage) Delete(sessionToken string) error {
+	key := sessionKey(sessionToken)
+	s.saveMu.Lock()
 	s.mu.Lock()
-	_, ok := s.sessions[sessionToken]
-	delete(s.sessions, sessionToken)
+	_, ok := s.sessions[key]
+	delete(s.sessions, key)
 	s.mu.Unlock()
-	if !ok {
-		return fmt.Errorf("session %s doesn't exist", sessionToken)
+	if ok {
+		s.save(nil, []string{key})
 	}
-	s.ended([]string{sessionToken})
+	s.saveMu.Unlock()
+	if !ok {
+		return errors.New("session doesn't exist")
+	}
+	s.ended([]string{key})
 	return nil
+}
+
+// DeletePasswordSessions ends every session logged in with the password,
+// except the one with token keep, and returns how many. Someone who knew a
+// changed password may still be logged in with it.
+func (s *SessionStorage) DeletePasswordSessions(keep string) int {
+	keepKey := sessionKey(keep)
+	var ended []string
+	s.saveMu.Lock()
+	s.mu.Lock()
+	for key, val := range s.sessions {
+		if val.user == "" && key != keepKey {
+			delete(s.sessions, key)
+			ended = append(ended, key)
+		}
+	}
+	s.mu.Unlock()
+	s.save(nil, ended)
+	s.saveMu.Unlock()
+	s.ended(ended)
+	return len(ended)
 }
 
 // DeleteUser ends every session of a single sign-on user and returns how
@@ -147,6 +262,7 @@ func (s *SessionStorage) DeleteUser(user string) int {
 		return 0
 	}
 	var ended []string
+	s.saveMu.Lock()
 	s.mu.Lock()
 	now := time.Now()
 	if s.revoked == nil {
@@ -166,6 +282,8 @@ func (s *SessionStorage) DeleteUser(user string) int {
 		}
 	}
 	s.mu.Unlock()
+	s.save(nil, ended)
+	s.saveMu.Unlock()
 	s.ended(ended)
 	return len(ended)
 }
@@ -187,6 +305,7 @@ func (s *SessionStorage) Users() []string {
 // Periodically cleanup expired sessions
 func (s *SessionStorage) deleteExpired() {
 	var ended []string
+	s.saveMu.Lock()
 	s.mu.Lock()
 	t := time.Now()
 	for key, val := range s.sessions {
@@ -196,6 +315,8 @@ func (s *SessionStorage) deleteExpired() {
 		}
 	}
 	s.mu.Unlock()
+	s.save(nil, ended)
+	s.saveMu.Unlock()
 	s.ended(ended)
 }
 
@@ -209,11 +330,19 @@ func (s *SessionStorage) startCleanup(d time.Duration) {
 	}()
 }
 
-// CreateSessionStorage creates and returns new session storage
-func CreateSessionStorage(d time.Duration) *SessionStorage {
+// CreateSessionStorage creates session storage that keeps the sessions in
+// db across restarts, or in memory only if db is nil, and deletes expired
+// sessions every d
+func CreateSessionStorage(d time.Duration, db *bolt.DB) (*SessionStorage, error) {
 	s := &SessionStorage{
 		sessions: make(map[string]session),
+		db:       db,
+	}
+	if db != nil {
+		if err := s.load(); err != nil {
+			return nil, err
+		}
 	}
 	s.startCleanup(d)
-	return s
+	return s, nil
 }

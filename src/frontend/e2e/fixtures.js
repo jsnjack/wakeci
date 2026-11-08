@@ -73,8 +73,14 @@ export const test = base.extend({
                         { timeout: 10000, intervals: [50, 100, 200] },
                     )
                     .toBe(true);
-                await expect(await api.post("/auth/login", { form: { password: "admin" } })).toBeOK();
-                await use({ root, url, api, storageState: await api.storageState() });
+                const backend = { root, url, api };
+                // A password change ends the other password sessions, this one too
+                backend.logIn = async () => {
+                    await expect(await api.post("/auth/login", { form: { password: "admin" } })).toBeOK();
+                    backend.storageState = await api.storageState();
+                };
+                await backend.logIn();
+                await use(backend);
             } finally {
                 if (child?.pid) await stopServer(child, exited);
                 if (api) await api.dispose();
@@ -86,6 +92,12 @@ export const test = base.extend({
     ],
 
     baseURL: async ({ backend }, use) => use(backend.url),
+    // The settings page checks GitHub for a newer release; tests answer it
+    // themselves. Routes a test adds take precedence
+    page: async ({ page }, use) => {
+        await page.route("**/api/update/", (route) => route.fulfill({ json: { current: "1.0.0", latest: "1.0.0", available: false } }));
+        await use(page);
+    },
     storageState: async ({ backend, authenticated }, use) => {
         await use(authenticated ? backend.storageState : { cookies: [], origins: [] });
     },

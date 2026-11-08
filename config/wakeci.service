@@ -7,8 +7,21 @@ User=fedora
 Group=fedora
 Restart=always
 RestartSec=5s
+# wakeci waits for running builds before it stops (draintimeout), so only it
+# gets SIGTERM; processes left at the end get SIGKILL
+KillMode=mixed
+# Longer than draintimeout plus 3 minutes
+TimeoutStopSec=35min
+# Lets wakeci listen on ports 80 and 443 as fedora. Unlike setcap on the
+# binary, it survives a self-update
+AmbientCapabilities=CAP_NET_BIND_SERVICE
 WorkingDirectory=/home/fedora/
-ExecStart=/home/fedora/wakeci -port 443 -hostname ci.yauhen.space -wdir /home/fedora/wakedir/ -cdir /home/fedora/wakeconfig/
+# Wakefile.yaml, outside jobdir, holds for example:
+#   port: 443
+#   hostname: ci.yauhen.space
+#   workdir: /home/fedora/wakedir/
+#   jobdir: /home/fedora/wakeconfig/
+ExecStart=/home/fedora/wakeci --config /home/fedora/Wakefile.yaml
 
 [Install]
 WantedBy=multi-user.target

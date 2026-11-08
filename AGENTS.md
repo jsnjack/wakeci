@@ -31,16 +31,18 @@ src/backend/                 Go server (package main, module "wakeci")
   job.go                     Job/Task types, job file <-> DB sync, cron scheduling, fsnotify watcher
   job_expand.go              Expands `include` and `block` task directives
   build.go                   Build/Task execution: runs tasks via go-cmd, writes task_N.log
-  queue.go                   Queue of pending/running builds, concurrency limiting
+  queue.go                   Queue of pending/running builds, concurrency limiting, stop state
+  restart.go                 Restores queued builds at startup, marks interrupted ones aborted, drains on stop
+  update.go                  Self-update: latest GitHub release, download + checks, binary swap, handlers
   cleanup.go                 Periodic removal of old build workspaces/history
   eta.go                     Rolling average build duration, used for ETA display
   secrets.go                 injectSecrets: redacts/substitutes secret values in commands
-  session.go                 Cookie-based in-memory session storage, per-session TTL
+  session.go                 Cookie sessions by token hash, saved in the sessions bucket, per-session TTL
   sso.go                     SAML single sign-on (e.g. Google Workspace): IdP metadata, response checks, login state
   apikeys.go                 API keys: storage, management handlers, the key router with its scope and job checks
   auth_limiter.go            Per-client failed-auth limiter and retry/reset response headers
   middleware.go               chi middleware: per-request logger, auth, CORS, security headers
-  handlers_*.go              HTTP handlers per resource (auth incl. SSO, jobs, job, build, feed, settings, static, docs)
+  handlers_*.go              HTTP handlers per resource (auth incl. SSO, jobs, job, build, feed, queue, settings, static, docs)
   wsclient.go, wshub.go      WebSocket hub: pushes build/feed updates to connected browsers
   query_parser.go            Feed search query parser (`+must -exclude "phrase" key:value`)
   docs/, assets/             swag-generated OpenAPI spec and embedded frontend build (git-ignored)
@@ -58,9 +60,10 @@ src/frontend/                Vue 3 + Vite SPA
 ## Key Flows
 
 1. **Startup** (`main.go`): parse flags → init logger → load `WakeConfig` → open
-   BoltDB → bootstrap buckets/default password → start cron, job watcher,
-   cleanup ticker, WebSocket hub → serve HTTP (or HTTP+HTTPS via autocert on
-   port 443).
+   BoltDB → bootstrap buckets/default password → start WebSocket hub, cron,
+   job watcher → `RestoreQueue` and `MarkInterruptedBuilds` → cleanup ticker
+   → bind the port → `Queue.Take` starts the restored builds → serve HTTP (or
+   HTTP+HTTPS via autocert on port 443).
 2. **Job registration**: job YAML files in `jobdir` are scanned at startup
    (`ScanAllJobs`) and watched via fsnotify (`InitJobWatcher`); each
    create/write/remove re-syncs the job's entry in the `jobs` BoltDB bucket
@@ -94,15 +97,33 @@ src/frontend/                Vue 3 + Vite SPA
    `/storage/build/{id}/...`. Anything not registered there gets 403. The
    feed and job list filter themselves with `apiKeyFromContext`.
 7. **Live UI updates**: `Build.BroadcastUpdate` persists build state to the
-   `history` bucket and pushes it over `WSHub` to any client subscribed to
-   that build/feed topic.
+   `history` bucket (and to the `queue` bucket while the build is pending)
+   and pushes it over `WSHub` to any client subscribed to that build/feed
+   topic. Queue state (stopping, abort time, version) goes out as
+   `queue:status`, which `App.vue` subscribes to on every connection for the
+   banner.
+8. **Stop and restart**: SIGTERM/SIGINT, or `HandleUpdatePost`, calls
+   `Queue.BeginStop`, so no queued build starts again; HTTP keeps serving and
+   new builds are queued. `drainQueue` waits for the running builds until
+   `abortAt` (`draintimeout`), then aborts them with a note in their logs and
+   waits `stopHookTimeout` for their hooks; each further signal skips one
+   wait. Then the server shuts down, cron stops, `on_pending` tasks of queued
+   builds get `stopPendingTasksTimeout`, the DB closes, and after an update
+   `main` re-execs the new binary with `syscall.Exec` (same PID). Sessions
+   are saved, so open pages reconnect; `App.vue` fetches `/api/queue/` on
+   every connection and reloads when its `version` changed.
+9. **Update**: `HandleUpdatePost` asks GitHub for the latest release, refuses
+   unless it is the requested, newer version and `updateProblem` is empty,
+   downloads it next to the binary, checks the sha256 digest GitHub lists and
+   that `--version` prints the version, hard-links the old binary to
+   `<binary>.previous`, renames the new one over it, then `BeginStop`.
 
 ---
 
 ## Build & Run
 
 ```bash
-make build      # frontend (vite) + backend (swag docs + go build), outputs bin/wakeci
+make build      # frontend (vite) + backend (`go tool swag` docs + go build), outputs bin/wakeci
 make runf       # frontend dev server (npm run serve)
 make runb       # backend, rebuilt and restarted on *.go change (entr)
 make test       # backend unit tests (alias for test_go)
@@ -148,6 +169,7 @@ because `--trace` would make concurrent backends overwrite `/tmp/wakeci.log`.
 | `sso.groups` | *(empty)* | Comma-separated group names allowed to log in, matched case-insensitively against the `groups` attribute; required with `idpmetadata` |
 | `sso.acsurl` | `https://<hostname>/auth/sso/acs` | Where the identity provider posts the response; must be https (http only on localhost) with path `/auth/sso/acs`; required if `hostname` is empty |
 | `sso.entityid` | scheme and host of `sso.acsurl` | SP entity ID; must match the Entity ID registered at the identity provider (checked as the assertion audience) |
+| `draintimeout` | `30m` | How long a stopping wakeci waits for running builds before it aborts them; systemd's `TimeoutStopSec` must exceed it by 3 minutes |
 
 Logging flags (all commands): `--debug`/`-d` (verbose, stderr),
 `--trace` (everything, `/tmp/wakeci.log`, truncated each run). See
@@ -210,7 +232,7 @@ AGENTS.universal.md for the general contract.
   saved) and the settings page hides the field. Revoking a person's keys
   also ends their sessions, first and under `apiKeyOwnersMu`, which key
   creation takes too, so a session they still have can't make a new key.
-  Ended sessions (revoke, logout, expiry) are passed to
+  Ended sessions (revoke, logout, expiry, password change) are passed to
   `SessionStorage.OnEnd`, which closes the WebSockets opened with them
   (`Hub.CloseSessions`), since `/ws` only checks auth at the upgrade. A
   request can pass `AuthMi` and register only after its session ended, so
@@ -279,6 +301,50 @@ AGENTS.universal.md for the general contract.
   A build aborted while queued moves to `Queue.aborting`: it can't be
   started and holds no concurrency slot, but `Abort` still reaches its
   `on_aborted` and `finally` tasks.
+- **A restart waits for builds instead of resuming them.** A task's output
+  goes through a pipe into wakeci and a build's progress lives in a
+  goroutine, so a running build can't outlive the process. Stopping waits
+  for running builds (`draintimeout`), then aborts the rest the normal way so
+  `on_aborted`/`finally` run; it never reruns them, since jobs such as
+  deploys may not be safe to repeat. Queued builds are what survives: they
+  are saved in the `queue` bucket by `BroadcastUpdate` (one transaction with
+  the history entry) and restored with their job snapshot, params and API
+  key flag. Their `on_pending` tasks don't run again. Builds are started
+  only after the port is bound, so a failed listen can't cut them short.
+- **Sessions survive restarts.** Otherwise every update would sign everyone
+  out. `SessionsBucket` keeps each session under `sessionKey`, the SHA-256
+  of its token, like API keys, so the db file (mode 0644) holds nothing that
+  logs in; the in-memory map and `OnEnd`/`Hub.CloseSessions` use the same
+  key. Every change takes `saveMu` until it is written, so a deletion (logout,
+  revoke, expiry) can't be overtaken by a save and come back after a
+  restart. Since a restart no longer ends sessions, a password change ends
+  every other password session (`DeletePasswordSessions`). The SSO
+  login-state key is still generated at startup, so a restart only
+  interrupts logins in progress.
+- **No manual queue pause.** Stopping and updating already hold the queue,
+  and a reboot stops wakeci the same way, so a pause button only added a
+  second way to do it. The stop state isn't saved; it ends with the process.
+  "Start now" doesn't work while stopping, since the build would delay or be
+  cut by the restart.
+- **The settings page checks for updates on every visit.**
+  `HandleUpdateGet` caches a found release for `releaseCacheTTL` (10
+  minutes) to stay well inside GitHub's 60 unauthenticated requests per hour,
+  and returns a failed check in `UpdateData.Error` with status 200, so a
+  server without access to GitHub doesn't show an error on each visit. The
+  E2E fixture answers `/api/update/` in the browser, so tests never reach
+  GitHub. The update itself always asks GitHub again. The release notes link
+  comes from GitHub's answer, so it is kept only if it starts with
+  `releasePagePrefix`.
+- **Self-update trusts the GitHub release, like `grm install`.** The sha256
+  digest comes from the same GitHub API, so it catches broken downloads,
+  not a compromised account. The update replaces the file wakeci was
+  started from (symlinks resolved at startup), so the service user must be
+  able to write its directory. It refuses a binary with file capabilities,
+  which the new file wouldn't have (port 443 would fail); ambient
+  capabilities survive the re-exec. There is no automatic rollback:
+  `<binary>.previous` is kept for a manual one. Any logged-in user may
+  update, since they can already run commands as the service user; API
+  keys can't.
 - **fsnotify watcher and the port-80 redirect listener never crash the
   server.** Both run in the background after the server is already serving
   traffic; setup or runtime failures there are logged and the feature
@@ -329,5 +395,13 @@ AGENTS.universal.md for the general contract.
   has checked it first and never falls back to the cookie. Test `/api`
   through `apiRoutes` (as `apiRouter` in the tests does), so `AuthMi` is in
   the path.
+- Never write to Bolt while holding `Queue.mutex`: `HandleFeedView` and
+  `markStaleBuildsAborted` call `Queue.Verify` inside a transaction, so the
+  reverse order can deadlock (a write that grows the file waits for readers).
+  That is why the queue record is written by `BroadcastUpdate`, not
+  `Queue.Add`.
+- systemd's default `KillMode=control-group` sends SIGTERM to the tasks
+  directly and defeats the drain; the unit needs `KillMode=mixed` and a
+  `TimeoutStopSec` above `draintimeout` (see `config/wakeci.service`).
 - `go.work` only includes `src/backend`; run Go tooling (`go vet`, `go test`,
   `golangci-lint`) from inside `src/backend`, not the repo root.

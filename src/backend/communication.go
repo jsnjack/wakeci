@@ -128,6 +128,24 @@ type SettingsData struct {
 	Admin bool `json:"admin"`
 }
 
+// QueueStatusData tells whether queued builds start
+type QueueStatusData struct {
+	// Stopping is true once wakeci stops after the running builds end.
+	// Queued builds wait for the restart
+	Stopping bool `json:"stopping"`
+	// AbortAt is when builds still running are aborted, while stopping
+	AbortAt *time.Time `json:"abortAt,omitempty"`
+	// RestartVersion is the version an update restarts into, while stopping
+	RestartVersion string `json:"restartVersion,omitempty"`
+	// Running counts the builds that run tasks, also the on_aborted tasks of
+	// builds aborted while queued
+	Running int `json:"running"`
+	Queued  int `json:"queued"`
+	// Version is the running wakeci version, so pages opened before an
+	// update can reload
+	Version string `json:"version"`
+}
+
 // JobData used for editing a job
 type JobData struct {
 	Content string `json:"fileContent"`

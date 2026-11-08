@@ -60,6 +60,10 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 			writeBody(logger, w, []byte(err.Error()))
 			return
 		}
+		// Sessions survive restarts, so whoever knew the old password would
+		// stay logged in
+		ended := GlobalSessionStorage.DeletePasswordSessions(requestSession(r))
+		logger.Warn("password changed", "endedSessions", ended)
 	}
 
 	// Number of concurrent builds

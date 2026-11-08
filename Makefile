@@ -15,6 +15,7 @@ endif
 
 export VITE_VERSION = ${VERSION}-${VUE_VERSION_SUFFIX}
 
+# go tool swag is pinned in go.mod to the swag library version docs.go imports
 .ONESHELL:
 src/backend/wakeci: version src/backend/*.go
 	cd src/backend
@@ -22,8 +23,7 @@ src/backend/wakeci: version src/backend/*.go
 	cp -r ../frontend/dist/ assets
 	mkdir -p docs
 	touch docs/swagger.json
-	which swag 2> /dev/null || grm install swaggo/swag
-	swag init --parseDependency --parseInternal --parseDepth 1 || exit 99
+	go tool swag init --parseDependency --parseInternal --parseDepth 1 || exit 99
 	CGO_ENABLED=0 go build -ldflags="-X main.Version=${VERSION}" -o ${BINARY}
 
 .ONESHELL:

@@ -11,6 +11,12 @@ const state = {
         isLoggedIn: false,
     },
     notifyOnBuildStatusUpdate: [],
+    // Whether queued builds start, see QueueStatusData in the backend
+    queue: {
+        stopping: false,
+        abortAt: null,
+        restartVersion: "",
+    },
     currentPage: "",
     theme: "light",
 };

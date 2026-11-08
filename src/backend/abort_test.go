@@ -235,8 +235,8 @@ func TestAbortScope(t *testing.T) {
 		{
 			name: "first reason wins",
 			run: func(b *Build) *abortScope {
-				b.requestAbort(StatusTimedOut)
-				b.requestAbort(StatusAborted)
+				b.requestAbort(StatusTimedOut, "")
+				b.requestAbort(StatusAborted, "")
 				return b.currentAbort()
 			},
 			wantReason: StatusTimedOut,
@@ -252,7 +252,7 @@ func TestAbortScope(t *testing.T) {
 			run: func(b *Build) *abortScope {
 				s := b.currentAbort()
 				b.nextAbortScope()
-				b.requestAbort(StatusAborted)
+				b.requestAbort(StatusAborted, "")
 				return s
 			},
 			wantReason: StatusAborted,
@@ -261,7 +261,7 @@ func TestAbortScope(t *testing.T) {
 		{
 			name: "next scope after an abort is fresh",
 			run: func(b *Build) *abortScope {
-				b.requestAbort(StatusAborted)
+				b.requestAbort(StatusAborted, "")
 				s := b.currentAbort()
 				b.nextAbortScope()
 				return s

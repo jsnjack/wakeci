@@ -39,6 +39,13 @@ const mutations = {
             document.title = value + " - wakeci";
         }
     },
+    SET_QUEUE_STATUS(state, status) {
+        state.queue = {
+            stopping: status.stopping,
+            abortAt: status.abortAt || null,
+            restartVersion: status.restartVersion || "",
+        };
+    },
     SET_THEME(state, value) {
         state.theme = value;
         window.localStorage.setItem("theme", value);

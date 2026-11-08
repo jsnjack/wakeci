@@ -19,12 +19,14 @@ require (
 	github.com/swaggo/swag v1.16.6
 	go.etcd.io/bbolt v1.5.0
 	golang.org/x/crypto v0.58.0
+	golang.org/x/sys v0.49.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/andybalholm/brotli v1.2.7 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.0-20190314233015-f79a8a8ca69d // indirect
 	github.com/go-openapi/jsonpointer v1.0.2 // indirect
 	github.com/go-openapi/jsonreference v1.0.3 // indirect
 	github.com/go-openapi/spec v1.0.1 // indirect
@@ -39,11 +41,16 @@ require (
 	github.com/klauspost/compress v1.20.3 // indirect
 	github.com/mattermost/xml-roundtrip-validator v0.1.0 // indirect
 	github.com/petermattis/goid v0.0.0-20261030104850-e60ce7d9a607 // indirect
+	github.com/russross/blackfriday/v2 v2.0.1 // indirect
+	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
+	github.com/urfave/cli/v2 v2.3.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/mod v0.42.0 // indirect
 	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/tools v0.52.0 // indirect
+	sigs.k8s.io/yaml v1.3.0 // indirect
 )
+
+tool github.com/swaggo/swag/cmd/swag

@@ -119,3 +119,32 @@ func TestSettingsGetAdmin(t *testing.T) {
 		}
 	}
 }
+
+// Sessions survive restarts, so a password change ends the other password
+// sessions instead
+func TestSettingsPasswordChangeEndsOtherSessions(t *testing.T) {
+	newSettingsTestEnv(t)
+	other := loginAs(t, adminUser)
+	alice := loginAs(t, "alice@example.com")
+	current := loginAs(t, adminUser)
+	form := url.Values{"password": {"new"}, "concurrentBuilds": {"2"}, "buildHistorySize": {"200"}}
+	if rec := apiCall("POST", "/api/settings", current, form, nil); rec.Code != http.StatusOK {
+		t.Fatalf("change password: %d %q", rec.Code, rec.Body.String())
+	}
+	tests := []struct {
+		name    string
+		cookie  *http.Cookie
+		wantErr bool
+	}{
+		{"session that changed the password", current, false},
+		{"other password session", other, true},
+		{"single sign-on session", alice, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := GlobalSessionStorage.Verify(tt.cookie.Value); (err != nil) != tt.wantErr {
+				t.Errorf("Verify() = %v, want error %v", err, tt.wantErr)
+			}
+		})
+	}
+}

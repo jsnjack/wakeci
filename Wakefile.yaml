@@ -1,3 +1,5 @@
 workdir: ./workdir
 jobdir: ./workdir
 secretsfile: ./secrets.yaml
+# make runb restarts on every change; don't wait long for running builds
+draintimeout: 10s
