@@ -73,7 +73,17 @@ lint: vet
 	}
 	cd src/backend && golangci-lint run
 
-check: fmt vet build test lint testprod
+# Every agent session loads AGENTS.md whole, and Codex reads only its first
+# 32 KiB: keep it under the limit (AGENTS.universal.md, "AGENTS.md size").
+AGENTS_MAX_BYTES ?= 30000
+agents-size:
+	@size=$$(wc -c < AGENTS.md); \
+	if [ "$$size" -gt $(AGENTS_MAX_BYTES) ]; then \
+	  echo "AGENTS.md is $$size bytes, over the $(AGENTS_MAX_BYTES)-byte limit: move detail to docs/ (AGENTS.universal.md, \"AGENTS.md size\")"; \
+	  exit 1; \
+	fi
+
+check: fmt vet build test lint testprod agents-size
 	@echo "==> make check: all green"
 
 standards:
@@ -107,4 +117,4 @@ viewdb:
 	cp wakeci.db view.db
 	bolter -f view.db
 
-.PHONY: runb runf version clean clean_jobs testprod testdev testreport test_go test vet fmt lint check standards buildf build release
+.PHONY: runb runf version clean clean_jobs testprod testdev testreport test_go test vet fmt lint check agents-size standards buildf build release

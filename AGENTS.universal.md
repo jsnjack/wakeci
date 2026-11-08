@@ -28,16 +28,19 @@ change. It must pass before reporting the task as complete.
 - Never report work as done until all requirements are met and `make check`
   passes. If requirements cannot be met, say so explicitly.
 - When something is unclear, read the existing code first — match its patterns.
-- **Keep `AGENTS.md` current.** After any change that affects project
-  structure, architecture, patterns, or design decisions, update `AGENTS.md`
-  to reflect the new state. A stale `AGENTS.md` is worse than none.
+- **Keep `AGENTS.md` current and short.** After any change that affects
+  project structure, architecture, patterns, or design decisions, update the
+  documentation to reflect the new state: `AGENTS.md`, or the `docs/` file
+  for that area (see [AGENTS.md size](#agentsmd-size)). A stale `AGENTS.md`
+  is worse than none, and so is one too long to be read whole.
 
 ---
 
 ## Build & validate
 
 Every project exposes a single validation command (typically `make check`) that
-runs in order: format → vet → build → test → lint. All steps must pass.
+runs in order: format → vet → build → test → lint → AGENTS.md size. All steps
+must pass.
 
 Missing tools print an install command and exit — never auto-install silently.
 
@@ -47,6 +50,30 @@ make test       # tests only
 make build      # compile only
 make standards  # refresh all applicable convention files from the standards repo (if present)
 ```
+
+---
+
+## AGENTS.md size
+
+Every agent session loads `AGENTS.md` whole, and Codex reads only its first
+32 KiB and silently drops the rest. So `AGENTS.md` stays under 30,000 bytes,
+and `make check` fails when it is over (`make agents-size`).
+
+- `AGENTS.md` holds what every session needs: the overview, the package map
+  (one line per package, not per file), the rules that cross packages, the
+  commands, and the traps.
+- The detail of a feature or flow goes in `docs/<area>.md`. `AGENTS.md` lists
+  those files in a "Where the details are" table that says which file to read
+  before working on which area.
+- The reason for a particular line (the incident, the measurement, the
+  alternative that failed) goes in a comment beside that line or in the
+  commit message, not in `AGENTS.md`.
+- When a change alters a flow, update that flow's file in `docs/`. Change
+  `AGENTS.md` only when the package map, a rule that crosses packages, a
+  command, or a trap changes.
+- When `AGENTS.md` is over the limit, move whole sections to `docs/` word for
+  word, so nothing is lost, and leave a short summary with a link in their
+  place. Never delete a rule to make it fit.
 
 ---
 
