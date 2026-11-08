@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	yaml "gopkg.in/yaml.v2"
 )
@@ -33,7 +34,15 @@ type WakeConfig struct {
 	// SSO enables single sign-on through a SAML identity provider such as
 	// Google Workspace
 	SSO SSOConfig `yaml:"sso"`
+	// DrainTimeout is how long a stopping wakeci waits for running builds
+	// before it aborts them, as a Go duration such as 30m
+	DrainTimeout string `yaml:"draintimeout"`
+	// drainTimeout is DrainTimeout parsed
+	drainTimeout time.Duration
 }
+
+// defaultDrainTimeout is used when draintimeout is not set
+const defaultDrainTimeout = 30 * time.Minute
 
 // SSOConfig sets up single sign-on through a SAML 2.0 identity provider.
 // Leaving IDPMetadata empty disables it.
@@ -135,6 +144,15 @@ func CreateWakeConfig(path string) (*WakeConfig, error) {
 	}
 
 	config.jobsExt = ".yaml"
+
+	config.drainTimeout = defaultDrainTimeout
+	if config.DrainTimeout != "" {
+		timeout, err := time.ParseDuration(config.DrainTimeout)
+		if err != nil || timeout < 0 {
+			return nil, fmt.Errorf("draintimeout must be a duration such as 30m, got %q", config.DrainTimeout)
+		}
+		config.drainTimeout = timeout
+	}
 
 	if err := config.SSO.resolve(config.Hostname); err != nil {
 		return nil, fmt.Errorf("sso config: %w", err)

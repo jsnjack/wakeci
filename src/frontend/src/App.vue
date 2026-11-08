@@ -65,6 +65,7 @@
         </nav>
     </header>
     <main class="responsive no-scroll medium-padding">
+        <QueueBanner v-if="auth.isLoggedIn" />
         <router-view />
     </main>
     <notifications
@@ -81,12 +82,20 @@ import "@/assets/main.css";
 import "beercss";
 import "material-dynamic-colors";
 
+import QueueBanner from "@/components/QueueBanner.vue";
 import { getWSURL } from "@/store/communication.js";
 import axios from "axios";
 import vuex from "vuex";
 import wsMessageHandler from "./store/communication.js";
 
 export default {
+    components: { QueueBanner },
+    data: function () {
+        return {
+            // The server version this page was loaded from
+            serverVersion: "",
+        };
+    },
     computed: {
         ...vuex.mapState(["ws", "auth", "currentPage", "theme"]),
         getVesion: function () {
@@ -128,10 +137,32 @@ export default {
 
                 ws.addEventListener("open", (event) => {
                     this.$store.commit("WS_CONNECTED", ws);
+                    this.watchQueueStatus();
                 });
             } else {
                 console.error("WS already connected");
             }
+        },
+        // Fetched again on every connection, since a restart ends a stop.
+        // After an update the server runs a new version, and the page
+        // reloads to get its frontend
+        watchQueueStatus: function () {
+            this.$store.commit("WS_SEND", {
+                type: "in:subscribe",
+                data: { to: ["queue:status"] },
+            });
+            axios
+                .get("/api/queue/")
+                .then((response) => {
+                    const version = response.data.version;
+                    if (version && this.serverVersion && version !== this.serverVersion) {
+                        window.location.reload();
+                        return;
+                    }
+                    this.serverVersion = version || this.serverVersion;
+                    this.$store.commit("SET_QUEUE_STATUS", response.data);
+                })
+                .catch((error) => {});
         },
         logOut: function () {
             axios

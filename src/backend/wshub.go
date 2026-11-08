@@ -17,7 +17,7 @@ type Hub struct {
 	// Unregister requests from clients.
 	unregister chan *Client
 
-	// Sessions that ended, whose clients must be closed.
+	// Keys of sessions that ended, whose clients must be closed.
 	endedSessions chan []string
 }
 
@@ -52,13 +52,13 @@ func (h *Hub) run() {
 				delete(h.clients, client)
 				close(client.send)
 			}
-		case tokens := <-h.endedSessions:
-			ended := make(map[string]bool, len(tokens))
-			for _, token := range tokens {
-				ended[token] = true
+		case keys := <-h.endedSessions:
+			ended := make(map[string]bool, len(keys))
+			for _, key := range keys {
+				ended[key] = true
 			}
 			for client := range h.clients {
-				if client.session != "" && ended[client.session] {
+				if client.session != "" && ended[sessionKey(client.session)] {
 					client.Logger.Info("closing ws connection: its session ended")
 					delete(h.clients, client)
 					close(client.send)
@@ -86,8 +86,9 @@ func (h *Hub) run() {
 	}
 }
 
-// CloseSessions closes the connections opened with the sessions, e.g. when a
-// person is signed out, so they stop receiving build updates
-func (h *Hub) CloseSessions(tokens []string) {
-	h.endedSessions <- tokens
+// CloseSessions closes the connections opened with the sessions, by
+// sessionKey, e.g. when a person is signed out, so they stop receiving build
+// updates
+func (h *Hub) CloseSessions(keys []string) {
+	h.endedSessions <- keys
 }

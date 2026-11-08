@@ -30,6 +30,9 @@ const wsMessageHandler = function (app, data) {
             // For feed view
             app.emitter.emit("build:update:", msg.data);
             continue;
+        } else if (msg.type === "queue:status") {
+            app.$store.commit("SET_QUEUE_STATUS", msg.data);
+            continue;
         }
         console.warn("Unhandled message", msg);
     }

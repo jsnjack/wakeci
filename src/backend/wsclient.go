@@ -273,7 +273,7 @@ func HandleWS(w http.ResponseWriter, r *http.Request) {
 		send:         make(chan []byte, 1024),
 		SubscribedTo: []string{},
 		Logger:       L.With("logID", logID, "host", host),
-		session:      wsSession(r),
+		session:      requestSession(r),
 	}
 	client.hub.register <- client
 
@@ -283,9 +283,9 @@ func HandleWS(w http.ResponseWriter, r *http.Request) {
 	go client.readPump()
 }
 
-// wsSession returns the session a WebSocket is opened with: the session
+// requestSession returns the session a request is made with: the session
 // cookie, unless AuthMi let it in with Basic auth, which it checks first
-func wsSession(r *http.Request) string {
+func requestSession(r *http.Request) string {
 	if _, _, ok := r.BasicAuth(); ok {
 		return ""
 	}

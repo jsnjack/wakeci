@@ -5,10 +5,14 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	bolt "go.etcd.io/bbolt"
 )
 
 func TestSessionCookieSecure(t *testing.T) {
@@ -117,7 +121,7 @@ func TestSessionOnEnd(t *testing.T) {
 	Config = &WakeConfig{}
 	storage := &SessionStorage{sessions: make(map[string]session)}
 	var ended []string
-	storage.OnEnd = func(tokens []string) { ended = append(ended, tokens...) }
+	storage.OnEnd = func(keys []string) { ended = append(ended, keys...) }
 	req := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
 	newSession := func(user string, ttl time.Duration) string {
 		cookie, err := storage.New(req, ttl, user)
@@ -136,7 +140,7 @@ func TestSessionOnEnd(t *testing.T) {
 	}
 	storage.DeleteUser("alice@example.com")
 	storage.deleteExpired()
-	if want := []string{loggedOut, alice, expired}; !slices.Equal(ended, want) {
+	if want := []string{sessionKey(loggedOut), sessionKey(alice), sessionKey(expired)}; !slices.Equal(ended, want) {
 		t.Errorf("ended = %q, want %q", ended, want)
 	}
 	if users := storage.Users(); !slices.Equal(users, []string{"carol@example.com"}) {
@@ -191,5 +195,152 @@ func TestNewSSORacingRevoke(t *testing.T) {
 		if users := storage.Users(); len(users) != 0 {
 			t.Fatalf("round %d: sessions left for %q", i, users)
 		}
+	}
+}
+
+// openSessionsDB opens a db with SessionsBucket
+func openSessionsDB(t *testing.T) *bolt.DB {
+	t.Helper()
+	db, err := bolt.Open(filepath.Join(t.TempDir(), "sessions.db"), 0600, nil)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("close db: %v", err)
+		}
+	})
+	if err := db.Update(func(tx *bolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists(SessionsBucket)
+		return err
+	}); err != nil {
+		t.Fatalf("create bucket: %v", err)
+	}
+	return db
+}
+
+func TestSessionsSurviveRestart(t *testing.T) {
+	Config = &WakeConfig{}
+	db := openSessionsDB(t)
+	storage, err := CreateSessionStorage(time.Hour, db)
+	if err != nil {
+		t.Fatalf("CreateSessionStorage: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
+	newSession := func(user string, ttl time.Duration) string {
+		cookie, err := storage.New(req, ttl, user)
+		if err != nil {
+			t.Fatalf("New() error = %v", err)
+		}
+		return cookie.Value
+	}
+	admin := newSession("", time.Hour)
+	alice := newSession("alice@example.com", time.Hour)
+	loggedOut := newSession("", time.Hour)
+	revoked := newSession("bob@example.com", time.Hour)
+	expired := newSession("carol@example.com", time.Millisecond)
+	if err := storage.Delete(loggedOut); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+	storage.DeleteUser("bob@example.com")
+	time.Sleep(5 * time.Millisecond)
+
+	restarted, err := CreateSessionStorage(time.Hour, db)
+	if err != nil {
+		t.Fatalf("CreateSessionStorage after restart: %v", err)
+	}
+	tests := []struct {
+		name     string
+		token    string
+		wantUser string
+		wantErr  bool
+	}{
+		{"password session", admin, "", false},
+		{"single sign-on session", alice, "alice@example.com", false},
+		{"logged out", loggedOut, "", true},
+		{"revoked", revoked, "", true},
+		{"expired", expired, "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			user, err := restarted.User(tt.token)
+			if (err != nil) != tt.wantErr || user != tt.wantUser {
+				t.Errorf("User() = %q, %v; want %q, error %v", user, err, tt.wantUser, tt.wantErr)
+			}
+		})
+	}
+
+	// Only the two live sessions stay saved, and not by their token
+	var stored []string
+	if err := db.View(func(tx *bolt.Tx) error {
+		return tx.Bucket(SessionsBucket).ForEach(func(k, v []byte) error {
+			stored = append(stored, string(k))
+			for _, token := range []string{admin, alice} {
+				if strings.Contains(string(k), token) || strings.Contains(string(v), token) {
+					t.Errorf("a token is saved in the db")
+				}
+			}
+			return nil
+		})
+	}); err != nil {
+		t.Fatalf("read sessions: %v", err)
+	}
+	slices.Sort(stored)
+	want := []string{sessionKey(admin), sessionKey(alice)}
+	slices.Sort(want)
+	if !slices.Equal(stored, want) {
+		t.Errorf("saved sessions = %q, want the keys of the live ones %q", stored, want)
+	}
+}
+
+func TestDeletePasswordSessions(t *testing.T) {
+	Config = &WakeConfig{}
+	db := openSessionsDB(t)
+	storage, err := CreateSessionStorage(time.Hour, db)
+	if err != nil {
+		t.Fatalf("CreateSessionStorage: %v", err)
+	}
+	var ended []string
+	storage.OnEnd = func(keys []string) { ended = append(ended, keys...) }
+	req := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
+	tokens := map[string]string{}
+	for _, name := range []string{"current", "other", "alice"} {
+		user := ""
+		if name == "alice" {
+			user = "alice@example.com"
+		}
+		cookie, err := storage.New(req, time.Hour, user)
+		if err != nil {
+			t.Fatalf("New() error = %v", err)
+		}
+		tokens[name] = cookie.Value
+	}
+
+	if n := storage.DeletePasswordSessions(tokens["current"]); n != 1 {
+		t.Errorf("ended %d sessions, want 1", n)
+	}
+	if !slices.Equal(ended, []string{sessionKey(tokens["other"])}) {
+		t.Errorf("OnEnd got %q, want the other password session", ended)
+	}
+	restarted, err := CreateSessionStorage(time.Hour, db)
+	if err != nil {
+		t.Fatalf("CreateSessionStorage after restart: %v", err)
+	}
+	tests := []struct {
+		name    string
+		wantErr bool
+	}{
+		{"current", false},
+		{"other", true},
+		{"alice", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for label, storage := range map[string]*SessionStorage{"running": storage, "restarted": restarted} {
+				if err := storage.Verify(tokens[tt.name]); (err != nil) != tt.wantErr {
+					t.Errorf("%s: Verify() = %v, want error %v", label, err, tt.wantErr)
+				}
+			}
+		})
 	}
 }

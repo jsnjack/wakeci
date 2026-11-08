@@ -32,6 +32,14 @@ var HistoryBucket = []byte("history")
 // APIKeysBucket contains API keys by ID, see storedAPIKey
 var APIKeysBucket = []byte("apikeys")
 
+// QueueBucket contains the queued builds by ID, see queuedBuild, so they are
+// queued again after a restart
+var QueueBucket = []byte("queue")
+
+// SessionsBucket contains the active sessions by sessionKey, see
+// storedSession, so a restart doesn't sign everyone out
+var SessionsBucket = []byte("sessions")
+
 // ByteToInt convert byte to int via string
 func ByteToInt(b []byte) (int, error) {
 	bs := string(b)

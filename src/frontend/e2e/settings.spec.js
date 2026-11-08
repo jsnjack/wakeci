@@ -2,7 +2,7 @@ import { test, expect, login } from "./fixtures.js";
 
 test.use({ authenticated: false });
 
-test("should modify settings", async ({ page }) => {
+test("should modify settings", async ({ page, backend }) => {
     await page.goto("/settings");
     await login(page);
     await expect(page).toHaveURL(/\/settings$/);
@@ -22,6 +22,9 @@ test("should modify settings", async ({ page }) => {
     await page.locator("#build-history-size").fill("200");
     await page.getByTestId("save-settings").click();
     await expect(page.locator(".notification-content")).toContainText("Saved");
+    // The password change ended the other password sessions
+    expect((await backend.api.get("/api/settings")).status()).toBe(403);
+    await backend.logIn();
 });
 
 test("should not offer the password to SSO users", async ({ page }) => {

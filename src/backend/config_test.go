@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestCreateWakeConfig(t *testing.T) {
@@ -218,6 +219,42 @@ func TestCreateWakeConfigSSO(t *testing.T) {
 			}
 			if config.SSO.EntityID != tt.wantEntityID {
 				t.Errorf("EntityID = %q, want %q", config.SSO.EntityID, tt.wantEntityID)
+			}
+		})
+	}
+}
+
+func TestCreateWakeConfigDrainTimeout(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		want    time.Duration
+		wantErr bool
+	}{
+		{"default", "", 30 * time.Minute, false},
+		{"set", "draintimeout: 90s\n", 90 * time.Second, false},
+		{"zero aborts at once", "draintimeout: 0s\n", 0, false},
+		{"not a duration", "draintimeout: soon\n", 0, true},
+		{"negative", "draintimeout: -1m\n", 0, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "Wakefile.yaml")
+			if err := os.WriteFile(path, []byte(tt.content), 0644); err != nil {
+				t.Fatalf("write fixture: %v", err)
+			}
+			config, err := CreateWakeConfig(path)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("want an error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("CreateWakeConfig: %v", err)
+			}
+			if config.drainTimeout != tt.want {
+				t.Errorf("drainTimeout = %v, want %v", config.drainTimeout, tt.want)
 			}
 		})
 	}

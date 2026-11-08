@@ -98,7 +98,10 @@ type Build struct {
 // being lost
 type abortScope struct {
 	reason string // Set once, before c is closed
-	c      chan struct{}
+	// note says why, when neither a user nor the job timeout asked for it.
+	// Set with reason
+	note string
+	c    chan struct{}
 }
 
 func newAbortScope() *abortScope {
@@ -133,8 +136,9 @@ func (b *Build) abortLocked() *abortScope {
 }
 
 // requestAbort asks the build to stop the tasks that run now, with reason
-// StatusAborted or StatusTimedOut. It never blocks; the first reason wins
-func (b *Build) requestAbort(reason string) {
+// StatusAborted or StatusTimedOut, and note for the task log if neither a
+// user nor the timeout asked for it. It never blocks; the first reason wins
+func (b *Build) requestAbort(reason, note string) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	scope := b.abortLocked()
@@ -142,6 +146,7 @@ func (b *Build) requestAbort(reason string) {
 		return
 	}
 	scope.reason = reason
+	scope.note = note
 	close(scope.c)
 }
 
@@ -156,15 +161,18 @@ func (b *Build) nextAbortScope() {
 	}
 }
 
-// logAbort writes why the task was stopped to its log
-func (b *Build) logAbort(reason string, bw *bufio.Writer, task *Task) {
-	switch reason {
-	case StatusTimedOut:
+// logAbort writes why the task was stopped to its log. The scope must be
+// aborted
+func (b *Build) logAbort(scope *abortScope, bw *bufio.Writer, task *Task) {
+	switch {
+	case scope.note != "":
+		b.ProcessLogEntry("> Aborted: "+scope.note+".", bw, task.ID, task.startedAt)
+	case scope.reason == StatusTimedOut:
 		b.ProcessLogEntry("> Timed out.", bw, task.ID, task.startedAt)
-	case StatusAborted:
+	case scope.reason == StatusAborted:
 		b.ProcessLogEntry("> Aborted by a user.", bw, task.ID, task.startedAt)
 	default:
-		b.Logger.Warn("unhandled abort method", "task", task.ID, "reason", reason)
+		b.Logger.Warn("unhandled abort method", "task", task.ID, "reason", scope.reason)
 	}
 }
 
@@ -328,7 +336,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 
 	// An abort that arrived during setup or the conditions
 	if reason := abort.stopped(); reason != "" {
-		b.logAbort(reason, bw, task)
+		b.logAbort(abort, bw, task)
 		return ItemStatus(reason)
 	}
 
@@ -368,7 +376,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 				abortC = nil
 				abortedReason = abort.reason
 				b.Logger.Info("aborting task", "task", task.ID, "reason", abortedReason)
-				b.logAbort(abortedReason, bw, task)
+				b.logAbort(abort, bw, task)
 				// taskCmd.Stop() send SIGTERM signal to the command. Most of the time it works just fine, however
 				// there are applications which will just ignore it or are in busy state and can't handle the signal.
 				// Here we start a timer for SIGTERM to succeed and if it doesn't, SIGKILL is sent
@@ -456,9 +464,8 @@ func (b *Build) checkCondition(task *Task, kind, expr, script string, env []stri
 	}
 	condTimedOut, condAborted, condErr := b.waitForCondition(condCmd, task.ID, WHEN_EVAL_TIMEOUT*time.Second, abort.c, flush)
 	if condAborted {
-		reason := abort.stopped()
-		b.logAbort(reason, bw, task)
-		return ItemStatus(reason)
+		b.logAbort(abort, bw, task)
+		return ItemStatus(abort.stopped())
 	}
 	if condTimedOut {
 		b.ProcessLogEntry(
@@ -645,12 +652,18 @@ func copyArtifact(source string, destination string, mode os.FileMode) (size int
 }
 
 // BroadcastUpdate sends update to all subscribed clients. Contains general
-// information about the build
+// information about the build. It saves the build in the history, and in
+// QueueBucket while the build is queued
 func (b *Build) BroadcastUpdate() {
 	bID := b.ID
 	data, err := b.GenerateBuildUpdateData()
 	if err != nil {
 		b.Logger.Error("generate build update data", "err", err)
+		return
+	}
+	queued, err := b.queuedRecord()
+	if err != nil {
+		b.Logger.Error("generate queued build record", "err", err)
 		return
 	}
 	msg := MsgBroadcast{
@@ -661,11 +674,34 @@ func (b *Build) BroadcastUpdate() {
 
 	err = DB.Update(func(tx *bolt.Tx) error {
 		hb := tx.Bucket([]byte(HistoryBucket))
-		return hb.Put(Itob(bID), data)
+		if err := hb.Put(Itob(bID), data); err != nil {
+			return err
+		}
+		qb := tx.Bucket(QueueBucket)
+		if queued == nil {
+			return qb.Delete(Itob(bID))
+		}
+		return qb.Put(Itob(bID), queued)
 	})
 	if err != nil {
 		b.Logger.Error("save build history", "err", err)
 	}
+}
+
+// queuedRecord returns what RestoreQueue needs to queue the build again, or
+// nil once the build has left the queue
+func (b *Build) queuedRecord() ([]byte, error) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+	if b.Status != StatusPending {
+		return nil, nil
+	}
+	return json.Marshal(queuedBuild{
+		Job:               b.Job,
+		Params:            b.Params,
+		StartedWithAPIKey: b.startedWithAPIKey,
+		Tasks:             b.GetTasksStatus(),
+	})
 }
 
 // GenerateBuildUpdateData generates BuildUpdateData
