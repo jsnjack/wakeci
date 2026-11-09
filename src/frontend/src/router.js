@@ -87,14 +87,24 @@ const chunkReloadWindow = 30 * 1000;
 const chunkLoadError =
     /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Unable to preload CSS/i;
 
-// reloadedFor reports whether the page was just loaded in full for path. It
-// throws when sessionStorage is blocked
-function reloadedFor(path) {
-    const value = sessionStorage.getItem(chunkReloadKey);
+// withStorage runs use with sessionStorage and returns its result, or
+// undefined when the browser blocks sessionStorage
+function withStorage(use) {
+    try {
+        return use(sessionStorage);
+    } catch (error) {
+        console.debug("sessionStorage is unavailable:", error);
+        return undefined;
+    }
+}
+
+// reloadedFor reports whether the page was just loaded in full for path
+function reloadedFor(storage, path) {
     let mark;
     try {
-        mark = JSON.parse(value);
-    } catch {
+        mark = JSON.parse(storage.getItem(chunkReloadKey));
+    } catch (error) {
+        console.debug("Ignoring an unreadable reload mark:", error);
         return false;
     }
     return mark?.path === path && Date.now() - mark.at < chunkReloadWindow;
@@ -105,17 +115,16 @@ function cantLoad() {
 }
 
 router.onError((error, to) => {
+    // Registering onError stops vue-router from logging it
+    console.error(`Navigation to ${to.fullPath} failed:`, error);
     if (!chunkLoadError.test(String(error?.message))) {
         return;
     }
-    try {
-        if (reloadedFor(to.fullPath)) {
-            sessionStorage.removeItem(chunkReloadKey);
-            cantLoad();
-            return;
-        }
-    } catch {
-        // Without storage the reload can't be limited to once
+    const reloaded = withStorage((storage) => reloadedFor(storage, to.fullPath));
+    if (reloaded !== false) {
+        // Already loaded in full for it, or, without storage, the reload
+        // can't be limited to once
+        withStorage((storage) => storage.removeItem(chunkReloadKey));
         cantLoad();
         return;
     }
@@ -124,13 +133,22 @@ router.onError((error, to) => {
     fetch("/", { cache: "no-store" })
         .then((response) => {
             if (!response.ok) {
+                throw new Error(`wakeci answered ${response.status}`);
+            }
+            const marked = withStorage((storage) => {
+                storage.setItem(chunkReloadKey, JSON.stringify({ path: to.fullPath, at: Date.now() }));
+                return true;
+            });
+            if (!marked) {
                 cantLoad();
                 return;
             }
-            sessionStorage.setItem(chunkReloadKey, JSON.stringify({ path: to.fullPath, at: Date.now() }));
             window.location.assign(to.fullPath);
         })
-        .catch(cantLoad);
+        .catch((error) => {
+            console.warn(`Not loading ${to.fullPath} in full, wakeci doesn't answer:`, error);
+            cantLoad();
+        });
 });
 
 // Only a successful load of that URL ends it: a full load passes through
@@ -139,13 +157,11 @@ router.afterEach((to, from, failure) => {
     if (failure) {
         return;
     }
-    try {
-        if (reloadedFor(to.fullPath)) {
-            sessionStorage.removeItem(chunkReloadKey);
+    withStorage((storage) => {
+        if (reloadedFor(storage, to.fullPath)) {
+            storage.removeItem(chunkReloadKey);
         }
-    } catch {
-        // Nothing was stored then
-    }
+    });
 });
 
 export default router;

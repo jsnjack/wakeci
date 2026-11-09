@@ -54,6 +54,8 @@ test("should load a page in full when its code fails to load", async ({ page }) 
 });
 
 test("should load a page in full only once when its code keeps failing", async ({ page }) => {
+    const errors = [];
+    page.on("console", (message) => message.type() === "error" && errors.push(message.text()));
     await page.goto("/");
     await expect(page.getByTestId("filter")).toBeVisible();
     const asked = await failJobsChunk(page, Infinity);
@@ -67,6 +69,8 @@ test("should load a page in full only once when its code keeps failing", async (
     // Gives a second reload, if any, time to start
     await page.waitForTimeout(2000);
     expect(loads).toBe(1);
+    // Registering router.onError stops vue-router from logging it
+    expect(errors.some((text) => text.includes("Navigation to /jobs failed"))).toBe(true);
 });
 
 test("should not load a page in full while wakeci doesn't answer", async ({ page }) => {
