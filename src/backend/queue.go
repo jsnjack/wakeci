@@ -38,7 +38,8 @@ type Queue struct {
 	// stopSignalled is set by the first stop signal (noteStopSignal): wakeci
 	// then stops, even if an update planned a restart
 	stopSignalled bool
-	// tasksStopped is set by stopTasks: no task command starts any more
+	// tasksStopped is set by stopTasks: no task command and no queued build
+	// starts any more
 	tasksStopped bool
 	// statusMu is held by broadcastStatus from taking the status until it is
 	// sent, so clients get statuses in the order they were taken: a stop
@@ -50,7 +51,7 @@ type Queue struct {
 // Take takes build from queue and starts running it
 func (q *Queue) Take() {
 	q.mutex.Lock()
-	toRun := !q.isStoppingLocked() && len(q.running) < q.concurrentBuilds && len(q.queued) > 0
+	toRun := !q.isStoppingLocked() && !q.tasksStopped && len(q.running) < q.concurrentBuilds && len(q.queued) > 0
 	var foundItem bool
 	var foundItemID int
 	if toRun {
@@ -98,7 +99,7 @@ func (q *Queue) TakeNow(buildID int) error {
 	var foundItem bool
 
 	q.mutex.Lock()
-	if q.isStoppingLocked() {
+	if q.isStoppingLocked() || q.tasksStopped {
 		q.mutex.Unlock()
 		return ErrQueueStopping
 	}
@@ -432,8 +433,8 @@ func (q *Queue) waitQueuedHooks(timeout time.Duration, interrupt <-chan os.Signa
 // note. Queued builds stay queued. It reports whether all tasks ended
 // within timeout
 func (q *Queue) stopTasks(note string, timeout time.Duration) bool {
-	// Ends and saves builds rather than starting queued ones
-	q.BeginStop(time.Now(), "")
+	// Not BeginStop, which would wake a drain that never began, as when
+	// serving failed without a stop
 	q.mutex.Lock()
 	q.tasksStopped = true
 	builds := slices.Concat(q.running, q.aborting, q.queued)

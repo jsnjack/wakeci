@@ -678,6 +678,32 @@ func waitProcessGone(t *testing.T, build *Build) {
 	}
 }
 
+// TestStopTasksStartsNoQueuedBuild checks that once tasks are stopped no
+// queued build starts, without beginning a stop: a drain woken that late
+// would run beside stopTasks, as when serving failed without a stop
+func TestStopTasksStartsNoQueuedBuild(t *testing.T) {
+	newTestBuildEnv(t)
+	useQueue(t, &Queue{concurrentBuilds: 1})
+	build := queueTestBuild(t, &Job{Name: "stay", Tasks: []*Task{{ID: 0, Command: "true", Kind: KindMain}}})
+	build.pendingTasksWG.Wait()
+
+	if !GlobalQueue.stopTasks(stopNote, time.Second) {
+		t.Fatal("stopTasks: tasks still ran")
+	}
+	select {
+	case <-GlobalQueue.Stopping():
+		t.Error("stopTasks began a stop, which wakes the drain")
+	default:
+	}
+	GlobalQueue.Take()
+	if err := GlobalQueue.TakeNow(build.ID); !errors.Is(err, ErrQueueStopping) {
+		t.Errorf("TakeNow = %v, want ErrQueueStopping", err)
+	}
+	if status := GlobalQueue.Status(); status.Queued != 1 || status.Running != 0 {
+		t.Errorf("queue = %+v, want the build still queued", status)
+	}
+}
+
 // TestWaitQueuedHooksEndsOnSignal checks that a further signal on the way out
 // ends the wait for on_pending tasks, as it ends each wait of the drain
 func TestWaitQueuedHooksEndsOnSignal(t *testing.T) {
