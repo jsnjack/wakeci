@@ -82,9 +82,13 @@ const router = createRouter({
 // version than the page was loaded from, the page loads the URL in full to get
 // the new build; once loaded from it, it can't loop. Otherwise it says the
 // page couldn't be loaded
+// Each navigation's number, by its target, so that a failure arriving after a
+// newer navigation began can be told apart
 let navigations = 0;
-router.beforeEach(() => {
+const navigationNumbers = new WeakMap();
+router.beforeEach((to) => {
     navigations++;
+    navigationNumbers.set(to, navigations);
 });
 
 function cantLoad() {
@@ -102,7 +106,7 @@ async function runningVersion() {
 router.onError((error, to) => {
     // Registering onError stops vue-router from logging it
     console.error(`Navigation to ${to.fullPath} failed:`, error);
-    const navigation = navigations;
+    const navigation = navigationNumbers.get(to);
     runningVersion()
         .then((version) => {
             const loaded = store.state.serverVersion;

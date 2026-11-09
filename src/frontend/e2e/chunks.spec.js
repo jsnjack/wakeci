@@ -27,14 +27,20 @@ test("should load the job editor's code only when the editor opens", async ({ pa
     expect((await scriptBytes(page)) - feed).toBeGreaterThan(300 * 1000);
 });
 
-// failJobsChunk makes the Jobs page's chunk answer 404 the first `times`
-// times, as a chunk that only the build before an update had, and returns how
-// often it was asked for
-async function failJobsChunk(page, times) {
+// failJobsChunk makes the Jobs page's chunk answer 404, after delay, the first
+// `times` times, as a chunk that only the build before an update had, and
+// returns how often it was asked for
+async function failJobsChunk(page, times, delay = 0) {
     const asked = { count: 0 };
-    await page.route(/\/assets\/JobsView-[\w-]+\.js$/, (route) => {
+    await page.route(/\/assets\/JobsView-[\w-]+\.js$/, async (route) => {
         asked.count++;
-        return asked.count <= times ? route.fulfill({ status: 404, body: "" }) : route.continue();
+        if (asked.count > times) {
+            return route.continue();
+        }
+        if (delay > 0) {
+            await new Promise((done) => setTimeout(done, delay));
+        }
+        return route.fulfill({ status: 404, body: "" });
     });
     return asked;
 }
@@ -117,6 +123,22 @@ test("should not load a page in full when another page was opened meanwhile", as
     const counter = await openFeed(page);
     await failJobsChunk(page, Infinity);
     await updateServer(page, 1500);
+    const answered = page.waitForResponse((response) => response.url().endsWith("/api/queue/"));
+
+    await page.locator('nav a[href="/jobs"]').click();
+    await page.locator('nav a[href="/settings"]').click();
+    await expect(page.getByTestId("version")).toBeVisible();
+    await answered;
+    // Lets the page act on the answer
+    await page.evaluate(() => new Promise((done) => setTimeout(done, 100)));
+    await expect(page).toHaveURL(/\/settings$/);
+    expect(counter.loads).toBe(0);
+});
+
+test("should not load a page in full when its chunk fails after another page opened", async ({ page }) => {
+    const counter = await openFeed(page);
+    await failJobsChunk(page, Infinity, 1500);
+    await updateServer(page);
     const answered = page.waitForResponse((response) => response.url().endsWith("/api/queue/"));
 
     await page.locator('nav a[href="/jobs"]').click();
