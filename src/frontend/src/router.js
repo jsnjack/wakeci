@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from "vue-router";
+import { createRouter, createWebHistory, isNavigationFailure, NavigationFailureType } from "vue-router";
 import { notify } from "@kyvg/vue3-notification";
 
 import { requireAuth } from "./auth";
@@ -89,6 +89,13 @@ const navigationNumbers = new WeakMap();
 router.beforeEach((to) => {
     navigations++;
     navigationNumbers.set(to, navigations);
+});
+// A click on the page still shown skips beforeEach, but it is a newer choice
+// too: the feed stays shown while Jobs loads, and a click on Feed means stay
+router.afterEach((to, from, failure) => {
+    if (isNavigationFailure(failure, NavigationFailureType.duplicated)) {
+        navigations++;
+    }
 });
 
 // How long the page waits for wakeci's version before it gives up

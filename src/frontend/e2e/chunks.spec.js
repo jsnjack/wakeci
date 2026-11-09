@@ -161,3 +161,19 @@ test("should say a page couldn't be loaded when wakeci doesn't answer in time", 
     await expect(page.locator(".notification-content")).toContainText("couldn't be loaded", { timeout: 15000 });
     expect(counter.loads).toBe(0);
 });
+
+test("should not load a page in full when the shown page was opened again meanwhile", async ({ page }) => {
+    const counter = await openFeed(page);
+    await failJobsChunk(page, Infinity);
+    await updateServer(page, 1500);
+    const answered = page.waitForResponse((response) => response.url().endsWith("/api/queue/"));
+
+    await page.locator('nav a[href="/jobs"]').click();
+    // The feed is still shown while Jobs loads, so vue-router skips beforeEach
+    await page.locator('nav a.button[href="/"]').click();
+    await answered;
+    // Lets the page act on the answer
+    await page.evaluate(() => new Promise((done) => setTimeout(done, 100)));
+    await expect(page).toHaveURL(/:\d+\/$/);
+    expect(counter.loads).toBe(0);
+});
