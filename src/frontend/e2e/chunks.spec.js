@@ -15,14 +15,16 @@ test("should load the job editor's code only when the editor opens", async ({ pa
     await page.goto("/");
     await expect(page.getByTestId("filter")).toBeVisible();
     const feed = await scriptBytes(page);
-    expect(feed).toBeGreaterThan(0);
-    // Vite's chunk size limit; the editor alone is close to it
+    // The single chunk was 876 kB, the editor's code alone is about 430 kB
     expect(feed).toBeLessThan(500 * 1000);
 
-    await page.goto(`/job/${name}`);
+    // In the app, so the browser keeps counting what it loaded
+    await page.locator('nav a[href="/jobs"]').click();
+    await page.getByTestId("filter").fill(name);
+    await expect(page.getByTestId("edit-job-button")).toHaveCount(1);
+    await page.getByTestId("edit-job-button").click();
     await expect(page.locator("[data-cy=editor] .cm-content")).toContainText("desc: Lazy");
-    // The editor's own chunk came with it
-    expect(await scriptBytes(page)).toBeGreaterThan(feed);
+    expect((await scriptBytes(page)) - feed).toBeGreaterThan(300 * 1000);
 });
 
 // failJobsChunk makes the Jobs page's chunk answer 404, as a chunk only the
