@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from "vue-router";
+import { notify } from "@kyvg/vue3-notification";
 
 import { requireAuth } from "./auth";
 // Every full page load passes through /login while the session is checked,
@@ -76,28 +77,60 @@ const router = createRouter({
 });
 
 // A page's chunk that fails to load is most likely one that only the build
-// before a self-update had. The page then loads the URL in full, once, to get
-// the new build; a chunk this build lacks as well keeps its error, instead of
-// reloading forever
+// before a self-update had. If wakeci answers, the page loads the URL in full,
+// once, to get the new build; a chunk that fails again shows an error instead
+// of reloading forever
 const chunkReloadKey = "wakeci-chunk-reload";
+// How long a reload counts as the one for its URL, so a mark left by a reload
+// that ended elsewhere (say on the login page) doesn't stop a later one
+const chunkReloadWindow = 30 * 1000;
 const chunkLoadError =
     /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Unable to preload CSS/i;
+
+// reloadedFor reports whether the page was just loaded in full for path. It
+// throws when sessionStorage is blocked
+function reloadedFor(path) {
+    const value = sessionStorage.getItem(chunkReloadKey);
+    let mark;
+    try {
+        mark = JSON.parse(value);
+    } catch {
+        return false;
+    }
+    return mark?.path === path && Date.now() - mark.at < chunkReloadWindow;
+}
+
+function cantLoad() {
+    notify({ type: "error", text: "This page couldn't be loaded. Reload the page to try again." });
+}
 
 router.onError((error, to) => {
     if (!chunkLoadError.test(String(error?.message))) {
         return;
     }
     try {
-        if (sessionStorage.getItem(chunkReloadKey) === to.fullPath) {
+        if (reloadedFor(to.fullPath)) {
             sessionStorage.removeItem(chunkReloadKey);
+            cantLoad();
             return;
         }
-        sessionStorage.setItem(chunkReloadKey, to.fullPath);
     } catch {
         // Without storage the reload can't be limited to once
+        cantLoad();
         return;
     }
-    window.location.assign(to.fullPath);
+    // While wakeci restarts, a reload would replace the app with the
+    // browser's error page
+    fetch("/", { cache: "no-store" })
+        .then((response) => {
+            if (!response.ok) {
+                cantLoad();
+                return;
+            }
+            sessionStorage.setItem(chunkReloadKey, JSON.stringify({ path: to.fullPath, at: Date.now() }));
+            window.location.assign(to.fullPath);
+        })
+        .catch(cantLoad);
 });
 
 // Only a successful load of that URL ends it: a full load passes through
@@ -107,7 +140,7 @@ router.afterEach((to, from, failure) => {
         return;
     }
     try {
-        if (sessionStorage.getItem(chunkReloadKey) === to.fullPath) {
+        if (reloadedFor(to.fullPath)) {
             sessionStorage.removeItem(chunkReloadKey);
         }
     } catch {

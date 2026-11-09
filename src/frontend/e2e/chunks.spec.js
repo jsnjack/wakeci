@@ -63,7 +63,40 @@ test("should load a page in full only once when its code keeps failing", async (
     await page.locator('nav a[href="/jobs"]').click();
     await expect.poll(() => loads).toBe(1);
     await expect.poll(() => asked.count).toBeGreaterThan(1);
+    await expect(page.locator(".notification-content")).toContainText("couldn't be loaded");
     // Gives a second reload, if any, time to start
     await page.waitForTimeout(2000);
+    expect(loads).toBe(1);
+});
+
+test("should not load a page in full while wakeci doesn't answer", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("filter")).toBeVisible();
+    await failJobsChunk(page, Infinity);
+    // As while wakeci restarts
+    await page.route(
+        (url) => url.pathname === "/",
+        (route) => route.abort("connectionrefused"),
+    );
+    let loads = 0;
+    page.on("load", () => loads++);
+
+    await page.locator('nav a[href="/jobs"]').click();
+    await expect(page.locator(".notification-content")).toContainText("couldn't be loaded");
+    expect(loads).toBe(0);
+    await expect(page.getByTestId("filter")).toBeVisible();
+});
+
+test("should load a page in full again once an earlier reload mark is old", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("filter")).toBeVisible();
+    // Left by a reload for /jobs a minute ago that ended on another page
+    await page.evaluate(() => sessionStorage.setItem("wakeci-chunk-reload", JSON.stringify({ path: "/jobs", at: Date.now() - 60 * 1000 })));
+    await failJobsChunk(page, 1);
+    let loads = 0;
+    page.on("load", () => loads++);
+
+    await page.locator('nav a[href="/jobs"]').click();
+    await expect(page.getByTestId("jobs-container")).toBeVisible();
     expect(loads).toBe(1);
 });
