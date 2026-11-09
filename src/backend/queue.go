@@ -400,7 +400,13 @@ func (q *Queue) waitQueuedHooks(timeout time.Duration) bool {
 	case <-done:
 		return true
 	case <-time.After(timeout):
-		return false
+		// They may have ended just as the time ran out
+		select {
+		case <-done:
+			return true
+		default:
+			return false
+		}
 	}
 }
 
@@ -415,35 +421,13 @@ func (q *Queue) stopTasks(note string, timeout time.Duration) bool {
 	q.mutex.Lock()
 	q.tasksStopped = true
 	builds := slices.Concat(q.running, q.aborting, q.queued)
-	queued := slices.Clone(q.queued)
 	q.mutex.Unlock()
 	for _, build := range builds {
 		build.requestAbort(StatusAborted, note)
 	}
-
-	pendingDone := make(chan struct{})
-	go func() {
-		defer close(pendingDone)
-		for _, build := range queued {
-			build.pendingTasksWG.Wait()
-		}
-	}()
-	deadline := time.NewTimer(timeout)
-	defer deadline.Stop()
-	ticker := time.NewTicker(stopPollInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-pendingDone:
-			pendingDone = nil
-		case <-ticker.C:
-		case <-deadline.C:
-			return pendingDone == nil && q.idle()
-		}
-		if pendingDone == nil && q.idle() {
-			return true
-		}
-	}
+	deadline := time.Now().Add(timeout)
+	idle := q.waitIdle(deadline, nil)
+	return q.waitQueuedHooks(time.Until(deadline)) && idle
 }
 
 // tasksStoppedNow reports whether stopTasks was called, so a task mustn't
