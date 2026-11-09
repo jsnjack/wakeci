@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/sasha-s/go-deadlock"
@@ -39,6 +40,11 @@ type Queue struct {
 	stopSignalled bool
 	// tasksStopped is set by stopTasks: no task command starts any more
 	tasksStopped bool
+	// statusMu is held by broadcastStatus from taking the status until it is
+	// sent, so clients get statuses in the order they were taken: a stop
+	// signal's status sent before the update's it replaced would leave the
+	// banner promising a restart. A plain mutex, held during a channel send
+	statusMu sync.Mutex
 }
 
 // Take takes build from queue and starts running it
@@ -351,6 +357,8 @@ func (q *Queue) Status() QueueStatusData {
 
 // broadcastStatus sends Status to the subscribed clients
 func (q *Queue) broadcastStatus() {
+	q.statusMu.Lock()
+	defer q.statusMu.Unlock()
 	WSHub.broadcast <- &MsgBroadcast{Type: MsgTypeQueueStatus, Data: q.Status()}
 }
 
