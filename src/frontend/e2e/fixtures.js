@@ -180,33 +180,37 @@ export const test = base.extend({
             await prepareRoot(root);
             await use(backend);
         } finally {
-            // Ends the test's builds while wakeci runs, so the stop below
-            // doesn't wait for them
-            if (isRunning()) {
-                for (const id of builds) {
-                    const status = (await (await api.get(`/api/build/${id}`)).json()).status_update.status;
-                    if (["running", "pending"].includes(status)) await api.post(`/api/build/${id}/abort`);
+            try {
+                // Ends the test's builds while wakeci runs, so the stop below
+                // doesn't wait for them
+                if (isRunning()) {
+                    for (const id of builds) {
+                        const status = (await (await api.get(`/api/build/${id}`)).json()).status_update.status;
+                        if (["running", "pending"].includes(status)) await api.post(`/api/build/${id}/abort`);
+                    }
+                    await expect
+                        .poll(
+                            async () => {
+                                for (const id of builds) {
+                                    const status = (await (await api.get(`/api/build/${id}`)).json()).status_update.status;
+                                    if (["running", "pending"].includes(status)) return false;
+                                }
+                                return true;
+                            },
+                            { intervals: [50, 100, 200] },
+                        )
+                        .toBe(true);
                 }
-                await expect
-                    .poll(
-                        async () => {
-                            for (const id of builds) {
-                                const status = (await (await api.get(`/api/build/${id}`)).json()).status_update.status;
-                                if (["running", "pending"].includes(status)) return false;
-                            }
-                            return true;
-                        },
-                        { intervals: [50, 100, 200] },
-                    )
-                    .toBe(true);
+            } finally {
+                // Also when the best-effort abort above fails
+                if (running?.child.pid) await stopServer(running.child, running.exited);
+                await api.dispose();
+                await log.close();
+                if (testInfo.status !== testInfo.expectedStatus) {
+                    await testInfo.attach("restartable-backend.log", { body: await readFile(join(root, "backend.log")), contentType: "text/plain" });
+                }
+                await rm(root, { recursive: true, force: true });
             }
-            if (running?.child.pid) await stopServer(running.child, running.exited);
-            await api.dispose();
-            await log.close();
-            if (testInfo.status !== testInfo.expectedStatus) {
-                await testInfo.attach("restartable-backend.log", { body: await readFile(join(root, "backend.log")), contentType: "text/plain" });
-            }
-            await rm(root, { recursive: true, force: true });
         }
     },
 
