@@ -232,6 +232,12 @@ func TestAuditActions(t *testing.T) {
 			want: map[string]string{"event": "build.abort", "outcome": "failed", "status": "404", "build": "1", "job": "deploy"},
 		},
 		{
+			// Finding the job reads the history, which only a signed-in
+			// request may make the server do
+			name: "abort without logging in", method: "POST", target: "/api/build/1/abort",
+			want: map[string]string{"event": "build.abort", "outcome": "failed", "status": "403", "build": "1", "job": ""},
+		},
+		{
 			name: "start", user: alice, method: "POST", target: "/api/build/2/start",
 			want: map[string]string{"event": "build.start", "build": "2", "job": "nightly"},
 		},
@@ -248,6 +254,15 @@ func TestAuditActions(t *testing.T) {
 			want: map[string]string{
 				"event": "settings.change", "outcome": "ok", "passwordChange": "false",
 				"concurrentBuilds": "2", "buildHistorySize": "50",
+			},
+		},
+		{
+			// The run checks the raw log for this password too
+			name: "settings with a password in the wrong field", user: alice, method: "POST", target: "/api/settings",
+			form: url.Values{"concurrentBuilds": {"new-secret-password"}, "buildHistorySize": {"50"}},
+			want: map[string]string{
+				"event": "settings.change", "outcome": "failed", "status": "500",
+				"concurrentBuilds": "invalid", "buildHistorySize": "50",
 			},
 		},
 		{
@@ -498,6 +513,26 @@ func TestAuditAccessRevokeFailsAfterSessions(t *testing.T) {
 	}
 	checkAuditEvent(t, onlyAuditEvent(t, events()), map[string]string{
 		"event": "access.revoke", "outcome": "failed", "person": "bob@example.com", "sessions": "1", "keys": "",
+	})
+}
+
+func TestAuditUpdate(t *testing.T) {
+	_, cookie := useUpdateEnv(t, "1.0.0")
+	fakeGitHub(t, "v2.0.0", fakeBinary("2.0.0"))
+	update := func(cookie *http.Cookie, version string) auditEvent {
+		t.Helper()
+		events, _ := captureAudit(t)
+		apiCall("POST", "/api/update/", cookie, url.Values{"version": {version}}, nil)
+		return onlyAuditEvent(t, events())
+	}
+	checkAuditEvent(t, update(nil, "2.0.0"), map[string]string{
+		"event": "server.update", "outcome": "failed", "status": "403", "from": "1.0.0", "to": "", "auth": "",
+	})
+	checkAuditEvent(t, update(cookie, "1.5.0"), map[string]string{
+		"event": "server.update", "outcome": "failed", "status": "409", "from": "1.0.0", "to": "", "auth": "password",
+	})
+	checkAuditEvent(t, update(cookie, "2.0.0"), map[string]string{
+		"event": "server.update", "outcome": "ok", "from": "1.0.0", "to": "2.0.0",
 	})
 }
 

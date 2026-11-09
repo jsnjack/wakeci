@@ -407,7 +407,9 @@ AGENTS.universal.md for the general contract.
   token). What a route acts on comes from the URL in `auditedRoutes`
   (`attrs`), so a request refused before the handler still names it; a
   pattern ending in `/` also matches without it, as chi serves a mounted
-  router's root.
+  router's root. Those `attrs` run for refused, unauthenticated requests
+  too, so they only read the URL; anything that reads the DB waits for
+  `requestInfoOf(r).auth` (`buildOfURL`).
 - A handler that changes several things checks them all before saving any,
   then saves them in one transaction (`HandleSettingsPost`), so a request
   that fails changed nothing and its audit outcome is true.

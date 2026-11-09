@@ -249,14 +249,21 @@ var auditedRoutes = map[string]auditedRoute{
 	"POST /api/keys/":                 {event: "key.create"},
 	"DELETE /api/keys/{id}":           {event: "key.revoke", attrs: keyOfURL},
 	"DELETE /api/keys/":               {event: "access.revoke", attrs: personOfURL},
+	// The handler adds the version it installs, once it knows it
+	"POST /api/update/": {event: "server.update", attrs: runningVersion},
 }
 
 func jobOfURL(_ *http.Request, param func(string) string) []any {
 	return []any{"job", param("name")}
 }
 
-func buildOfURL(_ *http.Request, param func(string) string) []any {
+func buildOfURL(r *http.Request, param func(string) string) []any {
 	attrs := []any{"build", param("id")}
+	// Only for a request that signed in: finding the job reads and decodes
+	// the build's history, which anyone could otherwise make the server do
+	if requestInfoOf(r).auth == "" {
+		return attrs
+	}
 	if id, err := strconv.Atoi(param("id")); err == nil {
 		if job, _, err := buildJob(id); err == nil {
 			attrs = append(attrs, "job", job)
@@ -267,6 +274,19 @@ func buildOfURL(_ *http.Request, param func(string) string) []any {
 
 func keyOfURL(_ *http.Request, param func(string) string) []any {
 	return []any{"key", param("id")}
+}
+
+func runningVersion(_ *http.Request, _ func(string) string) []any {
+	return []any{"from", Version}
+}
+
+// auditNumber records a number sent as text, or "invalid": anything else
+// could be a secret typed into the wrong field
+func auditNumber(value string) any {
+	if number, err := strconv.Atoi(value); err == nil {
+		return number
+	}
+	return "invalid"
 }
 
 func personOfURL(r *http.Request, _ func(string) string) []any {

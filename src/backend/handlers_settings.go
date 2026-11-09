@@ -31,7 +31,8 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 	// The audit log says whether the request changes the password (the
 	// outcome says if it did), never what to
 	addAuditAttrs(r, "passwordChange", r.FormValue("password") != "",
-		"concurrentBuilds", r.FormValue("concurrentBuilds"), "buildHistorySize", r.FormValue("buildHistorySize"))
+		"concurrentBuilds", auditNumber(r.FormValue("concurrentBuilds")),
+		"buildHistorySize", auditNumber(r.FormValue("buildHistorySize")))
 
 	// Everything is checked before anything changes, so a request either
 	// saves all its settings or none, and its audit outcome is true
@@ -52,7 +53,8 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 	cb := r.FormValue("concurrentBuilds")
 	cbInt, err := strconv.Atoi(cb)
 	if err != nil {
-		logger.Warn("invalid concurrentBuilds value", "value", cb, "err", err)
+		// Not the value: it could be a secret typed into the wrong field
+		logger.Warn("invalid concurrentBuilds value")
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Header().Set("Content-Type", "text/plain")
 		writeBody(logger, w, []byte(err.Error()))
@@ -63,7 +65,7 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 	bhs := r.FormValue("buildHistorySize")
 	bhsInt, err := strconv.Atoi(bhs)
 	if err != nil {
-		logger.Warn("invalid buildHistorySize value", "value", bhs, "err", err)
+		logger.Warn("invalid buildHistorySize value")
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Header().Set("Content-Type", "text/plain")
 		writeBody(logger, w, []byte(err.Error()))
