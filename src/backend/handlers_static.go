@@ -29,6 +29,10 @@ func HandleVueResources(h http.Handler) http.Handler {
 		r2.URL = new(url.URL)
 		*r2.URL = *r.URL
 		switch {
+		case strings.Contains(r.URL.Path, "/."):
+			// all:assets embeds hidden files too, and none is the app's
+			http.NotFound(w, r)
+			return
 		case strings.Contains(r.URL.Path, "."):
 			// Static file
 			r2.URL.Path = "/assets" + r.URL.Path
