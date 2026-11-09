@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -526,6 +527,64 @@ func TestDrainQueueAbortsBuildsAbortedWhileQueued(t *testing.T) {
 	}
 	if status := historyStatus(t, build.ID); status != StatusAborted {
 		t.Errorf("history status = %q, want %q", status, StatusAborted)
+	}
+}
+
+// TestStopSignalCancelsRestart is a regression test: a stop signal during an
+// update's drain only skipped a wait, and wakeci restarted instead of
+// stopping, while systemctl stop or a reboot waited for it to end
+func TestStopSignalCancelsRestart(t *testing.T) {
+	tests := []struct {
+		name string
+		// signalFirst sends the signal before the update plans its restart
+		signal, signalFirst bool
+		want                string
+	}{
+		{name: "signal during the update's drain", signal: true, want: ""},
+		{name: "signal before the update", signal: true, signalFirst: true, want: ""},
+		{name: "no signal", want: "2.0.0"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			newTestBuildEnv(t)
+			hub := &Hub{broadcast: make(chan *MsgBroadcast, 8)}
+			WSHub = hub
+			q := &Queue{}
+			signals := make(chan os.Signal, 1)
+			defer close(signals)
+			forwarded := forwardStopSignals(q, signals)
+			send := func() {
+				signals <- syscall.SIGTERM
+				select {
+				case <-forwarded:
+				case <-time.After(5 * time.Second):
+					t.Fatal("the signal wasn't forwarded")
+				}
+			}
+
+			if tt.signalFirst {
+				send()
+			}
+			q.BeginStop(time.Now().Add(time.Hour), "2.0.0")
+			if tt.signal && !tt.signalFirst {
+				send()
+			}
+
+			if got := q.Status().RestartVersion; got != tt.want {
+				t.Errorf("restart version = %q, want %q", got, tt.want)
+			}
+			// The banner shows the last status sent
+			var last *QueueStatusData
+			for len(hub.broadcast) > 0 {
+				if msg := <-hub.broadcast; msg.Type == MsgTypeQueueStatus {
+					status := msg.Data.(QueueStatusData)
+					last = &status
+				}
+			}
+			if last == nil || last.RestartVersion != tt.want {
+				t.Errorf("last status sent = %+v, want restart version %q", last, tt.want)
+			}
+		})
 	}
 }
 

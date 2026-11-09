@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"time"
 
@@ -33,6 +34,9 @@ type Queue struct {
 	abortAt  time.Time
 	// restartVersion is the version an update restarts into
 	restartVersion string
+	// stopSignalled is set by the first stop signal (noteStopSignal): wakeci
+	// then stops, even if an update planned a restart
+	stopSignalled bool
 }
 
 // Take takes build from queue and starts running it
@@ -273,11 +277,28 @@ func (q *Queue) BeginStop(abortAt time.Time, restartVersion string) bool {
 		return false
 	}
 	q.abortAt = abortAt
-	q.restartVersion = restartVersion
+	if !q.stopSignalled {
+		q.restartVersion = restartVersion
+	}
 	close(q.stoppingLocked())
 	q.mutex.Unlock()
 	q.broadcastStatus()
 	return true
+}
+
+// noteStopSignal records that a stop signal arrived. It cancels a restart an
+// update planned: whoever sent it, systemctl stop or a reboot, waits for the
+// process to end, and would kill the builds it restored
+func (q *Queue) noteStopSignal(sig os.Signal) {
+	q.mutex.Lock()
+	q.stopSignalled = true
+	cancelled := q.restartVersion
+	q.restartVersion = ""
+	q.mutex.Unlock()
+	if cancelled != "" {
+		L.Warn("stopping instead of restarting into the update", "signal", sig, "version", cancelled)
+		q.broadcastStatus()
+	}
 }
 
 // Stopping returns a channel that BeginStop closes

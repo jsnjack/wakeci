@@ -145,8 +145,9 @@ func initApp() func() {
 func main() {
 	cleanup := initApp()
 	run(cleanup)
-	// Read once run returned, so nothing on the way out, such as a request
-	// that outlasts the HTTP shutdown, cancels it
+	// Read once run returned. Only a stop signal cancels it on the way out
+	// (Queue.noteStopSignal), not, say, a request that outlasts the HTTP
+	// shutdown
 	if GlobalQueue.Status().RestartVersion != "" {
 		// Keeps the PID, so a service manager sees the same process
 		L.Warn("restarting", "binary", executablePath)
@@ -361,17 +362,22 @@ func run(cleanup func()) {
 	// A signal or an update stops the server once the running builds ended
 	signals := make(chan os.Signal, 4)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
-	defer signal.Stop(signals)
+	defer func() {
+		// From here a signal ends the process, which then doesn't restart
+		signal.Stop(signals)
+		close(signals)
+	}()
+	interrupt := forwardStopSignals(GlobalQueue, signals)
 	ctx, stop := context.WithCancel(context.Background())
 	defer stop()
 	go func() {
 		select {
-		case sig := <-signals:
+		case sig := <-interrupt:
 			L.Warn("stopping", "signal", sig)
 			GlobalQueue.BeginStop(time.Now().Add(Config.drainTimeout), "")
 		case <-GlobalQueue.Stopping():
 		}
-		drainQueue(GlobalQueue, signals, stopHookTimeout)
+		drainQueue(GlobalQueue, interrupt, stopHookTimeout)
 		stop()
 	}()
 
