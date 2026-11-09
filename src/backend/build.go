@@ -479,11 +479,16 @@ func (b *Build) killTaskGroup(pid int, deadline time.Time, taskID int) {
 	if pid <= 0 {
 		return
 	}
-	for syscall.Kill(-pid, 0) == nil && time.Now().Before(deadline) {
+	// Only while the group has members: once it is empty, its ID may be
+	// reused by another task's group
+	for syscall.Kill(-pid, 0) == nil {
+		if !time.Now().Before(deadline) {
+			if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
+				b.Logger.Error("kill what is left of an aborted task", "task", taskID, "err", err)
+			}
+			return
+		}
 		time.Sleep(stopPollInterval)
-	}
-	if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
-		b.Logger.Error("kill what is left of an aborted task", "task", taskID, "err", err)
 	}
 }
 
