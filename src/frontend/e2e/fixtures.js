@@ -56,22 +56,28 @@ async function startWakeci(root, api, log) {
         stdio: ["ignore", log.fd, log.fd],
     });
     const exited = once(child, "exit");
-    await expect
-        .poll(
-            async () => {
-                if (child.exitCode !== null || child.signalCode !== null) {
-                    throw new Error(`Backend exited: ${await readFile(join(root, "backend.log"), "utf8")}`);
-                }
-                try {
-                    return (await api.get("/auth/methods", { timeout: 500 })).ok();
-                } catch (error) {
-                    if (!error.message.includes("ECONNREFUSED")) throw error;
-                    return false;
-                }
-            },
-            { timeout: 10000, intervals: [50, 100, 200] },
-        )
-        .toBe(true);
+    try {
+        await expect
+            .poll(
+                async () => {
+                    if (child.exitCode !== null || child.signalCode !== null) {
+                        throw new Error(`Backend exited: ${await readFile(join(root, "backend.log"), "utf8")}`);
+                    }
+                    try {
+                        return (await api.get("/auth/methods", { timeout: 500 })).ok();
+                    } catch (error) {
+                        if (!error.message.includes("ECONNREFUSED")) throw error;
+                        return false;
+                    }
+                },
+                { timeout: 10000, intervals: [50, 100, 200] },
+            )
+            .toBe(true);
+    } catch (error) {
+        // The caller gets no handle to stop it
+        await stopServer(child, exited);
+        throw error;
+    }
     return { child, exited };
 }
 
@@ -120,6 +126,8 @@ export const test = base.extend({
         const port = await unusedPort();
         const api = await playwright.request.newContext({ baseURL: `http://127.0.0.1:${port}` });
         let running;
+        const builds = [];
+        const isRunning = () => running && running.child.exitCode === null && running.child.signalCode === null;
         const backend = {
             root,
             url: `http://127.0.0.1:${port}`,
@@ -148,7 +156,19 @@ export const test = base.extend({
             async runJob(name) {
                 const response = await api.post(`/api/job/${name}/run`);
                 await expect(response).toBeOK();
-                return response.json();
+                const id = await response.json();
+                builds.push(id);
+                return id;
+            },
+            // gate returns a command that waits until release is called. It
+            // also ends once root is gone, so a task that outlives wakeci (a
+            // test that fails or kills it) can't wait forever
+            gate() {
+                const file = join(root, `release-${randomUUID()}`);
+                return {
+                    command: `while [ ! -f '${file}' ] && [ -d '${root}' ]; do sleep 0.05; done`,
+                    release: () => writeFile(file, ""),
+                };
             },
             async waitForBuild(id, status) {
                 await expect
@@ -160,6 +180,26 @@ export const test = base.extend({
             await prepareRoot(root);
             await use(backend);
         } finally {
+            // Ends the test's builds while wakeci runs, so the stop below
+            // doesn't wait for them
+            if (isRunning()) {
+                for (const id of builds) {
+                    const status = (await (await api.get(`/api/build/${id}`)).json()).status_update.status;
+                    if (["running", "pending"].includes(status)) await api.post(`/api/build/${id}/abort`);
+                }
+                await expect
+                    .poll(
+                        async () => {
+                            for (const id of builds) {
+                                const status = (await (await api.get(`/api/build/${id}`)).json()).status_update.status;
+                                if (["running", "pending"].includes(status)) return false;
+                            }
+                            return true;
+                        },
+                        { intervals: [50, 100, 200] },
+                    )
+                    .toBe(true);
+            }
             if (running?.child.pid) await stopServer(running.child, running.exited);
             await api.dispose();
             await log.close();
