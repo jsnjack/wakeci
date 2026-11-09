@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { test, expect } from "./fixtures.js";
 
 async function createJob(page, name) {
@@ -128,4 +129,10 @@ test("should filter jobs", async ({ page, wake }) => {
     await page.getByTestId("filter").fill(name);
     await expect(page.getByTestId("jobs-container")).toHaveCount(1);
     await expect(page.getByTestId(name)).toBeVisible();
+});
+
+test("should open the editor of a job whose name has a dot by its URL", async ({ page, wake }) => {
+    const name = await wake.createJob("desc: Dotted\ntasks:\n  - name: hello\n    run: echo hello\n", `job-${randomUUID()}.prod`);
+    await page.goto(`/job/${name}`);
+    await expect(page.locator("[data-cy=editor] .cm-content")).toContainText("desc: Dotted");
 });

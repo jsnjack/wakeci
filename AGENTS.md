@@ -195,8 +195,10 @@ AGENTS.universal.md for the general contract.
   `//go:embed all:assets` so deployment is one file; `make build` always
   rebuilds the frontend first. `all:` because Go otherwise skips files whose
   names start with `_` or `.` inside a folder, and Vite can name shared
-  chunks so (`TestEmbeddedAssetsMatchTheBuild`); `HandleVueResources`
-  refuses hidden paths. Each page's code loads when it is first opened
+  chunks so (`TestEmbeddedAssetsMatchTheBuild`). `HandleVueResources`
+  serves static files only under `/assets/` and at the top level, refusing
+  hidden ones; every other path, also one with a dot such as
+  `/job/deploy.prod`, gets the app. Each page's code loads when it is first opened
   (`router.js`), except the login page, which every full load passes through,
   and the build fails when a JS chunk is over Vite's 500 kB
   `chunkSizeWarningLimit` (`vite.config.js`).
