@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -222,7 +221,7 @@ func TestWaitForCondition(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			command := exec.Command("bash", "-c", tt.command)
+			command := conditionCommand(tt.command)
 			if err := command.Start(); err != nil {
 				t.Fatalf("start condition: %v", err)
 			}
@@ -560,7 +559,7 @@ func TestRunTaskConditionOutcomes(t *testing.T) {
 func TestWaitForConditionEndsAsTimeoutFires(t *testing.T) {
 	build := &Build{Logger: L}
 	for i := 0; i < 100; i++ {
-		command := exec.Command("bash", "-c", "true")
+		command := conditionCommand("true")
 		if err := command.Start(); err != nil {
 			t.Fatalf("start condition: %v", err)
 		}

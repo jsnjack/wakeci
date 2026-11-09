@@ -414,7 +414,10 @@ func (b *Build) runTask(task *Task) ItemStatus {
 					if pid <= 0 {
 						return
 					}
-					if killErr := syscall.Kill(pid, syscall.SIGKILL); killErr != nil {
+					// The whole group (go-cmd starts the shell as its leader):
+					// a child that ignores SIGTERM outlives the shell, and one
+					// holding the output open keeps the task from ending
+					if killErr := syscall.Kill(-pid, syscall.SIGKILL); killErr != nil {
 						b.Logger.Error("kill aborted task", "task", task.ID, "err", killErr)
 					}
 				})
@@ -467,7 +470,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 // the task should run, otherwise the status the task ends with
 func (b *Build) checkCondition(task *Task, kind, expr, script string, env []string, dir string, bw *bufio.Writer, abort *abortScope) ItemStatus {
 	condition, conditionSecretEnv := injectCommandSecrets(expr)
-	condCmd := exec.Command("bash", "-c", fmt.Sprintf(script, condition))
+	condCmd := conditionCommand(fmt.Sprintf(script, condition))
 	condCmd.Env = append(env, conditionSecretEnv...)
 	condCmd.Dir = dir
 	b.ProcessLogEntry("> Checking `"+kind+"` condition: "+expr, bw, task.ID, task.startedAt)
@@ -511,6 +514,15 @@ func (b *Build) checkCondition(task *Task, kind, expr, script string, env []stri
 	return ""
 }
 
+// conditionCommand returns the command that evaluates a condition script, in
+// a process group of its own, so waitForCondition's kill stops its children
+// too
+func conditionCommand(script string) *exec.Cmd {
+	condCmd := exec.Command("bash", "-c", script)
+	condCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	return condCmd
+}
+
 // waitForCondition waits for the condition command. It kills the command
 // when timeout passes (timedOut) or abort is closed (aborted), and calls
 // flush when the log is asked to be flushed meanwhile
@@ -534,7 +546,7 @@ func (b *Build) waitForCondition(condCmd *exec.Cmd, taskID int, timeout time.Dur
 			flush()
 		}
 	}
-	if err := condCmd.Process.Kill(); err != nil {
+	if err := syscall.Kill(-condCmd.Process.Pid, syscall.SIGKILL); err != nil {
 		b.Logger.Log(context.Background(), LevelTrace, "kill condition process", "task", taskID, "err", err)
 	}
 	err = <-waitDone
