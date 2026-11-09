@@ -224,6 +224,12 @@ func TestAuditActions(t *testing.T) {
 			want: map[string]string{"event": "job.create", "outcome": "ok", "job": "audit_new"},
 		},
 		{
+			// The run checks the raw log for this password too
+			name: "create with a password in the name", user: alice, method: "POST", target: "/api/jobs/create",
+			form: url.Values{"name": {"x/new-secret-password"}},
+			want: map[string]string{"event": "job.create", "outcome": "failed", "status": "400", "job": "invalid"},
+		},
+		{
 			name: "create an existing job", user: alice, method: "POST", target: "/api/jobs/create",
 			form: url.Values{"name": {"deploy"}},
 			want: map[string]string{"event": "job.create", "outcome": "failed", "status": "400", "job": "deploy"},

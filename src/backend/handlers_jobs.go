@@ -88,14 +88,17 @@ func HandleJobsCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	name := r.FormValue("name")
-	addAuditAttrs(r, "job", name)
 	if !isValidJobName(name) {
-		logger.Warn("invalid job name", "name", name)
+		// Not the name in the logs: it could be a secret typed into the
+		// wrong field
+		addAuditAttrs(r, "job", "invalid")
+		logger.Warn("invalid job name")
 		w.WriteHeader(http.StatusBadRequest)
 		w.Header().Set("Content-Type", "text/plain")
 		writeBody(logger, w, []byte("Invalid job name"))
 		return
 	}
+	addAuditAttrs(r, "job", name)
 	path := Config.JobDir + name + Config.jobsExt
 
 	if _, err := os.Stat(path); err == nil {
