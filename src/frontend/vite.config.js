@@ -4,8 +4,9 @@ import vue from "@vitejs/plugin-vue";
 import path from 'path';
 
 // chunkSizeLimit fails the build when a JS chunk is over Vite's
-// build.chunkSizeWarningLimit (kB of 1000 bytes, minified), which Vite only
-// warns about, so a heavy import can't creep back into the first page unnoticed
+// build.chunkSizeWarningLimit (in kB of 1000 characters of minified code, as
+// Vite measures it), which Vite only warns about, so a heavy import can't
+// creep back into the first page unnoticed
 function chunkSizeLimit() {
     let limit;
     return {
