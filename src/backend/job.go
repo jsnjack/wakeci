@@ -329,25 +329,29 @@ func RunJob(name string, params url.Values, startedWithAPIKey bool) (*Build, err
 	if err != nil {
 		return nil, err
 	}
-	build, err := CreateBuild(job, jobFile, startedWithAPIKey)
+	build, err := GlobalQueue.addNewBuild(func() (*Build, error) {
+		build, err := CreateBuild(job, jobFile, startedWithAPIKey)
+		if err != nil {
+			return nil, err
+		}
+
+		// Update params from URL
+		build.mutex.Lock()
+		for idx := range build.Params {
+			for pkey := range build.Params[idx] {
+				value := params.Get(pkey)
+				if value != "" {
+					build.Params[idx][pkey] = value
+					build.Logger.Debug("updating param", "key", pkey, "value", value)
+				}
+			}
+		}
+		build.mutex.Unlock()
+		return build, nil
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	// Update params from URL
-	build.mutex.Lock()
-	for idx := range build.Params {
-		for pkey := range build.Params[idx] {
-			value := params.Get(pkey)
-			if value != "" {
-				build.Params[idx][pkey] = value
-				build.Logger.Debug("updating param", "key", pkey, "value", value)
-			}
-		}
-	}
-	build.mutex.Unlock()
-
-	GlobalQueue.Add(build)
 	build.BroadcastUpdate()
 	GlobalQueue.Take()
 	return build, nil

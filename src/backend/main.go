@@ -144,7 +144,16 @@ func initApp() func() {
 // @BasePath /api
 func main() {
 	cleanup := initApp()
-	restart := run(cleanup)
+	tasksLeft := run(cleanup)
+	// Read once run returned. Only a stop signal cancels it on the way out
+	// (Queue.noteStopSignal), not, say, a request that outlasts the HTTP
+	// shutdown
+	restart, err := exitPlan(GlobalQueue.Status().RestartVersion, tasksLeft)
+	if err != nil {
+		L.Error("not restarting", "err", err)
+		cleanup()
+		os.Exit(1)
+	}
 	if restart {
 		// Keeps the PID, so a service manager sees the same process
 		L.Warn("restarting", "binary", executablePath)
@@ -156,9 +165,25 @@ func main() {
 	cleanup()
 }
 
-// run starts the server and returns once it stopped, true if it must start
-// again because the binary was updated
-func run(cleanup func()) bool {
+// exitPlan says whether wakeci re-executes into the update restartVersion
+// once run returned. With tasks left that it couldn't stop, it doesn't: they
+// would run beside the builds the new process restores. The error asks main
+// to exit with status 1 instead, so a service manager ends them and starts
+// the new binary
+func exitPlan(restartVersion string, tasksLeft bool) (bool, error) {
+	if restartVersion == "" {
+		return false, nil
+	}
+	if tasksLeft {
+		return false, fmt.Errorf("tasks still run; start wakeci again to run %s", restartVersion)
+	}
+	return true, nil
+}
+
+// run starts the server and returns once it stopped, and whether tasks still
+// ran that it couldn't stop. wakeci starts again if an update planned it
+// (Queue.BeginStop)
+func run(cleanup func()) (tasksLeft bool) {
 	fatal := func(msg string, err error) {
 		L.Error(msg, "err", err)
 		cleanup()
@@ -166,6 +191,16 @@ func run(cleanup func()) bool {
 	}
 
 	var err error
+	// Signal handling, set up below, ends last, once the database closed, so
+	// a further signal can't cut the steps before short
+	var stopSignalHandling func()
+	defer func() {
+		if stopSignalHandling != nil {
+			stopSignalHandling()
+		}
+	}()
+	// interrupt gets the stop signals once the queue noted them
+	var interrupt <-chan os.Signal
 	executablePath, err = resolveExecutable()
 	if err != nil {
 		fatal("find the running binary", err)
@@ -249,6 +284,8 @@ func run(cleanup func()) bool {
 	if err != nil {
 		fatal("load sessions", err)
 	}
+	// Last before the database closes
+	defer GlobalSessionStorage.saveUnsaved()
 
 	if Config.SSO.Enabled() {
 		GlobalSSOAuth, err = NewSSOAuth(Config.SSO)
@@ -269,15 +306,21 @@ func run(cleanup func()) bool {
 	GlobalSessionStorage.OnEnd = WSHub.CloseSessions
 
 	// Runs after the cron jobs ended, so builds they queued are saved with
-	// their on_pending tasks done
+	// their on_pending tasks done. A further signal ends the wait
 	defer func() {
-		if !GlobalQueue.waitQueuedHooks(stopPendingTasksTimeout) {
+		if !GlobalQueue.waitQueuedHooks(stopPendingTasksTimeout, interrupt) {
 			L.Warn("stopping before the on_pending tasks of queued builds ended")
+		}
+		// Before the database closes, so the builds it ends are saved. After
+		// an update, a task left running would run beside the restored builds
+		if !GlobalQueue.stopTasks(stopNote, stopTasksTimeout) {
+			L.Warn("stopping while tasks still run; they may outlive wakeci")
+			tasksLeft = true
 		}
 	}()
 
+	// Started once the port is bound; jobs add their schedules before that
 	GlobalCron = cron.New()
-	GlobalCron.Start()
 	defer func() {
 		<-GlobalCron.Stop().Done()
 	}()
@@ -359,19 +402,18 @@ func run(cleanup func()) bool {
 	// A signal or an update stops the server once the running builds ended
 	signals := make(chan os.Signal, 4)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
-	defer signal.Stop(signals)
+	var signalsNoted <-chan struct{}
+	interrupt, signalsNoted = forwardStopSignals(GlobalQueue, signals)
+	stopSignalHandling = func() {
+		// From here a signal ends the process, which then doesn't restart.
+		// One that arrived before is noted before main reads the restart
+		signal.Stop(signals)
+		close(signals)
+		<-signalsNoted
+	}
 	ctx, stop := context.WithCancel(context.Background())
 	defer stop()
-	go func() {
-		select {
-		case sig := <-signals:
-			L.Warn("stopping", "signal", sig)
-			GlobalQueue.BeginStop(time.Now().Add(Config.drainTimeout), "")
-		case <-GlobalQueue.Stopping():
-		}
-		drainQueue(GlobalQueue, signals, stopHookTimeout)
-		stop()
-	}()
+	go drainOnStop(ctx, GlobalQueue, interrupt, Config.drainTimeout, stopHookTimeout, stop)
 
 	// Builds start only once the port is bound, so a failure to listen
 	// can't cut them short
@@ -417,15 +459,16 @@ func run(cleanup func()) bool {
 		L.Warn("Listening on :" + Config.Port)
 	}
 
+	// A scheduled build would start queued ones too
+	GlobalCron.Start()
 	GlobalQueue.Take()
 	err = serveUntilShutdown(ctx, serve, server.Shutdown)
 	stop()
 	auxiliaryServers.Wait()
 	if err != nil {
 		L.Error("serve "+serveName, "err", err)
-		return false
 	}
-	return GlobalQueue.Status().RestartVersion != ""
+	return tasksLeft
 }
 
 // apiRoutes registers the /api routes for logged-in users and the admin

@@ -113,7 +113,9 @@ aborted, so their `on_aborted` and `finally` tasks run, with up to two more
 minutes for them. Queued builds, and builds started while wakeci waits, stay
 in the queue and start after the restart. Their `on_pending` tasks don't run
 again. A second signal aborts the running builds at once, and a third one
-stops wakeci without waiting for their `on_aborted` and `finally` tasks.
+stops waiting for their `on_aborted` and `finally` tasks. Before it exits,
+wakeci aborts any task that still runs and waits up to 10 seconds for it, so
+no task outlives it; further signals don't cut this short.
 Builds that were running when wakeci was killed are shown as aborted after the
 restart. Sessions survive restarts, and open pages reconnect on their own; after
 an update they reload to get the new version.
@@ -133,9 +135,13 @@ return at once.
 The card at the top of the settings page shows the running version and asks
 GitHub for the latest release, at most every 10 minutes. If it is newer,
 "Update to <version>" downloads it, checks its sha256 digest and that it runs,
-replaces the binary and keeps the old one as `wakeci.previous`. Then wakeci
-stops as on SIGTERM and starts the new binary in the same process. To roll
-back, move `wakeci.previous` back and restart. wakeci can't update itself if
+replaces the binary and keeps the old one as `wakeci.previous`; if it can't
+keep it, the update fails and nothing changes. Then wakeci stops as on
+SIGTERM and starts the new binary in the same process. A SIGTERM or SIGINT
+while it waits makes it stop instead, and the new binary runs when wakeci
+starts again. If a task still runs that wakeci can't stop, for example one
+started with sudo, it exits with status 1 instead of restarting, so systemd
+ends the task and starts the new binary. To roll back, move `wakeci.previous` back and restart. wakeci can't update itself if
 it can't write to the directory of its binary, or if the binary has file
 capabilities from `setcap`, which a new file wouldn't have; use
 `AmbientCapabilities=CAP_NET_BIND_SERVICE` in the systemd unit to listen on

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -20,6 +21,11 @@ const stopHookTimeout = 2 * time.Minute
 // stopPendingTasksTimeout is how long a stop waits for the on_pending tasks
 // of queued builds, which are expected to be quick
 const stopPendingTasksTimeout = 30 * time.Second
+
+// stopTasksTimeout is how long wakeci waits, as it exits, for the tasks it
+// aborts last (Queue.stopTasks). A command that ignores SIGTERM gets SIGKILL
+// after ABORT_TIMEOUT
+const stopTasksTimeout = 10 * time.Second
 
 // stopPollInterval is how often a stop checks whether the builds ended
 const stopPollInterval = 200 * time.Millisecond
@@ -142,6 +148,48 @@ func MarkInterruptedBuilds() error {
 		L.Warn("marking builds interrupted by the restart as aborted", "builds", stale)
 	}
 	return markStaleBuildsAborted(L, stale)
+}
+
+// forwardStopSignals passes each signal from signals on to forwarded, which
+// drainQueue reads, once q noted it: a stop signal cancels a planned restart
+// whenever it arrives. Like signal.Notify, it drops a signal while forwarded
+// is full. Once signals is closed and every signal in it was noted, it closes
+// done
+func forwardStopSignals(q *Queue, signals <-chan os.Signal) (forwarded <-chan os.Signal, done <-chan struct{}) {
+	out := make(chan os.Signal, cap(signals))
+	finished := make(chan struct{})
+	go func() {
+		defer close(finished)
+		for sig := range signals {
+			q.noteStopSignal(sig)
+			select {
+			case out <- sig:
+			default:
+			}
+		}
+	}()
+	return out, finished
+}
+
+// drainOnStop waits for a stop signal, which begins a stop that aborts
+// running builds after drainTimeout, or for a stop an update began, then
+// drains the queue and calls stop. It returns without draining once ctx is
+// done, as when serving ended without a stop: the waits on the way out read
+// interrupt then
+func drainOnStop(ctx context.Context, q *Queue, interrupt <-chan os.Signal, drainTimeout, hookTimeout time.Duration, stop func()) {
+	select {
+	case sig := <-interrupt:
+		if ctx.Err() != nil {
+			return
+		}
+		L.Warn("stopping", "signal", sig)
+		q.BeginStop(time.Now().Add(drainTimeout), "")
+	case <-q.Stopping():
+	case <-ctx.Done():
+		return
+	}
+	drainQueue(q, interrupt, hookTimeout)
+	stop()
 }
 
 // drainQueue waits until the running builds end, or until the abort time

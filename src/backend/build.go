@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -90,6 +91,16 @@ type Build struct {
 	failedTask *Task
 	// abort is the abort request for the tasks that run now, guarded by mutex
 	abort *abortScope
+	// abortedWhileQueued is set by Queue.Abort for a queued build: it has no
+	// queue record from then on, although it is pending until its on_pending
+	// tasks end. Guarded by mutex
+	abortedWhileQueued bool
+	// updateMu is held by BroadcastUpdate from taking the build's state until
+	// it is saved, so updates are saved in the order they were taken: an
+	// update taken while queued, saved after a later one, would queue the
+	// build again after a restart. Not a deadlock.Mutex, whose 30 s limit
+	// would stop wakeci while a slow database write holds it
+	updateMu sync.Mutex
 }
 
 // abortScope is one abort request. Its channel is closed when the abort is
@@ -186,14 +197,12 @@ func (b *Build) Start() {
 		if b.stopIfAborted() {
 			return
 		}
-		task.Status = StatusRunning
-		task.startedAt = time.Now()
+		b.taskStarted(task)
 		b.BroadcastUpdate()
 
 		status := b.runTask(task)
 
-		task.Status = status
-		task.duration = time.Since(task.startedAt)
+		b.taskEnded(task, status)
 		switch status {
 		case StatusFailed, StatusAborted, StatusTimedOut:
 			b.mutex.Lock()
@@ -240,17 +249,34 @@ func (b *Build) runOnStatusTasks(status ItemStatus) {
 				b.Logger.Info("skipping tasks after abort", "kind", status, "reason", reason)
 				return
 			}
-			task.Status = StatusRunning
-			task.startedAt = time.Now()
+			b.taskStarted(task)
 			b.BroadcastUpdate()
 
 			status := b.runTask(task)
 
-			task.Status = status
-			task.duration = time.Since(task.startedAt)
+			b.taskEnded(task, status)
 			b.BroadcastUpdate()
 		}
 	}
+}
+
+// taskStarted marks task as running. Under b.mutex, since an update from
+// another goroutine (RunJob, RestoreQueue) reads it during the on_pending
+// tasks
+func (b *Build) taskStarted(task *Task) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+	task.Status = StatusRunning
+	task.startedAt = time.Now()
+}
+
+// taskEnded records how task ended and how long it ran, under b.mutex like
+// taskStarted
+func (b *Build) taskEnded(task *Task, status ItemStatus) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+	task.Status = status
+	task.duration = time.Since(task.startedAt)
 }
 
 // runTask is responsible for running one task and return it's status
@@ -282,6 +308,11 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	if err != nil {
 		b.Logger.Error("create task log", "task", task.ID, "err", err)
 		return StatusFailed
+	}
+	// wakeci exits next (Queue.stopTasks), and nothing would wait for it
+	if GlobalQueue.tasksStoppedNow() {
+		b.ProcessLogEntry("> Not started: "+stopNote+".", bw, task.ID, task.startedAt)
+		return StatusAborted
 	}
 
 	// Construct environment for the task
@@ -355,6 +386,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	abortC := abort.c
 	// Written by the goroutine below, read after doneChan is closed
 	var abortedReason string
+	var abortedAt time.Time
 	go func() {
 		defer close(doneChan)
 		for taskCmd.Stdout != nil || taskCmd.Stderr != nil {
@@ -375,6 +407,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 				// The channel stays closed; stop selecting on it
 				abortC = nil
 				abortedReason = abort.reason
+				abortedAt = time.Now()
 				b.Logger.Info("aborting task", "task", task.ID, "reason", abortedReason)
 				b.logAbort(abort, bw, task)
 				// taskCmd.Stop() send SIGTERM signal to the command. Most of the time it works just fine, however
@@ -388,7 +421,10 @@ func (b *Build) runTask(task *Task) ItemStatus {
 					if pid <= 0 {
 						return
 					}
-					if killErr := syscall.Kill(pid, syscall.SIGKILL); killErr != nil {
+					// The whole group (go-cmd starts the shell as its leader):
+					// a child that ignores SIGTERM outlives the shell, and one
+					// holding the output open keeps the task from ending
+					if killErr := syscall.Kill(-pid, syscall.SIGKILL); killErr != nil {
 						b.Logger.Error("kill aborted task", "task", task.ID, "err", killErr)
 					}
 				})
@@ -420,6 +456,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 
 	// The command was stopped because of an abort
 	if abortedReason != "" {
+		b.killTaskGroup(taskCmd.Status().PID, abortedAt.Add(ABORT_TIMEOUT*time.Second), task.ID)
 		return ItemStatus(abortedReason)
 	}
 
@@ -436,12 +473,35 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	return StatusFinished
 }
 
+// killTaskGroup ends what is left of an aborted task once its shell (pid,
+// the leader of the task's process group) ended: a child that ignores
+// SIGTERM lives on in the group, without holding the task's output open. It
+// gets until deadline, like the shell, then SIGKILL
+func (b *Build) killTaskGroup(pid int, deadline time.Time, taskID int) {
+	// PID 0 means the command never started; kill(0) would signal wakeci's
+	// own process group
+	if pid <= 0 {
+		return
+	}
+	// Only while the group has members: once it is empty, its ID may be
+	// reused by another task's group
+	for syscall.Kill(-pid, 0) == nil {
+		if !time.Now().Before(deadline) {
+			if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
+				b.Logger.Error("kill what is left of an aborted task", "task", taskID, "err", err)
+			}
+			return
+		}
+		time.Sleep(stopPollInterval)
+	}
+}
+
 // checkCondition evaluates a task's `when` or `if` condition, with script
 // wrapping the condition into a bash command. It returns an empty status when
 // the task should run, otherwise the status the task ends with
 func (b *Build) checkCondition(task *Task, kind, expr, script string, env []string, dir string, bw *bufio.Writer, abort *abortScope) ItemStatus {
 	condition, conditionSecretEnv := injectCommandSecrets(expr)
-	condCmd := exec.Command("bash", "-c", fmt.Sprintf(script, condition))
+	condCmd := conditionCommand(fmt.Sprintf(script, condition))
 	condCmd.Env = append(env, conditionSecretEnv...)
 	condCmd.Dir = dir
 	b.ProcessLogEntry("> Checking `"+kind+"` condition: "+expr, bw, task.ID, task.startedAt)
@@ -485,6 +545,15 @@ func (b *Build) checkCondition(task *Task, kind, expr, script string, env []stri
 	return ""
 }
 
+// conditionCommand returns the command that evaluates a condition script, in
+// a process group of its own, so waitForCondition's kill stops its children
+// too
+func conditionCommand(script string) *exec.Cmd {
+	condCmd := exec.Command("bash", "-c", script)
+	condCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	return condCmd
+}
+
 // waitForCondition waits for the condition command. It kills the command
 // when timeout passes (timedOut) or abort is closed (aborted), and calls
 // flush when the log is asked to be flushed meanwhile
@@ -508,10 +577,17 @@ func (b *Build) waitForCondition(condCmd *exec.Cmd, taskID int, timeout time.Dur
 			flush()
 		}
 	}
-	if err := condCmd.Process.Kill(); err != nil {
-		b.Logger.Log(context.Background(), LevelTrace, "kill condition process", "task", taskID, "err", err)
+	select {
+	case err = <-waitDone:
+		// It ended just as the timer fired or the abort arrived. Wait reaped
+		// it, so its group ID may already belong to another task's group
+	default:
+		// Not reaped yet, so its group ID is still its own
+		if err := syscall.Kill(-condCmd.Process.Pid, syscall.SIGKILL); err != nil {
+			b.Logger.Log(context.Background(), LevelTrace, "kill condition process", "task", taskID, "err", err)
+		}
+		err = <-waitDone
 	}
-	err = <-waitDone
 	// The condition exited on its own just as the timer fired
 	if timedOut && err == nil {
 		return false, false, nil
@@ -606,11 +682,13 @@ func (b *Build) CollectArtifacts() {
 			if err != nil {
 				b.Logger.Error("copy artifact", "file", f, "err", err)
 			} else {
+				b.mutex.Lock()
 				b.BuildArtifacts = append(b.BuildArtifacts, &ArtifactInfo{
 					Size:     artifactSize,
 					Filename: relPath,
 				})
 				b.Artifacts = append(b.Artifacts, relPath) // Deprecate
+				b.mutex.Unlock()
 			}
 		}
 	}
@@ -655,15 +733,12 @@ func copyArtifact(source string, destination string, mode os.FileMode) (size int
 // information about the build. It saves the build in the history, and in
 // QueueBucket while the build is queued
 func (b *Build) BroadcastUpdate() {
+	b.updateMu.Lock()
+	defer b.updateMu.Unlock()
 	bID := b.ID
-	data, err := b.GenerateBuildUpdateData()
+	data, queued, err := b.records()
 	if err != nil {
-		b.Logger.Error("generate build update data", "err", err)
-		return
-	}
-	queued, err := b.queuedRecord()
-	if err != nil {
-		b.Logger.Error("generate queued build record", "err", err)
+		b.Logger.Error("generate build update", "err", err)
 		return
 	}
 	msg := MsgBroadcast{
@@ -688,27 +763,14 @@ func (b *Build) BroadcastUpdate() {
 	}
 }
 
-// queuedRecord returns what RestoreQueue needs to queue the build again, or
-// nil once the build has left the queue
-func (b *Build) queuedRecord() ([]byte, error) {
+// records returns the build's history entry (BuildUpdateData) and, while it
+// is queued, what RestoreQueue needs to queue it again, nil once it left the
+// queue. Both describe the same moment
+func (b *Build) records() (data, queued []byte, err error) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	if b.Status != StatusPending {
-		return nil, nil
-	}
-	return json.Marshal(queuedBuild{
-		Job:               b.Job,
-		Params:            b.Params,
-		StartedWithAPIKey: b.startedWithAPIKey,
-		Tasks:             b.GetTasksStatus(),
-	})
-}
-
-// GenerateBuildUpdateData generates BuildUpdateData
-func (b *Build) GenerateBuildUpdateData() ([]byte, error) {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-	updData := &BuildUpdateData{
+	// JSON, so the caller doesn't read the build's maps while it changes
+	data, err = json.Marshal(&BuildUpdateData{
 		ID:             b.ID,
 		Name:           b.Job.Name,
 		Status:         b.Status,
@@ -719,9 +781,17 @@ func (b *Build) GenerateBuildUpdateData() ([]byte, error) {
 		StartedAt:      b.StartedAt,
 		Duration:       b.Duration,
 		ETA:            b.ETA,
+	})
+	if err != nil || b.Status != StatusPending || b.abortedWhileQueued {
+		return data, nil, err
 	}
-	// Return JSON to prevent concurrent map read/write issues
-	return json.Marshal(updData)
+	queued, err = json.Marshal(queuedBuild{
+		Job:               b.Job,
+		Params:            b.Params,
+		StartedWithAPIKey: b.startedWithAPIKey,
+		Tasks:             b.GetTasksStatus(),
+	})
+	return data, queued, err
 }
 
 // ProcessLogEntry handles log messages from tasks
@@ -810,6 +880,8 @@ func (b *Build) GetTasksStatus() []*TaskStatus {
 // setDuration records how long the build ran. A build aborted while queued
 // never started, and time.Since of a zero StartedAt is the maximum duration
 func (b *Build) setDuration() {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	if b.StartedAt.IsZero() {
 		b.Duration = 0
 		return
@@ -823,12 +895,14 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 	// are changed or broadcast.
 	b.pendingTasksWG.Wait()
 	b.Logger.Info("build status", "status", status)
+	// Under b.mutex, like every field records() reads: RunJob and
+	// RestoreQueue send an update from their own goroutine
 	b.mutex.Lock()
 	b.Status = status
-	b.mutex.Unlock()
 	if status == StatusRunning {
 		b.StartedAt = time.Now()
 	}
+	b.mutex.Unlock()
 	switch status {
 	case StatusPending:
 		b.BroadcastUpdate()
@@ -863,8 +937,10 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		b.nextAbortScope()
 		b.runOnStatusTasks(FinalTask)
 		b.setDuration()
-		b.Cleanup()
+		// Saved before the build leaves the queue: a stop waits only for
+		// builds in the queue, then closes the database
 		b.BroadcastUpdate()
+		b.Cleanup()
 	case StatusFailed:
 		b.runOnStatusTasks(status)
 		b.CollectArtifacts()
@@ -872,8 +948,8 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		b.nextAbortScope()
 		b.runOnStatusTasks(FinalTask)
 		b.setDuration()
-		b.Cleanup()
 		b.BroadcastUpdate()
+		b.Cleanup()
 	case StatusFinished:
 		b.runOnStatusTasks(status)
 		b.CollectArtifacts()
@@ -881,12 +957,12 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		b.nextAbortScope()
 		b.runOnStatusTasks(FinalTask)
 		b.setDuration()
-		b.Cleanup()
 		err := RecordBuildDuration(b.Job.Name, int(b.Duration))
 		if err != nil {
 			b.Logger.Error("record build duration", "err", err)
 		}
 		b.BroadcastUpdate()
+		b.Cleanup()
 	}
 
 }

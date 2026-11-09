@@ -290,15 +290,34 @@ func downloadRelease(ctx context.Context, rel *release, path string) (_ string, 
 	return file.Name(), nil
 }
 
+// linkBinary hard-links the running binary to its backup; tests replace it
+var linkBinary = os.Link
+
 // installRelease replaces the binary at path with downloaded, and keeps the
-// old one as path.previous
+// old one as path.previous. It refuses if it can't keep it, since that is
+// the only way back
 func installRelease(downloaded, path string) error {
 	previous := path + ".previous"
-	if err := os.Remove(previous); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("remove %s: %w", previous, err)
+	running, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("stat %s: %w", path, err)
 	}
-	if err := os.Link(path, previous); err != nil {
-		L.Warn("keep the previous binary", "file", previous, "err", err)
+	// An earlier attempt may have kept this binary already: a rename between
+	// two links of one file does nothing and would leave the new link behind.
+	// Lstat, so a symlink to the binary doesn't count as a backup
+	if backup, err := os.Lstat(previous); err != nil || !os.SameFile(running, backup) {
+		// Under another name first, so the backup an earlier update kept
+		// stays until this one exists
+		linked := previous + ".new"
+		if err := os.Remove(linked); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove %s: %w", linked, err)
+		}
+		if err := linkBinary(path, linked); err != nil {
+			return fmt.Errorf("keep the previous binary as %s: %w", previous, err)
+		}
+		if err := os.Rename(linked, previous); err != nil {
+			return fmt.Errorf("keep the previous binary as %s: %w", previous, err)
+		}
 	}
 	if err := os.Rename(downloaded, path); err != nil {
 		return fmt.Errorf("replace %s: %w", path, err)

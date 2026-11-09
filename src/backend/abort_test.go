@@ -586,3 +586,47 @@ func TestFlushLogsDuringCondition(t *testing.T) {
 	}
 	waitDone(t, done, 2*time.Second)
 }
+
+// TestAbortKillsTheWholeTask is a regression test: when a command ignored
+// SIGTERM, the abort's SIGKILL reached only the task's shell, and a timed out
+// condition killed only its shell. A child that kept the output open made the
+// build wait for it; any other child outlived the build, and wakeci
+func TestAbortKillsTheWholeTask(t *testing.T) {
+	tests := []struct {
+		name string
+		task *Task
+		// abort aborts the build once the task started; a condition times
+		// out by itself
+		abort bool
+	}{
+		{
+			name:  "command that ignores SIGTERM",
+			task:  &Task{ID: 0, Command: "trap '' TERM; sleep 300 & echo $! > pid; touch started; wait", Kind: KindMain},
+			abort: true,
+		},
+		{
+			// The shell ends at once, and the child holds no output open
+			name:  "child that ignores SIGTERM after the shell ended",
+			task:  &Task{ID: 0, Command: "bash -c \"trap '' TERM; exec sleep 300\" >/dev/null 2>&1 & echo $! > pid; touch started; sleep 100", Kind: KindMain},
+			abort: true,
+		},
+		{
+			name: "condition that times out",
+			task: &Task{ID: 0, If: "sleep 300 & echo $! > pid; touch started; wait", Command: "true", Kind: KindMain},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			build := abortTestBuild(t, &Job{Name: "whole-task", Tasks: []*Task{tt.task}})
+			done := startBuild(build)
+			waitForFile(t, build, "started")
+			if tt.abort {
+				if err := GlobalQueue.Abort(build.ID, StatusAborted); err != nil {
+					t.Fatalf("Abort: %v", err)
+				}
+			}
+			waitDone(t, done, 15*time.Second)
+			waitProcessGone(t, build)
+		})
+	}
+}

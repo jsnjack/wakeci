@@ -3,7 +3,9 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/sasha-s/go-deadlock"
@@ -33,12 +35,28 @@ type Queue struct {
 	abortAt  time.Time
 	// restartVersion is the version an update restarts into
 	restartVersion string
+	// stopSignalled is set by the first stop signal (noteStopSignal): wakeci
+	// then stops, even if an update planned a restart
+	stopSignalled bool
+	// tasksStopped is set by stopTasks: no task command and no queued build
+	// starts any more
+	tasksStopped bool
+	// runMu is held for reading by addNewBuild until its build is queued,
+	// since the build's on_pending tasks start before that, and for writing
+	// by stopTasks while it stops tasks, so it reaches every build whose
+	// tasks run. Taken before mutex
+	runMu sync.RWMutex
+	// statusMu is held by broadcastStatus from taking the status until it is
+	// sent, so clients get statuses in the order they were taken: a stop
+	// signal's status sent before the update's it replaced would leave the
+	// banner promising a restart. A plain mutex, held during a channel send
+	statusMu sync.Mutex
 }
 
 // Take takes build from queue and starts running it
 func (q *Queue) Take() {
 	q.mutex.Lock()
-	toRun := !q.isStoppingLocked() && len(q.running) < q.concurrentBuilds && len(q.queued) > 0
+	toRun := !q.isStoppingLocked() && !q.tasksStopped && len(q.running) < q.concurrentBuilds && len(q.queued) > 0
 	var foundItem bool
 	var foundItemID int
 	if toRun {
@@ -86,7 +104,7 @@ func (q *Queue) TakeNow(buildID int) error {
 	var foundItem bool
 
 	q.mutex.Lock()
-	if q.isStoppingLocked() {
+	if q.isStoppingLocked() || q.tasksStopped {
 		q.mutex.Unlock()
 		return ErrQueueStopping
 	}
@@ -197,8 +215,17 @@ func (q *Queue) Abort(id int, reason string) error {
 	// Stops on_pending tasks of a queued build, too
 	build.requestAbort(reason, "")
 	if dequeued {
-		// Waits for the on_pending tasks, then runs on_aborted and finally
-		go build.SetBuildStatus(StatusAborted)
+		build.mutex.Lock()
+		build.abortedWhileQueued = true
+		build.mutex.Unlock()
+		go func() {
+			// Forgets its queue record at once: a wakeci that stopped before
+			// the on_pending tasks ended would queue it again after the
+			// restart
+			build.BroadcastUpdate()
+			// Waits for the on_pending tasks, then runs on_aborted and finally
+			build.SetBuildStatus(StatusAborted)
+		}()
 	}
 	return nil
 }
@@ -265,7 +292,8 @@ func (q *Queue) applyConcurrency(number int) {
 // BeginStop keeps queued builds from starting, because wakeci stops once the
 // running builds end, and aborts them at abortAt (see drainQueue).
 // restartVersion is the version an update restarts into, empty for a stop.
-// It returns false if a stop was already planned
+// It returns false if a stop was already planned, or if a stop signal
+// refused the restart (noteStopSignal); the stop then begins anyway
 func (q *Queue) BeginStop(abortAt time.Time, restartVersion string) bool {
 	q.mutex.Lock()
 	if q.isStoppingLocked() {
@@ -273,11 +301,29 @@ func (q *Queue) BeginStop(abortAt time.Time, restartVersion string) bool {
 		return false
 	}
 	q.abortAt = abortAt
-	q.restartVersion = restartVersion
+	refused := restartVersion != "" && q.stopSignalled
+	if !refused {
+		q.restartVersion = restartVersion
+	}
 	close(q.stoppingLocked())
 	q.mutex.Unlock()
 	q.broadcastStatus()
-	return true
+	return !refused
+}
+
+// noteStopSignal records that a stop signal arrived. It cancels a restart an
+// update planned: whoever sent it, systemctl stop or a reboot, waits for the
+// process to end, and would kill the builds it restored
+func (q *Queue) noteStopSignal(sig os.Signal) {
+	q.mutex.Lock()
+	q.stopSignalled = true
+	cancelled := q.restartVersion
+	q.restartVersion = ""
+	q.mutex.Unlock()
+	if cancelled != "" {
+		L.Warn("stopping instead of restarting into the update", "signal", sig, "version", cancelled)
+		q.broadcastStatus()
+	}
 }
 
 // Stopping returns a channel that BeginStop closes
@@ -328,6 +374,8 @@ func (q *Queue) Status() QueueStatusData {
 
 // broadcastStatus sends Status to the subscribed clients
 func (q *Queue) broadcastStatus() {
+	q.statusMu.Lock()
+	defer q.statusMu.Unlock()
 	WSHub.broadcast <- &MsgBroadcast{Type: MsgTypeQueueStatus, Data: q.Status()}
 }
 
@@ -339,11 +387,12 @@ func (q *Queue) idle() bool {
 	return len(q.running) == 0 && len(q.aborting) == 0
 }
 
-// abortRunning aborts the running builds and logs note in their tasks.
-// Queued builds stay queued
+// abortRunning aborts the running builds, and the on_aborted and finally
+// tasks of builds aborted while queued, and logs note in their tasks. Queued
+// builds stay queued
 func (q *Queue) abortRunning(note string) {
 	q.mutex.Lock()
-	running := slices.Clone(q.running)
+	running := slices.Concat(q.running, q.aborting)
 	q.mutex.Unlock()
 	for _, build := range running {
 		build.Logger.Warn("aborting build", "reason", note)
@@ -352,8 +401,9 @@ func (q *Queue) abortRunning(note string) {
 }
 
 // waitQueuedHooks waits for the on_pending tasks of the queued builds, at
-// most timeout, and reports whether they ended
-func (q *Queue) waitQueuedHooks(timeout time.Duration) bool {
+// most timeout or until a value arrives from interrupt, and reports whether
+// they ended
+func (q *Queue) waitQueuedHooks(timeout time.Duration, interrupt <-chan os.Signal) bool {
 	q.mutex.Lock()
 	queued := slices.Clone(q.queued)
 	q.mutex.Unlock()
@@ -364,12 +414,73 @@ func (q *Queue) waitQueuedHooks(timeout time.Duration) bool {
 			build.pendingTasksWG.Wait()
 		}
 	}()
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
 	select {
 	case <-done:
 		return true
-	case <-time.After(timeout):
+	case sig := <-interrupt:
+		L.Warn("stopping: received another signal", "signal", sig)
+	case <-timer.C:
+	}
+	// They may have ended just as the wait did
+	select {
+	case <-done:
+		return true
+	default:
 		return false
 	}
+}
+
+// stopTasks makes sure no task outlives wakeci, which exits or re-executes
+// next: no task command starts any more, and every build that still runs
+// tasks, including the on_pending tasks of queued builds, is aborted with
+// note. Queued builds stay queued. It reports whether all tasks ended
+// within timeout
+func (q *Queue) stopTasks(note string, timeout time.Duration) bool {
+	// Not BeginStop, which would wake a drain that never began, as when
+	// serving failed without a stop
+	q.runMu.Lock()
+	q.mutex.Lock()
+	q.tasksStopped = true
+	builds := slices.Concat(q.running, q.aborting, q.queued)
+	q.mutex.Unlock()
+	q.runMu.Unlock()
+	for _, build := range builds {
+		build.requestAbort(StatusAborted, note)
+	}
+	deadline := time.Now().Add(timeout)
+	idle := q.waitIdle(deadline, nil)
+	return q.waitQueuedHooks(time.Until(deadline), nil) && idle
+}
+
+// addNewBuild creates a build with create and queues it, unless stopTasks
+// was called. create starts the build's on_pending tasks, so stopTasks
+// waits until the build is queued and then reaches them
+func (q *Queue) addNewBuild(create func() (*Build, error)) (*Build, error) {
+	q.runMu.RLock()
+	defer q.runMu.RUnlock()
+	if q.tasksStoppedNow() {
+		return nil, ErrQueueStopping
+	}
+	build, err := create()
+	if err != nil {
+		return nil, err
+	}
+	q.Add(build)
+	return build, nil
+}
+
+// tasksStoppedNow reports whether stopTasks was called, so a task mustn't
+// start. A nil queue, as in tests that run tasks without one, never stops
+// them
+func (q *Queue) tasksStoppedNow() bool {
+	if q == nil {
+		return false
+	}
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+	return q.tasksStopped
 }
 
 // CreateQueue creates new Queue object

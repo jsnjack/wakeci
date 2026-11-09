@@ -89,3 +89,69 @@ test("should reload when the server runs a new version", async ({ page }) => {
     socket.close();
     await reloaded;
 });
+
+test("should keep the stop banner when an older status arrives late", async ({ page }) => {
+    // The page asks for the status before the stop and gets the answer after
+    // the stop's only message
+    let answer;
+    const answered = new Promise((resolve) => (answer = resolve));
+    await page.route("**/api/queue/", async (route) => {
+        await answered;
+        await route.fulfill({ json: { stopping: false, running: 0, queued: 0 } });
+    });
+    let socket;
+    const connected = new Promise((resolve) => {
+        page.routeWebSocket(/\/ws$/, (ws) => {
+            ws.connectToServer();
+            socket = ws;
+            resolve();
+        });
+    });
+    const requested = page.waitForRequest((request) => request.url().endsWith("/api/queue/"));
+    await page.goto("/");
+    await connected;
+    await requested;
+
+    socket.send(
+        JSON.stringify({
+            type: "queue:status",
+            data: { stopping: true, abortAt: new Date(Date.now() + 60000).toISOString(), restartVersion: "" },
+        }),
+    );
+    const banner = page.getByTestId("queue-stopping");
+    await expect(banner).toBeVisible();
+    const fetched = page.waitForResponse((response) => response.url().endsWith("/api/queue/"));
+    answer();
+    await fetched;
+    // The page handles the answer right after it arrives
+    await page.waitForTimeout(500);
+    await expect(banner).toBeVisible();
+});
+
+test("should apply the status of the latest connection", async ({ page }) => {
+    // Each request is answered when the test says so
+    const requests = [];
+    await page.route("**/api/queue/", (route) => {
+        requests.push(route);
+    });
+    let socket;
+    await page.routeWebSocket(/\/ws$/, (ws) => {
+        ws.connectToServer();
+        socket = ws;
+    });
+    await page.goto("/");
+    await expect.poll(() => requests.length).toBe(1);
+
+    // The connection drops before the first answer, and the page asks again
+    socket.close();
+    await expect.poll(() => requests.length, { timeout: 10000 }).toBe(2);
+    const answered = page.waitForResponse((response) => response.url().endsWith("/api/queue/"));
+    await requests[0].fulfill({
+        json: { stopping: true, abortAt: new Date(Date.now() + 60000).toISOString(), restartVersion: "" },
+    });
+    await answered;
+    await requests[1].fulfill({ json: { stopping: false, running: 0, queued: 0 } });
+    // The page handles the answer right after it arrives
+    await page.waitForTimeout(500);
+    await expect(page.getByTestId("queue-stopping")).toBeHidden();
+});

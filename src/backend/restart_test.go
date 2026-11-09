@@ -1,13 +1,17 @@
 package main
 
 import (
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -164,6 +168,72 @@ func TestQueuedBuildIsRestoredAfterRestart(t *testing.T) {
 	}
 }
 
+// TestBuildUpdatesSaveInOrder is a regression test: two updates of a build
+// could be saved in the other order, and an update taken while the build was
+// queued, saved after one taken once it ran, queued it again for the restart
+func TestBuildUpdatesSaveInOrder(t *testing.T) {
+	build := queuedAbortBuild(t, &Job{Name: "order", Tasks: []*Task{{ID: 0, Command: "true", Kind: KindMain}}})
+	build.pendingTasksWG.Wait()
+	hub := &Hub{broadcast: make(chan *MsgBroadcast)}
+	WSHub = hub
+	// Holding the database's write lock keeps an update between being sent
+	// and being saved
+	tx, err := DB.Begin(true)
+	if err != nil {
+		t.Fatalf("begin transaction: %v", err)
+	}
+	locked := true
+	t.Cleanup(func() {
+		if locked {
+			if err := tx.Rollback(); err != nil {
+				t.Errorf("rollback: %v", err)
+			}
+		}
+	})
+	broadcast := func() <-chan struct{} {
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			build.BroadcastUpdate()
+		}()
+		return done
+	}
+
+	queuedDone := broadcast()
+	<-hub.broadcast
+	build.mutex.Lock()
+	build.Status = StatusRunning
+	build.mutex.Unlock()
+	runningDone := broadcast()
+	select {
+	case <-hub.broadcast:
+		t.Error("the running update was sent before the queued one was saved")
+	case <-time.After(300 * time.Millisecond):
+	}
+
+	if err := tx.Rollback(); err != nil {
+		t.Fatalf("rollback: %v", err)
+	}
+	locked = false
+	for queuedDone != nil || runningDone != nil {
+		select {
+		case <-hub.broadcast:
+		case <-queuedDone:
+			queuedDone = nil
+		case <-runningDone:
+			runningDone = nil
+		case <-time.After(5 * time.Second):
+			t.Fatal("updates never saved")
+		}
+	}
+	if ids := queuedRecordIDs(t); len(ids) != 0 {
+		t.Errorf("queued records = %v, want none once the build runs", ids)
+	}
+	if status := historyStatus(t, build.ID); status != StatusRunning {
+		t.Errorf("history status = %q, want %q", status, StatusRunning)
+	}
+}
+
 func TestQueuedRecordFollowsBuild(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -188,6 +258,119 @@ func TestQueuedRecordFollowsBuild(t *testing.T) {
 				t.Errorf("queued records = %v, want none once the build left the queue", ids)
 			}
 		})
+	}
+}
+
+// useSlowHub replaces WSHub with a hub that waits delay before it takes each
+// message, so a build's updates are slow to send
+func useSlowHub(t *testing.T, delay time.Duration) {
+	t.Helper()
+	hub := &Hub{broadcast: make(chan *MsgBroadcast)}
+	WSHub = hub
+	stop := make(chan struct{})
+	t.Cleanup(func() { close(stop) })
+	go func() {
+		for {
+			select {
+			case <-time.After(delay):
+			case <-stop:
+				return
+			}
+			select {
+			case <-hub.broadcast:
+			case <-stop:
+				return
+			}
+		}
+	}()
+}
+
+// TestBuildIsSavedBeforeLeavingTheQueue is a regression test: a build left
+// the queue before its final state was saved, so a stop that saw no build
+// running could close the database first. The build then stayed running in
+// the history, or, aborted while queued, was queued again after the restart
+func TestBuildIsSavedBeforeLeavingTheQueue(t *testing.T) {
+	job := func(command string) *Job {
+		return &Job{Name: "final", Tasks: []*Task{{ID: 0, Command: command, Kind: KindMain}}}
+	}
+	tests := []struct {
+		name    string
+		command string
+		// abort aborts the build once it runs, queued aborts it while queued
+		abort, queued bool
+		want          ItemStatus
+	}{
+		{name: "finished", command: "true", want: StatusFinished},
+		{name: "failed", command: "false", want: StatusFailed},
+		{name: "aborted while running", command: "touch started; sleep 30", abort: true, want: StatusAborted},
+		{name: "aborted while queued", command: "true", queued: true, want: StatusAborted},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var build *Build
+			if tt.queued {
+				build = queuedAbortBuild(t, job(tt.command))
+			} else {
+				build = abortTestBuild(t, job(tt.command))
+			}
+			build.pendingTasksWG.Wait()
+			// Leaving the queue before the final update is sent then shows
+			// as a gap of about this long
+			useSlowHub(t, 100*time.Millisecond)
+
+			switch {
+			case tt.queued:
+				if err := GlobalQueue.Abort(build.ID, StatusAborted); err != nil {
+					t.Fatalf("Abort: %v", err)
+				}
+			case tt.abort:
+				startBuild(build)
+				waitForFile(t, build, "started")
+				if err := GlobalQueue.Abort(build.ID, StatusAborted); err != nil {
+					t.Fatalf("Abort: %v", err)
+				}
+			default:
+				startBuild(build)
+			}
+
+			waitGone(t, build)
+			if status := historyStatus(t, build.ID); status != tt.want {
+				t.Errorf("history status = %q once the build left the queue, want %q", status, tt.want)
+			}
+			if ids := queuedRecordIDs(t); len(ids) != 0 {
+				t.Errorf("queued records = %v once the build left the queue, want none", ids)
+			}
+		})
+	}
+}
+
+// TestAbortWhileQueuedForgetsRecordAtOnce is a regression test: a build
+// aborted while queued kept its queue record until its on_pending tasks
+// ended, so a wakeci that stopped meanwhile queued it again after the restart
+func TestAbortWhileQueuedForgetsRecordAtOnce(t *testing.T) {
+	build := queuedAbortBuild(t, &Job{Name: "forget", Tasks: []*Task{
+		// Ends only with the SIGKILL ABORT_TIMEOUT after the abort
+		{ID: 0, Command: "trap '' TERM; touch started; exec sleep 30", Kind: StatusPending},
+		{ID: 1, Command: "true", Kind: KindMain},
+	}})
+	waitForFile(t, build, "started")
+	if !slices.Contains(queuedRecordIDs(t), build.ID) {
+		t.Fatal("no queue record for the queued build")
+	}
+	if err := GlobalQueue.Abort(build.ID, StatusAborted); err != nil {
+		t.Fatalf("Abort: %v", err)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for slices.Contains(queuedRecordIDs(t), build.ID) {
+		if time.Now().After(deadline) {
+			t.Fatal("the queue record stayed while the on_pending task ended")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	for deadline = time.Now().Add(15 * time.Second); GlobalQueue.Verify(build.ID); time.Sleep(20 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal("build never left the queue")
+		}
 	}
 }
 
@@ -345,6 +528,369 @@ func TestDrainQueueSecondSignal(t *testing.T) {
 		t.Fatalf("Abort: %v", err)
 	}
 	waitDone(t, done, 10*time.Second)
+}
+
+// TestDrainQueueAbortsBuildsAbortedWhileQueued is a regression test: the
+// stop aborted only running builds, so the on_aborted tasks of a build
+// aborted while queued ran on at the abort time, and the drain waited the
+// whole hook timeout for them
+func TestDrainQueueAbortsBuildsAbortedWhileQueued(t *testing.T) {
+	build := queuedAbortBuild(t, &Job{Name: "queued-hooks", Tasks: []*Task{
+		{ID: 0, Command: "true", Kind: KindMain},
+		{ID: 1, Command: "touch hook; sleep 30", Kind: StatusAborted},
+		{ID: 2, Command: "touch final", Kind: FinalTask},
+	}})
+	if err := GlobalQueue.Abort(build.ID, StatusAborted); err != nil {
+		t.Fatalf("Abort: %v", err)
+	}
+	waitForFile(t, build, "hook")
+
+	GlobalQueue.BeginStop(time.Now().Add(300*time.Millisecond), "")
+	start := time.Now()
+	drainQueue(GlobalQueue, make(chan os.Signal), 20*time.Second)
+	if took := time.Since(start); took > 10*time.Second {
+		t.Errorf("drain took %v, want the stop to abort the on_aborted task", took)
+	}
+	waitGone(t, build)
+	if !strings.Contains(taskLog(t, build, 1), "> Aborted: "+stopNote+".") {
+		t.Errorf("on_aborted log = %q, want the stop's note", taskLog(t, build, 1))
+	}
+	if !workspaceHas(build, "final") {
+		t.Error("finally didn't run")
+	}
+	if status := historyStatus(t, build.ID); status != StatusAborted {
+		t.Errorf("history status = %q, want %q", status, StatusAborted)
+	}
+}
+
+// TestDrainQueueRunsHooksOfBuildAbortedJustBefore pins that a build a user
+// aborted just before the stop's abort time still runs its on_aborted and
+// finally tasks, like a build the stop aborts itself: the stop's abort finds
+// it already aborted and doesn't skip its cleanup
+func TestDrainQueueRunsHooksOfBuildAbortedJustBefore(t *testing.T) {
+	build := abortTestBuild(t, &Job{Name: "user-then-stop", Tasks: []*Task{
+		// Ends only with the SIGKILL ABORT_TIMEOUT after the abort
+		{ID: 0, Command: "trap '' TERM; touch started; exec sleep 30", Kind: KindMain},
+		{ID: 1, Command: "touch hook", Kind: StatusAborted},
+		{ID: 2, Command: "touch final", Kind: FinalTask},
+	}})
+	done := startBuild(build)
+	waitForFile(t, build, "started")
+	if err := GlobalQueue.Abort(build.ID, StatusAborted); err != nil {
+		t.Fatalf("Abort: %v", err)
+	}
+
+	GlobalQueue.BeginStop(time.Now().Add(200*time.Millisecond), "")
+	drainQueue(GlobalQueue, make(chan os.Signal), 20*time.Second)
+	waitDone(t, done, 5*time.Second)
+	if !workspaceHas(build, "hook") {
+		t.Error("on_aborted didn't run")
+	}
+	if !workspaceHas(build, "final") {
+		t.Error("finally didn't run")
+	}
+}
+
+// TestDrainOnStopEndsWithServing is a regression test: when serving ended
+// without a stop, the goroutine that waits for a stop still waited, took a
+// later signal from the waits on the way out, and drained beside them
+func TestDrainOnStopEndsWithServing(t *testing.T) {
+	newTestBuildEnv(t)
+	q := &Queue{}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	interrupt := make(chan os.Signal, 1)
+	interrupt <- syscall.SIGTERM
+	stopped := false
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		drainOnStop(ctx, q, interrupt, time.Hour, time.Hour, func() { stopped = true })
+	}()
+	waitDone(t, done, 5*time.Second)
+	if q.Status().Stopping || stopped {
+		t.Errorf("stopping = %v, stop called = %v; want neither once serving ended", q.Status().Stopping, stopped)
+	}
+}
+
+// TestStopSignalCancelsRestart is a regression test: a stop signal during an
+// update's drain only skipped a wait, and wakeci restarted instead of
+// stopping, while systemctl stop or a reboot waited for it to end
+func TestStopSignalCancelsRestart(t *testing.T) {
+	tests := []struct {
+		name string
+		// signalFirst sends the signal before the update plans its restart
+		signal, signalFirst bool
+		want                string
+	}{
+		{name: "signal during the update's drain", signal: true, want: ""},
+		{name: "signal before the update", signal: true, signalFirst: true, want: ""},
+		{name: "no signal", want: "2.0.0"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			newTestBuildEnv(t)
+			hub := &Hub{broadcast: make(chan *MsgBroadcast, 8)}
+			WSHub = hub
+			q := &Queue{}
+			signals := make(chan os.Signal, 1)
+			defer close(signals)
+			forwarded, _ := forwardStopSignals(q, signals)
+			send := func() {
+				signals <- syscall.SIGTERM
+				select {
+				case <-forwarded:
+				case <-time.After(5 * time.Second):
+					t.Fatal("the signal wasn't forwarded")
+				}
+			}
+
+			if tt.signalFirst {
+				send()
+			}
+			q.BeginStop(time.Now().Add(time.Hour), "2.0.0")
+			if tt.signal && !tt.signalFirst {
+				send()
+			}
+
+			if got := q.Status().RestartVersion; got != tt.want {
+				t.Errorf("restart version = %q, want %q", got, tt.want)
+			}
+			// The banner shows the last status sent
+			var last *QueueStatusData
+			for len(hub.broadcast) > 0 {
+				if msg := <-hub.broadcast; msg.Type == MsgTypeQueueStatus {
+					status := msg.Data.(QueueStatusData)
+					last = &status
+				}
+			}
+			if last == nil || last.RestartVersion != tt.want {
+				t.Errorf("last status sent = %+v, want restart version %q", last, tt.want)
+			}
+		})
+	}
+}
+
+// stubbornTask starts a sleep that only a signal ends and saves its PID in
+// pid, then creates started in the workspace
+const stubbornTask = "sleep 300 & echo $! > pid; touch started; wait"
+
+// waitProcessGone waits until the process whose PID a task saved in pid has
+// ended
+func waitProcessGone(t *testing.T, build *Build) {
+	t.Helper()
+	data, err := os.ReadFile(build.GetWorkspaceDir() + "pid")
+	if err != nil {
+		t.Fatalf("read pid: %v", err)
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil {
+		t.Fatalf("parse pid %q: %v", data, err)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		// A zombie has ended too; its new parent reaps it
+		stat, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
+		if err != nil || strings.Contains(string(stat), ") Z ") {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("process %d still runs", pid)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+// TestStopTasksStartsNoQueuedBuild checks that once tasks are stopped no
+// queued build starts, without beginning a stop: a drain woken that late
+// would run beside stopTasks, as when serving failed without a stop
+func TestStopTasksStartsNoQueuedBuild(t *testing.T) {
+	newTestBuildEnv(t)
+	useQueue(t, &Queue{concurrentBuilds: 1})
+	build := queueTestBuild(t, &Job{Name: "stay", Tasks: []*Task{{ID: 0, Command: "true", Kind: KindMain}}})
+	build.pendingTasksWG.Wait()
+
+	if !GlobalQueue.stopTasks(stopNote, time.Second) {
+		t.Fatal("stopTasks: tasks still ran")
+	}
+	select {
+	case <-GlobalQueue.Stopping():
+		t.Error("stopTasks began a stop, which wakes the drain")
+	default:
+	}
+	GlobalQueue.Take()
+	if err := GlobalQueue.TakeNow(build.ID); !errors.Is(err, ErrQueueStopping) {
+		t.Errorf("TakeNow = %v, want ErrQueueStopping", err)
+	}
+	if status := GlobalQueue.Status(); status.Queued != 1 || status.Running != 0 {
+		t.Errorf("queue = %+v, want the build still queued", status)
+	}
+}
+
+// TestStopTasksReachesBuildsBeingAdded is a regression test: RunJob starts a
+// build's on_pending tasks before it adds the build to the queue, so a
+// stop at exit in between neither aborted nor waited for them, and they
+// outlived wakeci
+func TestStopTasksReachesBuildsBeingAdded(t *testing.T) {
+	newTestBuildEnv(t)
+	useQueue(t, &Queue{})
+	job := &Job{Name: "being-added", Tasks: []*Task{
+		{ID: 0, Command: stubbornTask, Kind: StatusPending},
+		{ID: 1, Command: "true", Kind: KindMain},
+	}}
+	created := make(chan *Build, 1)
+	release := make(chan struct{})
+	go func() {
+		if _, err := GlobalQueue.addNewBuild(func() (*Build, error) {
+			build, err := CreateBuild(job, filepath.Join(Config.JobDir, job.Name+".yaml"), false)
+			created <- build
+			<-release
+			return build, err
+		}); err != nil {
+			t.Errorf("addNewBuild: %v", err)
+		}
+	}()
+	build := <-created
+	waitForFile(t, build, "started")
+
+	stopped := make(chan bool, 1)
+	go func() { stopped <- GlobalQueue.stopTasks(stopNote, 10*time.Second) }()
+	select {
+	case <-stopped:
+		t.Fatal("stopTasks ended before the build being added was queued")
+	case <-time.After(300 * time.Millisecond):
+	}
+	close(release)
+	if !<-stopped {
+		t.Error("stopTasks: the on_pending task still runs")
+	}
+	waitProcessGone(t, build)
+	if _, err := GlobalQueue.addNewBuild(func() (*Build, error) {
+		t.Error("a build was created after the tasks were stopped")
+		return nil, nil
+	}); !errors.Is(err, ErrQueueStopping) {
+		t.Errorf("addNewBuild = %v, want ErrQueueStopping", err)
+	}
+}
+
+// TestWaitQueuedHooksEndsOnSignal checks that a further signal on the way out
+// ends the wait for on_pending tasks, as it ends each wait of the drain
+func TestWaitQueuedHooksEndsOnSignal(t *testing.T) {
+	build := queuedAbortBuild(t, &Job{Name: "pending-wait", Tasks: []*Task{
+		{ID: 0, Command: stubbornTask, Kind: StatusPending},
+		{ID: 1, Command: "true", Kind: KindMain},
+	}})
+	waitForFile(t, build, "started")
+	interrupt := make(chan os.Signal, 1)
+	interrupt <- syscall.SIGTERM
+
+	start := time.Now()
+	if GlobalQueue.waitQueuedHooks(20*time.Second, interrupt) {
+		t.Error("waitQueuedHooks = true, want false while the on_pending task runs")
+	}
+	if took := time.Since(start); took > 5*time.Second {
+		t.Errorf("waitQueuedHooks took %v, want the signal to end it", took)
+	}
+	if !GlobalQueue.stopTasks(stopNote, 10*time.Second) {
+		t.Error("stopTasks: the on_pending task still runs")
+	}
+}
+
+// TestStopTasksEndsLeftoverTasks is a regression test: when wakeci stopped
+// waiting for builds (a hook past the hook timeout, another signal, an
+// on_pending task past its wait), it exited or re-executed with their tasks
+// still running, and nothing waited for them any more
+func TestStopTasksEndsLeftoverTasks(t *testing.T) {
+	t.Run("hook of an aborted build", func(t *testing.T) {
+		build := abortTestBuild(t, &Job{Name: "leftover-hook", Tasks: []*Task{
+			{ID: 0, Command: "sleep 30", Kind: KindMain},
+			{ID: 1, Command: stubbornTask, Kind: StatusAborted},
+			{ID: 2, Command: "touch final", Kind: FinalTask},
+		}})
+		startBuild(build)
+		if err := GlobalQueue.Abort(build.ID, StatusAborted); err != nil {
+			t.Fatalf("Abort: %v", err)
+		}
+		waitForFile(t, build, "started")
+
+		start := time.Now()
+		if !GlobalQueue.stopTasks(stopNote, 10*time.Second) {
+			t.Fatalf("stopTasks: tasks still ran after %v", time.Since(start))
+		}
+		waitProcessGone(t, build)
+		if !strings.Contains(taskLog(t, build, 1), "> Aborted: "+stopNote+".") {
+			t.Errorf("on_aborted log = %q, want the stop's note", taskLog(t, build, 1))
+		}
+		if workspaceHas(build, "final") {
+			t.Error("finally ran after the tasks were stopped")
+		}
+		if log := taskLog(t, build, 2); !strings.Contains(log, "> Not started: "+stopNote+".") {
+			t.Errorf("finally log = %q, want it not started", log)
+		}
+		if GlobalQueue.Verify(build.ID) {
+			t.Error("the build is still in the queue")
+		}
+		if status := historyStatus(t, build.ID); status != StatusAborted {
+			t.Errorf("history status = %q, want %q", status, StatusAborted)
+		}
+	})
+
+	t.Run("on_pending task of a queued build", func(t *testing.T) {
+		build := queuedAbortBuild(t, &Job{Name: "leftover-pending", Tasks: []*Task{
+			{ID: 0, Command: stubbornTask, Kind: StatusPending},
+			{ID: 1, Command: "true", Kind: KindMain},
+		}})
+		waitForFile(t, build, "started")
+
+		if !GlobalQueue.stopTasks(stopNote, 10*time.Second) {
+			t.Fatal("stopTasks: tasks still ran")
+		}
+		waitProcessGone(t, build)
+		if !GlobalQueue.Verify(build.ID) || !slices.Contains(queuedRecordIDs(t), build.ID) {
+			t.Error("the queued build must stay queued and saved for the restart")
+		}
+	})
+}
+
+// TestStopSignalNotedWhenHandlingEnds is a regression test: a signal still
+// waiting in the channel when run stopped handling signals could be noted
+// after main had already decided to restart
+func TestStopSignalNotedWhenHandlingEnds(t *testing.T) {
+	newTestBuildEnv(t)
+	q := &Queue{}
+	q.BeginStop(time.Now().Add(time.Hour), "2.0.0")
+	signals := make(chan os.Signal, 1)
+	// Holding the queue's lock keeps the signal from being noted
+	q.mutex.Lock()
+	signals <- syscall.SIGTERM
+	_, done := forwardStopSignals(q, signals)
+	close(signals)
+	select {
+	case <-done:
+		t.Error("done closed before the signal was noted")
+	case <-time.After(200 * time.Millisecond):
+	}
+	q.mutex.Unlock()
+	<-done
+	if got := q.Status().RestartVersion; got != "" {
+		t.Errorf("restart version = %q once the signals were handled, want none", got)
+	}
+}
+
+// TestBeginStopAfterStopSignal is a regression test: an update whose
+// BeginStop came after a stop signal reported a planned restart, although
+// the signal had refused it
+func TestBeginStopAfterStopSignal(t *testing.T) {
+	newTestBuildEnv(t)
+	q := &Queue{}
+	q.noteStopSignal(syscall.SIGTERM)
+	if q.BeginStop(time.Now().Add(time.Hour), "2.0.0") {
+		t.Error("BeginStop = true, want false: the signal refused the restart")
+	}
+	if status := q.Status(); !status.Stopping || status.RestartVersion != "" {
+		t.Errorf("status = %+v, want stopping without a restart", status)
+	}
 }
 
 func TestBeginStopOnce(t *testing.T) {

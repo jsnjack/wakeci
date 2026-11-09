@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -67,6 +68,10 @@ type SessionStorage struct {
 	// reach db in the order they happen: a session deleted by a revoke
 	// can't be saved again after the deletion and come back after a restart
 	saveMu deadlock.Mutex
+	// unsaved holds the keys of ended sessions whose deletion failed to
+	// save; every later save deletes them too, so they don't come back after
+	// a restart. Guarded by saveMu
+	unsaved []string
 	// OnEnd, if set, gets the keys of sessions that were deleted or
 	// expired, so connections opened with them can be closed. It is called
 	// without the lock held.
@@ -82,9 +87,14 @@ func (s *SessionStorage) ended(keys []string) {
 	}
 }
 
-// save writes saved and deletes deleted in db. The caller holds saveMu
+// save writes saved and deletes deleted in db, with the deletions an earlier
+// save failed to write. The caller holds saveMu
 func (s *SessionStorage) save(saved map[string]session, deleted []string) {
-	if s.db == nil || (len(saved) == 0 && len(deleted) == 0) {
+	if s.db == nil {
+		return
+	}
+	deleted = append(slices.Clone(deleted), s.unsaved...)
+	if len(saved) == 0 && len(deleted) == 0 {
 		return
 	}
 	err := s.db.Update(func(tx *bolt.Tx) error {
@@ -106,8 +116,21 @@ func (s *SessionStorage) save(saved map[string]session, deleted []string) {
 		return nil
 	})
 	if err != nil {
-		L.Error("save sessions", "saved", len(saved), "deleted", len(deleted), "err", err)
+		s.unsaved = deleted
+		L.Error("save sessions; the deletions are tried again with the next save",
+			"saved", len(saved), "deleted", len(deleted), "err", err)
+		return
 	}
+	s.unsaved = nil
+}
+
+// saveUnsaved tries again to save the deletions that failed. wakeci calls it
+// as it stops, so they don't wait for a save after the restart, which loads
+// the sessions again first
+func (s *SessionStorage) saveUnsaved() {
+	s.saveMu.Lock()
+	defer s.saveMu.Unlock()
+	s.save(nil, nil)
 }
 
 // load reads the sessions saved in db and deletes the expired ones

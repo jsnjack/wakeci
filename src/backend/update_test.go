@@ -243,6 +243,39 @@ func TestInstallRelease(t *testing.T) {
 	}
 }
 
+// Without the previous binary there is nothing to roll back to, so the
+// update must not replace the binary
+func TestInstallReleaseNeedsThePreviousBinary(t *testing.T) {
+	running := runningBinary(t)
+	current := readFile(t, running)
+	// The backup an earlier update kept is the only way back until a new one
+	// exists
+	if err := os.WriteFile(running+".previous", []byte("older"), 0755); err != nil {
+		t.Fatalf("write previous binary: %v", err)
+	}
+	downloaded := filepath.Join(filepath.Dir(running), ".wakeci-update-new")
+	if err := os.WriteFile(downloaded, []byte("new"), 0755); err != nil {
+		t.Fatalf("write download: %v", err)
+	}
+	oldLink := linkBinary
+	// As fs.protected_hardlinks does for a binary the service user doesn't own
+	linkBinary = func(string, string) error { return os.ErrPermission }
+	t.Cleanup(func() { linkBinary = oldLink })
+
+	if err := installRelease(downloaded, running); err == nil {
+		t.Fatal("installRelease succeeded without keeping the previous binary")
+	}
+	if got := readFile(t, running); got != current {
+		t.Errorf("binary = %q, want it unchanged", got)
+	}
+	if got := readFile(t, running+".previous"); got != "older" {
+		t.Errorf("previous binary = %q, want the earlier backup kept", got)
+	}
+	if _, err := os.Stat(downloaded); err != nil {
+		t.Errorf("download file: %v, want it left for the caller to remove", err)
+	}
+}
+
 func TestUpdateProblem(t *testing.T) {
 	if platform := runtime.GOOS + "/" + runtime.GOARCH; platform != releasePlatform {
 		t.Skipf("releases are built for %s, not %s", releasePlatform, platform)
@@ -418,5 +451,57 @@ func TestHandleUpdateGetReportsFailedCheck(t *testing.T) {
 	}
 	if checks != 2 {
 		t.Errorf("GitHub was asked %d times, want a failed check not cached", checks)
+	}
+}
+
+// TestInstallReleaseAfterAFailedAttempt is a regression test: when an earlier
+// attempt had already linked the running binary to <binary>.previous, the
+// rename of the new link over it did nothing (both name the same file) and
+// left <binary>.previous.new behind
+func TestInstallReleaseAfterAFailedAttempt(t *testing.T) {
+	running := runningBinary(t)
+	current := readFile(t, running)
+	if err := os.Link(running, running+".previous"); err != nil {
+		t.Fatalf("link previous binary: %v", err)
+	}
+	downloaded := filepath.Join(filepath.Dir(running), ".wakeci-update-new")
+	if err := os.WriteFile(downloaded, []byte("new"), 0755); err != nil {
+		t.Fatalf("write download: %v", err)
+	}
+
+	if err := installRelease(downloaded, running); err != nil {
+		t.Fatalf("installRelease: %v", err)
+	}
+	if got := readFile(t, running); got != "new" {
+		t.Errorf("binary = %q, want the new one", got)
+	}
+	if got := readFile(t, running+".previous"); got != current {
+		t.Errorf("previous binary = %q, want %q", got, current)
+	}
+	if _, err := os.Stat(running + ".previous.new"); !os.IsNotExist(err) {
+		t.Errorf("%s.previous.new: %v, want it gone", running, err)
+	}
+}
+
+// TestInstallReleaseReplacesASymlinkBackup is a regression test: a
+// <binary>.previous symlink to the binary looked like a backup that was
+// already current, so the update kept no backup, and the symlink then led
+// to the new binary
+func TestInstallReleaseReplacesASymlinkBackup(t *testing.T) {
+	running := runningBinary(t)
+	current := readFile(t, running)
+	if err := os.Symlink(running, running+".previous"); err != nil {
+		t.Fatalf("symlink previous binary: %v", err)
+	}
+	downloaded := filepath.Join(filepath.Dir(running), ".wakeci-update-new")
+	if err := os.WriteFile(downloaded, []byte("new"), 0755); err != nil {
+		t.Fatalf("write download: %v", err)
+	}
+
+	if err := installRelease(downloaded, running); err != nil {
+		t.Fatalf("installRelease: %v", err)
+	}
+	if got := readFile(t, running+".previous"); got != current {
+		t.Errorf("previous binary = %q, want %q", got, current)
 	}
 }

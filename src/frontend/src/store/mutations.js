@@ -45,6 +45,7 @@ const mutations = {
             abortAt: status.abortAt || null,
             restartVersion: status.restartVersion || "",
         };
+        state.queueStatusCount++;
     },
     SET_THEME(state, value) {
         state.theme = value;

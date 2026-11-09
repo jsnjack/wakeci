@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -20,6 +21,7 @@ import (
 // @Param        concurrentBuilds   formData      string   false  "Set max number of concurrent builds"
 // @Param        buildHistorySize   formData      string   false  "Set max number of preserved builds"
 // @Success      200      {string}   string
+// @Failure      400      {string}   string
 // @Failure      403      {string}   string
 // @Failure      500      {string}   string
 // @Router       /settings/ [post]
@@ -50,26 +52,17 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Number of concurrent builds
-	cb := r.FormValue("concurrentBuilds")
-	cbInt, err := strconv.Atoi(cb)
+	cbInt, err := parseCountSetting(r, "concurrentBuilds")
 	if err != nil {
 		// Not the value: it could be a secret typed into the wrong field
-		logger.Warn("invalid concurrentBuilds value")
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Header().Set("Content-Type", "text/plain")
-		writeBody(logger, w, []byte(err.Error()))
+		logger.Warn("invalid setting", "err", err)
+		writePlainText(w, logger, http.StatusBadRequest, err.Error())
 		return
 	}
-
-	// Build history size
-	bhs := r.FormValue("buildHistorySize")
-	bhsInt, err := strconv.Atoi(bhs)
+	bhsInt, err := parseCountSetting(r, "buildHistorySize")
 	if err != nil {
-		logger.Warn("invalid buildHistorySize value")
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Header().Set("Content-Type", "text/plain")
-		writeBody(logger, w, []byte(err.Error()))
+		logger.Warn("invalid setting", "err", err)
+		writePlainText(w, logger, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -89,6 +82,12 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 	// request saves settings between this one saving and applying them
 	settingsMu.Lock()
 	defer settingsMu.Unlock()
+	if passwordH != nil {
+		// Logins that checked the old password create their sessions before
+		// this, so DeletePasswordSessions ends them
+		passwordMu.Lock()
+		defer passwordMu.Unlock()
+	}
 	// One transaction, so either every setting is saved or none
 	err = DB.Update(func(tx *bolt.Tx) error {
 		gb := tx.Bucket(GlobalBucket)
@@ -122,6 +121,21 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 // settingsMu orders saving settings with applying them (see
 // HandleSettingsPost and Queue.SetConcurrency)
 var settingsMu sync.Mutex
+
+// minCountSetting is the smallest number of concurrent builds and of builds
+// kept: 0 concurrent builds starts no build, and a history of 0 deletes them
+// all
+const minCountSetting = 1
+
+// parseCountSetting reads the form value name, which must be a whole number
+// of at least minCountSetting. The error never contains the value
+func parseCountSetting(r *http.Request, name string) (int, error) {
+	value, err := strconv.Atoi(r.FormValue(name))
+	if err != nil || value < minCountSetting {
+		return 0, fmt.Errorf("%s must be a whole number of at least %d", name, minCountSetting)
+	}
+	return value, nil
+}
 
 // HandleSettingsGet retrieves settings
 // @Summary      Retrieve application settings
