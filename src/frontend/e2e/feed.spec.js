@@ -116,3 +116,23 @@ test("should keep the filter in the address bar", async ({ page }) => {
     await page.getByTestId("filter").fill("");
     await expect(page).not.toHaveURL(/filter=/);
 });
+
+test("should filter by a build's parameter when it is clicked", async ({ page, wake }) => {
+    // Short enough to be shown in full
+    const target = `prod-${randomUUID().slice(0, 8)}`;
+    const name = await wake.createJob(`desc: Params\nparams:\n  - TARGET: ${target}\ntasks:\n  - name: hello\n    run: echo hello\n`);
+    await wake.showFeed(name);
+    await wake.runJob(name);
+    const builds = page.getByTestId("feed-container").locator("[data-cy-build]");
+    await expect(builds).toHaveCount(1);
+
+    await builds.getByTestId("params-value").getByText(target).click();
+    await expect(page.getByTestId("filter")).toHaveValue(`+"TARGET:${target}"`);
+    await expect(builds).toHaveCount(1);
+    // Ctrl+click adds the parameter once
+    await builds
+        .getByTestId("params-value")
+        .getByText(target)
+        .click({ modifiers: ["Control"] });
+    await expect(page.getByTestId("filter")).toHaveValue(`+"TARGET:${target}"`);
+});
