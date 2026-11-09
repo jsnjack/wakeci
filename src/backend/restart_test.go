@@ -191,6 +191,89 @@ func TestQueuedRecordFollowsBuild(t *testing.T) {
 	}
 }
 
+// useSlowHub replaces WSHub with a hub that waits delay before it takes each
+// message, so a build's updates are slow to send
+func useSlowHub(t *testing.T, delay time.Duration) {
+	t.Helper()
+	hub := &Hub{broadcast: make(chan *MsgBroadcast)}
+	WSHub = hub
+	stop := make(chan struct{})
+	t.Cleanup(func() { close(stop) })
+	go func() {
+		for {
+			select {
+			case <-time.After(delay):
+			case <-stop:
+				return
+			}
+			select {
+			case <-hub.broadcast:
+			case <-stop:
+				return
+			}
+		}
+	}()
+}
+
+// TestBuildIsSavedBeforeLeavingTheQueue is a regression test: a build left
+// the queue before its final state was saved, so a stop that saw no build
+// running could close the database first. The build then stayed running in
+// the history, or, aborted while queued, was queued again after the restart
+func TestBuildIsSavedBeforeLeavingTheQueue(t *testing.T) {
+	job := func(command string) *Job {
+		return &Job{Name: "final", Tasks: []*Task{{ID: 0, Command: command, Kind: KindMain}}}
+	}
+	tests := []struct {
+		name    string
+		command string
+		// abort aborts the build once it runs, queued aborts it while queued
+		abort, queued bool
+		want          ItemStatus
+	}{
+		{name: "finished", command: "true", want: StatusFinished},
+		{name: "failed", command: "false", want: StatusFailed},
+		{name: "aborted while running", command: "touch started; sleep 30", abort: true, want: StatusAborted},
+		{name: "aborted while queued", command: "true", queued: true, want: StatusAborted},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var build *Build
+			if tt.queued {
+				build = queuedAbortBuild(t, job(tt.command))
+			} else {
+				build = abortTestBuild(t, job(tt.command))
+			}
+			build.pendingTasksWG.Wait()
+			// Leaving the queue before the final update is sent then shows
+			// as a gap of about this long
+			useSlowHub(t, 100*time.Millisecond)
+
+			switch {
+			case tt.queued:
+				if err := GlobalQueue.Abort(build.ID, StatusAborted); err != nil {
+					t.Fatalf("Abort: %v", err)
+				}
+			case tt.abort:
+				startBuild(build)
+				waitForFile(t, build, "started")
+				if err := GlobalQueue.Abort(build.ID, StatusAborted); err != nil {
+					t.Fatalf("Abort: %v", err)
+				}
+			default:
+				startBuild(build)
+			}
+
+			waitGone(t, build)
+			if status := historyStatus(t, build.ID); status != tt.want {
+				t.Errorf("history status = %q once the build left the queue, want %q", status, tt.want)
+			}
+			if ids := queuedRecordIDs(t); len(ids) != 0 {
+				t.Errorf("queued records = %v once the build left the queue, want none", ids)
+			}
+		})
+	}
+}
+
 func TestRestoreQueueDropsBrokenRecord(t *testing.T) {
 	newTestBuildEnv(t)
 	useQueue(t, &Queue{})

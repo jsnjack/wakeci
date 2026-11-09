@@ -863,8 +863,10 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		b.nextAbortScope()
 		b.runOnStatusTasks(FinalTask)
 		b.setDuration()
-		b.Cleanup()
+		// Saved before the build leaves the queue: a stop waits only for
+		// builds in the queue, then closes the database
 		b.BroadcastUpdate()
+		b.Cleanup()
 	case StatusFailed:
 		b.runOnStatusTasks(status)
 		b.CollectArtifacts()
@@ -872,8 +874,8 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		b.nextAbortScope()
 		b.runOnStatusTasks(FinalTask)
 		b.setDuration()
-		b.Cleanup()
 		b.BroadcastUpdate()
+		b.Cleanup()
 	case StatusFinished:
 		b.runOnStatusTasks(status)
 		b.CollectArtifacts()
@@ -881,12 +883,12 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		b.nextAbortScope()
 		b.runOnStatusTasks(FinalTask)
 		b.setDuration()
-		b.Cleanup()
 		err := RecordBuildDuration(b.Job.Name, int(b.Duration))
 		if err != nil {
 			b.Logger.Error("record build duration", "err", err)
 		}
 		b.BroadcastUpdate()
+		b.Cleanup()
 	}
 
 }
