@@ -273,7 +273,7 @@ func TestAuditActions(t *testing.T) {
 			name: "settings with a password in the wrong field", user: alice, method: "POST", target: "/api/settings",
 			form: url.Values{"concurrentBuilds": {"new-secret-password"}, "buildHistorySize": {"50"}},
 			want: map[string]string{
-				"event": "settings.change", "outcome": "failed", "status": "500",
+				"event": "settings.change", "outcome": "failed", "status": "400",
 				"concurrentBuilds": "invalid", "buildHistorySize": "50",
 			},
 		},

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -120,15 +121,22 @@ func TestSettingsAllOrNothing(t *testing.T) {
 		}
 		return value
 	}
-	for name, form := range map[string]url.Values{
-		"invalid concurrentBuilds": {"password": {"changed"}, "concurrentBuilds": {"x"}, "buildHistorySize": {"100"}},
-		"invalid buildHistorySize": {"password": {"changed"}, "concurrentBuilds": {"3"}, "buildHistorySize": {"x"}},
-	} {
+	// 0 concurrent builds would start no build, and a history of 0 builds
+	// would delete them all
+	invalid := map[string]url.Values{}
+	for _, field := range []string{"concurrentBuilds", "buildHistorySize"} {
+		for _, value := range []string{"x", "", "0", "-1"} {
+			form := url.Values{"password": {"changed"}, "concurrentBuilds": {"3"}, "buildHistorySize": {"100"}}
+			form.Set(field, value)
+			invalid[fmt.Sprintf("%s %q", field, value)] = form
+		}
+	}
+	for name, form := range invalid {
 		t.Run(name, func(t *testing.T) {
 			newSettingsTestEnv(t)
 			rec := settingsRequest(t, HandleSettingsPost, "POST", "", form)
-			if rec.Code != http.StatusInternalServerError {
-				t.Errorf("status = %d, want 500", rec.Code)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf("status = %d, want 400", rec.Code)
 			}
 			if !passwordIs(t, "admin") {
 				t.Error("the password changed")
