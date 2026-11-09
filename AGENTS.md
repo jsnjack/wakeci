@@ -195,9 +195,11 @@ AGENTS.universal.md for the general contract.
   `//go:embed all:assets` so deployment is one file; `make build` always
   rebuilds the frontend first. `all:` because Go otherwise skips files whose
   names start with `_` or `.` inside a folder, and Vite can name shared
-  chunks so (`TestEmbeddedAssetsMatchTheBuild`). Each page's code loads when
-  it is first opened (`router.js`), and the build fails when a JS chunk is
-  over Vite's 500 kB `chunkSizeWarningLimit` (`vite.config.js`).
+  chunks so (`TestEmbeddedAssetsMatchTheBuild`); `HandleVueResources`
+  refuses hidden paths. Each page's code loads when it is first opened
+  (`router.js`), except the login page, which every full load passes through,
+  and the build fails when a JS chunk is over Vite's 500 kB
+  `chunkSizeWarningLimit` (`vite.config.js`).
 - **BoltDB, not a client-server database.** Keeps the server dependency-free;
   `CompactDB`/`--compactdb` exists because Bolt doesn't reclaim space
   automatically.
@@ -418,9 +420,11 @@ AGENTS.universal.md for the general contract.
   `on_pending` tasks start before it is queued, and `addNewBuild` holds
   `runMu` until then, so `stopTasks` at exit reaches them.
 - A page chunk that fails to load (an old chunk name after a self-update)
-  makes `router.js` load the URL in full, once per URL. A full load passes
-  through `/login` first, so only a successful load of that URL clears the
-  sessionStorage key; clearing it sooner makes the page reload in a loop.
+  makes `router.js` load the URL in full, once per URL, and only if `/`
+  answers (not while wakeci restarts); otherwise it says the page couldn't
+  be loaded. A full load passes through `/login` first, so only a successful
+  load of that URL clears the sessionStorage mark (or 30 s); clearing it
+  sooner makes the page reload in a loop.
 - systemd's default `KillMode=control-group` sends SIGTERM to the tasks
   directly and defeats the drain; the unit needs `KillMode=mixed` and a
   `TimeoutStopSec` above `draintimeout` (see `config/wakeci.service`).
