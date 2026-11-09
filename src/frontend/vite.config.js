@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 
-import path from 'path';
+import path from "path";
 
 // chunkSizeLimit fails the build when a JS chunk is over Vite's
 // build.chunkSizeWarningLimit (in kB of 1000 characters of minified code, as

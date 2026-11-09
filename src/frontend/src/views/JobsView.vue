@@ -1,5 +1,8 @@
 <template>
-    <dialog :class="{ active: modalOpen }" class="padding">
+    <dialog
+        :class="{ active: modalOpen }"
+        class="padding"
+    >
         <h5>Create a new job</h5>
         <div class="field border small">
             <input
@@ -181,4 +184,4 @@ export default {
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped ></style>
+<style scoped></style>

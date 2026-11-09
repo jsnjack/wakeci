@@ -143,7 +143,7 @@ export default {
                     function () {
                         this.updateText();
                     }.bind(this),
-                    this.updatePeriod
+                    this.updatePeriod,
                 );
             }
             this.updateText();
@@ -152,7 +152,7 @@ export default {
 };
 </script>
 
-<style scoped >
+<style scoped>
 div {
     cursor: default;
 }

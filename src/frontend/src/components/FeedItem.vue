@@ -169,7 +169,7 @@ export default {
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped >
+<style scoped>
 .feed-item {
     background-color: var(--surface-container);
     padding: 0.5rem 0.5rem !important;

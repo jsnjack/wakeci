@@ -34,7 +34,7 @@ const mutations = {
     },
     SET_CURRENT_PAGE(state, value) {
         // value can be a string or object with keys 'title' and 'icon'
-        if (typeof value === 'object' && value !== null) {
+        if (typeof value === "object" && value !== null) {
             state.currentPage = value.title;
             document.title = value.icon + " " + value.title + " - wakeci";
         } else {

@@ -85,7 +85,7 @@ export default {
                     window.setTimeout(() => {
                         this.copyIcon = "content_copy";
                     }, 1500);
-                }
+                },
             );
         },
         setFilter(event) {

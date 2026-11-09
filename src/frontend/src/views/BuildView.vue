@@ -1,6 +1,9 @@
 <template>
     <NotFound v-if="empty" />
-    <article v-if="!empty" class="border">
+    <article
+        v-if="!empty"
+        class="border"
+    >
         <div :class="{ row: isDesktop }">
             <div class="max medium-padding">
                 <div>
@@ -70,7 +73,10 @@
         </div>
     </article>
 
-    <article v-if="statusUpdate.params && statusUpdate.params.length > 0" class="border">
+    <article
+        v-if="statusUpdate.params && statusUpdate.params.length > 0"
+        class="border"
+    >
         <ParamItem
             v-for="(item, index) in statusUpdate.params"
             :key="index + 'param'"
@@ -110,9 +116,7 @@
             Jump to top
         </button>
 
-        <label
-            class="switch icon"
-        >
+        <label class="switch icon">
             <div class="tooltip left">Toggle following logs (Ctrl + Alt + F)</div>
             <input
                 v-model="follow"
@@ -361,4 +365,4 @@ export default {
 };
 </script>
 
-<style scoped ></style>
+<style scoped></style>

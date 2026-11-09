@@ -1,7 +1,5 @@
 <template>
-    <dialog
-        :class="{ active: isHelpDialogOpen }"
-    >
+    <dialog :class="{ active: isHelpDialogOpen }">
         <h5>Search examples</h5>
         <div class="space"></div>
         <ul>
@@ -31,7 +29,10 @@
                 @input="(evt) => (filter = evt.target.value)"
             />
             <label>Filter builds by id, name, params and status</label>
-            <progress v-show="isFetching" class="circle"></progress>
+            <progress
+                v-show="isFetching"
+                class="circle"
+            ></progress>
         </div>
         <button
             class="large no-round"
@@ -286,5 +287,4 @@ export default {
 };
 </script>
 
-<style scoped >
-</style>
+<style scoped></style>

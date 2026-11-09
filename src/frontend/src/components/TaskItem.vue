@@ -39,10 +39,7 @@
                 ref="logContainer"
                 class="log-container no-padding border"
             >
-                <pre
-                    class="log-line small-padding"
-                    >{{ content }}</pre
-                >
+                <pre class="log-line small-padding">{{ content }}</pre>
                 <TextSpinner v-show="task.status === 'running' && !hideAllLogs" />
             </article>
         </div>
@@ -203,7 +200,7 @@ export default {
 };
 </script>
 
-<style  scoped>
+<style scoped>
 .log-container {
     overflow: auto;
     scrollbar-width: none;

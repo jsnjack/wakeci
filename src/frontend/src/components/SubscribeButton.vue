@@ -7,7 +7,10 @@
     >
         <i v-if="!isSubscribed">notifications_none</i>
         <i v-else>notifications_active</i>
-        <div v-if="!disabled" class="tooltip bottom">
+        <div
+            v-if="!disabled"
+            class="tooltip bottom"
+        >
             {{ isSubscribed ? "Unsubscribe from notifications" : "Subscribe to notifications" }}
         </div>
     </button>

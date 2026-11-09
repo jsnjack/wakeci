@@ -45,7 +45,10 @@
             <div class="tooltip bottom">Delete</div>
         </button>
 
-        <dialog :class="{ active: modalDelete }" class="padding">
+        <dialog
+            :class="{ active: modalDelete }"
+            class="padding"
+        >
             <div>
                 Are you sure you want to delete <b>{{ job.name }}</b
                 >?
@@ -126,4 +129,4 @@ export default {
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped ></style>
+<style scoped></style>
