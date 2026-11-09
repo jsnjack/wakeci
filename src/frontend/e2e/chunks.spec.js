@@ -27,9 +27,9 @@ test("should load the job editor's code only when the editor opens", async ({ pa
     expect((await scriptBytes(page)) - feed).toBeGreaterThan(300 * 1000);
 });
 
-// failJobsChunk makes the Jobs page's chunk answer 404, as a chunk only the
-// build before a self-update had does, the first `times` times, and returns
-// how often it was asked for
+// failJobsChunk makes the Jobs page's chunk answer 404 the first `times`
+// times, as a chunk that only the build before an update had, and returns how
+// often it was asked for
 async function failJobsChunk(page, times) {
     const asked = { count: 0 };
     await page.route(/\/assets\/JobsView-[\w-]+\.js$/, (route) => {
@@ -39,69 +39,92 @@ async function failJobsChunk(page, times) {
     return asked;
 }
 
-test("should load a page in full when its code fails to load", async ({ page }) => {
+// updateServer makes /api/queue/ report another wakeci version from now on, as
+// after a self-update; delay holds each answer that long
+async function updateServer(page, delay = 0) {
+    await page.route("**/api/queue/", async (route) => {
+        const response = await route.fetch();
+        const status = await response.json();
+        if (delay > 0) {
+            await new Promise((done) => setTimeout(done, delay));
+        }
+        await route.fulfill({ response, json: { ...status, version: "99.0.0" } });
+    });
+}
+
+// openFeed opens the feed once the page knows the version it was loaded
+// from, and counts the page's full loads from then on
+async function openFeed(page) {
+    const versionKnown = page.waitForResponse((response) => response.url().endsWith("/api/queue/"));
     await page.goto("/");
+    await versionKnown;
     await expect(page.getByTestId("filter")).toBeVisible();
-    const asked = await failJobsChunk(page, 1);
-    let loads = 0;
-    page.on("load", () => loads++);
+    const counter = { loads: 0 };
+    page.on("load", () => counter.loads++);
+    return counter;
+}
+
+test("should load a page in full when its code fails to load after an update", async ({ page }) => {
+    const counter = await openFeed(page);
+    await failJobsChunk(page, 1);
+    await updateServer(page);
 
     await page.locator('nav a[href="/jobs"]').click();
-    await expect(page).toHaveURL(/\/jobs$/);
     await expect(page.getByTestId("jobs-container")).toBeVisible();
-    expect(asked.count).toBeGreaterThan(1);
+    await expect(page).toHaveURL(/\/jobs$/);
     // The load event may reach the test after the page shows
-    await expect.poll(() => loads).toBe(1);
+    await expect.poll(() => counter.loads).toBe(1);
 });
 
-test("should load a page in full only once when its code keeps failing", async ({ page }) => {
+test("should not load a page in full when wakeci runs the same version", async ({ page }) => {
     const errors = [];
     page.on("console", (message) => message.type() === "error" && errors.push(message.text()));
-    await page.goto("/");
-    await expect(page.getByTestId("filter")).toBeVisible();
-    const asked = await failJobsChunk(page, Infinity);
-    let loads = 0;
-    page.on("load", () => loads++);
+    const counter = await openFeed(page);
+    await failJobsChunk(page, Infinity);
 
     await page.locator('nav a[href="/jobs"]').click();
-    await expect.poll(() => loads).toBe(1);
-    await expect.poll(() => asked.count).toBeGreaterThan(1);
     await expect(page.locator(".notification-content")).toContainText("couldn't be loaded");
-    // Gives a second reload, if any, time to start
-    await page.waitForTimeout(2000);
-    expect(loads).toBe(1);
+    expect(counter.loads).toBe(0);
     // Registering router.onError stops vue-router from logging it
     expect(errors.some((text) => text.includes("Navigation to /jobs failed"))).toBe(true);
 });
 
+test("should load a page in full only once after an update when its code keeps failing", async ({ page }) => {
+    const counter = await openFeed(page);
+    await failJobsChunk(page, Infinity);
+    await updateServer(page);
+
+    await page.locator('nav a[href="/jobs"]').click();
+    await expect.poll(() => counter.loads).toBe(1);
+    // Shown once the loaded page decided not to load again
+    await expect(page.locator(".notification-content")).toContainText("couldn't be loaded");
+    expect(counter.loads).toBe(1);
+});
+
 test("should not load a page in full while wakeci doesn't answer", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByTestId("filter")).toBeVisible();
+    const counter = await openFeed(page);
     await failJobsChunk(page, Infinity);
     // As while wakeci restarts
-    await page.route(
-        (url) => url.pathname === "/",
-        (route) => route.abort("connectionrefused"),
-    );
-    let loads = 0;
-    page.on("load", () => loads++);
+    await page.route("**/api/queue/", (route) => route.abort("connectionrefused"));
 
     await page.locator('nav a[href="/jobs"]').click();
     await expect(page.locator(".notification-content")).toContainText("couldn't be loaded");
-    expect(loads).toBe(0);
+    expect(counter.loads).toBe(0);
     await expect(page.getByTestId("filter")).toBeVisible();
 });
 
-test("should load a page in full again once an earlier reload mark is old", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByTestId("filter")).toBeVisible();
-    // Left by a reload for /jobs a minute ago that ended on another page
-    await page.evaluate(() => sessionStorage.setItem("wakeci-chunk-reload", JSON.stringify({ path: "/jobs", at: Date.now() - 60 * 1000 })));
-    await failJobsChunk(page, 1);
-    let loads = 0;
-    page.on("load", () => loads++);
+test("should not load a page in full when another page was opened meanwhile", async ({ page }) => {
+    const counter = await openFeed(page);
+    await failJobsChunk(page, Infinity);
+    await updateServer(page, 1500);
+    const answered = page.waitForResponse((response) => response.url().endsWith("/api/queue/"));
 
     await page.locator('nav a[href="/jobs"]').click();
-    await expect(page.getByTestId("jobs-container")).toBeVisible();
-    await expect.poll(() => loads).toBe(1);
+    await page.locator('nav a[href="/settings"]').click();
+    await expect(page.getByTestId("version")).toBeVisible();
+    await answered;
+    // Lets the page act on the answer
+    await page.evaluate(() => new Promise((done) => setTimeout(done, 100)));
+    await expect(page).toHaveURL(/\/settings$/);
+    expect(counter.loads).toBe(0);
 });

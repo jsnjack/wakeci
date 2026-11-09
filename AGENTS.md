@@ -421,12 +421,12 @@ AGENTS.universal.md for the general contract.
 - Create builds through `Queue.addNewBuild`, as `RunJob` does: a build's
   `on_pending` tasks start before it is queued, and `addNewBuild` holds
   `runMu` until then, so `stopTasks` at exit reaches them.
-- A page chunk that fails to load (an old chunk name after a self-update)
-  makes `router.js` load the URL in full, once per URL, and only if `/`
-  answers (not while wakeci restarts); otherwise it says the page couldn't
-  be loaded. A full load passes through `/login` first, so only a successful
-  load of that URL clears the sessionStorage mark (or 30 s); clearing it
-  sooner makes the page reload in a loop.
+- A failed navigation, say a page chunk with an old name after a
+  self-update, makes `router.js` ask `/api/queue/` for the version: if it
+  differs from the one the page was loaded from (`state.serverVersion`, set
+  by `App.vue`), the page loads the URL in full; otherwise it says the page
+  couldn't be loaded. So two builds with one version don't reload, and a
+  page can't reload in a loop.
 - systemd's default `KillMode=control-group` sends SIGTERM to the tasks
   directly and defeats the drain; the unit needs `KillMode=mixed` and a
   `TimeoutStopSec` above `draintimeout` (see `config/wakeci.service`).

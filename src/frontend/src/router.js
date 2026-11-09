@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from "vue-router";
 import { notify } from "@kyvg/vue3-notification";
 
 import { requireAuth } from "./auth";
+import { store } from "./store/index";
 // Every full page load passes through /login while the session is checked,
 // so the login page is in the main chunk instead of one more request
 import LoginView from "./views/LoginView.vue";
@@ -76,101 +77,49 @@ const router = createRouter({
     ],
 });
 
-// A page's chunk that fails to load is most likely one that only the build
-// before a self-update had. If wakeci answers, the page loads the URL in full,
-// once, to get the new build; a chunk that fails again shows an error instead
-// of reloading forever
-const chunkReloadKey = "wakeci-chunk-reload";
-// How long a reload counts as the one for its URL, so a mark left by a reload
-// that ended elsewhere (say on the login page) doesn't stop a later one
-const chunkReloadWindow = 30 * 1000;
-const chunkLoadError =
-    /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Unable to preload CSS/i;
-// Browsers word a failed import differently, so Vite's own report of one
-// (vite:preloadError) during the current navigation counts too
-let chunkFailed = false;
-window.addEventListener("vite:preloadError", () => {
-    chunkFailed = true;
-});
+// A page's chunk fails to load when the page came from the build before a
+// self-update, which had other chunk names. When wakeci now runs another
+// version than the page was loaded from, the page loads the URL in full to get
+// the new build; once loaded from it, it can't loop. Otherwise it says the
+// page couldn't be loaded
+let navigations = 0;
 router.beforeEach(() => {
-    chunkFailed = false;
+    navigations++;
 });
-
-// withStorage runs use with sessionStorage and returns its result, or
-// undefined when the browser blocks sessionStorage
-function withStorage(use) {
-    try {
-        return use(sessionStorage);
-    } catch (error) {
-        console.debug("sessionStorage is unavailable:", error);
-        return undefined;
-    }
-}
-
-// reloadedFor reports whether the page was just loaded in full for path
-function reloadedFor(storage, path) {
-    let mark;
-    try {
-        mark = JSON.parse(storage.getItem(chunkReloadKey));
-    } catch (error) {
-        console.debug("Ignoring an unreadable reload mark:", error);
-        return false;
-    }
-    return mark?.path === path && Date.now() - mark.at < chunkReloadWindow;
-}
 
 function cantLoad() {
     notify({ type: "error", text: "This page couldn't be loaded. Reload the page to try again." });
 }
 
+async function runningVersion() {
+    const response = await fetch("/api/queue/", { cache: "no-store" });
+    if (!response.ok) {
+        throw new Error(`wakeci answered ${response.status}`);
+    }
+    return (await response.json()).version;
+}
+
 router.onError((error, to) => {
     // Registering onError stops vue-router from logging it
     console.error(`Navigation to ${to.fullPath} failed:`, error);
-    if (!chunkFailed && !chunkLoadError.test(String(error?.message))) {
-        return;
-    }
-    const reloaded = withStorage((storage) => reloadedFor(storage, to.fullPath));
-    if (reloaded !== false) {
-        // Already loaded in full for it, or, without storage, the reload
-        // can't be limited to once
-        withStorage((storage) => storage.removeItem(chunkReloadKey));
-        cantLoad();
-        return;
-    }
-    // While wakeci restarts, a reload would replace the app with the
-    // browser's error page
-    fetch("/", { cache: "no-store" })
-        .then((response) => {
-            if (!response.ok) {
-                throw new Error(`wakeci answered ${response.status}`);
-            }
-            const marked = withStorage((storage) => {
-                storage.setItem(chunkReloadKey, JSON.stringify({ path: to.fullPath, at: Date.now() }));
-                return true;
-            });
-            if (!marked) {
+    const navigation = navigations;
+    runningVersion()
+        .then((version) => {
+            const loaded = store.state.serverVersion;
+            if (!version || !loaded || version === loaded) {
                 cantLoad();
                 return;
             }
-            window.location.assign(to.fullPath);
+            // Not when another page was opened meanwhile: App.vue reloads that
+            // one once its connection sees the new version
+            if (navigation === navigations) {
+                window.location.assign(to.fullPath);
+            }
         })
-        .catch((error) => {
-            console.warn(`Not loading ${to.fullPath} in full, wakeci doesn't answer:`, error);
+        .catch((reason) => {
+            console.warn("Can't tell which version wakeci runs:", reason);
             cantLoad();
         });
-});
-
-// Only a successful load of that URL ends it: a full load passes through
-// /login first, while the session is checked
-router.afterEach((to, from, failure) => {
-    if (failure) {
-        return;
-    }
-    withStorage((storage) => {
-        if (reloadedFor(storage, to.fullPath)) {
-            storage.removeItem(chunkReloadKey);
-        }
-    });
 });
 
 export default router;

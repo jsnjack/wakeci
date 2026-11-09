@@ -92,8 +92,6 @@ export default {
     components: { QueueBanner },
     data: function () {
         return {
-            // The server version this page was loaded from
-            serverVersion: "",
             // How many times the page asked for the queue status
             queueRequests: 0,
         };
@@ -165,11 +163,14 @@ export default {
                         return;
                     }
                     const version = response.data.version;
-                    if (version && this.serverVersion && version !== this.serverVersion) {
+                    const loaded = this.$store.state.serverVersion;
+                    if (version && loaded && version !== loaded) {
                         window.location.reload();
                         return;
                     }
-                    this.serverVersion = version || this.serverVersion;
+                    if (version) {
+                        this.$store.commit("SET_SERVER_VERSION", version);
+                    }
                     if (this.$store.state.queueStatusCount === count) {
                         this.$store.commit("SET_QUEUE_STATUS", response.data);
                     }

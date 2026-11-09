@@ -1,4 +1,7 @@
 const mutations = {
+    SET_SERVER_VERSION(state, version) {
+        state.serverVersion = version;
+    },
     WS_CONNECTED(state, connection) {
         state.ws.obj = connection;
         state.ws.connected = true;
