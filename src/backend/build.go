@@ -577,10 +577,17 @@ func (b *Build) waitForCondition(condCmd *exec.Cmd, taskID int, timeout time.Dur
 			flush()
 		}
 	}
-	if err := syscall.Kill(-condCmd.Process.Pid, syscall.SIGKILL); err != nil {
-		b.Logger.Log(context.Background(), LevelTrace, "kill condition process", "task", taskID, "err", err)
+	select {
+	case err = <-waitDone:
+		// It ended just as the timer fired or the abort arrived. Wait reaped
+		// it, so its group ID may already belong to another task's group
+	default:
+		// Not reaped yet, so its group ID is still its own
+		if err := syscall.Kill(-condCmd.Process.Pid, syscall.SIGKILL); err != nil {
+			b.Logger.Log(context.Background(), LevelTrace, "kill condition process", "task", taskID, "err", err)
+		}
+		err = <-waitDone
 	}
-	err = <-waitDone
 	// The condition exited on its own just as the timer fired
 	if timedOut && err == nil {
 		return false, false, nil
