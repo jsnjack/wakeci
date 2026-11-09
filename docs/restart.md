@@ -16,15 +16,17 @@ cancels a restart an update planned, since `systemctl stop` or a reboot waits
 for the process to end. Then the server shuts down, cron stops, `on_pending`
 tasks of queued builds get `stopPendingTasksTimeout` (a further signal ends
 this wait too), `stopTasks` aborts every task still running and starts no more
-(`stopTasksTimeout`), failed session deletions are retried, and the DB closes.
-Only then does `run` stop handling signals, so a further one can't cut these
-steps short; one after that ends the process. After an update `main` re-execs
-the new binary with `syscall.Exec` (same PID) unless a signal cancelled it. If
-tasks still ran that `stopTasks` couldn't stop, `exitPlan` makes it exit with
-status 1 instead, so a service manager ends them and starts the new binary.
-Sessions are saved, so open pages reconnect; `App.vue` fetches `/api/queue/`
-on every connection and reloads when its `version` changed; it ignores the
-answer if a `queue:status` message arrived while the request ran.
+task or build (`stopTasksTimeout`; a build `RunJob` is still adding is queued
+first or refused, see `addNewBuild`), failed session deletions are retried,
+and the DB closes. Only then does `run` stop handling signals, so a further
+one can't cut these steps short; one after that ends the process. After an
+update `main` re-execs the new binary with `syscall.Exec` (same PID) unless a
+signal cancelled it. If tasks still ran that `stopTasks` couldn't stop,
+`exitPlan` makes it exit with status 1 instead, so a service manager ends them
+and starts the new binary. Sessions are saved, so open pages reconnect;
+`App.vue` fetches `/api/queue/` on every connection and reloads when its
+`version` changed; it ignores the answer if a `queue:status` message arrived
+while the request ran.
 
 **Update**: `HandleUpdatePost` asks GitHub for the latest release, refuses
 unless it is the requested, newer version and `updateProblem` is empty,

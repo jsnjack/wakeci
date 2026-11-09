@@ -407,6 +407,9 @@ AGENTS.universal.md for the general contract.
 - A build is saved before it leaves the queue (`BroadcastUpdate` before
   `Cleanup` in `SetBuildStatus`): a stop closes the DB once the queue is
   empty, so the reverse order loses the build's final state.
+- Create builds through `Queue.addNewBuild`, as `RunJob` does: a build's
+  `on_pending` tasks start before it is queued, and `addNewBuild` holds
+  `runMu` until then, so `stopTasks` at exit reaches them.
 - systemd's default `KillMode=control-group` sends SIGTERM to the tasks
   directly and defeats the drain; the unit needs `KillMode=mixed` and a
   `TimeoutStopSec` above `draintimeout` (see `config/wakeci.service`).
