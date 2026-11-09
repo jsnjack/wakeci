@@ -213,6 +213,12 @@ func TestAuditActions(t *testing.T) {
 			want: map[string]string{"event": "job.set_active", "outcome": "ok", "job": "nightly", "active": "false"},
 		},
 		{
+			// The run checks the raw log for this password too
+			name: "disable with a password in the wrong field", user: alice, method: "POST", target: "/api/job/nightly/set_active",
+			form: url.Values{"active": {"new-secret-password"}},
+			want: map[string]string{"event": "job.set_active", "outcome": "failed", "status": "500", "active": "invalid"},
+		},
+		{
 			name: "create", user: alice, method: "POST", target: "/api/jobs/create",
 			form: url.Values{"name": {"audit_new"}},
 			want: map[string]string{"event": "job.create", "outcome": "ok", "job": "audit_new"},

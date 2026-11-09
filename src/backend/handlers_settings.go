@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"sync"
 
 	bolt "go.etcd.io/bbolt"
 	"golang.org/x/crypto/bcrypt"
@@ -84,6 +85,10 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// The queue must run with the concurrency the database has, so no other
+	// request saves settings between this one saving and applying them
+	settingsMu.Lock()
+	defer settingsMu.Unlock()
 	// One transaction, so either every setting is saved or none
 	err = DB.Update(func(tx *bolt.Tx) error {
 		gb := tx.Bucket(GlobalBucket)
@@ -104,6 +109,7 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 		writeBody(logger, w, []byte(err.Error()))
 		return
 	}
+	GlobalQueue.applyConcurrency(cbInt)
 	if passwordH != nil {
 		// Sessions survive restarts, so whoever knew the old password would
 		// stay logged in
@@ -111,8 +117,11 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 		logger.Warn("password changed", "endedSessions", ended)
 		addAuditAttrs(r, "endedSessions", ended)
 	}
-	GlobalQueue.applyConcurrency(cbInt)
 }
+
+// settingsMu orders saving settings with applying them (see
+// HandleSettingsPost and Queue.SetConcurrency)
+var settingsMu sync.Mutex
 
 // HandleSettingsGet retrieves settings
 // @Summary      Retrieve application settings

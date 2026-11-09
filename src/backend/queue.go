@@ -235,6 +235,8 @@ func (q *Queue) FlushLogs(id int) error {
 
 // SetConcurrency saves and sets number of concurrent builds
 func (q *Queue) SetConcurrency(number int) {
+	settingsMu.Lock()
+	defer settingsMu.Unlock()
 	err := DB.Update(func(tx *bolt.Tx) error {
 		return saveConcurrency(tx, number)
 	})

@@ -275,14 +275,16 @@ func HandleJobSetActive(w http.ResponseWriter, r *http.Request) {
 	}
 
 	activeStatus := r.FormValue("active")
-	addAuditAttrs(r, "active", activeStatus)
 
 	switch activeStatus {
 	case "false", "true":
-		break
+		addAuditAttrs(r, "active", activeStatus)
 	default:
+		// Not the value in the logs: it could be a secret typed into the
+		// wrong field
+		addAuditAttrs(r, "active", "invalid")
 		m := fmt.Sprintf("Invalid active flag for a job: %s\n", activeStatus)
-		logger.Warn("invalid active flag for a job", "job", name, "active", activeStatus)
+		logger.Warn("invalid active flag for a job", "job", name)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Header().Set("Content-Type", "text/plain")
 		writeBody(logger, w, []byte(m))
