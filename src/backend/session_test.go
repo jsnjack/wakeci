@@ -344,3 +344,87 @@ func TestDeletePasswordSessions(t *testing.T) {
 		})
 	}
 }
+
+// TestFailedSessionDeletionIsRetried is a regression test: a session whose
+// deletion (logout, revoke, password change, expiry) failed to save ended
+// in memory but came back after a restart
+func TestFailedSessionDeletionIsRetried(t *testing.T) {
+	Config = &WakeConfig{}
+	req := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
+	tests := []struct {
+		name  string
+		retry func(t *testing.T, storage *SessionStorage)
+	}{
+		{"with the next login", func(t *testing.T, storage *SessionStorage) {
+			if _, err := storage.New(req, time.Hour, ""); err != nil {
+				t.Fatalf("New: %v", err)
+			}
+		}},
+		{"with the hourly cleanup", func(_ *testing.T, storage *SessionStorage) {
+			storage.deleteExpired()
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "sessions.db")
+			open := func(readOnly bool) *bolt.DB {
+				t.Helper()
+				db, err := bolt.Open(path, 0600, &bolt.Options{ReadOnly: readOnly, Timeout: time.Second})
+				if err != nil {
+					t.Fatalf("open db: %v", err)
+				}
+				return db
+			}
+			closeDB := func(db *bolt.DB) {
+				t.Helper()
+				if err := db.Close(); err != nil {
+					t.Fatalf("close db: %v", err)
+				}
+			}
+			db := open(false)
+			if err := db.Update(func(tx *bolt.Tx) error {
+				_, err := tx.CreateBucketIfNotExists(SessionsBucket)
+				return err
+			}); err != nil {
+				t.Fatalf("create bucket: %v", err)
+			}
+			storage, err := CreateSessionStorage(time.Hour, db)
+			if err != nil {
+				t.Fatalf("CreateSessionStorage: %v", err)
+			}
+			ended, err := storage.New(req, time.Hour, "")
+			if err != nil {
+				t.Fatalf("New: %v", err)
+			}
+			kept, err := storage.New(req, time.Hour, "")
+			if err != nil {
+				t.Fatalf("New: %v", err)
+			}
+
+			// A database that refuses writes, as a full disk would
+			closeDB(db)
+			storage.db = open(true)
+			if err := storage.Delete(ended.Value); err != nil {
+				t.Fatalf("Delete: %v", err)
+			}
+			if storage.Verify(ended.Value) == nil {
+				t.Error("the session must end at once, saved or not")
+			}
+			closeDB(storage.db)
+			storage.db = open(false)
+			defer closeDB(storage.db)
+			tt.retry(t, storage)
+
+			restarted, err := CreateSessionStorage(time.Hour, storage.db)
+			if err != nil {
+				t.Fatalf("CreateSessionStorage after restart: %v", err)
+			}
+			if restarted.Verify(ended.Value) == nil {
+				t.Error("the ended session came back after the restart")
+			}
+			if err := restarted.Verify(kept.Value); err != nil {
+				t.Errorf("the other session: %v, want it kept", err)
+			}
+		})
+	}
+}
