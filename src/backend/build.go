@@ -192,14 +192,12 @@ func (b *Build) Start() {
 		if b.stopIfAborted() {
 			return
 		}
-		task.Status = StatusRunning
-		task.startedAt = time.Now()
+		b.taskStarted(task)
 		b.BroadcastUpdate()
 
 		status := b.runTask(task)
 
-		task.Status = status
-		task.duration = time.Since(task.startedAt)
+		b.taskEnded(task, status)
 		switch status {
 		case StatusFailed, StatusAborted, StatusTimedOut:
 			b.mutex.Lock()
@@ -246,17 +244,34 @@ func (b *Build) runOnStatusTasks(status ItemStatus) {
 				b.Logger.Info("skipping tasks after abort", "kind", status, "reason", reason)
 				return
 			}
-			task.Status = StatusRunning
-			task.startedAt = time.Now()
+			b.taskStarted(task)
 			b.BroadcastUpdate()
 
 			status := b.runTask(task)
 
-			task.Status = status
-			task.duration = time.Since(task.startedAt)
+			b.taskEnded(task, status)
 			b.BroadcastUpdate()
 		}
 	}
+}
+
+// taskStarted marks task as running. Under b.mutex, since an update from
+// another goroutine (RunJob, RestoreQueue) reads it during the on_pending
+// tasks
+func (b *Build) taskStarted(task *Task) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+	task.Status = StatusRunning
+	task.startedAt = time.Now()
+}
+
+// taskEnded records how task ended and how long it ran, under b.mutex like
+// taskStarted
+func (b *Build) taskEnded(task *Task, status ItemStatus) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+	task.Status = status
+	task.duration = time.Since(task.startedAt)
 }
 
 // runTask is responsible for running one task and return it's status

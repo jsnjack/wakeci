@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -570,4 +571,54 @@ func TestWaitForConditionEndsAsTimeoutFires(t *testing.T) {
 			t.Fatal("timedOut with a nil error: the condition finished, it didn't time out")
 		}
 	}
+}
+
+// TestBroadcastUpdateDuringPendingTasks is a regression test, for go test
+// -race: RunJob and RestoreQueue send an update while the on_pending tasks
+// run, and the tasks' status was set without the lock the update reads it
+// with
+func TestBroadcastUpdateDuringPendingTasks(t *testing.T) {
+	newTestBuildEnv(t)
+	job := &Job{Name: "pending-update"}
+	for id := range 20 {
+		job.Tasks = append(job.Tasks, &Task{ID: id, Command: "true", Kind: string(StatusPending)})
+	}
+	build, err := CreateBuild(job, filepath.Join(Config.JobDir, "pending-update.yaml"), false)
+	if err != nil {
+		t.Fatalf("CreateBuild: %v", err)
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		build.pendingTasksWG.Wait()
+	}()
+	for {
+		build.BroadcastUpdate()
+		select {
+		case <-done:
+			if status := historyTaskStatus(t, build.ID, 19); status != StatusFinished {
+				t.Errorf("last on_pending task = %q, want %q", status, StatusFinished)
+			}
+			return
+		default:
+		}
+	}
+}
+
+// historyTaskStatus returns the status the history has for a task of a build
+func historyTaskStatus(t *testing.T, buildID, taskID int) ItemStatus {
+	t.Helper()
+	var msg BuildUpdateData
+	if err := DB.View(func(tx *bolt.Tx) error {
+		return json.Unmarshal(tx.Bucket(HistoryBucket).Get(Itob(buildID)), &msg)
+	}); err != nil {
+		t.Fatalf("read history of build %d: %v", buildID, err)
+	}
+	for _, task := range msg.Tasks {
+		if task.ID == taskID {
+			return task.Status
+		}
+	}
+	t.Fatalf("build %d has no task %d in the history", buildID, taskID)
+	return ""
 }
