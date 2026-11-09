@@ -1,6 +1,9 @@
 import { createRouter, createWebHistory } from "vue-router";
 
 import { requireAuth } from "./auth";
+// Every full page load passes through /login while the session is checked,
+// so the login page is in the main chunk instead of one more request
+import LoginView from "./views/LoginView.vue";
 
 const router = createRouter({
     history: createWebHistory(),
@@ -10,7 +13,7 @@ const router = createRouter({
         {
             path: "/login",
             name: "login",
-            component: () => import("./views/LoginView.vue"),
+            component: LoginView,
         },
         {
             path: "/",
