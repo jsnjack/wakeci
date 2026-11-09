@@ -276,8 +276,8 @@ func run(cleanup func()) bool {
 		}
 	}()
 
+	// Started once the port is bound; jobs add their schedules before that
 	GlobalCron = cron.New()
-	GlobalCron.Start()
 	defer func() {
 		<-GlobalCron.Stop().Done()
 	}()
@@ -417,6 +417,8 @@ func run(cleanup func()) bool {
 		L.Warn("Listening on :" + Config.Port)
 	}
 
+	// A scheduled build would start queued ones too
+	GlobalCron.Start()
 	GlobalQueue.Take()
 	err = serveUntilShutdown(ctx, serve, server.Shutdown)
 	stop()
