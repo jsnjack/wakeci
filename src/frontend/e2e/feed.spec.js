@@ -136,3 +136,24 @@ test("should filter by a build's parameter when it is clicked", async ({ page, w
         .click({ modifiers: ["Control"] });
     await expect(page.getByTestId("filter")).toHaveValue(`+"TARGET:${target}"`);
 });
+
+test("should show the filter in the address bar encoded once", async ({ page }) => {
+    await page.goto("/");
+    await page.getByTestId("filter").fill("status:failed env:a b");
+    await expect(page).toHaveURL(/\?filter=status:failed\+env:a\+b$/);
+    await page.reload();
+    await expect(page.getByTestId("filter")).toHaveValue("status:failed env:a b");
+});
+
+test("should open a feed link with the filter encoded twice, as wakeci wrote it before", async ({ page }) => {
+    await page.goto("/?filter=status%253Afailed%2520env%253Aa%2520b");
+    await expect(page.getByTestId("filter")).toHaveValue("status:failed env:a b");
+});
+
+test("should keep a filter with a percent sign", async ({ page }) => {
+    await page.goto("/");
+    await page.getByTestId("filter").fill("name:100%");
+    await expect(page).toHaveURL(/\?filter=/);
+    await page.reload();
+    await expect(page.getByTestId("filter")).toHaveValue("name:100%");
+});

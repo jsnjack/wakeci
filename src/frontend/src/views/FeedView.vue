@@ -139,11 +139,17 @@ export default {
     mounted() {
         this.$store.commit("SET_CURRENT_PAGE", "Feed");
 
-        // Restore filter from URL in address bar
+        // Restore filter from URL in address bar. Links written before
+        // wakeci encoded it once (status%253Afailed) are decoded once more;
+        // that leaves a filter alone unless it holds % and two hex digits
         const url = new URL(window.location.href);
         if (url.searchParams.has("filter")) {
             const filterValue = url.searchParams.get("filter");
-            this.filter = decodeURIComponent(filterValue);
+            try {
+                this.filter = decodeURIComponent(filterValue);
+            } catch {
+                this.filter = filterValue;
+            }
         }
 
         this.fetchNow();
@@ -189,12 +195,11 @@ export default {
         // for a navigation that cancels one still loading its page
         showFilterInURL() {
             const url = new URL(window.location.href);
+            // searchParams encodes the value itself
             if (this.filter === "") {
                 url.searchParams.delete("filter");
             } else {
-                const newSearch = url.searchParams;
-                newSearch.set("filter", encodeURIComponent(this.filter));
-                url.search = newSearch.toString();
+                url.searchParams.set("filter", this.filter);
             }
             // Not for the filter restored from the URL: a replace by the same
             // URL would count as the user's newer navigation (router.js)
