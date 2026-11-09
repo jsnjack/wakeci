@@ -173,7 +173,14 @@ export default {
                         newSearch.set("filter", encodeURIComponent(this.filter));
                         url.search = newSearch.toString();
                     }
-                    this.$router.replace(url.pathname + url.search);
+                    // Only when it changes: vue-router takes a replace by the
+                    // same URL for a navigation too, which cancels one that is
+                    // still loading its page and counts as the user's newer
+                    // choice (router.js)
+                    const target = url.pathname + url.search;
+                    if (this.$router.resolve(target).fullPath !== this.$route.fullPath) {
+                        this.$router.replace(target);
+                    }
 
                     const data = response.data || [];
                     data.forEach((element) => {

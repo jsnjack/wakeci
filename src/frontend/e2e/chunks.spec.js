@@ -177,3 +177,53 @@ test("should not load a page in full when the shown page was opened again meanwh
     await expect(page).toHaveURL(/:\d+\/$/);
     expect(counter.loads).toBe(0);
 });
+
+test("should load a page in full after an update when the feed answers meanwhile", async ({ page }) => {
+    let releaseFeed;
+    const feedHeld = new Promise((done) => (releaseFeed = done));
+    await page.route(/\/api\/feed\?/, async (route) => {
+        await feedHeld;
+        await route.continue();
+    });
+    const counter = await openFeed(page);
+    await failJobsChunk(page, Infinity);
+    await updateServer(page, 1500);
+    const checking = page.waitForRequest((request) => request.url().endsWith("/api/queue/"));
+
+    await page.locator('nav a[href="/jobs"]').click();
+    await checking;
+    // The feed puts its filter in the URL when it answers, the same URL here
+    const feedAnswered = page.waitForResponse(/\/api\/feed\?/);
+    releaseFeed();
+    await feedAnswered;
+    await expect.poll(() => counter.loads).toBe(1);
+    await expect(page).toHaveURL(/\/jobs$/);
+});
+
+test("should open a page whose code loads while the feed answers", async ({ page }) => {
+    let releaseFeed;
+    const feedHeld = new Promise((done) => (releaseFeed = done));
+    await page.route(/\/api\/feed\?/, async (route) => {
+        await feedHeld;
+        await route.continue();
+    });
+    await openFeed(page);
+    let releaseJobs;
+    const jobsHeld = new Promise((done) => (releaseJobs = done));
+    const jobsAsked = page.waitForRequest(/\/assets\/JobsView-[\w-]+\.js$/);
+    await page.route(/\/assets\/JobsView-[\w-]+\.js$/, async (route) => {
+        await jobsHeld;
+        await route.continue();
+    });
+
+    await page.locator('nav a[href="/jobs"]').click();
+    await jobsAsked;
+    const feedAnswered = page.waitForResponse(/\/api\/feed\?/);
+    releaseFeed();
+    await feedAnswered;
+    // Lets the feed act on the answer before the page's code arrives
+    await page.evaluate(() => new Promise((done) => setTimeout(done, 100)));
+    releaseJobs();
+    await expect(page.getByTestId("jobs-container")).toBeVisible();
+    await expect(page).toHaveURL(/\/jobs$/);
+});
