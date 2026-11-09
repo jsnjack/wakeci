@@ -21,6 +21,11 @@ const stopHookTimeout = 2 * time.Minute
 // of queued builds, which are expected to be quick
 const stopPendingTasksTimeout = 30 * time.Second
 
+// stopTasksTimeout is how long wakeci waits, as it exits, for the tasks it
+// aborts last (Queue.stopTasks). A command that ignores SIGTERM gets SIGKILL
+// after ABORT_TIMEOUT
+const stopTasksTimeout = 10 * time.Second
+
 // stopPollInterval is how often a stop checks whether the builds ended
 const stopPollInterval = 200 * time.Millisecond
 

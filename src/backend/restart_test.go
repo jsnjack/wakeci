@@ -4,9 +4,11 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -586,6 +588,92 @@ func TestStopSignalCancelsRestart(t *testing.T) {
 			}
 		})
 	}
+}
+
+// stubbornTask starts a sleep that only a signal ends and saves its PID in
+// pid, then creates started in the workspace
+const stubbornTask = "sleep 300 & echo $! > pid; touch started; wait"
+
+// waitProcessGone waits until the process whose PID a task saved in pid has
+// ended
+func waitProcessGone(t *testing.T, build *Build) {
+	t.Helper()
+	data, err := os.ReadFile(build.GetWorkspaceDir() + "pid")
+	if err != nil {
+		t.Fatalf("read pid: %v", err)
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil {
+		t.Fatalf("parse pid %q: %v", data, err)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		// A zombie has ended too; its new parent reaps it
+		stat, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
+		if err != nil || strings.Contains(string(stat), ") Z ") {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("process %d still runs", pid)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+// TestStopTasksEndsLeftoverTasks is a regression test: when wakeci stopped
+// waiting for builds (a hook past the hook timeout, another signal, an
+// on_pending task past its wait), it exited or re-executed with their tasks
+// still running, and nothing waited for them any more
+func TestStopTasksEndsLeftoverTasks(t *testing.T) {
+	t.Run("hook of an aborted build", func(t *testing.T) {
+		build := abortTestBuild(t, &Job{Name: "leftover-hook", Tasks: []*Task{
+			{ID: 0, Command: "sleep 30", Kind: KindMain},
+			{ID: 1, Command: stubbornTask, Kind: StatusAborted},
+			{ID: 2, Command: "touch final", Kind: FinalTask},
+		}})
+		startBuild(build)
+		if err := GlobalQueue.Abort(build.ID, StatusAborted); err != nil {
+			t.Fatalf("Abort: %v", err)
+		}
+		waitForFile(t, build, "started")
+
+		start := time.Now()
+		if !GlobalQueue.stopTasks(stopNote, 10*time.Second) {
+			t.Fatalf("stopTasks: tasks still ran after %v", time.Since(start))
+		}
+		waitProcessGone(t, build)
+		if !strings.Contains(taskLog(t, build, 1), "> Aborted: "+stopNote+".") {
+			t.Errorf("on_aborted log = %q, want the stop's note", taskLog(t, build, 1))
+		}
+		if workspaceHas(build, "final") {
+			t.Error("finally ran after the tasks were stopped")
+		}
+		if log := taskLog(t, build, 2); !strings.Contains(log, "> Not started: "+stopNote+".") {
+			t.Errorf("finally log = %q, want it not started", log)
+		}
+		if GlobalQueue.Verify(build.ID) {
+			t.Error("the build is still in the queue")
+		}
+		if status := historyStatus(t, build.ID); status != StatusAborted {
+			t.Errorf("history status = %q, want %q", status, StatusAborted)
+		}
+	})
+
+	t.Run("on_pending task of a queued build", func(t *testing.T) {
+		build := queuedAbortBuild(t, &Job{Name: "leftover-pending", Tasks: []*Task{
+			{ID: 0, Command: stubbornTask, Kind: StatusPending},
+			{ID: 1, Command: "true", Kind: KindMain},
+		}})
+		waitForFile(t, build, "started")
+
+		if !GlobalQueue.stopTasks(stopNote, 10*time.Second) {
+			t.Fatal("stopTasks: tasks still ran")
+		}
+		waitProcessGone(t, build)
+		if !GlobalQueue.Verify(build.ID) || !slices.Contains(queuedRecordIDs(t), build.ID) {
+			t.Error("the queued build must stay queued and saved for the restart")
+		}
+	})
 }
 
 func TestBeginStopOnce(t *testing.T) {

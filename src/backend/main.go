@@ -277,6 +277,11 @@ func run(cleanup func()) {
 		if !GlobalQueue.waitQueuedHooks(stopPendingTasksTimeout) {
 			L.Warn("stopping before the on_pending tasks of queued builds ended")
 		}
+		// Before the database closes, so the builds it ends are saved. After
+		// an update, a task left running would run beside the restored builds
+		if !GlobalQueue.stopTasks(stopNote, stopTasksTimeout) {
+			L.Warn("stopping while tasks still run; they may outlive wakeci")
+		}
 	}()
 
 	// Started once the port is bound; jobs add their schedules before that

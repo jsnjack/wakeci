@@ -304,6 +304,11 @@ func (b *Build) runTask(task *Task) ItemStatus {
 		b.Logger.Error("create task log", "task", task.ID, "err", err)
 		return StatusFailed
 	}
+	// wakeci exits next (Queue.stopTasks), and nothing would wait for it
+	if GlobalQueue.tasksStoppedNow() {
+		b.ProcessLogEntry("> Not started: "+stopNote+".", bw, task.ID, task.startedAt)
+		return StatusAborted
+	}
 
 	// Construct environment for the task
 	taskCmd.Env = os.Environ()
