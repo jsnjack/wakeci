@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -398,6 +399,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	abortC := abort.c
 	// Written by the goroutine below, read after doneChan is closed
 	var abortedReason string
+	var abortedAt time.Time
 	go func() {
 		defer close(doneChan)
 		for taskCmd.Stdout != nil || taskCmd.Stderr != nil {
@@ -418,6 +420,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 				// The channel stays closed; stop selecting on it
 				abortC = nil
 				abortedReason = abort.reason
+				abortedAt = time.Now()
 				b.Logger.Info("aborting task", "task", task.ID, "reason", abortedReason)
 				b.logAbort(abort, bw, task)
 				// taskCmd.Stop() send SIGTERM signal to the command. Most of the time it works just fine, however
@@ -466,6 +469,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 
 	// The command was stopped because of an abort
 	if abortedReason != "" {
+		b.killTaskGroup(taskCmd.Status().PID, abortedAt.Add(ABORT_TIMEOUT*time.Second), task.ID)
 		return ItemStatus(abortedReason)
 	}
 
@@ -480,6 +484,24 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	}
 
 	return StatusFinished
+}
+
+// killTaskGroup ends what is left of an aborted task once its shell (pid,
+// the leader of the task's process group) ended: a child that ignores
+// SIGTERM lives on in the group, without holding the task's output open. It
+// gets until deadline, like the shell, then SIGKILL
+func (b *Build) killTaskGroup(pid int, deadline time.Time, taskID int) {
+	// PID 0 means the command never started; kill(0) would signal wakeci's
+	// own process group
+	if pid <= 0 {
+		return
+	}
+	for syscall.Kill(-pid, 0) == nil && time.Now().Before(deadline) {
+		time.Sleep(stopPollInterval)
+	}
+	if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
+		b.Logger.Error("kill what is left of an aborted task", "task", taskID, "err", err)
+	}
 }
 
 // checkCondition evaluates a task's `when` or `if` condition, with script

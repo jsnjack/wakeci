@@ -605,6 +605,12 @@ func TestAbortKillsTheWholeTask(t *testing.T) {
 			abort: true,
 		},
 		{
+			// The shell ends at once, and the child holds no output open
+			name:  "child that ignores SIGTERM after the shell ended",
+			task:  &Task{ID: 0, Command: "bash -c \"trap '' TERM; exec sleep 300\" >/dev/null 2>&1 & echo $! > pid; touch started; sleep 100", Kind: KindMain},
+			abort: true,
+		},
+		{
 			name: "condition that times out",
 			task: &Task{ID: 0, If: "sleep 300 & echo $! > pid; touch started; wait", Command: "true", Kind: KindMain},
 		},
