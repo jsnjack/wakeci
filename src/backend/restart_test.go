@@ -728,6 +728,52 @@ func TestStopTasksStartsNoQueuedBuild(t *testing.T) {
 	}
 }
 
+// TestStopTasksReachesBuildsBeingAdded is a regression test: RunJob starts a
+// build's on_pending tasks before it adds the build to the queue, so a
+// stop at exit in between neither aborted nor waited for them, and they
+// outlived wakeci
+func TestStopTasksReachesBuildsBeingAdded(t *testing.T) {
+	newTestBuildEnv(t)
+	useQueue(t, &Queue{})
+	job := &Job{Name: "being-added", Tasks: []*Task{
+		{ID: 0, Command: stubbornTask, Kind: StatusPending},
+		{ID: 1, Command: "true", Kind: KindMain},
+	}}
+	created := make(chan *Build, 1)
+	release := make(chan struct{})
+	go func() {
+		if _, err := GlobalQueue.addNewBuild(func() (*Build, error) {
+			build, err := CreateBuild(job, filepath.Join(Config.JobDir, job.Name+".yaml"), false)
+			created <- build
+			<-release
+			return build, err
+		}); err != nil {
+			t.Errorf("addNewBuild: %v", err)
+		}
+	}()
+	build := <-created
+	waitForFile(t, build, "started")
+
+	stopped := make(chan bool, 1)
+	go func() { stopped <- GlobalQueue.stopTasks(stopNote, 10*time.Second) }()
+	select {
+	case <-stopped:
+		t.Fatal("stopTasks ended before the build being added was queued")
+	case <-time.After(300 * time.Millisecond):
+	}
+	close(release)
+	if !<-stopped {
+		t.Error("stopTasks: the on_pending task still runs")
+	}
+	waitProcessGone(t, build)
+	if _, err := GlobalQueue.addNewBuild(func() (*Build, error) {
+		t.Error("a build was created after the tasks were stopped")
+		return nil, nil
+	}); !errors.Is(err, ErrQueueStopping) {
+		t.Errorf("addNewBuild = %v, want ErrQueueStopping", err)
+	}
+}
+
 // TestWaitQueuedHooksEndsOnSignal checks that a further signal on the way out
 // ends the wait for on_pending tasks, as it ends each wait of the drain
 func TestWaitQueuedHooksEndsOnSignal(t *testing.T) {

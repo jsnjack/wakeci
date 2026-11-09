@@ -41,6 +41,11 @@ type Queue struct {
 	// tasksStopped is set by stopTasks: no task command and no queued build
 	// starts any more
 	tasksStopped bool
+	// runMu is held for reading by addNewBuild until its build is queued,
+	// since the build's on_pending tasks start before that, and for writing
+	// by stopTasks while it stops tasks, so it reaches every build whose
+	// tasks run. Taken before mutex
+	runMu sync.RWMutex
 	// statusMu is held by broadcastStatus from taking the status until it is
 	// sent, so clients get statuses in the order they were taken: a stop
 	// signal's status sent before the update's it replaced would leave the
@@ -435,16 +440,35 @@ func (q *Queue) waitQueuedHooks(timeout time.Duration, interrupt <-chan os.Signa
 func (q *Queue) stopTasks(note string, timeout time.Duration) bool {
 	// Not BeginStop, which would wake a drain that never began, as when
 	// serving failed without a stop
+	q.runMu.Lock()
 	q.mutex.Lock()
 	q.tasksStopped = true
 	builds := slices.Concat(q.running, q.aborting, q.queued)
 	q.mutex.Unlock()
+	q.runMu.Unlock()
 	for _, build := range builds {
 		build.requestAbort(StatusAborted, note)
 	}
 	deadline := time.Now().Add(timeout)
 	idle := q.waitIdle(deadline, nil)
 	return q.waitQueuedHooks(time.Until(deadline), nil) && idle
+}
+
+// addNewBuild creates a build with create and queues it, unless stopTasks
+// was called. create starts the build's on_pending tasks, so stopTasks
+// waits until the build is queued and then reaches them
+func (q *Queue) addNewBuild(create func() (*Build, error)) (*Build, error) {
+	q.runMu.RLock()
+	defer q.runMu.RUnlock()
+	if q.tasksStoppedNow() {
+		return nil, ErrQueueStopping
+	}
+	build, err := create()
+	if err != nil {
+		return nil, err
+	}
+	q.Add(build)
+	return build, nil
 }
 
 // tasksStoppedNow reports whether stopTasks was called, so a task mustn't
