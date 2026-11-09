@@ -22,6 +22,7 @@ single-binary CI server without an external database or plugin ecosystem.
 Makefile                     Builds frontend + backend into one binary, embeds assets
 Wakefile.yaml                Server config (port, workdir, jobdir, secretsfile, timezone, sso)
 secrets.yaml                 Secret values injected into task commands at runtime
+docs/                        Detail of one area each, listed under "Where the details are"
 
 src/backend/                 Go server (package main, module "wakeci")
   main.go                    Entry point: flags, DB bootstrap, router, HTTP(S) listeners
@@ -55,6 +56,14 @@ src/frontend/                Vue 3 + Vite SPA
   e2e/                       Playwright E2E tests and isolated backend fixtures
   playwright.config.js       Parallel workers, Chrome, failure traces/screenshots
 ```
+
+---
+
+## Where the details are
+
+| File | Read before working on |
+|---|---|
+| [docs/restart.md](docs/restart.md) | Stopping, draining, restarting, restoring queued builds, saved sessions, self-update |
 
 ---
 
@@ -103,29 +112,20 @@ src/frontend/                Vue 3 + Vite SPA
    topic. Queue state (stopping, abort time, version) goes out as
    `queue:status`, which `App.vue` subscribes to on every connection for the
    banner.
-8. **Stop and restart**: SIGTERM/SIGINT, or `HandleUpdatePost`, calls
-   `Queue.BeginStop`, so no queued build starts again; HTTP keeps serving and
-   new builds are queued. `drainQueue` waits for the running builds until
-   `abortAt` (`draintimeout`), then aborts them with a note in their logs and
-   waits `stopHookTimeout` for their hooks; each further signal skips one
-   wait. Then the server shuts down, cron stops, `on_pending` tasks of queued
-   builds get `stopPendingTasksTimeout`, the DB closes, and after an update
-   `main` re-execs the new binary with `syscall.Exec` (same PID). Sessions
-   are saved, so open pages reconnect; `App.vue` fetches `/api/queue/` on
-   every connection and reloads when its `version` changed.
-9. **Update**: `HandleUpdatePost` asks GitHub for the latest release, refuses
-   unless it is the requested, newer version and `updateProblem` is empty,
-   downloads it next to the binary, checks the sha256 digest GitHub lists and
-   that `--version` prints the version, hard-links the old binary to
-   `<binary>.previous`, renames the new one over it, then `BeginStop`.
-10. **Audit log**: `LogMi` gives each request a `requestInfo` (log ID, IP,
-    `X-Forwarded-For`); `AuthMi` and `APIKeyAuthMi` record who made it with
-    `setRequestUser` once the credentials check out, and the request line
-    names them. `AuditMi`, registered before the auth middleware on both
-    routers, writes one `msg=audit` line for every request that can change
-    something, with the event from `auditedRoutes`, what handlers added with
-    `addAuditAttrs`, and the status. Logins, logouts and scheduled builds
-    call `audit` / `auditScheduled` themselves.
+8. **Stop, restart and update** ([docs/restart.md](docs/restart.md)): a
+   signal or `HandleUpdatePost` calls `Queue.BeginStop`; `drainQueue` waits
+   for running builds until `draintimeout`, then aborts them, and `stopTasks`
+   ends what still runs before the DB closes. Queued builds and sessions are
+   saved, and after an update `main` re-execs the new binary (same PID)
+   unless a stop signal cancelled it.
+9. **Audit log**: `LogMi` gives each request a `requestInfo` (log ID, IP,
+   `X-Forwarded-For`); `AuthMi` and `APIKeyAuthMi` record who made it with
+   `setRequestUser` once the credentials check out, and the request line
+   names them. `AuditMi`, registered before the auth middleware on both
+   routers, writes one `msg=audit` line for every request that can change
+   something, with the event from `auditedRoutes`, what handlers added with
+   `addAuditAttrs`, and the status. Logins, logouts and scheduled builds
+   call `audit` / `auditScheduled` themselves.
 
 ---
 
@@ -328,50 +328,10 @@ AGENTS.universal.md for the general contract.
   A build aborted while queued moves to `Queue.aborting`: it can't be
   started and holds no concurrency slot, but `Abort` still reaches its
   `on_aborted` and `finally` tasks.
-- **A restart waits for builds instead of resuming them.** A task's output
-  goes through a pipe into wakeci and a build's progress lives in a
-  goroutine, so a running build can't outlive the process. Stopping waits
-  for running builds (`draintimeout`), then aborts the rest the normal way so
-  `on_aborted`/`finally` run; it never reruns them, since jobs such as
-  deploys may not be safe to repeat. Queued builds are what survives: they
-  are saved in the `queue` bucket by `BroadcastUpdate` (one transaction with
-  the history entry) and restored with their job snapshot, params and API
-  key flag. Their `on_pending` tasks don't run again. Builds are started
-  only after the port is bound, so a failed listen can't cut them short.
-- **Sessions survive restarts.** Otherwise every update would sign everyone
-  out. `SessionsBucket` keeps each session under `sessionKey`, the SHA-256
-  of its token, like API keys, so the db file (mode 0644) holds nothing that
-  logs in; the in-memory map and `OnEnd`/`Hub.CloseSessions` use the same
-  key. Every change takes `saveMu` until it is written, so a deletion (logout,
-  revoke, expiry) can't be overtaken by a save and come back after a
-  restart. Since a restart no longer ends sessions, a password change ends
-  every other password session (`DeletePasswordSessions`). The SSO
-  login-state key is still generated at startup, so a restart only
-  interrupts logins in progress.
-- **No manual queue pause.** Stopping and updating already hold the queue,
-  and a reboot stops wakeci the same way, so a pause button only added a
-  second way to do it. The stop state isn't saved; it ends with the process.
-  "Start now" doesn't work while stopping, since the build would delay or be
-  cut by the restart.
-- **The settings page checks for updates on every visit.**
-  `HandleUpdateGet` caches a found release for `releaseCacheTTL` (10
-  minutes) to stay well inside GitHub's 60 unauthenticated requests per hour,
-  and returns a failed check in `UpdateData.Error` with status 200, so a
-  server without access to GitHub doesn't show an error on each visit. The
-  E2E fixture answers `/api/update/` in the browser, so tests never reach
-  GitHub. The update itself always asks GitHub again. The release notes link
-  comes from GitHub's answer, so it is kept only if it starts with
-  `releasePagePrefix`.
-- **Self-update trusts the GitHub release, like `grm install`.** The sha256
-  digest comes from the same GitHub API, so it catches broken downloads,
-  not a compromised account. The update replaces the file wakeci was
-  started from (symlinks resolved at startup), so the service user must be
-  able to write its directory. It refuses a binary with file capabilities,
-  which the new file wouldn't have (port 443 would fail); ambient
-  capabilities survive the re-exec. There is no automatic rollback:
-  `<binary>.previous` is kept for a manual one. Any logged-in user may
-  update, since they can already run commands as the service user; API
-  keys can't.
+- **Stopping waits for builds; queued builds and sessions survive it.**
+  Why a restart waits instead of resuming builds, how queued builds and
+  sessions are saved, why there is no queue pause, and how self-update
+  checks and installs a release: [docs/restart.md](docs/restart.md).
 - **fsnotify watcher and the port-80 redirect listener never crash the
   server.** Both run in the background after the server is already serving
   traffic; setup or runtime failures there are logged and the feature
@@ -444,6 +404,9 @@ AGENTS.universal.md for the general contract.
   reverse order can deadlock (a write that grows the file waits for readers).
   That is why the queue record is written by `BroadcastUpdate`, not
   `Queue.Add`.
+- A build is saved before it leaves the queue (`BroadcastUpdate` before
+  `Cleanup` in `SetBuildStatus`): a stop closes the DB once the queue is
+  empty, so the reverse order loses the build's final state.
 - systemd's default `KillMode=control-group` sends SIGTERM to the tasks
   directly and defeats the drain; the unit needs `KillMode=mixed` and a
   `TimeoutStopSec` above `draintimeout` (see `config/wakeci.service`).
