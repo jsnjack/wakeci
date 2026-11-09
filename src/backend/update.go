@@ -298,10 +298,16 @@ var linkBinary = os.Link
 // the only way back
 func installRelease(downloaded, path string) error {
 	previous := path + ".previous"
-	if err := os.Remove(previous); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("remove %s: %w", previous, err)
+	// Under another name first, so the backup an earlier update kept stays
+	// until this one exists
+	linked := previous + ".new"
+	if err := os.Remove(linked); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove %s: %w", linked, err)
 	}
-	if err := linkBinary(path, previous); err != nil {
+	if err := linkBinary(path, linked); err != nil {
+		return fmt.Errorf("keep the previous binary as %s: %w", previous, err)
+	}
+	if err := os.Rename(linked, previous); err != nil {
 		return fmt.Errorf("keep the previous binary as %s: %w", previous, err)
 	}
 	if err := os.Rename(downloaded, path); err != nil {

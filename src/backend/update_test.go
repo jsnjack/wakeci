@@ -248,6 +248,11 @@ func TestInstallRelease(t *testing.T) {
 func TestInstallReleaseNeedsThePreviousBinary(t *testing.T) {
 	running := runningBinary(t)
 	current := readFile(t, running)
+	// The backup an earlier update kept is the only way back until a new one
+	// exists
+	if err := os.WriteFile(running+".previous", []byte("older"), 0755); err != nil {
+		t.Fatalf("write previous binary: %v", err)
+	}
 	downloaded := filepath.Join(filepath.Dir(running), ".wakeci-update-new")
 	if err := os.WriteFile(downloaded, []byte("new"), 0755); err != nil {
 		t.Fatalf("write download: %v", err)
@@ -262,6 +267,9 @@ func TestInstallReleaseNeedsThePreviousBinary(t *testing.T) {
 	}
 	if got := readFile(t, running); got != current {
 		t.Errorf("binary = %q, want it unchanged", got)
+	}
+	if got := readFile(t, running+".previous"); got != "older" {
+		t.Errorf("previous binary = %q, want the earlier backup kept", got)
 	}
 	if _, err := os.Stat(downloaded); err != nil {
 		t.Errorf("download file: %v, want it left for the caller to remove", err)
