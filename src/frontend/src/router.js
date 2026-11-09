@@ -1,47 +1,40 @@
 import { createRouter, createWebHistory } from "vue-router";
-import LoginView from "./views/LoginView.vue";
-import FeedView from "./views/FeedView.vue";
-import JobsView from "./views/JobsView.vue";
-import BuildView from "./views/BuildView.vue";
-import SettingsView from "./views/SettingsView.vue";
-import JobEditView from "./views/JobEditView.vue";
-import HelpView from "./views/HelpView.vue";
-import KeysView from "./views/KeysView.vue";
-import KeyCreateView from "./views/KeyCreateView.vue";
 
 import { requireAuth } from "./auth";
 
 const router = createRouter({
     history: createWebHistory(),
+    // Each page loads its code when it is first opened, so the first page
+    // doesn't download the job editor (CodeMirror) and the rest
     routes: [
         {
             path: "/login",
             name: "login",
-            component: LoginView,
+            component: () => import("./views/LoginView.vue"),
         },
         {
             path: "/",
             name: "feed",
-            component: FeedView,
+            component: () => import("./views/FeedView.vue"),
             beforeEnter: requireAuth,
         },
         {
             path: "/jobs",
             name: "jobs",
-            component: JobsView,
+            component: () => import("./views/JobsView.vue"),
             beforeEnter: requireAuth,
         },
         {
             path: "/job/:name",
             name: "jobEdit",
-            component: JobEditView,
+            component: () => import("./views/JobEditView.vue"),
             beforeEnter: requireAuth,
             props: true,
         },
         {
             path: "/build/:id",
             name: "build",
-            component: BuildView,
+            component: () => import("./views/BuildView.vue"),
             beforeEnter: requireAuth,
             props: function (route) {
                 let id = route.params.id;
@@ -56,25 +49,25 @@ const router = createRouter({
         {
             path: "/settings",
             name: "settings",
-            component: SettingsView,
+            component: () => import("./views/SettingsView.vue"),
             beforeEnter: requireAuth,
         },
         {
             path: "/keys",
             name: "keys",
-            component: KeysView,
+            component: () => import("./views/KeysView.vue"),
             beforeEnter: requireAuth,
         },
         {
             path: "/keys/new",
             name: "keyCreate",
-            component: KeyCreateView,
+            component: () => import("./views/KeyCreateView.vue"),
             beforeEnter: requireAuth,
         },
         {
             path: "/help",
             name: "help",
-            component: HelpView,
+            component: () => import("./views/HelpView.vue"),
         },
     ],
 });
