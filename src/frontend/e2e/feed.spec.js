@@ -110,11 +110,11 @@ concurrency: 1
 test("should keep the filter in the address bar", async ({ page }) => {
     await page.goto("/");
     await page.getByTestId("filter").fill("status:failed env:a b");
-    await expect(page).toHaveURL(/\?filter=/);
+    await expect(page).toHaveURL(/\?q=/);
     await page.reload();
     await expect(page.getByTestId("filter")).toHaveValue("status:failed env:a b");
     await page.getByTestId("filter").fill("");
-    await expect(page).not.toHaveURL(/filter=/);
+    await expect(page).not.toHaveURL(/[?&](q|filter)=/);
 });
 
 test("should filter by a build's parameter when it is clicked", async ({ page, wake }) => {
@@ -140,20 +140,35 @@ test("should filter by a build's parameter when it is clicked", async ({ page, w
 test("should show the filter in the address bar encoded once", async ({ page }) => {
     await page.goto("/");
     await page.getByTestId("filter").fill("status:failed env:a b");
-    await expect(page).toHaveURL(/\?filter=status:failed\+env:a\+b$/);
+    await expect(page).toHaveURL(/\?q=status:failed\+env:a\+b$/);
     await page.reload();
     await expect(page.getByTestId("filter")).toHaveValue("status:failed env:a b");
+});
+
+test("should keep a filter with escapes and percent signs as typed", async ({ page }) => {
+    const filter = "TARGET:a%2Fb name:100%25 50%";
+    await page.goto("/");
+    await page.getByTestId("filter").fill(filter);
+    await expect(page).toHaveURL(/\?q=/);
+    await page.reload();
+    await expect(page.getByTestId("filter")).toHaveValue(filter);
 });
 
 test("should open a feed link with the filter encoded twice, as wakeci wrote it before", async ({ page }) => {
     await page.goto("/?filter=status%253Afailed%2520env%253Aa%2520b");
     await expect(page.getByTestId("filter")).toHaveValue("status:failed env:a b");
+    // The address bar moves to the new parameter
+    await expect(page).toHaveURL(/\/\?q=status:failed\+env:a\+b$/);
 });
 
-test("should keep a filter with a percent sign", async ({ page }) => {
-    await page.goto("/");
-    await page.getByTestId("filter").fill("name:100%");
-    await expect(page).toHaveURL(/\?filter=/);
-    await page.reload();
+test("should open an old feed link with a percent sign", async ({ page }) => {
+    // What wakeci wrote before for name:100%
+    await page.goto("/?filter=name%253A100%2525");
     await expect(page.getByTestId("filter")).toHaveValue("name:100%");
+});
+
+test("should take q over an old filter parameter", async ({ page }) => {
+    await page.goto("/?q=env:new&filter=env%253Aold");
+    await expect(page.getByTestId("filter")).toHaveValue("env:new");
+    await expect(page).toHaveURL(/\/\?q=env:new$/);
 });
