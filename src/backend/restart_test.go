@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -587,6 +588,29 @@ func TestDrainQueueRunsHooksOfBuildAbortedJustBefore(t *testing.T) {
 	}
 	if !workspaceHas(build, "final") {
 		t.Error("finally didn't run")
+	}
+}
+
+// TestDrainOnStopEndsWithServing is a regression test: when serving ended
+// without a stop, the goroutine that waits for a stop still waited, took a
+// later signal from the waits on the way out, and drained beside them
+func TestDrainOnStopEndsWithServing(t *testing.T) {
+	newTestBuildEnv(t)
+	q := &Queue{}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	interrupt := make(chan os.Signal, 1)
+	interrupt <- syscall.SIGTERM
+	stopped := false
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		drainOnStop(ctx, q, interrupt, time.Hour, time.Hour, func() { stopped = true })
+	}()
+	waitDone(t, done, 5*time.Second)
+	if q.Status().Stopping || stopped {
+		t.Errorf("stopping = %v, stop called = %v; want neither once serving ended", q.Status().Stopping, stopped)
 	}
 }
 

@@ -390,16 +390,7 @@ func run(cleanup func()) {
 	}
 	ctx, stop := context.WithCancel(context.Background())
 	defer stop()
-	go func() {
-		select {
-		case sig := <-interrupt:
-			L.Warn("stopping", "signal", sig)
-			GlobalQueue.BeginStop(time.Now().Add(Config.drainTimeout), "")
-		case <-GlobalQueue.Stopping():
-		}
-		drainQueue(GlobalQueue, interrupt, stopHookTimeout)
-		stop()
-	}()
+	go drainOnStop(ctx, GlobalQueue, interrupt, Config.drainTimeout, stopHookTimeout, stop)
 
 	// Builds start only once the port is bound, so a failure to listen
 	// can't cut them short
