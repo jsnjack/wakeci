@@ -386,8 +386,9 @@ func (q *Queue) abortRunning(note string) {
 }
 
 // waitQueuedHooks waits for the on_pending tasks of the queued builds, at
-// most timeout, and reports whether they ended
-func (q *Queue) waitQueuedHooks(timeout time.Duration) bool {
+// most timeout or until a value arrives from interrupt, and reports whether
+// they ended
+func (q *Queue) waitQueuedHooks(timeout time.Duration, interrupt <-chan os.Signal) bool {
 	q.mutex.Lock()
 	queued := slices.Clone(q.queued)
 	q.mutex.Unlock()
@@ -398,17 +399,21 @@ func (q *Queue) waitQueuedHooks(timeout time.Duration) bool {
 			build.pendingTasksWG.Wait()
 		}
 	}()
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
 	select {
 	case <-done:
 		return true
-	case <-time.After(timeout):
-		// They may have ended just as the time ran out
-		select {
-		case <-done:
-			return true
-		default:
-			return false
-		}
+	case sig := <-interrupt:
+		L.Warn("stopping: received another signal", "signal", sig)
+	case <-timer.C:
+	}
+	// They may have ended just as the wait did
+	select {
+	case <-done:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -429,7 +434,7 @@ func (q *Queue) stopTasks(note string, timeout time.Duration) bool {
 	}
 	deadline := time.Now().Add(timeout)
 	idle := q.waitIdle(deadline, nil)
-	return q.waitQueuedHooks(time.Until(deadline)) && idle
+	return q.waitQueuedHooks(time.Until(deadline), nil) && idle
 }
 
 // tasksStoppedNow reports whether stopTasks was called, so a task mustn't

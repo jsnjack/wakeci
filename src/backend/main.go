@@ -169,6 +169,16 @@ func run(cleanup func()) {
 	}
 
 	var err error
+	// Signal handling, set up below, ends last, once the database closed, so
+	// a further signal can't cut the steps before short
+	var stopSignalHandling func()
+	defer func() {
+		if stopSignalHandling != nil {
+			stopSignalHandling()
+		}
+	}()
+	// interrupt gets the stop signals once the queue noted them
+	var interrupt <-chan os.Signal
 	executablePath, err = resolveExecutable()
 	if err != nil {
 		fatal("find the running binary", err)
@@ -274,9 +284,9 @@ func run(cleanup func()) {
 	GlobalSessionStorage.OnEnd = WSHub.CloseSessions
 
 	// Runs after the cron jobs ended, so builds they queued are saved with
-	// their on_pending tasks done
+	// their on_pending tasks done. A further signal ends the wait
 	defer func() {
-		if !GlobalQueue.waitQueuedHooks(stopPendingTasksTimeout) {
+		if !GlobalQueue.waitQueuedHooks(stopPendingTasksTimeout, interrupt) {
 			L.Warn("stopping before the on_pending tasks of queued builds ended")
 		}
 		// Before the database closes, so the builds it ends are saved. After
@@ -369,14 +379,15 @@ func run(cleanup func()) {
 	// A signal or an update stops the server once the running builds ended
 	signals := make(chan os.Signal, 4)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
-	interrupt, signalsNoted := forwardStopSignals(GlobalQueue, signals)
-	defer func() {
+	var signalsNoted <-chan struct{}
+	interrupt, signalsNoted = forwardStopSignals(GlobalQueue, signals)
+	stopSignalHandling = func() {
 		// From here a signal ends the process, which then doesn't restart.
 		// One that arrived before is noted before main reads the restart
 		signal.Stop(signals)
 		close(signals)
 		<-signalsNoted
-	}()
+	}
 	ctx, stop := context.WithCancel(context.Background())
 	defer stop()
 	go func() {

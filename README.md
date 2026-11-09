@@ -115,7 +115,7 @@ in the queue and start after the restart. Their `on_pending` tasks don't run
 again. A second signal aborts the running builds at once, and a third one
 stops waiting for their `on_aborted` and `finally` tasks. Before it exits,
 wakeci aborts any task that still runs and waits up to 10 seconds for it, so
-no task outlives it.
+no task outlives it; further signals don't cut this short.
 Builds that were running when wakeci was killed are shown as aborted after the
 restart. Sessions survive restarts, and open pages reconnect on their own; after
 an update they reload to get the new version.

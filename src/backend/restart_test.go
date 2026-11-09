@@ -652,6 +652,29 @@ func waitProcessGone(t *testing.T, build *Build) {
 	}
 }
 
+// TestWaitQueuedHooksEndsOnSignal checks that a further signal on the way out
+// ends the wait for on_pending tasks, as it ends each wait of the drain
+func TestWaitQueuedHooksEndsOnSignal(t *testing.T) {
+	build := queuedAbortBuild(t, &Job{Name: "pending-wait", Tasks: []*Task{
+		{ID: 0, Command: stubbornTask, Kind: StatusPending},
+		{ID: 1, Command: "true", Kind: KindMain},
+	}})
+	waitForFile(t, build, "started")
+	interrupt := make(chan os.Signal, 1)
+	interrupt <- syscall.SIGTERM
+
+	start := time.Now()
+	if GlobalQueue.waitQueuedHooks(20*time.Second, interrupt) {
+		t.Error("waitQueuedHooks = true, want false while the on_pending task runs")
+	}
+	if took := time.Since(start); took > 5*time.Second {
+		t.Errorf("waitQueuedHooks took %v, want the signal to end it", took)
+	}
+	if !GlobalQueue.stopTasks(stopNote, 10*time.Second) {
+		t.Error("stopTasks: the on_pending task still runs")
+	}
+}
+
 // TestStopTasksEndsLeftoverTasks is a regression test: when wakeci stopped
 // waiting for builds (a hook past the hook timeout, another signal, an
 // on_pending task past its wait), it exited or re-executed with their tasks

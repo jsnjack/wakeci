@@ -14,13 +14,15 @@ hooks; each further signal skips one wait. Every signal goes through
 `forwardStopSignals`, which records it on the queue (`noteStopSignal`): it
 cancels a restart an update planned, since `systemctl stop` or a reboot waits
 for the process to end. Then the server shuts down, cron stops, `on_pending`
-tasks of queued builds get `stopPendingTasksTimeout`, `stopTasks` aborts every
-task still running and starts no more (`stopTasksTimeout`), the DB closes, and
-after an update `main` re-execs the new binary with `syscall.Exec` (same PID)
-unless a signal cancelled it. A signal after `run` stopped handling them ends
-the process. Sessions are saved, so open pages reconnect; `App.vue` fetches
-`/api/queue/` on every connection and reloads when its `version` changed; it
-ignores the answer if a `queue:status` message arrived while the request ran.
+tasks of queued builds get `stopPendingTasksTimeout` (a further signal ends
+this wait too), `stopTasks` aborts every task still running and starts no more
+(`stopTasksTimeout`), failed session deletions are retried, and the DB closes.
+Only then does `run` stop handling signals, so a further one can't cut these
+steps short; one after that ends the process. After an update `main` re-execs
+the new binary with `syscall.Exec` (same PID) unless a signal cancelled it.
+Sessions are saved, so open pages reconnect; `App.vue` fetches `/api/queue/`
+on every connection and reloads when its `version` changed; it ignores the
+answer if a `queue:status` message arrived while the request ran.
 
 **Update**: `HandleUpdatePost` asks GitHub for the latest release, refuses
 unless it is the requested, newer version and `updateProblem` is empty,
