@@ -40,6 +40,8 @@ func TestHandleVueResources(t *testing.T) {
 		{"/assets/.hidden.js", http.StatusNotFound, ""},
 		{"/assets/../.vite/manifest.json", http.StatusNotFound, ""},
 		{"/.vite/manifest.json", http.StatusOK, "index"},
+		// Not a directory listing of the build
+		{"/assets/", http.StatusOK, "index"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {

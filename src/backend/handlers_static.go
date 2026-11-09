@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 )
 
@@ -29,10 +30,11 @@ func HandleVueResources(h http.Handler) http.Handler {
 		r2.URL = new(url.URL)
 		*r2.URL = *r.URL
 		// Static files are Vite's chunks under /assets/ and the files at the
-		// top level (favicon.ico); every other path is a page of the app,
-		// which may hold a dot (a job named deploy.prod)
-		static := strings.HasPrefix(r.URL.Path, "/assets/") ||
-			(strings.Count(r.URL.Path, "/") == 1 && strings.Contains(r.URL.Path, "."))
+		// top level (favicon.ico), all with a dot in their name; every other
+		// path is a page of the app, which may hold a dot too (a job named
+		// deploy.prod). /assets/ itself would be a directory listing
+		static := strings.Contains(path.Base(r.URL.Path), ".") &&
+			(strings.HasPrefix(r.URL.Path, "/assets/") || strings.Count(r.URL.Path, "/") == 1)
 		switch {
 		case static && strings.Contains(r.URL.Path, "/."):
 			// all:assets embeds hidden files too, and none is the app's
