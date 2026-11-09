@@ -343,6 +343,36 @@ func TestBuildIsSavedBeforeLeavingTheQueue(t *testing.T) {
 	}
 }
 
+// TestAbortWhileQueuedForgetsRecordAtOnce is a regression test: a build
+// aborted while queued kept its queue record until its on_pending tasks
+// ended, so a wakeci that stopped meanwhile queued it again after the restart
+func TestAbortWhileQueuedForgetsRecordAtOnce(t *testing.T) {
+	build := queuedAbortBuild(t, &Job{Name: "forget", Tasks: []*Task{
+		// Ends only with the SIGKILL ABORT_TIMEOUT after the abort
+		{ID: 0, Command: "trap '' TERM; touch started; exec sleep 30", Kind: StatusPending},
+		{ID: 1, Command: "true", Kind: KindMain},
+	}})
+	waitForFile(t, build, "started")
+	if !slices.Contains(queuedRecordIDs(t), build.ID) {
+		t.Fatal("no queue record for the queued build")
+	}
+	if err := GlobalQueue.Abort(build.ID, StatusAborted); err != nil {
+		t.Fatalf("Abort: %v", err)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for slices.Contains(queuedRecordIDs(t), build.ID) {
+		if time.Now().After(deadline) {
+			t.Fatal("the queue record stayed while the on_pending task ended")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	for deadline = time.Now().Add(15 * time.Second); GlobalQueue.Verify(build.ID); time.Sleep(20 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal("build never left the queue")
+		}
+	}
+}
+
 func TestRestoreQueueDropsBrokenRecord(t *testing.T) {
 	newTestBuildEnv(t)
 	useQueue(t, &Queue{})

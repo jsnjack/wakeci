@@ -209,8 +209,17 @@ func (q *Queue) Abort(id int, reason string) error {
 	// Stops on_pending tasks of a queued build, too
 	build.requestAbort(reason, "")
 	if dequeued {
-		// Waits for the on_pending tasks, then runs on_aborted and finally
-		go build.SetBuildStatus(StatusAborted)
+		build.mutex.Lock()
+		build.abortedWhileQueued = true
+		build.mutex.Unlock()
+		go func() {
+			// Forgets its queue record at once: a wakeci that stopped before
+			// the on_pending tasks ended would queue it again after the
+			// restart
+			build.BroadcastUpdate()
+			// Waits for the on_pending tasks, then runs on_aborted and finally
+			build.SetBuildStatus(StatusAborted)
+		}()
 	}
 	return nil
 }

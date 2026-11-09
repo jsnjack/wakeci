@@ -91,6 +91,10 @@ type Build struct {
 	failedTask *Task
 	// abort is the abort request for the tasks that run now, guarded by mutex
 	abort *abortScope
+	// abortedWhileQueued is set by Queue.Abort for a queued build: it has no
+	// queue record from then on, although it is pending until its on_pending
+	// tasks end. Guarded by mutex
+	abortedWhileQueued bool
 	// updateMu is held by BroadcastUpdate from taking the build's state until
 	// it is saved, so updates are saved in the order they were taken: an
 	// update taken while queued, saved after a later one, would queue the
@@ -771,7 +775,7 @@ func (b *Build) records() (data, queued []byte, err error) {
 		Duration:       b.Duration,
 		ETA:            b.ETA,
 	})
-	if err != nil || b.Status != StatusPending {
+	if err != nil || b.Status != StatusPending || b.abortedWhileQueued {
 		return data, nil, err
 	}
 	queued, err = json.Marshal(queuedBuild{
