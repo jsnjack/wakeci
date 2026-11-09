@@ -227,3 +227,32 @@ test("should open a page whose code loads while the feed answers", async ({ page
     await expect(page.getByTestId("jobs-container")).toBeVisible();
     await expect(page).toHaveURL(/\/jobs$/);
 });
+
+test("should open a page whose code loads after a filter was typed", async ({ page }) => {
+    let releaseFeed;
+    const feedHeld = new Promise((done) => (releaseFeed = done));
+    await page.route(/\/api\/feed\?/, async (route) => {
+        await feedHeld;
+        await route.continue();
+    });
+    await openFeed(page);
+    let releaseJobs;
+    const jobsHeld = new Promise((done) => (releaseJobs = done));
+    const jobsAsked = page.waitForRequest(/\/assets\/JobsView-[\w-]+\.js$/);
+    await page.route(/\/assets\/JobsView-[\w-]+\.js$/, async (route) => {
+        await jobsHeld;
+        await route.continue();
+    });
+
+    await page.getByTestId("filter").fill("abc");
+    await page.locator('nav a[href="/jobs"]').click();
+    await jobsAsked;
+    const filteredFeedAnswered = page.waitForResponse(/\/api\/feed\?.*filter=abc/);
+    releaseFeed();
+    await filteredFeedAnswered;
+    // Lets the feed act on the answer before the page's code arrives
+    await page.evaluate(() => new Promise((done) => setTimeout(done, 100)));
+    releaseJobs();
+    await expect(page.getByTestId("jobs-container")).toBeVisible();
+    await expect(page).toHaveURL(/\/jobs$/);
+});

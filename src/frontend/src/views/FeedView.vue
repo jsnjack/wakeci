@@ -130,6 +130,7 @@ export default {
             this.filterObj = createFilterObj(value);
             // Reset builds if user starts to change filter
             this.builds = [];
+            this.showFilterInURL();
             this.fetch();
         },
         "ws.connected": "onWSChange",
@@ -164,24 +165,6 @@ export default {
                 .then((response) => {
                     this.isFetching = false;
 
-                    // Put filter value in address bar to allow copying and link sharing
-                    const url = new URL(window.location.href);
-                    if (this.filter === "") {
-                        url.searchParams.delete("filter");
-                    } else {
-                        const newSearch = url.searchParams;
-                        newSearch.set("filter", encodeURIComponent(this.filter));
-                        url.search = newSearch.toString();
-                    }
-                    // Only when it changes: vue-router takes a replace by the
-                    // same URL for a navigation too, which cancels one that is
-                    // still loading its page and counts as the user's newer
-                    // choice (router.js)
-                    const target = url.pathname + url.search;
-                    if (this.$router.resolve(target).fullPath !== this.$route.fullPath) {
-                        this.$router.replace(target);
-                    }
-
                     const data = response.data || [];
                     data.forEach((element) => {
                         this.applyUpdate(element, true);
@@ -199,6 +182,26 @@ export default {
         }, 500);
     },
     methods: {
+        // Puts the filter in the address bar to allow copying and link
+        // sharing. As the user types, not when the feed answers: by then the
+        // user may be opening another page, and vue-router takes a replace
+        // for a navigation that cancels one still loading its page
+        showFilterInURL() {
+            const url = new URL(window.location.href);
+            if (this.filter === "") {
+                url.searchParams.delete("filter");
+            } else {
+                const newSearch = url.searchParams;
+                newSearch.set("filter", encodeURIComponent(this.filter));
+                url.search = newSearch.toString();
+            }
+            // Not for the filter restored from the URL: a replace by the same
+            // URL would count as the user's newer navigation (router.js)
+            const target = url.pathname + url.search;
+            if (this.$router.resolve(target).fullPath !== this.$route.fullPath) {
+                this.$router.replace(target);
+            }
+        },
         subscribe() {
             this.$store.commit("WS_SEND", {
                 type: "in:subscribe",
