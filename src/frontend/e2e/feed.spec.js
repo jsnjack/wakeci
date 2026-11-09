@@ -106,3 +106,13 @@ concurrency: 1
     await wake.waitForBuild(first);
     await wake.waitForBuild(second);
 });
+
+test("should keep the filter in the address bar", async ({ page }) => {
+    await page.goto("/");
+    await page.getByTestId("filter").fill("status:failed env:a b");
+    await expect(page).toHaveURL(/\?filter=/);
+    await page.reload();
+    await expect(page.getByTestId("filter")).toHaveValue("status:failed env:a b");
+    await page.getByTestId("filter").fill("");
+    await expect(page).not.toHaveURL(/filter=/);
+});
