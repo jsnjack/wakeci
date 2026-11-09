@@ -233,20 +233,28 @@ func (q *Queue) FlushLogs(id int) error {
 	return nil
 }
 
-// SetConcurrency sets number of concurrent builds
+// SetConcurrency saves and sets number of concurrent builds
 func (q *Queue) SetConcurrency(number int) {
+	settingsMu.Lock()
+	defer settingsMu.Unlock()
 	err := DB.Update(func(tx *bolt.Tx) error {
-		gb := tx.Bucket(GlobalBucket)
-		err := gb.Put([]byte("concurrentBuilds"), IntToByte(number))
-		if err != nil {
-			return err
-		}
-		return nil
+		return saveConcurrency(tx, number)
 	})
 	if err != nil {
 		L.Error("save concurrency setting", "err", err)
 		return
 	}
+	q.applyConcurrency(number)
+}
+
+// saveConcurrency saves number of concurrent builds, for applyConcurrency
+// once tx commits
+func saveConcurrency(tx *bolt.Tx, number int) error {
+	return tx.Bucket(GlobalBucket).Put([]byte("concurrentBuilds"), IntToByte(number))
+}
+
+// applyConcurrency sets number of concurrent builds, already saved
+func (q *Queue) applyConcurrency(number int) {
 	q.mutex.Lock()
 	q.concurrentBuilds = number
 	q.mutex.Unlock()

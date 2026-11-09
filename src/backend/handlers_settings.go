@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"sync"
 
 	bolt "go.etcd.io/bbolt"
 	"golang.org/x/crypto/bcrypt"
@@ -28,7 +29,14 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 		logger = L
 	}
 
-	// Password
+	// The audit log says whether the request changes the password (the
+	// outcome says if it did), never what to
+	addAuditAttrs(r, "passwordChange", r.FormValue("password") != "",
+		"concurrentBuilds", auditNumber(r.FormValue("concurrentBuilds")),
+		"buildHistorySize", auditNumber(r.FormValue("buildHistorySize")))
+
+	// Everything is checked before anything changes, so a request either
+	// saves all its settings or none, and its audit outcome is true
 	password := r.FormValue("password")
 	if password != "" {
 		// Only the admin password may change itself: an SSO user who set it
@@ -40,70 +48,80 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 			writeBody(logger, w, []byte("Only the admin password can change the password"))
 			return
 		}
-		err := DB.Update(func(tx *bolt.Tx) error {
-			passwordH, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-			if err != nil {
-				return err
-			}
-
-			gb := tx.Bucket(GlobalBucket)
-			err = gb.Put([]byte("password"), passwordH)
-			if err != nil {
-				return err
-			}
-			return nil
-		})
-		if err != nil {
-			logger.Error("save password", "err", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Header().Set("Content-Type", "text/plain")
-			writeBody(logger, w, []byte(err.Error()))
-			return
-		}
-		// Sessions survive restarts, so whoever knew the old password would
-		// stay logged in
-		ended := GlobalSessionStorage.DeletePasswordSessions(requestSession(r))
-		logger.Warn("password changed", "endedSessions", ended)
 	}
 
 	// Number of concurrent builds
 	cb := r.FormValue("concurrentBuilds")
 	cbInt, err := strconv.Atoi(cb)
 	if err != nil {
-		logger.Warn("invalid concurrentBuilds value", "value", cb, "err", err)
+		// Not the value: it could be a secret typed into the wrong field
+		logger.Warn("invalid concurrentBuilds value")
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Header().Set("Content-Type", "text/plain")
 		writeBody(logger, w, []byte(err.Error()))
 		return
 	}
-	GlobalQueue.SetConcurrency(cbInt)
 
 	// Build history size
 	bhs := r.FormValue("buildHistorySize")
 	bhsInt, err := strconv.Atoi(bhs)
 	if err != nil {
-		logger.Warn("invalid buildHistorySize value", "value", bhs, "err", err)
+		logger.Warn("invalid buildHistorySize value")
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Header().Set("Content-Type", "text/plain")
 		writeBody(logger, w, []byte(err.Error()))
 		return
 	}
+
+	var passwordH []byte
+	if password != "" {
+		passwordH, err = bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		if err != nil {
+			logger.Error("hash password", "err", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Header().Set("Content-Type", "text/plain")
+			writeBody(logger, w, []byte(err.Error()))
+			return
+		}
+	}
+
+	// The queue must run with the concurrency the database has, so no other
+	// request saves settings between this one saving and applying them
+	settingsMu.Lock()
+	defer settingsMu.Unlock()
+	// One transaction, so either every setting is saved or none
 	err = DB.Update(func(tx *bolt.Tx) error {
 		gb := tx.Bucket(GlobalBucket)
-		err = gb.Put([]byte("buildHistorySize"), IntToByte(bhsInt))
-		if err != nil {
+		if passwordH != nil {
+			if err := gb.Put([]byte("password"), passwordH); err != nil {
+				return err
+			}
+		}
+		if err := saveConcurrency(tx, cbInt); err != nil {
 			return err
 		}
-		return nil
+		return gb.Put([]byte("buildHistorySize"), IntToByte(bhsInt))
 	})
 	if err != nil {
-		logger.Error("save buildHistorySize", "err", err)
+		logger.Error("save settings", "err", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Header().Set("Content-Type", "text/plain")
 		writeBody(logger, w, []byte(err.Error()))
 		return
 	}
+	GlobalQueue.applyConcurrency(cbInt)
+	if passwordH != nil {
+		// Sessions survive restarts, so whoever knew the old password would
+		// stay logged in
+		ended := GlobalSessionStorage.DeletePasswordSessions(requestSession(r))
+		logger.Warn("password changed", "endedSessions", ended)
+		addAuditAttrs(r, "endedSessions", ended)
+	}
 }
+
+// settingsMu orders saving settings with applying them (see
+// HandleSettingsPost and Queue.SetConcurrency)
+var settingsMu sync.Mutex
 
 // HandleSettingsGet retrieves settings
 // @Summary      Retrieve application settings

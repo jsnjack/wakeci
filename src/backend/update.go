@@ -382,6 +382,7 @@ func HandleUpdatePost(w http.ResponseWriter, r *http.Request) {
 			fmt.Sprintf("The latest release is %s, not %q. Check for updates again.", rel.Version, version))
 		return
 	}
+	addAuditAttrs(r, "to", rel.Version)
 	newer, err := isNewerVersion(rel.Version, Version)
 	if err != nil || !newer {
 		writePlainText(w, logger, http.StatusConflict, fmt.Sprintf("wakeci %s can't update to %s.", Version, rel.Version))
