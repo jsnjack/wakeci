@@ -127,3 +127,31 @@ test("should keep the stop banner when an older status arrives late", async ({ p
     await page.waitForTimeout(500);
     await expect(banner).toBeVisible();
 });
+
+test("should apply the status of the latest connection", async ({ page }) => {
+    // Each request is answered when the test says so
+    const requests = [];
+    await page.route("**/api/queue/", (route) => {
+        requests.push(route);
+    });
+    let socket;
+    await page.routeWebSocket(/\/ws$/, (ws) => {
+        ws.connectToServer();
+        socket = ws;
+    });
+    await page.goto("/");
+    await expect.poll(() => requests.length).toBe(1);
+
+    // The connection drops before the first answer, and the page asks again
+    socket.close();
+    await expect.poll(() => requests.length, { timeout: 10000 }).toBe(2);
+    const answered = page.waitForResponse((response) => response.url().endsWith("/api/queue/"));
+    await requests[0].fulfill({
+        json: { stopping: true, abortAt: new Date(Date.now() + 60000).toISOString(), restartVersion: "" },
+    });
+    await answered;
+    await requests[1].fulfill({ json: { stopping: false, running: 0, queued: 0 } });
+    // The page handles the answer right after it arrives
+    await page.waitForTimeout(500);
+    await expect(page.getByTestId("queue-stopping")).toBeHidden();
+});

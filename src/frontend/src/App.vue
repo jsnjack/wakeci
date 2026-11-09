@@ -94,6 +94,8 @@ export default {
         return {
             // The server version this page was loaded from
             serverVersion: "",
+            // How many times the page asked for the queue status
+            queueRequests: 0,
         };
     },
     computed: {
@@ -152,11 +154,16 @@ export default {
                 data: { to: ["queue:status"] },
             });
             // A status that arrives while the request runs is newer, and the
-            // server sends a stop only once
+            // server sends a stop only once. So is the answer to the request
+            // of a later connection
+            const request = ++this.queueRequests;
             const count = this.$store.state.queueStatusCount;
             axios
                 .get("/api/queue/")
                 .then((response) => {
+                    if (request !== this.queueRequests) {
+                        return;
+                    }
                     const version = response.data.version;
                     if (version && this.serverVersion && version !== this.serverVersion) {
                         window.location.reload();
