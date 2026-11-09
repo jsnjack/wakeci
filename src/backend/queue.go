@@ -339,11 +339,12 @@ func (q *Queue) idle() bool {
 	return len(q.running) == 0 && len(q.aborting) == 0
 }
 
-// abortRunning aborts the running builds and logs note in their tasks.
-// Queued builds stay queued
+// abortRunning aborts the running builds, and the on_aborted and finally
+// tasks of builds aborted while queued, and logs note in their tasks. Queued
+// builds stay queued
 func (q *Queue) abortRunning(note string) {
 	q.mutex.Lock()
-	running := slices.Clone(q.running)
+	running := slices.Concat(q.running, q.aborting)
 	q.mutex.Unlock()
 	for _, build := range running {
 		build.Logger.Warn("aborting build", "reason", note)

@@ -496,6 +496,39 @@ func TestDrainQueueSecondSignal(t *testing.T) {
 	waitDone(t, done, 10*time.Second)
 }
 
+// TestDrainQueueAbortsBuildsAbortedWhileQueued is a regression test: the
+// stop aborted only running builds, so the on_aborted tasks of a build
+// aborted while queued ran on at the abort time, and the drain waited the
+// whole hook timeout for them
+func TestDrainQueueAbortsBuildsAbortedWhileQueued(t *testing.T) {
+	build := queuedAbortBuild(t, &Job{Name: "queued-hooks", Tasks: []*Task{
+		{ID: 0, Command: "true", Kind: KindMain},
+		{ID: 1, Command: "touch hook; sleep 30", Kind: StatusAborted},
+		{ID: 2, Command: "touch final", Kind: FinalTask},
+	}})
+	if err := GlobalQueue.Abort(build.ID, StatusAborted); err != nil {
+		t.Fatalf("Abort: %v", err)
+	}
+	waitForFile(t, build, "hook")
+
+	GlobalQueue.BeginStop(time.Now().Add(300*time.Millisecond), "")
+	start := time.Now()
+	drainQueue(GlobalQueue, make(chan os.Signal), 20*time.Second)
+	if took := time.Since(start); took > 10*time.Second {
+		t.Errorf("drain took %v, want the stop to abort the on_aborted task", took)
+	}
+	waitGone(t, build)
+	if !strings.Contains(taskLog(t, build, 1), "> Aborted: "+stopNote+".") {
+		t.Errorf("on_aborted log = %q, want the stop's note", taskLog(t, build, 1))
+	}
+	if !workspaceHas(build, "final") {
+		t.Error("finally didn't run")
+	}
+	if status := historyStatus(t, build.ID); status != StatusAborted {
+		t.Errorf("history status = %q, want %q", status, StatusAborted)
+	}
+}
+
 func TestBeginStopOnce(t *testing.T) {
 	newTestBuildEnv(t)
 	q := &Queue{}
