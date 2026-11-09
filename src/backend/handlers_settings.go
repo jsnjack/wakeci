@@ -82,6 +82,12 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 	// request saves settings between this one saving and applying them
 	settingsMu.Lock()
 	defer settingsMu.Unlock()
+	if passwordH != nil {
+		// Logins that checked the old password create their sessions before
+		// this, so DeletePasswordSessions ends them
+		passwordMu.Lock()
+		defer passwordMu.Unlock()
+	}
 	// One transaction, so either every setting is saved or none
 	err = DB.Update(func(tx *bolt.Tx) error {
 		gb := tx.Bucket(GlobalBucket)

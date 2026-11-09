@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -54,6 +55,13 @@ func HandleIsLoggedIn(w http.ResponseWriter, r *http.Request) {
 	// See AuthMi
 }
 
+// passwordMu orders password logins with password changes: a login holds it
+// for reading from checking the password until its session exists, and
+// HandleSettingsPost for writing from saving a new password until the
+// password sessions ended. Not a deadlock.RWMutex: a login holds it while
+// bcrypt runs, and its 30 s limit would stop wakeci under load
+var passwordMu sync.RWMutex
+
 // HandleLogIn verifies password and logs the user in
 func HandleLogIn(w http.ResponseWriter, r *http.Request) {
 	r, _ = withRequestInfo(r)
@@ -68,6 +76,11 @@ func HandleLogIn(w http.ResponseWriter, r *http.Request) {
 	// Create and store session token
 	password := r.FormValue("password")
 
+	// Until the session exists, so a password change can't end the password
+	// sessions between this login checking the old password and saving its
+	// session
+	passwordMu.RLock()
+	defer passwordMu.RUnlock()
 	var hashedPassword []byte
 
 	err := DB.View(func(tx *bolt.Tx) error {

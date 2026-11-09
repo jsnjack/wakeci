@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -200,5 +201,72 @@ func TestSettingsPasswordChangeEndsOtherSessions(t *testing.T) {
 				t.Errorf("Verify() = %v, want error %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+// TestPasswordChangeEndsLoginsInFlight is a regression test: a login that
+// checked the old password while it was being changed created its session
+// after the password sessions had ended, and kept it
+func TestPasswordChangeEndsLoginsInFlight(t *testing.T) {
+	newSettingsTestEnv(t)
+	// A real cost, so a login takes as long to check as in production
+	hash, err := bcrypt.GenerateFromPassword([]byte("admin"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+	if err := DB.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket(GlobalBucket).Put([]byte("password"), hash)
+	}); err != nil {
+		t.Fatalf("save password: %v", err)
+	}
+	oldLimiter := globalAuthAttemptLimiter
+	globalAuthAttemptLimiter = newAuthAttemptLimiter(1000, time.Minute, time.Minute)
+	t.Cleanup(func() { globalAuthAttemptLimiter = oldLimiter })
+
+	stop := make(chan struct{})
+	var (
+		mu       sync.Mutex
+		sessions []*http.Cookie
+		wg       sync.WaitGroup
+	)
+	for range 16 {
+		wg.Go(func() {
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				form := url.Values{"password": {"admin"}}
+				req := httptest.NewRequest("POST", "/auth/login", strings.NewReader(form.Encode()))
+				req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+				rec := httptest.NewRecorder()
+				HandleLogIn(rec, req)
+				for _, cookie := range rec.Result().Cookies() {
+					if cookie.Name == "session" {
+						mu.Lock()
+						sessions = append(sessions, cookie)
+						mu.Unlock()
+					}
+				}
+			}
+		})
+	}
+	// Some logins are checking the password when it changes
+	time.Sleep(200 * time.Millisecond)
+	form := url.Values{"password": {"changed"}, "concurrentBuilds": {"2"}, "buildHistorySize": {"200"}}
+	if rec := settingsRequest(t, HandleSettingsPost, "POST", "", form); rec.Code != http.StatusOK {
+		t.Fatalf("change password: %d %q", rec.Code, rec.Body.String())
+	}
+	close(stop)
+	wg.Wait()
+
+	if len(sessions) == 0 {
+		t.Fatal("no login succeeded before the change")
+	}
+	for _, cookie := range sessions {
+		if GlobalSessionStorage.Verify(cookie.Value) == nil {
+			t.Error("a session logged in with the old password survived the change")
+		}
 	}
 }
