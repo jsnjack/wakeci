@@ -8,7 +8,8 @@ import (
 	"strings"
 )
 
-// VueResourcesMi checks if path needs to be stripped out before serving the location
+// HandleVueResources serves the embedded frontend with h: Vite's static
+// files, and the app's index.html for every other path
 func HandleVueResources(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger, ok := r.Context().Value(HL).(*slog.Logger)
