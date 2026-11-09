@@ -90,6 +90,10 @@ type Build struct {
 	failedTask *Task
 	// abort is the abort request for the tasks that run now, guarded by mutex
 	abort *abortScope
+	// stopNote is a stop's abort that arrived while the tasks that run now
+	// were already aborted; nextAbortScope applies it to the next group.
+	// Guarded by mutex
+	stopNote string
 	// updateMu is held by BroadcastUpdate from taking the build's state until
 	// it is saved, so updates are saved in the order they were taken: an
 	// update taken while queued, saved after a later one, would queue the
@@ -143,12 +147,18 @@ func (b *Build) abortLocked() *abortScope {
 
 // requestAbort asks the build to stop the tasks that run now, with reason
 // StatusAborted or StatusTimedOut, and note for the task log if neither a
-// user nor the timeout asked for it. It never blocks; the first reason wins
+// user nor the timeout asked for it. It never blocks; the first reason wins.
+// A stop's abort (with a note) that finds the tasks already aborted stops
+// the next group instead, which would otherwise run unaborted while the
+// stop waits for it
 func (b *Build) requestAbort(reason, note string) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	scope := b.abortLocked()
 	if scope.reason != "" {
+		if note != "" {
+			b.stopNote = note
+		}
 		return
 	}
 	scope.reason = reason
@@ -158,12 +168,19 @@ func (b *Build) requestAbort(reason, note string) {
 
 // nextAbortScope starts a new scope if the current one was aborted, so the
 // next group of tasks (on_aborted, finally) runs. A scope that wasn't aborted
-// is kept, so an abort that arrives between two groups stops the next one
+// is kept, so an abort that arrives between two groups stops the next one. A
+// stop's abort held in stopNote aborts the new scope at once
 func (b *Build) nextAbortScope() {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	if b.abortLocked().reason != "" {
 		b.abort = newAbortScope()
+		if b.stopNote != "" {
+			b.abort.reason = StatusAborted
+			b.abort.note = b.stopNote
+			close(b.abort.c)
+			b.stopNote = ""
+		}
 	}
 }
 
