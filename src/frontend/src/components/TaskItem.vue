@@ -129,10 +129,10 @@ export default {
         flushLogs() {
             axios
                 .post(this.getFlushURL)
-                .then((response) => {
+                .then(() => {
                     this._reloadLogs();
                 })
-                .catch((error) => {});
+                .catch(() => {});
         },
         _reloadLogs() {
             axios
@@ -145,7 +145,7 @@ export default {
                         });
                     }
                 })
-                .catch((error) => {});
+                .catch(() => {});
         },
         reloadLogs() {
             if (this.task.status === "running") {

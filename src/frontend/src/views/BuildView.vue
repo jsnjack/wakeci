@@ -265,20 +265,20 @@ export default {
                     this.job = response.data.job;
                     this.updateTitle();
                 })
-                .catch((error) => {
+                .catch(() => {
                     this.empty = true;
                 });
         },
         abort(event) {
             axios
                 .post(event.target.href)
-                .then((response) => {
+                .then(() => {
                     this.$notify({
                         text: `${this.id} has been aborted`,
                         type: "primary",
                     });
                 })
-                .catch((error) => {});
+                .catch(() => {});
         },
         applyBuildUpdate(ev) {
             this.statusUpdate = Object.assign({}, this.statusUpdate, ev);

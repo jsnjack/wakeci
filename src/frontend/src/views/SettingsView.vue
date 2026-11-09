@@ -197,13 +197,13 @@ export default {
                         "Content-type": "application/x-www-form-urlencoded",
                     },
                 })
-                .then((response) => {
+                .then(() => {
                     this.$notify({
                         text: "Saved",
                         type: "primary",
                     });
                 })
-                .catch((error) => {});
+                .catch(() => {});
         },
         checkUpdate() {
             axios
@@ -211,7 +211,7 @@ export default {
                 .then((response) => {
                     this.update = response.data;
                 })
-                .catch((error) => {});
+                .catch(() => {});
         },
         install() {
             this.confirmingUpdate = false;
@@ -230,7 +230,7 @@ export default {
                         type: "primary",
                     });
                 })
-                .catch((error) => {})
+                .catch(() => {})
                 .finally(() => {
                     this.installing = false;
                 });
@@ -247,7 +247,7 @@ export default {
                         this.buildHistorySize = response.data.buildHistorySize;
                     }
                 })
-                .catch((error) => {});
+                .catch(() => {});
         },
     },
 };

@@ -51,7 +51,10 @@ export default {
                 const dateObj = new Date(this.item.startedAt);
                 this.startedAgoText = ago.format(dateObj);
                 this.startedAtText = dateObj.toLocaleString();
-            } catch (e) {}
+            } catch {
+                // javascript-time-ago throws on an invalid date; the texts
+                // stay as they were
+            }
             return "";
         },
     },

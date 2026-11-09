@@ -21,6 +21,11 @@ export default {
     components: {
         Codemirror,
     },
+    data: function () {
+        return {
+            configFormatContent: description,
+        };
+    },
     computed: {
         ...vuex.mapState(["theme"]),
         extensions() {
@@ -30,11 +35,6 @@ export default {
             }
             return exts;
         },
-    },
-    data: function () {
-        return {
-            configFormatContent: description,
-        };
     },
 };
 </script>

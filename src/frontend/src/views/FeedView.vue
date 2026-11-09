@@ -177,7 +177,7 @@ export default {
                         this.moreEnabled = true;
                     }
                 })
-                .catch((error) => {});
+                .catch(() => {});
             this.filterIsDirty = false;
         }, 500);
     },

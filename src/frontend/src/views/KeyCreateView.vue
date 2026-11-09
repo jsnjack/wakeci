@@ -384,7 +384,7 @@ export default {
                 this.jobs = response.data || [];
                 this.jobsLoaded = true;
             })
-            .catch((error) => {
+            .catch(() => {
                 this.jobsLoaded = true;
             });
     },
@@ -438,7 +438,7 @@ export default {
                     this.createdKey = response.data.key;
                     this.token = response.data.token;
                 })
-                .catch((error) => {})
+                .catch(() => {})
                 .finally(() => {
                     this.creating = false;
                 });

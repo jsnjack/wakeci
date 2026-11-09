@@ -122,7 +122,7 @@ export default {
                     wsMessageHandler(this, event.data);
                 });
 
-                ws.addEventListener("close", (event) => {
+                ws.addEventListener("close", () => {
                     this.$store.commit("WS_DISCONNECTED");
                     if (this.ws.failedAttempts >= this.ws.maxFailedAttempts) {
                         this.$store.commit("LOG_OUT");
@@ -135,7 +135,7 @@ export default {
                     console.warn("WS connection error", event);
                 });
 
-                ws.addEventListener("open", (event) => {
+                ws.addEventListener("open", () => {
                     this.$store.commit("WS_CONNECTED", ws);
                     this.watchQueueStatus();
                 });
@@ -175,16 +175,16 @@ export default {
                         this.$store.commit("SET_QUEUE_STATUS", response.data);
                     }
                 })
-                .catch((error) => {});
+                .catch(() => {});
         },
         logOut: function () {
             axios
                 .get("/auth/logout")
-                .then((response) => {
+                .then(() => {
                     this.$store.commit("LOG_OUT");
                     this.$router.push("/login");
                 })
-                .catch((error) => {});
+                .catch(() => {});
         },
         toggleDarkMode: function () {
             if (this.theme === "light") {

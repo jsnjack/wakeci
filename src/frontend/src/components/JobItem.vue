@@ -89,11 +89,11 @@ export default {
     },
     computed: {},
     methods: {
-        deleteJob(event) {
+        deleteJob() {
             const url = `/api/job/${encodeURIComponent(this.job.name)}`;
             axios
                 .delete(url)
-                .then((response) => {
+                .then(() => {
                     this.$notify({
                         text: `${escapeHtml(this.job.name)} has been deleted`,
                         type: "primary",
@@ -101,7 +101,7 @@ export default {
                     this.toggleModalDelete();
                     this.$router.go();
                 })
-                .catch((error) => {});
+                .catch(() => {});
         },
         toggleModalDelete() {
             this.modalDelete = !this.modalDelete;
@@ -119,7 +119,7 @@ export default {
                     });
                     this.isActive = response.data;
                 })
-                .catch((error) => {});
+                .catch(() => {});
         },
     },
 };

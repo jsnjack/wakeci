@@ -225,7 +225,7 @@ export default {
                     }
                     this.fetchingDone = true;
                 })
-                .catch((error) => {
+                .catch(() => {
                     this.fetchingDone = true;
                 });
         },
@@ -234,14 +234,14 @@ export default {
             this.revoking = null;
             axios
                 .delete("/api/keys/" + encodeURIComponent(key.id))
-                .then((response) => {
+                .then(() => {
                     this.$notify({
                         text: "Key revoked",
                         type: "primary",
                     });
                     this.fetch();
                 })
-                .catch((error) => {});
+                .catch(() => {});
         },
         revokePerson() {
             const person = this.createdBy;
@@ -255,7 +255,7 @@ export default {
                     });
                     this.fetch();
                 })
-                .catch((error) => {});
+                .catch(() => {});
         },
         jobsSummary(key) {
             if (key.allJobs) {

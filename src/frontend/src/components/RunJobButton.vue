@@ -94,7 +94,7 @@ export default {
         this.selectorID = generateRandomString(10);
     },
     methods: {
-        run(event) {
+        run() {
             this.toggleModal();
             const url = `/api/job/${encodeURIComponent(this.jobName)}/run?` + new URLSearchParams(Array.from(new FormData(this.$refs.form))).toString();
             axios
@@ -107,9 +107,9 @@ export default {
                         duration: 10000,
                     });
                 })
-                .catch((error) => {});
+                .catch(() => {});
         },
-        toggleModal(event) {
+        toggleModal() {
             window.ui("#" + "run-job-dialog-" + this.selectorID);
         },
     },

@@ -106,6 +106,7 @@ export default {
             required: true,
         },
     },
+    emits: ["setFilter"],
     data: function () {
         return {
             expandParams: false,
@@ -151,10 +152,10 @@ export default {
             if (!this.isDone) {
                 axios
                     .post(event.target.href || event.target.parentElement.href)
-                    .then((response) => {
+                    .then(() => {
                         this.$notify({ text: `${this.build.id} has been aborted`, type: "primary" });
                     })
-                    .catch((error) => {});
+                    .catch(() => {});
             }
         },
         toggleExpandParams() {

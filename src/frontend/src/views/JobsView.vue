@@ -143,11 +143,11 @@ export default {
                     this.filteredJobs = this.jobs;
                     this.fetchingDone = true;
                 })
-                .catch((error) => {
+                .catch(() => {
                     this.fetchingDone = true;
                 });
         },
-        toggle(event) {
+        toggle() {
             this.modalOpen = !this.modalOpen;
             if (this.modalOpen) {
                 this.$nextTick(() => {
@@ -160,7 +160,7 @@ export default {
             data.append("name", this.newJobName);
             axios
                 .post("/api/jobs/create", data)
-                .then((response) => {
+                .then(() => {
                     this.toggle();
                     this.$notify({
                         text: "New job created",
@@ -168,7 +168,7 @@ export default {
                     });
                     this.fetch();
                 })
-                .catch((error) => {});
+                .catch(() => {});
         },
         enterClicked() {
             this.$refs.createButton.click();

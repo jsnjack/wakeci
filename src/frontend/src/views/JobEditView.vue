@@ -51,10 +51,6 @@ export default {
             },
         };
     },
-    mounted() {
-        this.$store.commit("SET_CURRENT_PAGE", `Edit ${this.name}`);
-        this.fetch();
-    },
     computed: {
         ...vuex.mapState(["theme"]),
         extensions() {
@@ -65,6 +61,10 @@ export default {
             return exts;
         },
     },
+    mounted() {
+        this.$store.commit("SET_CURRENT_PAGE", `Edit ${this.name}`);
+        this.fetch();
+    },
     methods: {
         fetch() {
             axios
@@ -72,7 +72,7 @@ export default {
                 .then((response) => {
                     this.job.fileContent = response.data.fileContent || "";
                 })
-                .catch((error) => {});
+                .catch(() => {});
         },
         save() {
             const data = new FormData();
@@ -84,13 +84,13 @@ export default {
                         "Content-type": "application/x-www-form-urlencoded",
                     },
                 })
-                .then((response) => {
+                .then(() => {
                     this.$notify({
                         text: "Saved",
                         type: "primary",
                     });
                 })
-                .catch((error) => {});
+                .catch(() => {});
         },
         saveAndClose() {
             this.save();

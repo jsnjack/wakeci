@@ -42,6 +42,7 @@ export default {
             default: false,
         },
     },
+    emits: ["setFilter"],
     data: function () {
         return {
             copyIcon: "content_copy",
