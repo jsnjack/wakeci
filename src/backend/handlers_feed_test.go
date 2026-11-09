@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"testing"
 	"time"
 
@@ -110,5 +111,34 @@ func TestMarkStaleBuildsAbortedRechecks(t *testing.T) {
 	}
 	if stored.Status != StatusFinished {
 		t.Errorf("status = %q, want %q", stored.Status, StatusFinished)
+	}
+}
+
+// The feed's search is q; filter, its old name, still works when q is absent
+func TestFeedQuery(t *testing.T) {
+	router := newAPIKeyTestEnv(t)
+	for id := 3; id <= 6; id++ {
+		addTestBuild(t, id, "deploy")
+	}
+	token := createTestKey(t, url.Values{"name": {"read"}, "scope": {"read"}, "job": {"deploy"}})
+
+	tests := []struct {
+		target string
+		want   []int
+	}{
+		{"/api/feed?q=id:4", []int{4}},
+		{"/api/feed?filter=id:4", []int{4}},
+		{"/api/feed?q=id:5&filter=id:4", []int{5}},
+		// An empty q is no search, not a reason to read filter
+		{"/api/feed?q=&filter=id:4", []int{6, 5, 4, 3, 1}},
+	}
+	for _, tt := range tests {
+		rec := keyRequest(router, "GET", tt.target, token, nil)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s status = %d; body %q", tt.target, rec.Code, rec.Body.String())
+		}
+		if got := buildIDs(t, rec.Body.Bytes()); !slices.Equal(got, tt.want) {
+			t.Errorf("%s builds = %v, want %v", tt.target, got, tt.want)
+		}
 	}
 }

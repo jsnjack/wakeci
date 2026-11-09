@@ -4,10 +4,12 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 )
 
-// VueResourcesMi checks if path needs to be stripped out before serving the location
+// HandleVueResources serves the embedded frontend with h: Vite's static
+// files, and the app's index.html for every other path
 func HandleVueResources(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger, ok := r.Context().Value(HL).(*slog.Logger)
@@ -28,9 +30,18 @@ func HandleVueResources(h http.Handler) http.Handler {
 		*r2 = *r
 		r2.URL = new(url.URL)
 		*r2.URL = *r.URL
+		// Static files are Vite's chunks under /assets/ and the files at the
+		// top level (favicon.ico), all with a dot in their name; every other
+		// path is a page of the app, which may hold a dot too (a job named
+		// deploy.prod). /assets/ itself would be a directory listing
+		static := strings.Contains(path.Base(r.URL.Path), ".") &&
+			(strings.HasPrefix(r.URL.Path, "/assets/") || strings.Count(r.URL.Path, "/") == 1)
 		switch {
-		case strings.Contains(r.URL.Path, "."):
-			// Static file
+		case static && strings.Contains(r.URL.Path, "/."):
+			// all:assets embeds hidden files too, and none is the app's
+			http.NotFound(w, r)
+			return
+		case static:
 			r2.URL.Path = "/assets" + r.URL.Path
 			w.Header().Set("cache-control", "public, max-age=604800, immutable")
 		default:

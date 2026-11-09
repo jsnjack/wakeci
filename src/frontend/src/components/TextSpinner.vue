@@ -30,7 +30,7 @@ export default {
                     this.step = s;
                 }
             }.bind(this),
-            interval
+            interval,
         );
     },
     beforeUnmount: function () {
@@ -39,8 +39,8 @@ export default {
 };
 </script>
 
-<style scoped >
-    div {
-        background-color: var(--surface-container);
-    }
+<style scoped>
+div {
+    background-color: var(--surface-container);
+}
 </style>

@@ -6,8 +6,8 @@
     >
         <div class="row no-space">
             <div
-                @click.prevent="setFilter($event)"
                 style="word-break: break-all; flex: auto"
+                @click.prevent="setFilter($event)"
             >
                 {{ getText }}
             </div>
@@ -41,6 +41,12 @@ export default {
             type: Boolean,
             default: false,
         },
+    },
+    emits: ["setFilter"],
+    data: function () {
+        return {
+            copyIcon: "content_copy",
+        };
     },
     computed: {
         getName() {
@@ -79,7 +85,7 @@ export default {
                     window.setTimeout(() => {
                         this.copyIcon = "content_copy";
                     }, 1500);
-                }
+                },
             );
         },
         setFilter(event) {
@@ -88,11 +94,6 @@ export default {
                 append: event.ctrlKey || event.metaKey,
             });
         },
-    },
-    data: function () {
-        return {
-            copyIcon: "content_copy",
-        };
     },
 };
 </script>

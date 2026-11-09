@@ -5,12 +5,12 @@
         @submit.prevent="logIn"
     >
         <progress
-            class="circle large"
             v-show="fetching"
+            class="circle large"
         ></progress>
         <div
-            class="center-align"
             v-if="!fetching"
+            class="center-align"
         >
             <i class="extra">water</i>
             <h5 class="center-align">Welcome to wake</h5>
@@ -99,11 +99,11 @@ export default {
         fetch() {
             return axios
                 .get("/auth/_isLoggedIn")
-                .then((response) => {
+                .then(() => {
                     this.$store.commit("LOG_IN");
                     this.$router.replace(this.getRedirectURL);
                 })
-                .catch((error) => {});
+                .catch(() => {});
         },
         fetchAuthMethods() {
             // The page waits for this, so it can't wait forever: without an
@@ -113,7 +113,7 @@ export default {
                 .then((response) => {
                     this.ssoEnabled = response.data.sso === true;
                 })
-                .catch((error) => {});
+                .catch(() => {});
         },
         revealPassword() {
             this.showPassword = true;
@@ -148,11 +148,11 @@ export default {
                         "Content-type": "application/x-www-form-urlencoded",
                     },
                 })
-                .then((response) => {
+                .then(() => {
                     this.$store.commit("LOG_IN");
                     this.$router.replace(this.getRedirectURL);
                 })
-                .catch((error) => {});
+                .catch(() => {});
         },
     },
 };

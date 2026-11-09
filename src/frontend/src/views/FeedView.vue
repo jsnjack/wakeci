@@ -1,7 +1,5 @@
 <template>
-    <dialog
-        :class="{ active: isHelpDialogOpen }"
-    >
+    <dialog :class="{ active: isHelpDialogOpen }">
         <h5>Search examples</h5>
         <div class="space"></div>
         <ul>
@@ -31,7 +29,10 @@
                 @input="(evt) => (filter = evt.target.value)"
             />
             <label>Filter builds by id, name, params and status</label>
-            <progress class="circle" v-show="isFetching"></progress>
+            <progress
+                v-show="isFetching"
+                class="circle"
+            ></progress>
         </div>
         <button
             class="large no-round"
@@ -48,8 +49,8 @@
     </nav>
 
     <article
-        class="fill small-margin center-align large-text m l"
         v-show="filteredUpdates !== 0"
+        class="fill small-margin center-align large-text m l"
         data-cy="filtered-updates"
     >
         <p>{{ filteredUpdates }} updates have been filtered because of the active filter</p>
@@ -60,7 +61,7 @@
             v-for="item in sortedBuilds"
             :key="item.id"
             :build="item"
-            @setFilter="handleSetFilter"
+            @set-filter="handleSetFilter"
         />
     </div>
 
@@ -90,7 +91,7 @@
 import FeedItem from "@/components/FeedItem.vue";
 import { createFilterObj, findInContainer, isFilteredUpdate } from "@/store/utils.js";
 import axios from "axios";
-import _ from "lodash";
+import debounce from "lodash/debounce";
 import vuex from "vuex";
 
 const FetchItemsSize = 10;
@@ -130,6 +131,7 @@ export default {
             this.filterObj = createFilterObj(value);
             // Reset builds if user starts to change filter
             this.builds = [];
+            this.showFilterInURL();
             this.fetch();
         },
         "ws.connected": "onWSChange",
@@ -137,11 +139,20 @@ export default {
     mounted() {
         this.$store.commit("SET_CURRENT_PAGE", "Feed");
 
-        // Restore filter from URL in address bar
+        // Restore filter from URL in address bar. Links written before
+        // wakeci encoded it once carry it in `filter`, encoded twice
+        // (status%253Afailed), so that one is decoded once more; showFilterInURL
+        // then moves it to `q`
         const url = new URL(window.location.href);
-        if (url.searchParams.has("filter")) {
+        if (url.searchParams.has("q")) {
+            this.filter = url.searchParams.get("q");
+        } else if (url.searchParams.has("filter")) {
             const filterValue = url.searchParams.get("filter");
-            this.filter = decodeURIComponent(filterValue);
+            try {
+                this.filter = decodeURIComponent(filterValue);
+            } catch {
+                this.filter = filterValue;
+            }
         }
 
         this.fetchNow();
@@ -153,27 +164,16 @@ export default {
         this.emitter.off(this.subscription, this.applyUpdate);
     },
     created() {
-        this.fetch = _.debounce((more = false) => {
+        this.fetch = debounce((more = false) => {
             this.isFetching = true;
             let offset = 0;
             if (more) {
                 offset = this.builds.length;
             }
             axios
-                .get(`/api/feed?offset=${offset}&filter=${encodeURIComponent(this.filter)}`)
+                .get(`/api/feed?offset=${offset}&q=${encodeURIComponent(this.filter)}`)
                 .then((response) => {
                     this.isFetching = false;
-
-                    // Put filter value in address bar to allow copying and link sharing
-                    const url = new URL(window.location.href);
-                    if (this.filter === "") {
-                        url.searchParams.delete("filter");
-                    } else {
-                        const newSearch = url.searchParams;
-                        newSearch.set("filter", encodeURIComponent(this.filter));
-                        url.search = newSearch.toString();
-                    }
-                    this.$router.replace(url.pathname + url.search);
 
                     const data = response.data || [];
                     data.forEach((element) => {
@@ -187,11 +187,32 @@ export default {
                         this.moreEnabled = true;
                     }
                 })
-                .catch((error) => {});
+                .catch(() => {});
             this.filterIsDirty = false;
         }, 500);
     },
     methods: {
+        // Puts the filter in the address bar to allow copying and link
+        // sharing. As the user types, not when the feed answers: by then the
+        // user may be opening another page, and vue-router takes a replace
+        // for a navigation that cancels one still loading its page
+        showFilterInURL() {
+            const url = new URL(window.location.href);
+            // searchParams encodes the value itself. `q`, not `filter`, so
+            // that a link tells which encoding it has (mounted)
+            url.searchParams.delete("filter");
+            if (this.filter === "") {
+                url.searchParams.delete("q");
+            } else {
+                url.searchParams.set("q", this.filter);
+            }
+            // Not for the filter restored from the URL: a replace by the same
+            // URL would count as the user's newer navigation (router.js)
+            const target = url.pathname + url.search;
+            if (this.$router.resolve(target).fullPath !== this.$route.fullPath) {
+                this.$router.replace(target);
+            }
+        },
         subscribe() {
             this.$store.commit("WS_SEND", {
                 type: "in:subscribe",
@@ -276,5 +297,4 @@ export default {
 };
 </script>
 
-<style scoped >
-</style>
+<style scoped></style>

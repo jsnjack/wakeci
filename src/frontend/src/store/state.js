@@ -19,6 +19,9 @@ const state = {
     },
     // How many queue statuses were applied, so an older one can be told apart
     queueStatusCount: 0,
+    // The wakeci version this page was loaded from (App.vue), empty until
+    // the page asked
+    serverVersion: "",
     currentPage: "",
     theme: "light",
 };

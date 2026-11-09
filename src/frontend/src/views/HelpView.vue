@@ -14,18 +14,14 @@
         </div>
         <div class="page padding">
             <article>
-                <p>
-                    Search for builds by <b>ID</b>, <b>name</b>, <b>parameters</b>, or <b>status</b>. Keywords are separated by spaces.
-                </p>
+                <p>Search for builds by <b>ID</b>, <b>name</b>, <b>parameters</b>, or <b>status</b>. Keywords are separated by spaces.</p>
 
                 <p>
-                    Use <code>+</code> to require a keyword, <code>-</code> to exclude it, or quotes for exact phrases. Keywords use OR
-                    logic: if any match, the build is returned.
+                    Use <code>+</code> to require a keyword, <code>-</code> to exclude it, or quotes for exact phrases. Keywords use OR logic: if any match, the
+                    build is returned.
                 </p>
 
-                <p>
-                    Specific attributes can be targeted using <code>key:value</code> syntax, e.g., <code>status:failed</code> or <code>name:myjob</code>.
-                </p>
+                <p>Specific attributes can be targeted using <code>key:value</code> syntax, e.g., <code>status:failed</code> or <code>name:myjob</code>.</p>
 
                 <h6>Examples</h6>
 
@@ -96,4 +92,4 @@ export default {
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped ></style>
+<style scoped></style>

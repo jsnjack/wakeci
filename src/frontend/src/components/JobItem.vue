@@ -45,7 +45,10 @@
             <div class="tooltip bottom">Delete</div>
         </button>
 
-        <dialog :class="{ active: modalDelete }" class="padding">
+        <dialog
+            :class="{ active: modalDelete }"
+            class="padding"
+        >
             <div>
                 Are you sure you want to delete <b>{{ job.name }}</b
                 >?
@@ -89,11 +92,11 @@ export default {
     },
     computed: {},
     methods: {
-        deleteJob(event) {
+        deleteJob() {
             const url = `/api/job/${encodeURIComponent(this.job.name)}`;
             axios
                 .delete(url)
-                .then((response) => {
+                .then(() => {
                     this.$notify({
                         text: `${escapeHtml(this.job.name)} has been deleted`,
                         type: "primary",
@@ -101,7 +104,7 @@ export default {
                     this.toggleModalDelete();
                     this.$router.go();
                 })
-                .catch((error) => {});
+                .catch(() => {});
         },
         toggleModalDelete() {
             this.modalDelete = !this.modalDelete;
@@ -119,11 +122,11 @@ export default {
                     });
                     this.isActive = response.data;
                 })
-                .catch((error) => {});
+                .catch(() => {});
         },
     },
 };
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped ></style>
+<style scoped></style>

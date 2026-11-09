@@ -78,19 +78,19 @@
                 class="field border small"
             >
                 <input
-                    type="password"
                     id="password"
                     v-model="password"
+                    type="password"
                 />
                 <span class="helper">Password</span>
             </div>
 
             <div class="field border small">
                 <input
-                    type="number"
                     id="concurrent-builds"
-                    min="1"
                     v-model="concurrentBuilds"
+                    type="number"
+                    min="1"
                 />
                 <span class="helper">Number of concurrent builds</span>
             </div>
@@ -197,13 +197,13 @@ export default {
                         "Content-type": "application/x-www-form-urlencoded",
                     },
                 })
-                .then((response) => {
+                .then(() => {
                     this.$notify({
                         text: "Saved",
                         type: "primary",
                     });
                 })
-                .catch((error) => {});
+                .catch(() => {});
         },
         checkUpdate() {
             axios
@@ -211,7 +211,7 @@ export default {
                 .then((response) => {
                     this.update = response.data;
                 })
-                .catch((error) => {});
+                .catch(() => {});
         },
         install() {
             this.confirmingUpdate = false;
@@ -230,7 +230,7 @@ export default {
                         type: "primary",
                     });
                 })
-                .catch((error) => {})
+                .catch(() => {})
                 .finally(() => {
                     this.installing = false;
                 });
@@ -247,7 +247,7 @@ export default {
                         this.buildHistorySize = response.data.buildHistorySize;
                     }
                 })
-                .catch((error) => {});
+                .catch(() => {});
         },
     },
 };

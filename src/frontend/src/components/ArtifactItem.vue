@@ -1,5 +1,8 @@
 <template>
-    <article v-if="artifacts && artifacts.length > 0" class="border">
+    <article
+        v-if="artifacts && artifacts.length > 0"
+        class="border"
+    >
         <h6>Artifacts</h6>
         <div
             v-if="indexFile"
@@ -30,8 +33,8 @@
                     <th
                         style="cursor: pointer"
                         data-cy="artifacts-header-size"
-                        @click="sortBy('size')"
                         class="right-align"
+                        @click="sortBy('size')"
                     >
                         <i>sort</i>
                         Size

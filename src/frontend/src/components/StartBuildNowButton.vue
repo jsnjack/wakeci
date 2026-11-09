@@ -35,14 +35,14 @@ export default {
             if (this.status === "pending") {
                 axios
                     .post(event.target.href || event.target.parentElement.href)
-                    .then((response) => {
+                    .then(() => {
                         this.$notify({ text: `${this.buildID} has been started`, type: "primary" });
                     })
-                    .catch((error) => {});
+                    .catch(() => {});
             }
         },
     },
 };
 </script>
 
-<style  scoped></style>
+<style scoped></style>

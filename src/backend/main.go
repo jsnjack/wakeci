@@ -52,7 +52,7 @@ var Config *WakeConfig
 // WSHub is the websocket hub
 var WSHub *Hub
 
-//go:embed assets/*
+//go:embed all:assets
 var Assets embed.FS
 
 //go:embed docs/swagger.json

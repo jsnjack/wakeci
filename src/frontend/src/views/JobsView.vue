@@ -1,5 +1,8 @@
 <template>
-    <dialog :class="{ active: modalOpen }" class="padding">
+    <dialog
+        :class="{ active: modalOpen }"
+        class="padding"
+    >
         <h5>Create a new job</h5>
         <div class="field border small">
             <input
@@ -37,8 +40,8 @@
         <div class="max"></div>
         <button
             data-cy="create-job"
-            @click.prevent="toggle"
             class="small-round"
+            @click.prevent="toggle"
         >
             <i>add_circle</i>
             Create a new job
@@ -94,7 +97,7 @@
 <script>
 import JobItem from "@/components/JobItem.vue";
 import axios from "axios";
-import _ from "lodash";
+import debounce from "lodash/debounce";
 
 export default {
     components: { JobItem },
@@ -113,12 +116,17 @@ export default {
             return this.modalOpen;
         },
     },
+    watch: {
+        filter: function () {
+            this.filterJobs();
+        },
+    },
     mounted() {
         this.$store.commit("SET_CURRENT_PAGE", "Jobs");
         this.fetch();
     },
     created() {
-        this.filterJobs = _.debounce(() => {
+        this.filterJobs = debounce(() => {
             if (this.filter === "") {
                 this.filteredJobs = this.jobs;
                 return;
@@ -129,11 +137,6 @@ export default {
             });
         }, 100);
     },
-    watch: {
-        filter: function () {
-            this.filterJobs();
-        },
-    },
     methods: {
         fetch() {
             axios
@@ -143,11 +146,11 @@ export default {
                     this.filteredJobs = this.jobs;
                     this.fetchingDone = true;
                 })
-                .catch((error) => {
+                .catch(() => {
                     this.fetchingDone = true;
                 });
         },
-        toggle(event) {
+        toggle() {
             this.modalOpen = !this.modalOpen;
             if (this.modalOpen) {
                 this.$nextTick(() => {
@@ -160,7 +163,7 @@ export default {
             data.append("name", this.newJobName);
             axios
                 .post("/api/jobs/create", data)
-                .then((response) => {
+                .then(() => {
                     this.toggle();
                     this.$notify({
                         text: "New job created",
@@ -168,7 +171,7 @@ export default {
                     });
                     this.fetch();
                 })
-                .catch((error) => {});
+                .catch(() => {});
         },
         enterClicked() {
             this.$refs.createButton.click();
@@ -181,4 +184,4 @@ export default {
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped ></style>
+<style scoped></style>

@@ -6,9 +6,11 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -149,5 +151,28 @@ func TestExitPlan(t *testing.T) {
 				t.Errorf("exitPlan() = %v, %v; want restart %v, error %v", restart, err, tt.wantRestart, tt.wantErr)
 			}
 		})
+	}
+}
+
+// TestEmbeddedAssetsMatchTheBuild is a regression test: the frontend was
+// embedded with assets/*, which leaves out files whose names start with _ or
+// . inside a folder, and Vite can name shared chunks that way; the page then
+// couldn't load them from the binary
+func TestEmbeddedAssetsMatchTheBuild(t *testing.T) {
+	// make build copies Vite's output here before the binary is built
+	err := filepath.WalkDir("assets", func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		if _, err := fs.Stat(Assets, filepath.ToSlash(path)); err != nil {
+			t.Errorf("%s is in the frontend build but not in the binary: %v", path, err)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk the frontend build: %v", err)
 	}
 }

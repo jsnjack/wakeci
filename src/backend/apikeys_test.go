@@ -279,7 +279,7 @@ func TestAPIKeyFeedPages(t *testing.T) {
 	}{
 		{"/api/feed", []int{39, 37, 35, 33, 31, 29, 27, 25, 23, 21, 19, 17, 15, 13, 11}},
 		{"/api/feed?offset=15", []int{9, 7, 5, 3, 1}},
-		{"/api/feed?offset=1&filter=id:1", []int{17, 15, 13, 11, 1}},
+		{"/api/feed?offset=1&q=id:1", []int{17, 15, 13, 11, 1}},
 	}
 	for _, tt := range tests {
 		rec := keyRequest(router, "GET", tt.target, token, nil)

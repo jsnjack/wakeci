@@ -6,8 +6,8 @@
             <p>...or simply put it, everything went hilariously sideways!</p>
             <nav class="center-align">
                 <button
-                    @click.prevent="back"
                     class="border round"
+                    @click.prevent="back"
                 >
                     Go back
                 </button>

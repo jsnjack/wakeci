@@ -136,7 +136,8 @@ make build      # frontend (vite) + backend (`go tool swag` docs + go build), ou
 make runf       # frontend dev server (npm run serve)
 make runb       # backend, rebuilt and restarted on *.go change (entr)
 make test       # backend unit tests (alias for test_go)
-make check      # fmt, vet, build, test, lint, isolated parallel production E2E tests
+make lintf      # frontend: ESLint (no warnings allowed) and Prettier, checking only
+make check      # fmt, vet, build, test, lint, lintf, isolated parallel production E2E tests
 make testprod   # build once, then run Playwright E2E tests in parallel
 make testdev    # build once, then run the isolated E2E suite with visible browsers
 make testreport # open the last E2E HTML report from the repository root
@@ -192,8 +193,16 @@ AGENTS.universal.md for the general contract.
 ## Design Decisions
 
 - **Single binary, embedded frontend.** The Vue build output is embedded via
-  `//go:embed assets/*` so deployment is one file; `make build` always
-  rebuilds the frontend first.
+  `//go:embed all:assets` so deployment is one file; `make build` always
+  rebuilds the frontend first. `all:` because Go otherwise skips files whose
+  names start with `_` or `.` inside a folder, and Vite can name shared
+  chunks so (`TestEmbeddedAssetsMatchTheBuild`). `HandleVueResources`
+  serves static files only under `/assets/` and at the top level, refusing
+  hidden ones; every other path, also one with a dot such as
+  `/job/deploy.prod`, gets the app. Each page's code loads when it is first opened
+  (`router.js`), except the login page, which every full load passes through,
+  and the build fails when a JS chunk is over Vite's 500 kB
+  `chunkSizeWarningLimit` (`vite.config.js`).
 - **BoltDB, not a client-server database.** Keeps the server dependency-free;
   `CompactDB`/`--compactdb` exists because Bolt doesn't reclaim space
   automatically.
@@ -394,6 +403,10 @@ AGENTS.universal.md for the general contract.
   `<object>` and a popup created API keys, and a service worker registered).
   Dropping `allow-same-origin` breaks reports' own files instead. The app
   must keep opening artifacts with `rel="noopener"` and never frame them.
+- The feed's search is `q`, in the page URL and in `/api/feed`. `filter`
+  is its old name, still read when `q` is absent: by `HandleFeedView` for
+  API clients, and by `FeedView` for links written before, which encoded
+  it twice and are decoded once more. Write `q`; don't drop `filter`.
 - `HandleFeedView` scans the history in a read transaction, so a slow or
   filtered scan never holds Bolt's single write lock; builds the queue no
   longer knows are marked aborted afterwards by `markStaleBuildsAborted`,
@@ -413,6 +426,12 @@ AGENTS.universal.md for the general contract.
 - Create builds through `Queue.addNewBuild`, as `RunJob` does: a build's
   `on_pending` tasks start before it is queued, and `addNewBuild` holds
   `runMu` until then, so `stopTasks` at exit reaches them.
+- A failed navigation, say a page chunk with an old name after a
+  self-update, makes `router.js` ask `/api/queue/` for the version: if it
+  differs from the one the page was loaded from (`state.serverVersion`, set
+  by `App.vue`), the page loads the URL in full; otherwise it says the page
+  couldn't be loaded. So two builds with one version don't reload, and a
+  page can't reload in a loop.
 - systemd's default `KillMode=control-group` sends SIGTERM to the tasks
   directly and defeats the drain; the unit needs `KillMode=mixed` and a
   `TimeoutStopSec` above `draintimeout` (see `config/wakeci.service`).
