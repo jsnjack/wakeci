@@ -86,6 +86,15 @@ const chunkReloadKey = "wakeci-chunk-reload";
 const chunkReloadWindow = 30 * 1000;
 const chunkLoadError =
     /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Unable to preload CSS/i;
+// Browsers word a failed import differently, so Vite's own report of one
+// (vite:preloadError) during the current navigation counts too
+let chunkFailed = false;
+window.addEventListener("vite:preloadError", () => {
+    chunkFailed = true;
+});
+router.beforeEach(() => {
+    chunkFailed = false;
+});
 
 // withStorage runs use with sessionStorage and returns its result, or
 // undefined when the browser blocks sessionStorage
@@ -117,7 +126,7 @@ function cantLoad() {
 router.onError((error, to) => {
     // Registering onError stops vue-router from logging it
     console.error(`Navigation to ${to.fullPath} failed:`, error);
-    if (!chunkLoadError.test(String(error?.message))) {
+    if (!chunkFailed && !chunkLoadError.test(String(error?.message))) {
         return;
     }
     const reloaded = withStorage((storage) => reloadedFor(storage, to.fullPath));
