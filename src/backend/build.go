@@ -661,11 +661,13 @@ func (b *Build) CollectArtifacts() {
 			if err != nil {
 				b.Logger.Error("copy artifact", "file", f, "err", err)
 			} else {
+				b.mutex.Lock()
 				b.BuildArtifacts = append(b.BuildArtifacts, &ArtifactInfo{
 					Size:     artifactSize,
 					Filename: relPath,
 				})
 				b.Artifacts = append(b.Artifacts, relPath) // Deprecate
+				b.mutex.Unlock()
 			}
 		}
 	}
@@ -857,6 +859,8 @@ func (b *Build) GetTasksStatus() []*TaskStatus {
 // setDuration records how long the build ran. A build aborted while queued
 // never started, and time.Since of a zero StartedAt is the maximum duration
 func (b *Build) setDuration() {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	if b.StartedAt.IsZero() {
 		b.Duration = 0
 		return
@@ -870,12 +874,14 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 	// are changed or broadcast.
 	b.pendingTasksWG.Wait()
 	b.Logger.Info("build status", "status", status)
+	// Under b.mutex, like every field records() reads: RunJob and
+	// RestoreQueue send an update from their own goroutine
 	b.mutex.Lock()
 	b.Status = status
-	b.mutex.Unlock()
 	if status == StatusRunning {
 		b.StartedAt = time.Now()
 	}
+	b.mutex.Unlock()
 	switch status {
 	case StatusPending:
 		b.BroadcastUpdate()

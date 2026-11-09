@@ -621,3 +621,27 @@ func historyTaskStatus(t *testing.T, buildID, taskID int) ItemStatus {
 	t.Fatalf("build %d has no task %d in the history", buildID, taskID)
 	return ""
 }
+
+// TestBroadcastUpdateWhileBuildRuns is a regression test, for go test -race:
+// RunJob sends an update from its own goroutine, and a build that another
+// request started meanwhile set its start time, duration and artifacts
+// without the lock the update reads them with
+func TestBroadcastUpdateWhileBuildRuns(t *testing.T) {
+	build := abortTestBuild(t, &Job{
+		Name:      "running-update",
+		Tasks:     []*Task{{ID: 0, Command: "touch report.txt", Kind: KindMain}},
+		Artifacts: []string{"report.txt"},
+	})
+	done := startBuild(build)
+	for {
+		build.BroadcastUpdate()
+		select {
+		case <-done:
+			if len(build.BuildArtifacts) != 1 {
+				t.Errorf("artifacts = %v, want report.txt", build.BuildArtifacts)
+			}
+			return
+		default:
+		}
+	}
+}
