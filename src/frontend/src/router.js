@@ -72,4 +72,44 @@ const router = createRouter({
     ],
 });
 
+// A page's chunk that fails to load is most likely one that only the build
+// before a self-update had. The page then loads the URL in full, once, to get
+// the new build; a chunk this build lacks as well keeps its error, instead of
+// reloading forever
+const chunkReloadKey = "wakeci-chunk-reload";
+const chunkLoadError =
+    /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Unable to preload CSS/i;
+
+router.onError((error, to) => {
+    if (!chunkLoadError.test(String(error?.message))) {
+        return;
+    }
+    try {
+        if (sessionStorage.getItem(chunkReloadKey) === to.fullPath) {
+            sessionStorage.removeItem(chunkReloadKey);
+            return;
+        }
+        sessionStorage.setItem(chunkReloadKey, to.fullPath);
+    } catch {
+        // Without storage the reload can't be limited to once
+        return;
+    }
+    window.location.assign(to.fullPath);
+});
+
+// Only a successful load of that URL ends it: a full load passes through
+// /login first, while the session is checked
+router.afterEach((to, from, failure) => {
+    if (failure) {
+        return;
+    }
+    try {
+        if (sessionStorage.getItem(chunkReloadKey) === to.fullPath) {
+            sessionStorage.removeItem(chunkReloadKey);
+        }
+    } catch {
+        // Nothing was stored then
+    }
+});
+
 export default router;
