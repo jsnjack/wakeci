@@ -363,6 +363,9 @@ func TestFailedSessionDeletionIsRetried(t *testing.T) {
 		{"with the hourly cleanup", func(_ *testing.T, storage *SessionStorage) {
 			storage.deleteExpired()
 		}},
+		{"as wakeci stops", func(_ *testing.T, storage *SessionStorage) {
+			storage.saveUnsaved()
+		}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

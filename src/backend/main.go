@@ -252,6 +252,8 @@ func run(cleanup func()) {
 	if err != nil {
 		fatal("load sessions", err)
 	}
+	// Last before the database closes
+	defer GlobalSessionStorage.saveUnsaved()
 
 	if Config.SSO.Enabled() {
 		GlobalSSOAuth, err = NewSSOAuth(Config.SSO)

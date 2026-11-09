@@ -52,12 +52,12 @@ that `--version` prints the version, hard-links the old binary to
   Every change takes `saveMu` until it is written, so a deletion (logout,
   revoke, expiry) can't be overtaken by a save and come back after a restart.
   A deletion that fails to save is kept in `unsaved` and retried with every
-  later save. Since a restart no longer ends sessions, a password change ends
-  every other password session (`DeletePasswordSessions`). It holds
-  `passwordMu` for writing, which a login holds for reading until its session
-  exists, so a login that checked the old password can't keep its session. The
-  SSO login-state key is still generated at startup, so a restart only
-  interrupts logins in progress.
+  later save and once more as wakeci stops. Since a restart no longer ends
+  sessions, a password change ends every other password session
+  (`DeletePasswordSessions`). It holds `passwordMu` for writing, which a login
+  holds for reading until its session exists, so a login that checked the old
+  password can't keep its session. The SSO login-state key is still generated
+  at startup, so a restart only interrupts logins in progress.
 - **No manual queue pause.** Stopping and updating already hold the queue, and
   a reboot stops wakeci the same way, so a pause button only added a second
   way to do it. The stop state isn't saved; it ends with the process. "Start

@@ -124,6 +124,15 @@ func (s *SessionStorage) save(saved map[string]session, deleted []string) {
 	s.unsaved = nil
 }
 
+// saveUnsaved tries again to save the deletions that failed. wakeci calls it
+// as it stops, so they don't wait for a save after the restart, which loads
+// the sessions again first
+func (s *SessionStorage) saveUnsaved() {
+	s.saveMu.Lock()
+	defer s.saveMu.Unlock()
+	s.save(nil, nil)
+}
+
 // load reads the sessions saved in db and deletes the expired ones
 func (s *SessionStorage) load() error {
 	now := time.Now()
