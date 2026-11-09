@@ -149,22 +149,25 @@ func MarkInterruptedBuilds() error {
 	return markStaleBuildsAborted(L, stale)
 }
 
-// forwardStopSignals passes each signal from signals on to the returned
-// channel, which drainQueue reads, once q noted it: a stop signal cancels a
-// planned restart whenever it arrives. Like signal.Notify, it drops a signal
-// while the channel is full. It ends when signals is closed
-func forwardStopSignals(q *Queue, signals <-chan os.Signal) <-chan os.Signal {
-	forwarded := make(chan os.Signal, cap(signals))
+// forwardStopSignals passes each signal from signals on to forwarded, which
+// drainQueue reads, once q noted it: a stop signal cancels a planned restart
+// whenever it arrives. Like signal.Notify, it drops a signal while forwarded
+// is full. Once signals is closed and every signal in it was noted, it closes
+// done
+func forwardStopSignals(q *Queue, signals <-chan os.Signal) (forwarded <-chan os.Signal, done <-chan struct{}) {
+	out := make(chan os.Signal, cap(signals))
+	finished := make(chan struct{})
 	go func() {
+		defer close(finished)
 		for sig := range signals {
 			q.noteStopSignal(sig)
 			select {
-			case forwarded <- sig:
+			case out <- sig:
 			default:
 			}
 		}
 	}()
-	return forwarded
+	return out, finished
 }
 
 // drainQueue waits until the running builds end, or until the abort time

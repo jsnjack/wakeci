@@ -554,7 +554,7 @@ func TestStopSignalCancelsRestart(t *testing.T) {
 			q := &Queue{}
 			signals := make(chan os.Signal, 1)
 			defer close(signals)
-			forwarded := forwardStopSignals(q, signals)
+			forwarded, _ := forwardStopSignals(q, signals)
 			send := func() {
 				signals <- syscall.SIGTERM
 				select {
@@ -674,6 +674,31 @@ func TestStopTasksEndsLeftoverTasks(t *testing.T) {
 			t.Error("the queued build must stay queued and saved for the restart")
 		}
 	})
+}
+
+// TestStopSignalNotedWhenHandlingEnds is a regression test: a signal still
+// waiting in the channel when run stopped handling signals could be noted
+// after main had already decided to restart
+func TestStopSignalNotedWhenHandlingEnds(t *testing.T) {
+	newTestBuildEnv(t)
+	q := &Queue{}
+	q.BeginStop(time.Now().Add(time.Hour), "2.0.0")
+	signals := make(chan os.Signal, 1)
+	// Holding the queue's lock keeps the signal from being noted
+	q.mutex.Lock()
+	signals <- syscall.SIGTERM
+	_, done := forwardStopSignals(q, signals)
+	close(signals)
+	select {
+	case <-done:
+		t.Error("done closed before the signal was noted")
+	case <-time.After(200 * time.Millisecond):
+	}
+	q.mutex.Unlock()
+	<-done
+	if got := q.Status().RestartVersion; got != "" {
+		t.Errorf("restart version = %q once the signals were handled, want none", got)
+	}
 }
 
 func TestBeginStopOnce(t *testing.T) {

@@ -367,12 +367,14 @@ func run(cleanup func()) {
 	// A signal or an update stops the server once the running builds ended
 	signals := make(chan os.Signal, 4)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+	interrupt, signalsNoted := forwardStopSignals(GlobalQueue, signals)
 	defer func() {
-		// From here a signal ends the process, which then doesn't restart
+		// From here a signal ends the process, which then doesn't restart.
+		// One that arrived before is noted before main reads the restart
 		signal.Stop(signals)
 		close(signals)
+		<-signalsNoted
 	}()
-	interrupt := forwardStopSignals(GlobalQueue, signals)
 	ctx, stop := context.WithCancel(context.Background())
 	defer stop()
 	go func() {
