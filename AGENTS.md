@@ -136,7 +136,8 @@ make build      # frontend (vite) + backend (`go tool swag` docs + go build), ou
 make runf       # frontend dev server (npm run serve)
 make runb       # backend, rebuilt and restarted on *.go change (entr)
 make test       # backend unit tests (alias for test_go)
-make check      # fmt, vet, build, test, lint, isolated parallel production E2E tests
+make lintf      # frontend: ESLint (no warnings allowed) and Prettier, checking only
+make check      # fmt, vet, build, test, lint, lintf, isolated parallel production E2E tests
 make testprod   # build once, then run Playwright E2E tests in parallel
 make testdev    # build once, then run the isolated E2E suite with visible browsers
 make testreport # open the last E2E HTML report from the repository root

@@ -73,6 +73,11 @@ lint: vet
 	}
 	cd src/backend && golangci-lint run
 
+# Checks the frontend without changing it; `npm run lint:fix` and
+# `npm run format` fix what they report
+lintf:
+	cd src/frontend && npm run lint && npm run format:check
+
 # Every agent session loads AGENTS.md whole, and Codex reads only its first
 # 32 KiB: keep it under the limit (AGENTS.universal.md, "AGENTS.md size").
 AGENTS_MAX_BYTES ?= 30000
@@ -83,7 +88,7 @@ agents-size:
 	  exit 1; \
 	fi
 
-check: fmt vet build test lint testprod agents-size
+check: fmt vet build test lint lintf testprod agents-size
 	@echo "==> make check: all green"
 
 standards:
@@ -117,4 +122,4 @@ viewdb:
 	cp wakeci.db view.db
 	bolter -f view.db
 
-.PHONY: runb runf version clean clean_jobs testprod testdev testreport test_go test vet fmt lint check agents-size standards buildf build release
+.PHONY: runb runf version clean clean_jobs testprod testdev testreport test_go test vet fmt lint lintf check agents-size standards buildf build release

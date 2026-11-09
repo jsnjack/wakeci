@@ -24,11 +24,14 @@ npm run build
 npm run test
 ```
 
-### Lints and fixes files
+### Lints and formats files
 
 ```
-npm run lint
+npm run lint:fix
+npm run format
 ```
+
+`npm run lint` and `npm run format:check` only check; `make check` runs both.
 
 ### Customize configuration
 
