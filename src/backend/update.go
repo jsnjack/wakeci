@@ -303,8 +303,9 @@ func installRelease(downloaded, path string) error {
 		return fmt.Errorf("stat %s: %w", path, err)
 	}
 	// An earlier attempt may have kept this binary already: a rename between
-	// two links of one file does nothing and would leave the new link behind
-	if backup, err := os.Stat(previous); err != nil || !os.SameFile(running, backup) {
+	// two links of one file does nothing and would leave the new link behind.
+	// Lstat, so a symlink to the binary doesn't count as a backup
+	if backup, err := os.Lstat(previous); err != nil || !os.SameFile(running, backup) {
 		// Under another name first, so the backup an earlier update kept
 		// stays until this one exists
 		linked := previous + ".new"

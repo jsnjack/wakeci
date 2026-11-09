@@ -482,3 +482,26 @@ func TestInstallReleaseAfterAFailedAttempt(t *testing.T) {
 		t.Errorf("%s.previous.new: %v, want it gone", running, err)
 	}
 }
+
+// TestInstallReleaseReplacesASymlinkBackup is a regression test: a
+// <binary>.previous symlink to the binary looked like a backup that was
+// already current, so the update kept no backup, and the symlink then led
+// to the new binary
+func TestInstallReleaseReplacesASymlinkBackup(t *testing.T) {
+	running := runningBinary(t)
+	current := readFile(t, running)
+	if err := os.Symlink(running, running+".previous"); err != nil {
+		t.Fatalf("symlink previous binary: %v", err)
+	}
+	downloaded := filepath.Join(filepath.Dir(running), ".wakeci-update-new")
+	if err := os.WriteFile(downloaded, []byte("new"), 0755); err != nil {
+		t.Fatalf("write download: %v", err)
+	}
+
+	if err := installRelease(downloaded, running); err != nil {
+		t.Fatalf("installRelease: %v", err)
+	}
+	if got := readFile(t, running+".previous"); got != current {
+		t.Errorf("previous binary = %q, want %q", got, current)
+	}
+}
