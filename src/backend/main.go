@@ -144,8 +144,10 @@ func initApp() func() {
 // @BasePath /api
 func main() {
 	cleanup := initApp()
-	restart := run(cleanup)
-	if restart {
+	run(cleanup)
+	// Read once run returned, so nothing on the way out, such as a request
+	// that outlasts the HTTP shutdown, cancels it
+	if GlobalQueue.Status().RestartVersion != "" {
 		// Keeps the PID, so a service manager sees the same process
 		L.Warn("restarting", "binary", executablePath)
 		err := syscall.Exec(executablePath, os.Args, os.Environ())
@@ -156,9 +158,9 @@ func main() {
 	cleanup()
 }
 
-// run starts the server and returns once it stopped, true if it must start
-// again because the binary was updated
-func run(cleanup func()) bool {
+// run starts the server and returns once it stopped. wakeci starts again if
+// an update planned it (Queue.BeginStop)
+func run(cleanup func()) {
 	fatal := func(msg string, err error) {
 		L.Error(msg, "err", err)
 		cleanup()
@@ -425,9 +427,7 @@ func run(cleanup func()) bool {
 	auxiliaryServers.Wait()
 	if err != nil {
 		L.Error("serve "+serveName, "err", err)
-		return false
 	}
-	return GlobalQueue.Status().RestartVersion != ""
 }
 
 // apiRoutes registers the /api routes for logged-in users and the admin
