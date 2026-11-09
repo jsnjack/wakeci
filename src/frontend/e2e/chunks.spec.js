@@ -50,7 +50,8 @@ test("should load a page in full when its code fails to load", async ({ page }) 
     await expect(page).toHaveURL(/\/jobs$/);
     await expect(page.getByTestId("jobs-container")).toBeVisible();
     expect(asked.count).toBeGreaterThan(1);
-    expect(loads).toBe(1);
+    // The load event may reach the test after the page shows
+    await expect.poll(() => loads).toBe(1);
 });
 
 test("should load a page in full only once when its code keeps failing", async ({ page }) => {
@@ -102,5 +103,5 @@ test("should load a page in full again once an earlier reload mark is old", asyn
 
     await page.locator('nav a[href="/jobs"]').click();
     await expect(page.getByTestId("jobs-container")).toBeVisible();
-    expect(loads).toBe(1);
+    await expect.poll(() => loads).toBe(1);
 });
