@@ -5,12 +5,12 @@
         @submit.prevent="logIn"
     >
         <progress
-            class="circle large"
             v-show="fetching"
+            class="circle large"
         ></progress>
         <div
-            class="center-align"
             v-if="!fetching"
+            class="center-align"
         >
             <i class="extra">water</i>
             <h5 class="center-align">Welcome to wake</h5>

@@ -31,7 +31,7 @@
                 @input="(evt) => (filter = evt.target.value)"
             />
             <label>Filter builds by id, name, params and status</label>
-            <progress class="circle" v-show="isFetching"></progress>
+            <progress v-show="isFetching" class="circle"></progress>
         </div>
         <button
             class="large no-round"
@@ -48,8 +48,8 @@
     </nav>
 
     <article
-        class="fill small-margin center-align large-text m l"
         v-show="filteredUpdates !== 0"
+        class="fill small-margin center-align large-text m l"
         data-cy="filtered-updates"
     >
         <p>{{ filteredUpdates }} updates have been filtered because of the active filter</p>
@@ -60,7 +60,7 @@
             v-for="item in sortedBuilds"
             :key="item.id"
             :build="item"
-            @setFilter="handleSetFilter"
+            @set-filter="handleSetFilter"
         />
     </div>
 

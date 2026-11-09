@@ -37,8 +37,8 @@
         <div class="max"></div>
         <button
             data-cy="create-job"
-            @click.prevent="toggle"
             class="small-round"
+            @click.prevent="toggle"
         >
             <i>add_circle</i>
             Create a new job
@@ -113,6 +113,11 @@ export default {
             return this.modalOpen;
         },
     },
+    watch: {
+        filter: function () {
+            this.filterJobs();
+        },
+    },
     mounted() {
         this.$store.commit("SET_CURRENT_PAGE", "Jobs");
         this.fetch();
@@ -128,11 +133,6 @@ export default {
                 return item.name.toLowerCase().includes(this.filter.toLowerCase());
             });
         }, 100);
-    },
-    watch: {
-        filter: function () {
-            this.filterJobs();
-        },
     },
     methods: {
         fetch() {

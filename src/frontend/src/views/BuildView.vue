@@ -45,9 +45,9 @@
             <a
                 class="button circle transparent"
                 :disabled="isDone ? true : null"
-                @click.prevent="abort"
                 :href="getAbortURL"
                 data-cy="abort-build-button"
+                @click.prevent="abort"
             >
                 <i>stop</i>
                 <div class="tooltip bottom">Abort</div>
@@ -75,7 +75,7 @@
             v-for="(item, index) in statusUpdate.params"
             :key="index + 'param'"
             :param="item"
-            :includeKeys="true"
+            :include-keys="true"
         />
     </article>
 
@@ -88,7 +88,7 @@
             :build-i-d="id"
             :name="job.tasks[item.id].name"
             :follow="follow"
-            :hideAllLogs="hideAllLogs"
+            :hide-all-logs="hideAllLogs"
         />
     </div>
 
@@ -115,8 +115,8 @@
         >
             <div class="tooltip left">Toggle following logs (Ctrl + Alt + F)</div>
             <input
-                type="checkbox"
                 v-model="follow"
+                type="checkbox"
                 @change="saveFollow"
             />
             <span>

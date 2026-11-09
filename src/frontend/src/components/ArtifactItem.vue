@@ -30,8 +30,8 @@
                     <th
                         style="cursor: pointer"
                         data-cy="artifacts-header-size"
-                        @click="sortBy('size')"
                         class="right-align"
+                        @click="sortBy('size')"
                     >
                         <i>sort</i>
                         Size

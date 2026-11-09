@@ -17,10 +17,10 @@
             >
                 <div></div>
                 <ParamItem
-                    v-for="(item, index) in this.getFilteredParams"
+                    v-for="(item, index) in getFilteredParams"
                     :key="index + 'param'"
                     :param="item"
-                    @setFilter="handleSetFilter"
+                    @set-filter="handleSetFilter"
                 />
             </div>
         </div>
@@ -28,8 +28,8 @@
             <button
                 v-if="build.params && build.params.length > getFilteredParams.length"
                 class="circle transparent"
-                @click.prevent="toggleExpandParams"
                 data-cy="expand-more-params-button"
+                @click.prevent="toggleExpandParams"
             >
                 <i>expand_more</i>
                 <div class="tooltip bottom">More</div>
@@ -37,8 +37,8 @@
             <button
                 v-if="expandParams"
                 class="circle transparent"
-                @click.prevent="toggleExpandParams"
                 data-cy="expand-less-params-button"
+                @click.prevent="toggleExpandParams"
             >
                 <i>expand_less</i>
                 <div class="tooltip bottom">Less</div>
@@ -106,6 +106,11 @@ export default {
             required: true,
         },
     },
+    data: function () {
+        return {
+            expandParams: false,
+        };
+    },
     computed: {
         getAbortURL: function () {
             return `/api/build/${this.build.id}/abort`;
@@ -158,11 +163,6 @@ export default {
         handleSetFilter(event) {
             this.$emit("setFilter", event);
         },
-    },
-    data: function () {
-        return {
-            expandParams: false,
-        };
     },
 };
 </script>

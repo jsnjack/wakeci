@@ -6,8 +6,8 @@
     >
         <div class="row no-space">
             <div
-                @click.prevent="setFilter($event)"
                 style="word-break: break-all; flex: auto"
+                @click.prevent="setFilter($event)"
             >
                 {{ getText }}
             </div>
@@ -41,6 +41,11 @@ export default {
             type: Boolean,
             default: false,
         },
+    },
+    data: function () {
+        return {
+            copyIcon: "content_copy",
+        };
     },
     computed: {
         getName() {
@@ -88,11 +93,6 @@ export default {
                 append: event.ctrlKey || event.metaKey,
             });
         },
-    },
-    data: function () {
-        return {
-            copyIcon: "content_copy",
-        };
     },
 };
 </script>

@@ -3,23 +3,23 @@
         <div class="medium-margin"></div>
         <div>
             <nav
-                @click="toggleLogs"
                 data-cy="task-title"
+                @click="toggleLogs"
             >
                 <a class="row wave max">
-                    <i v-if="this.content === '' && this.task.status !== 'running'">chevron_right</i>
+                    <i v-if="content === '' && task.status !== 'running'">chevron_right</i>
                     <i v-else>expand_more</i>
                     <BuildStatus :status="task.status" />
                     <div class="max large-text">{{ name }}</div>
                     <SimpleDuration
                         :item="task"
-                        :minimalisticMode="true"
+                        :minimalistic-mode="true"
                     />
                 </a>
                 <a
-                    @click="reloadLogs"
                     class="button circle transparent"
                     data-cy="reload"
+                    @click="reloadLogs"
                 >
                     <i>sync</i>
                     <div class="tooltip bottom">Reload logs</div>
@@ -36,8 +36,8 @@
             </nav>
             <article
                 v-if="content"
-                class="log-container no-padding border"
                 ref="logContainer"
+                class="log-container no-padding border"
             >
                 <pre
                     class="log-line small-padding"

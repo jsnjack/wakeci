@@ -70,9 +70,9 @@
     </main>
     <notifications
         classes="snackbar active"
-        :dangerouslySetInnerHtml="true"
+        :dangerously-set-inner-html="true"
         :max="1"
-        :pauseOnHover="true"
+        :pause-on-hover="true"
     />
 </template>
 

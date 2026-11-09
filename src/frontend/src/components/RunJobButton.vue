@@ -26,9 +26,9 @@
     >
         <h5>{{ getModalTitle }}</h5>
         <form
-            class="medium-margin"
             v-show="params"
             ref="form"
+            class="medium-margin"
         >
             <RunFormItem
                 v-for="item in params"
@@ -80,10 +80,18 @@ export default {
             default: "play_arrow",
         },
     },
+    data: function () {
+        return {
+            selectorID: "",
+        };
+    },
     computed: {
         getModalTitle: function () {
             return `Configure ${this.jobName}`;
         },
+    },
+    mounted: function () {
+        this.selectorID = generateRandomString(10);
     },
     methods: {
         run(event) {
@@ -104,14 +112,6 @@ export default {
         toggleModal(event) {
             window.ui("#" + "run-job-dialog-" + this.selectorID);
         },
-    },
-    mounted: function () {
-        this.selectorID = generateRandomString(10);
-    },
-    data: function () {
-        return {
-            selectorID: "",
-        };
     },
 };
 </script>
