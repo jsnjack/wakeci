@@ -151,7 +151,10 @@ its own backend on an available port with a temporary database, job directory,
 and test secrets. Tests use separate browser contexts and unique files/job names;
 the fixture waits for the file watcher to register new jobs, removes jobs, and
 aborts unfinished builds after each test. Browser sessions for login/settings
-tests are separate from the worker's API session.
+tests are separate from the worker's API session. Restart tests
+(`e2e/restart.spec.js`) get a backend of their own (`restartable` fixture),
+signal it like systemd does and start it again on the same port and
+directories.
 Use `make testprod E2E_ARGS="--workers=4"` to set the worker count, or
 `E2E_ARGS="e2e/feed.spec.js"` to run selected specs. Direct `npm test` runs use
 the existing `bin/wakeci`; rebuild first after application changes. The default
