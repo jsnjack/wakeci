@@ -403,6 +403,10 @@ AGENTS.universal.md for the general contract.
   `<object>` and a popup created API keys, and a service worker registered).
   Dropping `allow-same-origin` breaks reports' own files instead. The app
   must keep opening artifacts with `rel="noopener"` and never frame them.
+- The feed's search is `q`, in the page URL and in `/api/feed`. `filter`
+  is its old name, still read when `q` is absent: by `HandleFeedView` for
+  API clients, and by `FeedView` for links written before, which encoded
+  it twice and are decoded once more. Write `q`; don't drop `filter`.
 - `HandleFeedView` scans the history in a read transaction, so a slow or
   filtered scan never holds Bolt's single write lock; builds the queue no
   longer knows are marked aborted afterwards by `markStaleBuildsAborted`,

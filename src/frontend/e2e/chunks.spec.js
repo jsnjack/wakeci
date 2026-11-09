@@ -247,7 +247,7 @@ test("should open a page whose code loads after a filter was typed", async ({ pa
     await page.getByTestId("filter").fill("abc");
     await page.locator('nav a[href="/jobs"]').click();
     await jobsAsked;
-    const filteredFeedAnswered = page.waitForResponse(/\/api\/feed\?.*filter=abc/);
+    const filteredFeedAnswered = page.waitForResponse(/\/api\/feed\?.*q=abc/);
     releaseFeed();
     await filteredFeedAnswered;
     // Lets the feed act on the answer before the page's code arrives

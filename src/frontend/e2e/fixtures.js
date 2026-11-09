@@ -304,7 +304,7 @@ export const test = base.extend({
                 await Promise.all([
                     page.waitForResponse((response) => {
                         const url = new URL(response.url());
-                        return url.pathname === "/api/feed" && url.searchParams.get("filter") === name;
+                        return url.pathname === "/api/feed" && url.searchParams.get("q") === name;
                     }),
                     page.getByTestId("filter").fill(name),
                 ]);

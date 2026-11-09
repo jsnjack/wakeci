@@ -17,7 +17,8 @@ import (
 // @Tags         feed
 // @Produce      json
 // @Param        offset   query      integer   false  "Skip `offset` latest builds"
-// @Param        filter   query      string    false  "Returns only builds which ID, name, params or status contains any of the space-separated words. Requires presence of the prefixed with `+` words. Requires absence of the prefixed with `-` words. Phrases can be wrapped in single or double quotes"
+// @Param        q        query      string    false  "Returns only builds which ID, name, params or status contains any of the space-separated words. Requires presence of the prefixed with `+` words. Requires absence of the prefixed with `-` words. Phrases can be wrapped in single or double quotes"
+// @Param        filter   query      string    false  "Deprecated: the old name of `q`, read only when `q` is absent"
 // @Success      200      {array}    BuildUpdateData
 // @Failure      400      {string}   string
 // @Failure      500      {string}   string
@@ -51,7 +52,14 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 		offset = 1
 	}
 
-	filter := CreateFilterRequest(r.URL.Query().Get("filter"))
+	// q is the search; filter, its old name, still works for clients that
+	// send it, unless q is there
+	query := r.URL.Query()
+	search := query.Get("q")
+	if !query.Has("q") {
+		search = query.Get("filter")
+	}
+	filter := CreateFilterRequest(search)
 	// An API key only sees the builds of its jobs
 	apiKey := apiKeyFromContext(r.Context())
 	filtered := filter != nil || apiKey != nil

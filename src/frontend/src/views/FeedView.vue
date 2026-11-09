@@ -171,7 +171,7 @@ export default {
                 offset = this.builds.length;
             }
             axios
-                .get(`/api/feed?offset=${offset}&filter=${encodeURIComponent(this.filter)}`)
+                .get(`/api/feed?offset=${offset}&q=${encodeURIComponent(this.filter)}`)
                 .then((response) => {
                     this.isFetching = false;
 
