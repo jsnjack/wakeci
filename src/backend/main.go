@@ -144,11 +144,17 @@ func initApp() func() {
 // @BasePath /api
 func main() {
 	cleanup := initApp()
-	run(cleanup)
+	tasksLeft := run(cleanup)
 	// Read once run returned. Only a stop signal cancels it on the way out
 	// (Queue.noteStopSignal), not, say, a request that outlasts the HTTP
 	// shutdown
-	if GlobalQueue.Status().RestartVersion != "" {
+	restart, err := exitPlan(GlobalQueue.Status().RestartVersion, tasksLeft)
+	if err != nil {
+		L.Error("not restarting", "err", err)
+		cleanup()
+		os.Exit(1)
+	}
+	if restart {
 		// Keeps the PID, so a service manager sees the same process
 		L.Warn("restarting", "binary", executablePath)
 		err := syscall.Exec(executablePath, os.Args, os.Environ())
@@ -159,9 +165,25 @@ func main() {
 	cleanup()
 }
 
-// run starts the server and returns once it stopped. wakeci starts again if
-// an update planned it (Queue.BeginStop)
-func run(cleanup func()) {
+// exitPlan says whether wakeci re-executes into the update restartVersion
+// once run returned. With tasks left that it couldn't stop, it doesn't: they
+// would run beside the builds the new process restores. The error asks main
+// to exit with status 1 instead, so a service manager ends them and starts
+// the new binary
+func exitPlan(restartVersion string, tasksLeft bool) (bool, error) {
+	if restartVersion == "" {
+		return false, nil
+	}
+	if tasksLeft {
+		return false, fmt.Errorf("tasks still run; start wakeci again to run %s", restartVersion)
+	}
+	return true, nil
+}
+
+// run starts the server and returns once it stopped, and whether tasks still
+// ran that it couldn't stop. wakeci starts again if an update planned it
+// (Queue.BeginStop)
+func run(cleanup func()) (tasksLeft bool) {
 	fatal := func(msg string, err error) {
 		L.Error(msg, "err", err)
 		cleanup()
@@ -293,6 +315,7 @@ func run(cleanup func()) {
 		// an update, a task left running would run beside the restored builds
 		if !GlobalQueue.stopTasks(stopNote, stopTasksTimeout) {
 			L.Warn("stopping while tasks still run; they may outlive wakeci")
+			tasksLeft = true
 		}
 	}()
 
@@ -445,6 +468,7 @@ func run(cleanup func()) {
 	if err != nil {
 		L.Error("serve "+serveName, "err", err)
 	}
+	return tasksLeft
 }
 
 // apiRoutes registers the /api routes for logged-in users and the admin

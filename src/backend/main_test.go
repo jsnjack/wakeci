@@ -125,3 +125,29 @@ func traceLogState(t *testing.T) string {
 		return fmt.Sprintf("size=%d mtime=%s", info.Size(), info.ModTime())
 	}
 }
+
+// TestExitPlan is a regression test: wakeci re-executed into an update even
+// when tasks it couldn't stop still ran, so they ran beside the builds the
+// new process restored
+func TestExitPlan(t *testing.T) {
+	tests := []struct {
+		name           string
+		restartVersion string
+		tasksLeft      bool
+		wantRestart    bool
+		wantErr        bool
+	}{
+		{"update", "2.0.0", false, true, false},
+		{"update with tasks left", "2.0.0", true, false, true},
+		{"stop", "", false, false, false},
+		{"stop with tasks left", "", true, false, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			restart, err := exitPlan(tt.restartVersion, tt.tasksLeft)
+			if restart != tt.wantRestart || (err != nil) != tt.wantErr {
+				t.Errorf("exitPlan() = %v, %v; want restart %v, error %v", restart, err, tt.wantRestart, tt.wantErr)
+			}
+		})
+	}
+}

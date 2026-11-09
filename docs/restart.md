@@ -19,7 +19,9 @@ this wait too), `stopTasks` aborts every task still running and starts no more
 (`stopTasksTimeout`), failed session deletions are retried, and the DB closes.
 Only then does `run` stop handling signals, so a further one can't cut these
 steps short; one after that ends the process. After an update `main` re-execs
-the new binary with `syscall.Exec` (same PID) unless a signal cancelled it.
+the new binary with `syscall.Exec` (same PID) unless a signal cancelled it. If
+tasks still ran that `stopTasks` couldn't stop, `exitPlan` makes it exit with
+status 1 instead, so a service manager ends them and starts the new binary.
 Sessions are saved, so open pages reconnect; `App.vue` fetches `/api/queue/`
 on every connection and reloads when its `version` changed; it ignores the
 answer if a `queue:status` message arrived while the request ran.
