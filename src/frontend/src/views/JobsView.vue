@@ -94,7 +94,7 @@
 <script>
 import JobItem from "@/components/JobItem.vue";
 import axios from "axios";
-import _ from "lodash";
+import debounce from "lodash/debounce";
 
 export default {
     components: { JobItem },
@@ -118,7 +118,7 @@ export default {
         this.fetch();
     },
     created() {
-        this.filterJobs = _.debounce(() => {
+        this.filterJobs = debounce(() => {
             if (this.filter === "") {
                 this.filteredJobs = this.jobs;
                 return;

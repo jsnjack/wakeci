@@ -90,7 +90,7 @@
 import FeedItem from "@/components/FeedItem.vue";
 import { createFilterObj, findInContainer, isFilteredUpdate } from "@/store/utils.js";
 import axios from "axios";
-import _ from "lodash";
+import debounce from "lodash/debounce";
 import vuex from "vuex";
 
 const FetchItemsSize = 10;
@@ -153,7 +153,7 @@ export default {
         this.emitter.off(this.subscription, this.applyUpdate);
     },
     created() {
-        this.fetch = _.debounce((more = false) => {
+        this.fetch = debounce((more = false) => {
             this.isFetching = true;
             let offset = 0;
             if (more) {
