@@ -90,6 +90,12 @@ type Build struct {
 	failedTask *Task
 	// abort is the abort request for the tasks that run now, guarded by mutex
 	abort *abortScope
+	// updateMu is held by BroadcastUpdate from taking the build's state until
+	// it is saved, so updates are saved in the order they were taken: an
+	// update taken while queued, saved after a later one, would queue the
+	// build again after a restart. Not a deadlock.Mutex, whose 30 s limit
+	// would stop wakeci while a slow database write holds it
+	updateMu sync.Mutex
 }
 
 // abortScope is one abort request. Its channel is closed when the abort is
@@ -655,15 +661,12 @@ func copyArtifact(source string, destination string, mode os.FileMode) (size int
 // information about the build. It saves the build in the history, and in
 // QueueBucket while the build is queued
 func (b *Build) BroadcastUpdate() {
+	b.updateMu.Lock()
+	defer b.updateMu.Unlock()
 	bID := b.ID
-	data, err := b.GenerateBuildUpdateData()
+	data, queued, err := b.records()
 	if err != nil {
-		b.Logger.Error("generate build update data", "err", err)
-		return
-	}
-	queued, err := b.queuedRecord()
-	if err != nil {
-		b.Logger.Error("generate queued build record", "err", err)
+		b.Logger.Error("generate build update", "err", err)
 		return
 	}
 	msg := MsgBroadcast{
@@ -688,27 +691,14 @@ func (b *Build) BroadcastUpdate() {
 	}
 }
 
-// queuedRecord returns what RestoreQueue needs to queue the build again, or
-// nil once the build has left the queue
-func (b *Build) queuedRecord() ([]byte, error) {
+// records returns the build's history entry (BuildUpdateData) and, while it
+// is queued, what RestoreQueue needs to queue it again, nil once it left the
+// queue. Both describe the same moment
+func (b *Build) records() (data, queued []byte, err error) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	if b.Status != StatusPending {
-		return nil, nil
-	}
-	return json.Marshal(queuedBuild{
-		Job:               b.Job,
-		Params:            b.Params,
-		StartedWithAPIKey: b.startedWithAPIKey,
-		Tasks:             b.GetTasksStatus(),
-	})
-}
-
-// GenerateBuildUpdateData generates BuildUpdateData
-func (b *Build) GenerateBuildUpdateData() ([]byte, error) {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-	updData := &BuildUpdateData{
+	// JSON, so the caller doesn't read the build's maps while it changes
+	data, err = json.Marshal(&BuildUpdateData{
 		ID:             b.ID,
 		Name:           b.Job.Name,
 		Status:         b.Status,
@@ -719,9 +709,17 @@ func (b *Build) GenerateBuildUpdateData() ([]byte, error) {
 		StartedAt:      b.StartedAt,
 		Duration:       b.Duration,
 		ETA:            b.ETA,
+	})
+	if err != nil || b.Status != StatusPending {
+		return data, nil, err
 	}
-	// Return JSON to prevent concurrent map read/write issues
-	return json.Marshal(updData)
+	queued, err = json.Marshal(queuedBuild{
+		Job:               b.Job,
+		Params:            b.Params,
+		StartedWithAPIKey: b.startedWithAPIKey,
+		Tasks:             b.GetTasksStatus(),
+	})
+	return data, queued, err
 }
 
 // ProcessLogEntry handles log messages from tasks

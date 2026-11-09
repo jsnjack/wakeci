@@ -164,6 +164,72 @@ func TestQueuedBuildIsRestoredAfterRestart(t *testing.T) {
 	}
 }
 
+// TestBuildUpdatesSaveInOrder is a regression test: two updates of a build
+// could be saved in the other order, and an update taken while the build was
+// queued, saved after one taken once it ran, queued it again for the restart
+func TestBuildUpdatesSaveInOrder(t *testing.T) {
+	build := queuedAbortBuild(t, &Job{Name: "order", Tasks: []*Task{{ID: 0, Command: "true", Kind: KindMain}}})
+	build.pendingTasksWG.Wait()
+	hub := &Hub{broadcast: make(chan *MsgBroadcast)}
+	WSHub = hub
+	// Holding the database's write lock keeps an update between being sent
+	// and being saved
+	tx, err := DB.Begin(true)
+	if err != nil {
+		t.Fatalf("begin transaction: %v", err)
+	}
+	locked := true
+	t.Cleanup(func() {
+		if locked {
+			if err := tx.Rollback(); err != nil {
+				t.Errorf("rollback: %v", err)
+			}
+		}
+	})
+	broadcast := func() <-chan struct{} {
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			build.BroadcastUpdate()
+		}()
+		return done
+	}
+
+	queuedDone := broadcast()
+	<-hub.broadcast
+	build.mutex.Lock()
+	build.Status = StatusRunning
+	build.mutex.Unlock()
+	runningDone := broadcast()
+	select {
+	case <-hub.broadcast:
+		t.Error("the running update was sent before the queued one was saved")
+	case <-time.After(300 * time.Millisecond):
+	}
+
+	if err := tx.Rollback(); err != nil {
+		t.Fatalf("rollback: %v", err)
+	}
+	locked = false
+	for queuedDone != nil || runningDone != nil {
+		select {
+		case <-hub.broadcast:
+		case <-queuedDone:
+			queuedDone = nil
+		case <-runningDone:
+			runningDone = nil
+		case <-time.After(5 * time.Second):
+			t.Fatal("updates never saved")
+		}
+	}
+	if ids := queuedRecordIDs(t); len(ids) != 0 {
+		t.Errorf("queued records = %v, want none once the build runs", ids)
+	}
+	if status := historyStatus(t, build.ID); status != StatusRunning {
+		t.Errorf("history status = %q, want %q", status, StatusRunning)
+	}
+}
+
 func TestQueuedRecordFollowsBuild(t *testing.T) {
 	tests := []struct {
 		name  string
