@@ -150,3 +150,14 @@ test("should not load a page in full when its chunk fails after another page ope
     await expect(page).toHaveURL(/\/settings$/);
     expect(counter.loads).toBe(0);
 });
+
+test("should say a page couldn't be loaded when wakeci doesn't answer in time", async ({ page }) => {
+    const counter = await openFeed(page);
+    await failJobsChunk(page, Infinity);
+    // Accepts the request and never answers
+    await page.route("**/api/queue/", () => {});
+
+    await page.locator('nav a[href="/jobs"]').click();
+    await expect(page.locator(".notification-content")).toContainText("couldn't be loaded", { timeout: 15000 });
+    expect(counter.loads).toBe(0);
+});

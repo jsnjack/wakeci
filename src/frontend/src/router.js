@@ -91,12 +91,15 @@ router.beforeEach((to) => {
     navigationNumbers.set(to, navigations);
 });
 
+// How long the page waits for wakeci's version before it gives up
+const versionCheckTimeout = 5000;
+
 function cantLoad() {
     notify({ type: "error", text: "This page couldn't be loaded. Reload the page to try again." });
 }
 
 async function runningVersion() {
-    const response = await fetch("/api/queue/", { cache: "no-store" });
+    const response = await fetch("/api/queue/", { cache: "no-store", signal: AbortSignal.timeout(versionCheckTimeout) });
     if (!response.ok) {
         throw new Error(`wakeci answered ${response.status}`);
     }
