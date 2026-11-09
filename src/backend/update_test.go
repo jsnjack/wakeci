@@ -243,6 +243,31 @@ func TestInstallRelease(t *testing.T) {
 	}
 }
 
+// Without the previous binary there is nothing to roll back to, so the
+// update must not replace the binary
+func TestInstallReleaseNeedsThePreviousBinary(t *testing.T) {
+	running := runningBinary(t)
+	current := readFile(t, running)
+	downloaded := filepath.Join(filepath.Dir(running), ".wakeci-update-new")
+	if err := os.WriteFile(downloaded, []byte("new"), 0755); err != nil {
+		t.Fatalf("write download: %v", err)
+	}
+	oldLink := linkBinary
+	// As fs.protected_hardlinks does for a binary the service user doesn't own
+	linkBinary = func(string, string) error { return os.ErrPermission }
+	t.Cleanup(func() { linkBinary = oldLink })
+
+	if err := installRelease(downloaded, running); err == nil {
+		t.Fatal("installRelease succeeded without keeping the previous binary")
+	}
+	if got := readFile(t, running); got != current {
+		t.Errorf("binary = %q, want it unchanged", got)
+	}
+	if _, err := os.Stat(downloaded); err != nil {
+		t.Errorf("download file: %v, want it left for the caller to remove", err)
+	}
+}
+
 func TestUpdateProblem(t *testing.T) {
 	if platform := runtime.GOOS + "/" + runtime.GOARCH; platform != releasePlatform {
 		t.Skipf("releases are built for %s, not %s", releasePlatform, platform)
