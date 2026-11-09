@@ -733,6 +733,21 @@ func TestStopSignalNotedWhenHandlingEnds(t *testing.T) {
 	}
 }
 
+// TestBeginStopAfterStopSignal is a regression test: an update whose
+// BeginStop came after a stop signal reported a planned restart, although
+// the signal had refused it
+func TestBeginStopAfterStopSignal(t *testing.T) {
+	newTestBuildEnv(t)
+	q := &Queue{}
+	q.noteStopSignal(syscall.SIGTERM)
+	if q.BeginStop(time.Now().Add(time.Hour), "2.0.0") {
+		t.Error("BeginStop = true, want false: the signal refused the restart")
+	}
+	if status := q.Status(); !status.Stopping || status.RestartVersion != "" {
+		t.Errorf("status = %+v, want stopping without a restart", status)
+	}
+}
+
 func TestBeginStopOnce(t *testing.T) {
 	newTestBuildEnv(t)
 	q := &Queue{}

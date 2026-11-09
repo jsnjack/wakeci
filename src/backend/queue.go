@@ -277,7 +277,8 @@ func (q *Queue) applyConcurrency(number int) {
 // BeginStop keeps queued builds from starting, because wakeci stops once the
 // running builds end, and aborts them at abortAt (see drainQueue).
 // restartVersion is the version an update restarts into, empty for a stop.
-// It returns false if a stop was already planned
+// It returns false if a stop was already planned, or if a stop signal
+// refused the restart (noteStopSignal); the stop then begins anyway
 func (q *Queue) BeginStop(abortAt time.Time, restartVersion string) bool {
 	q.mutex.Lock()
 	if q.isStoppingLocked() {
@@ -285,13 +286,14 @@ func (q *Queue) BeginStop(abortAt time.Time, restartVersion string) bool {
 		return false
 	}
 	q.abortAt = abortAt
-	if !q.stopSignalled {
+	refused := restartVersion != "" && q.stopSignalled
+	if !refused {
 		q.restartVersion = restartVersion
 	}
 	close(q.stoppingLocked())
 	q.mutex.Unlock()
 	q.broadcastStatus()
-	return true
+	return !refused
 }
 
 // noteStopSignal records that a stop signal arrived. It cancels a restart an
