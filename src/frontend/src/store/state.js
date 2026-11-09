@@ -17,6 +17,8 @@ const state = {
         abortAt: null,
         restartVersion: "",
     },
+    // How many queue statuses were applied, so an older one can be told apart
+    queueStatusCount: 0,
     currentPage: "",
     theme: "light",
 };

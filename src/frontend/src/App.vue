@@ -151,6 +151,9 @@ export default {
                 type: "in:subscribe",
                 data: { to: ["queue:status"] },
             });
+            // A status that arrives while the request runs is newer, and the
+            // server sends a stop only once
+            const count = this.$store.state.queueStatusCount;
             axios
                 .get("/api/queue/")
                 .then((response) => {
@@ -160,7 +163,9 @@ export default {
                         return;
                     }
                     this.serverVersion = version || this.serverVersion;
-                    this.$store.commit("SET_QUEUE_STATUS", response.data);
+                    if (this.$store.state.queueStatusCount === count) {
+                        this.$store.commit("SET_QUEUE_STATUS", response.data);
+                    }
                 })
                 .catch((error) => {});
         },
