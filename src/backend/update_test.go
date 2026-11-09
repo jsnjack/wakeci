@@ -453,3 +453,32 @@ func TestHandleUpdateGetReportsFailedCheck(t *testing.T) {
 		t.Errorf("GitHub was asked %d times, want a failed check not cached", checks)
 	}
 }
+
+// TestInstallReleaseAfterAFailedAttempt is a regression test: when an earlier
+// attempt had already linked the running binary to <binary>.previous, the
+// rename of the new link over it did nothing (both name the same file) and
+// left <binary>.previous.new behind
+func TestInstallReleaseAfterAFailedAttempt(t *testing.T) {
+	running := runningBinary(t)
+	current := readFile(t, running)
+	if err := os.Link(running, running+".previous"); err != nil {
+		t.Fatalf("link previous binary: %v", err)
+	}
+	downloaded := filepath.Join(filepath.Dir(running), ".wakeci-update-new")
+	if err := os.WriteFile(downloaded, []byte("new"), 0755); err != nil {
+		t.Fatalf("write download: %v", err)
+	}
+
+	if err := installRelease(downloaded, running); err != nil {
+		t.Fatalf("installRelease: %v", err)
+	}
+	if got := readFile(t, running); got != "new" {
+		t.Errorf("binary = %q, want the new one", got)
+	}
+	if got := readFile(t, running+".previous"); got != current {
+		t.Errorf("previous binary = %q, want %q", got, current)
+	}
+	if _, err := os.Stat(running + ".previous.new"); !os.IsNotExist(err) {
+		t.Errorf("%s.previous.new: %v, want it gone", running, err)
+	}
+}

@@ -298,17 +298,25 @@ var linkBinary = os.Link
 // the only way back
 func installRelease(downloaded, path string) error {
 	previous := path + ".previous"
-	// Under another name first, so the backup an earlier update kept stays
-	// until this one exists
-	linked := previous + ".new"
-	if err := os.Remove(linked); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("remove %s: %w", linked, err)
+	running, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("stat %s: %w", path, err)
 	}
-	if err := linkBinary(path, linked); err != nil {
-		return fmt.Errorf("keep the previous binary as %s: %w", previous, err)
-	}
-	if err := os.Rename(linked, previous); err != nil {
-		return fmt.Errorf("keep the previous binary as %s: %w", previous, err)
+	// An earlier attempt may have kept this binary already: a rename between
+	// two links of one file does nothing and would leave the new link behind
+	if backup, err := os.Stat(previous); err != nil || !os.SameFile(running, backup) {
+		// Under another name first, so the backup an earlier update kept
+		// stays until this one exists
+		linked := previous + ".new"
+		if err := os.Remove(linked); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove %s: %w", linked, err)
+		}
+		if err := linkBinary(path, linked); err != nil {
+			return fmt.Errorf("keep the previous binary as %s: %w", previous, err)
+		}
+		if err := os.Rename(linked, previous); err != nil {
+			return fmt.Errorf("keep the previous binary as %s: %w", previous, err)
+		}
 	}
 	if err := os.Rename(downloaded, path); err != nil {
 		return fmt.Errorf("replace %s: %w", path, err)
