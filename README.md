@@ -188,6 +188,10 @@ claude mcp add --transport http wakeci https://<hostname>/mcp \
   --header "Authorization: Bearer wk_..."
 ```
 
+`/llms.txt` is a one-page guide to the API for agents that don't use MCP:
+how to authenticate, find out why a build failed, wait for builds, follow
+the feed and read logs.
+
 #### API keys
 
 Scripts and other tools can call the API with a key instead of the password.

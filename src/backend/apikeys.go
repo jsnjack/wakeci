@@ -678,6 +678,7 @@ func newAPIKeyRouter(storage http.Handler) http.Handler {
 	})
 
 	router.Route("/docs", docsRoutes)
+	router.Get("/llms.txt", HandleAgentGuide)
 
 	// The API as MCP tools for agents; each tool calls the routes above with
 	// the request's key
@@ -698,7 +699,7 @@ func rejectAPIKeyRoute(passwordRoutes, keyRoutes chi.Routes) http.HandlerFunc {
 		}
 		if !strings.HasPrefix(routePath, "/api/") || hasRoute(passwordRoutes, r.Method, routePath) {
 			logger.Warn("api key used on a route that doesn't accept keys", "method", r.Method, "path", r.URL.Path)
-			writePlainText(w, logger, http.StatusForbidden, "API keys can't be used here")
+			writePlainText(w, logger, http.StatusForbidden, "API keys can't be used here"+pageAPIHint(r.URL.Path))
 			return
 		}
 		var allowed []string
@@ -714,6 +715,21 @@ func rejectAPIKeyRoute(passwordRoutes, keyRoutes chi.Routes) http.HandlerFunc {
 		}
 		writePlainText(w, logger, http.StatusNotFound, "No API route "+r.URL.Path+"; the routes are listed in /docs/swagger.json")
 	}
+}
+
+// pageAPIHint points from a web page, such as the build page a GitHub
+// status links to, to the API route an agent wants instead
+func pageAPIHint(urlPath string) string {
+	parts := strings.Split(strings.Trim(urlPath, "/"), "/")
+	if len(parts) == 2 && parts[0] == "build" {
+		if id, err := strconv.Atoi(parts[1]); err == nil && id > 0 {
+			return fmt.Sprintf("; this is the web page of build %d, its API is /api/build/%d and /api/build/%d/summary", id, id, id)
+		}
+	}
+	if len(parts) == 2 && parts[0] == "job" && parts[1] != "" {
+		return "; this is the web page of a job, its API is /api/job/" + parts[1]
+	}
+	return "; see /llms.txt"
 }
 
 // routeMethods are the methods the API's routes use

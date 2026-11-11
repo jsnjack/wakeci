@@ -397,6 +397,7 @@ func run(cleanup func()) (tasksLeft bool) {
 	router.Route("/storage", storageRoutes(storage))
 
 	router.Route("/docs", docsRoutes)
+	router.Get("/llms.txt", HandleAgentGuide)
 
 	vuefs := http.FileServer(http.FS(Assets))
 	router.Method("GET", "/*", HandleVueResources(vuefs))
