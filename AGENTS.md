@@ -41,6 +41,7 @@ src/backend/                 Go server (package main, module "wakeci")
   session.go                 Cookie sessions by token hash, saved in the sessions bucket, per-session TTL
   sso.go                     SAML single sign-on (e.g. Google Workspace): IdP metadata, response checks, login state
   apikeys.go                 API keys: storage, management handlers, the key router with its scope and job checks
+  mcp.go                     /mcp for API keys: MCP tools that call the key router with the request's key
   auth_limiter.go            Per-client failed-auth limiter and retry/reset response headers
   audit.go                   Audit log: who did what, AuditMi and the table of audited routes
   middleware.go               chi middleware: per-request logger, auth, CORS, security headers

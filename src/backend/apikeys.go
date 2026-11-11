@@ -678,6 +678,10 @@ func newAPIKeyRouter(storage http.Handler) http.Handler {
 	})
 
 	router.Route("/docs", docsRoutes)
+
+	// The API as MCP tools for agents; each tool calls the routes above with
+	// the request's key
+	router.Post("/mcp", newMCPHandler(router).ServeHTTP)
 	return router
 }
 

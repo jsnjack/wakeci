@@ -81,6 +81,17 @@ and the page logs out, as it does on any 401. Sessions keep the groups the ident
 (`session.groups`); a single sign-on session saved before sessions kept
 them is ended when wakeci loads it, so that user logs in once more.
 
+## MCP
+
+`/mcp` (`mcp.go`) serves the API as MCP tools, on the key router only, so
+it needs an API key. It is stateless: one HTTP request per call, no
+session to re-check after a revoke. Each tool makes the matching API
+request to the key router in-process, with the caller's key, address and
+a `wakeci-mcp` User-Agent, so scopes, jobs, `rejectUnsafeParams`, the
+audit log, the request limit and the error messages are those of the API.
+The inner request gets a fresh context (only cancellation follows), since
+the MCP request's carries its chi route and audit record.
+
 ## Live updates
 
 A WebSocket client keeps the access it was opened with. The hub sends a

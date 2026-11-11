@@ -176,6 +176,18 @@ Serve wakeci over HTTPS, or on localhost: Google posts the response from
 another site, which browsers only allow with a `Secure` login cookie. When
 Google renews its certificate, download the metadata again and restart wakeci.
 
+#### Agents (MCP)
+
+Agents such as Claude Code, Codex or Copilot can use wakeci through MCP at
+`https://<hostname>/mcp`, with an API key. The tools find builds, summarize
+why one failed, read logs and text artifacts, wait for a build, and run or
+abort jobs, within the key's scopes and jobs:
+
+```bash
+claude mcp add --transport http wakeci https://<hostname>/mcp \
+  --header "Authorization: Bearer wk_..."
+```
+
 #### API keys
 
 Scripts and other tools can call the API with a key instead of the password.

@@ -149,8 +149,10 @@ func TestAuditedRoutes(t *testing.T) {
 			t.Errorf("%s isn't in auditedRoutes", route)
 		}
 	}
+	// Only for keys, and audited through the API requests its tools make
+	keyOnly := []string{"POST /mcp"}
 	for _, route := range mutatingRoutes(t, newAPIKeyRouter(http.NotFoundHandler())) {
-		if !slices.Contains(main, route) {
+		if !slices.Contains(main, route) && !slices.Contains(keyOnly, route) {
 			t.Errorf("%s is only on the API key router", route)
 		}
 	}
