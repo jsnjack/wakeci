@@ -213,7 +213,12 @@ back from the oldest ID it got. `job` and `status` keep only builds of those
 jobs or with those statuses, by exact value, and `q` searches. An unchanged
 page answers `If-None-Match` with 304. A build (`GET /api/build/<id>`)
 names its tasks and gives the URL and size of each task's log, and the URL
-of each artifact. The full API is described at `/docs/api/`.
+of each artifact. `GET /api/build/<id>/summary` answers "why did it fail"
+in one request: the status, the tasks, the artifacts and the last 100 lines
+(`tail`) of each task that failed, timed out or was aborted.
+`GET /api/build/<id>/log/<task>` returns a task's log, its last lines
+(`tail=200`) or the lines that contain a text (`grep=FAILED`, with line
+numbers). The full API is described at `/docs/api/`.
 
 The key is shown once, when it is created; wakeci only stores a hash of it.
 Revoking a key stops it at once. Keys don't depend on the password, and
