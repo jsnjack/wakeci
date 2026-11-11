@@ -204,7 +204,9 @@ them as untrusted input: quote them, and don't let one pick where a job sends
 a secret, such as the URL a token is posted to.
 
 A request with a missing, wrong or expired key, password or session gets
-401; a request for something the key or the user may not do gets 403.
+401; a request for something the key or the user may not do gets 403. A
+key may send bursts of 120 requests and 10 a second after that; beyond it
+it gets 429 with `Retry-After`.
 
 The feed (`GET /api/feed`) returns 15 builds, newest first, or up to 200
 with `limit`. A script that keeps up with new builds remembers the newest
