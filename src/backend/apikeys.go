@@ -69,14 +69,10 @@ const apiKeyContextKey contextKey = "apiKey"
 
 // APIKey is what wakeci keeps about an API key, apart from its secret
 type APIKey struct {
-	ID     string   `json:"id"`
-	Name   string   `json:"name"`
-	Scopes []string `json:"scopes"`
-	// AllJobs covers every job, including jobs added later. Otherwise the key
-	// covers Jobs by exact name and the jobs that Patterns match.
-	AllJobs  bool     `json:"allJobs"`
-	Jobs     []string `json:"jobs"`
-	Patterns []string `json:"patterns"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	// Grant is what the key may do; its fields sit next to the others in JSON
+	Grant
 	// CreatedBy is the single sign-on email of whoever created the key, empty
 	// if they used the password. It lets offboarding revoke a person's keys.
 	CreatedBy  string     `json:"createdBy"`
@@ -98,45 +94,8 @@ type NewAPIKeyData struct {
 	Token string  `json:"token"`
 }
 
-// HasScope reports whether the key grants scope. Write lets a key run any
-// command on the server, so it only counts on a key that covers all jobs.
-func (k *APIKey) HasScope(scope string) bool {
-	return slices.Contains(k.Scopes, scope) && (scope != ScopeWrite || k.AllJobs)
-}
-
-// CoversJob reports whether the key can be used on the job name
-func (k *APIKey) CoversJob(name string) bool {
-	return k.AllJobs || slices.Contains(k.Jobs, name) ||
-		slices.ContainsFunc(k.Patterns, func(pattern string) bool {
-			return matchJobPattern(pattern, name)
-		})
-}
-
 func (k *APIKey) expired(now time.Time) bool {
 	return k.ExpiresAt != nil && !now.Before(*k.ExpiresAt)
-}
-
-// matchJobPattern reports whether name matches pattern, in which * matches
-// any run of characters and every other character only itself
-func matchJobPattern(pattern, name string) bool {
-	parts := strings.Split(pattern, "*")
-	if len(parts) == 1 {
-		return pattern == name
-	}
-	rest, ok := strings.CutPrefix(name, parts[0])
-	if !ok {
-		return false
-	}
-	// Taking each middle part at its first match leaves the most room for
-	// the ones after it
-	for _, part := range parts[1 : len(parts)-1] {
-		i := strings.Index(rest, part)
-		if i < 0 {
-			return false
-		}
-		rest = rest[i+len(part):]
-	}
-	return strings.HasSuffix(rest, parts[len(parts)-1])
 }
 
 // apiKeyFromContext returns the API key a request was authorized with, or nil
@@ -245,8 +204,6 @@ func touchAPIKey(key *APIKey, now time.Time) error {
 func apiKeyFromForm(form url.Values, now time.Time) (*APIKey, error) {
 	key := &APIKey{
 		Name:      strings.TrimSpace(form.Get("name")),
-		Jobs:      []string{},
-		Patterns:  []string{},
 		CreatedAt: now,
 	}
 	if key.Name == "" {
@@ -255,43 +212,11 @@ func apiKeyFromForm(form url.Values, now time.Time) (*APIKey, error) {
 	if utf8.RuneCountInString(key.Name) > maxAPIKeyNameLength {
 		return nil, fmt.Errorf("the name is longer than %d characters", maxAPIKeyNameLength)
 	}
-
-	for _, scope := range form["scope"] {
-		if !slices.Contains(apiKeyScopes, scope) {
-			return nil, fmt.Errorf("unknown scope %q", scope)
-		}
+	grant, err := grantFromForm(form)
+	if err != nil {
+		return nil, err
 	}
-	for _, scope := range apiKeyScopes {
-		if slices.Contains(form["scope"], scope) {
-			key.Scopes = append(key.Scopes, scope)
-		}
-	}
-	if len(key.Scopes) == 0 {
-		return nil, fmt.Errorf("select at least one scope")
-	}
-
-	switch form.Get("allJobs") {
-	case "true":
-		key.AllJobs = true
-	case "false", "":
-	default:
-		return nil, fmt.Errorf("allJobs must be true or false")
-	}
-	if !key.AllJobs {
-		var err error
-		if key.Jobs, err = uniqueJobNames(form["job"]); err != nil {
-			return nil, err
-		}
-		if key.Patterns, err = uniqueJobNames(form["pattern"]); err != nil {
-			return nil, err
-		}
-		if len(key.Jobs) == 0 && len(key.Patterns) == 0 {
-			return nil, fmt.Errorf("select a job or enter a pattern")
-		}
-		if slices.Contains(key.Scopes, ScopeWrite) {
-			return nil, fmt.Errorf("write can run any command on the server, so it needs access to all jobs")
-		}
-	}
+	key.Grant = grant
 
 	days, err := strconv.Atoi(form.Get("expiresInDays"))
 	if err != nil || days < 0 || days > maxAPIKeyExpiryDays {
@@ -302,20 +227,6 @@ func apiKeyFromForm(form url.Values, now time.Time) (*APIKey, error) {
 		key.ExpiresAt = &expires
 	}
 	return key, nil
-}
-
-// uniqueJobNames checks job names or patterns and drops repeats
-func uniqueJobNames(values []string) ([]string, error) {
-	names := []string{}
-	for _, value := range values {
-		if !isValidJobName(value) {
-			return nil, fmt.Errorf("invalid job name or pattern %q", value)
-		}
-		if !slices.Contains(names, value) {
-			names = append(names, value)
-		}
-	}
-	return names, nil
 }
 
 // saveNewAPIKey stores key under a new ID and returns its token
