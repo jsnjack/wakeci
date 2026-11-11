@@ -73,6 +73,7 @@ type FailedTask struct {
 // @Produce      json
 // @Param        id       path    integer   true   "Build ID"
 // @Param        tail     query   integer   false  "Lines from the end of each failed task's log, 0 to 10000; 100 if not set"
+// @Param        wait     query   integer   false  "Wait up to that many seconds, at most 300, for the build to end; it answers as soon as it does"
 // @Success      200      {object}   BuildSummary
 // @Failure      400      {string}   string
 // @Failure      404      {string}   string
@@ -89,6 +90,14 @@ func HandleBuildSummary(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writePlainText(w, logger, http.StatusBadRequest, err.Error())
 		return
+	}
+	wait, err := positiveParam(r.URL.Query(), "wait", 0, maxBuildWait, 0)
+	if err != nil {
+		writePlainText(w, logger, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := waitForBuild(r, id, wait); err != nil && !errors.Is(err, errBuildNotFound) {
+		logger.Error("wait for build", "build", id, "err", err)
 	}
 	build, err := readBuildStatus(id)
 	if errors.Is(err, errBuildNotFound) {

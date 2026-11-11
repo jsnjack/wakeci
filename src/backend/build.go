@@ -763,6 +763,7 @@ func (b *Build) BroadcastUpdate() {
 	if err != nil {
 		b.Logger.Error("save build history", "err", err)
 	}
+	buildChanges.notify()
 }
 
 // records returns the build's history entry (BuildUpdateData) and, while it

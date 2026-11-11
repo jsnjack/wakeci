@@ -106,6 +106,7 @@ func getBuildConfig(buildID int) (*Job, error) {
 // @Tags         build
 // @Produce      json
 // @Param        id       path    integer   true  "Build ID"
+// @Param        wait     query   integer   false "Wait up to that many seconds, at most 300, for the build to end; it answers as soon as it does"
 // @Success      200      {object}   GetBuildPayload
 // @Failure      400      {string}   string
 // @Failure      404      {string}   string
@@ -117,6 +118,14 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writePlainText(w, logger, http.StatusBadRequest, err.Error())
 		return
+	}
+	wait, err := positiveParam(r.URL.Query(), "wait", 0, maxBuildWait, 0)
+	if err != nil {
+		writePlainText(w, logger, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := waitForBuild(r, buildID, wait); err != nil && !errors.Is(err, errBuildNotFound) {
+		logger.Error("wait for build", "build", buildID, "err", err)
 	}
 
 	buildStatusData, err := readBuildStatus(buildID)

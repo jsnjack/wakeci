@@ -472,6 +472,8 @@ func run(cleanup func()) (tasksLeft bool) {
 		L.Warn("Listening on :" + Config.Port)
 	}
 
+	// Requests that wait for a build would hold up the shutdown
+	server.RegisterOnShutdown(buildWaitsEnd.stop)
 	// A scheduled build would start queued ones too
 	GlobalCron.Start()
 	GlobalQueue.Take()
