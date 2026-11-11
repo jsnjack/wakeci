@@ -334,7 +334,7 @@ func closeBody(body io.Closer) {
 
 // HandleUpdateGet checks for a newer release
 // @Summary      Check for a newer wakeci release
-// @Description  Asks GitHub for the latest release, at most every 10 minutes. problem says why wakeci can't update itself, and error why the check failed
+// @Description  Asks GitHub for the latest release, at most every 10 minutes. problem says why wakeci can't update itself, and error why the check failed. Needs the write scope. Not available with an API key
 // @Tags         update
 // @Produce      json
 // @Success      200      {object}   UpdateData
@@ -367,7 +367,7 @@ func HandleUpdateGet(w http.ResponseWriter, r *http.Request) {
 
 // HandleUpdatePost installs a newer release and restarts
 // @Summary      Install a newer wakeci release and restart
-// @Description  Downloads the release, checks its sha256 digest and that it runs, and replaces the binary, keeping the old one as <binary>.previous. Then wakeci stops like on SIGTERM: queued builds wait, running builds may end until draintimeout, and wakeci starts the new binary. Queued builds start after the restart
+// @Description  Downloads the release, checks its sha256 digest and that it runs, and replaces the binary, keeping the old one as <binary>.previous. Then wakeci stops like on SIGTERM: queued builds wait, running builds may end until draintimeout, and wakeci starts the new binary. Queued builds start after the restart. Needs the write scope. Not available with an API key
 // @Tags         update
 // @Produce      plain
 // @Param        version  formData   string   true  "The version to install, which must be the latest release"

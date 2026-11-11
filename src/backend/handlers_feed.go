@@ -13,16 +13,16 @@ import (
 
 // HandleFeedView returns items in current feed - executed and queued jobs
 // @Summary      Return information about the latest builds
-// @Description  Returns information about 15 latest builds
+// @Description  Returns 15 builds, newest first. API key scope: read; a key or a single sign-on user only sees the builds of their jobs.
 // @Tags         feed
 // @Produce      json
 // @Param        offset   query      integer   false  "Skip `offset` latest builds"
-// @Param        q        query      string    false  "Returns only builds which ID, name, params or status contains any of the space-separated words. Requires presence of the prefixed with `+` words. Requires absence of the prefixed with `-` words. Phrases can be wrapped in single or double quotes"
+// @Param        q        query      string    false  "Space-separated words matched as substrings of id:<id> name:<job> status:<status> and the params, so +name:test_unit also matches test_unit_js. Builds must contain the words prefixed with +, must not contain those prefixed with -, and must contain one of the others. Phrases can be wrapped in single or double quotes"
 // @Param        filter   query      string    false  "Deprecated: the old name of `q`, read only when `q` is absent"
 // @Success      200      {array}    BuildUpdateData
 // @Failure      400      {string}   string
 // @Failure      500      {string}   string
-// @Router       /api/feed/ [get]
+// @Router       /api/feed [get]
 func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {

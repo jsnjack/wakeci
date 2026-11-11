@@ -671,6 +671,8 @@ func newAPIKeyRouter(storage http.Handler) http.Handler {
 		router.With(requireAccess(ScopeRead, jobFromStorage)).Method("GET", "/build/*", storage)
 		router.With(requireAccess(ScopeRead, jobFromStorage)).Method("HEAD", "/build/*", storage)
 	})
+
+	router.Route("/docs", docsRoutes)
 	return router
 }
 
@@ -701,7 +703,7 @@ func rejectAPIKeyRoute(passwordRoutes, keyRoutes chi.Routes) http.HandlerFunc {
 			writePlainText(w, logger, http.StatusMethodNotAllowed, r.Method+" isn't allowed on "+r.URL.Path)
 			return
 		}
-		writePlainText(w, logger, http.StatusNotFound, "No API route "+r.URL.Path)
+		writePlainText(w, logger, http.StatusNotFound, "No API route "+r.URL.Path+"; the routes are listed in /docs/swagger.json")
 	}
 }
 

@@ -12,6 +12,7 @@ import (
 
 // HandleJobsView returns all available jobs
 // @Summary      Returns list of available jobs
+// @Description  API key scope: read; a key or a single sign-on user only sees their jobs
 // @Tags         jobs
 // @Produce      json
 // @Success      200      {array}    JobsListData
@@ -74,7 +75,7 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request) {
 
 // HandleJobsCreate creates a new job file from default template
 // @Summary      Create new empty job
-// @Description  The job is created from the default template. All parameters are available as query parameters and as formData
+// @Description  The job is created from the default template. API key scope: write. All parameters are available as query parameters and as formData
 // @Tags         jobs
 // @Produce      plain
 // @Param        name     formData    string   true   "Name of the job (also the name of the file in which the job is stored)"

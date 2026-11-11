@@ -44,12 +44,10 @@ func requireJobName(w http.ResponseWriter, r *http.Request, logger *slog.Logger)
 
 // HandleRunJob adds job to queue
 // @Summary      Start a job
-// @Description  A new build for the job `name` is created and added to the queue. Returns build id
+// @Description  Creates a build of the job and adds it to the queue; returns the build ID. Send the job's parameters as form fields or query parameters with their names; others are ignored. API key scope: run. With a key, parameters can't reference a secret or contain quotes, line breaks or NUL.
 // @Tags         job
 // @Produce      plain
 // @Param        name     path       string   true   "Name of the job"
-// @Param        param1   query      string   false  "Override default `params` of the job"
-// @Param        param2   formData   string   false  "Override default `params` of the job"
 // @Success      200      {integer}  integer
 // @Failure      400      {string}   string
 // @Router       /api/job/{name}/run [post]
@@ -111,11 +109,14 @@ func usedParams(build *Build, params url.Values) ([]string, int) {
 
 // HandleJobGet returns content of a specific job file
 // @Summary      Return the content of the job
+// @Description  API key scope: read
 // @Tags         job
 // @Produce      json
+// @Param        name     path       string   true   "Name of the job"
 // @Success      200      {object}   JobData
+// @Failure      404      {string}   string
 // @Failure      500      {string}   string
-// @Router       /api/job/{name}/ [get]
+// @Router       /api/job/{name} [get]
 func HandleJobGet(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {
@@ -152,13 +153,14 @@ func HandleJobGet(w http.ResponseWriter, r *http.Request) {
 
 // HandleJobPost updates content of a specific job
 // @Summary      Update the content of the job
-// @Description  All parameters are available as query parameters and as formData
+// @Description  API key scope: write
 // @Tags         job
 // @Produce      plain
+// @Param        name            path        string   true   "Name of the job"
 // @Param        fileContent     formData    string   true   "New content of the job"
 // @Success      200      {string}   string
 // @Failure      400      {string}   string
-// @Router       /api/job/{name}/ [post]
+// @Router       /api/job/{name} [post]
 func HandleJobPost(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {
@@ -211,6 +213,7 @@ func HandleJobPost(w http.ResponseWriter, r *http.Request) {
 
 // HandleDeleteJob deletes the job
 // @Summary      Delete the job
+// @Description  API key scope: write
 // @Tags         job
 // @Produce      plain
 // @Param        name     path    string   true   "Name of the job to delete"
@@ -257,6 +260,7 @@ func HandleDeleteJob(w http.ResponseWriter, r *http.Request) {
 
 // HandleJobSetActive sets if job is active (enabled/disabled)
 // @Summary      Enable/disable the job. Returns if the job is active
+// @Description  API key scope: write
 // @Tags         job
 // @Produce      plain
 // @Param        name     path    string   true   "Name of the job"

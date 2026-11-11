@@ -14,7 +14,7 @@ import (
 
 // HandleSettingsPost saves settings
 // @Summary      Update application settings
-// @Description  All parameters are available as query parameters and as formData
+// @Description  Needs the write scope; only the admin password may change the password. Not available with an API key. All parameters are available as query parameters and as formData
 // @Tags         settings
 // @Produce      plain
 // @Param        password           formData      string   false  "Set password; only with the admin password"
@@ -24,7 +24,7 @@ import (
 // @Failure      400      {string}   string
 // @Failure      403      {string}   string
 // @Failure      500      {string}   string
-// @Router       /api/settings/ [post]
+// @Router       /api/settings [post]
 func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {
@@ -139,11 +139,12 @@ func parseCountSetting(r *http.Request, name string) (int, error) {
 
 // HandleSettingsGet retrieves settings
 // @Summary      Retrieve application settings
+// @Description  Needs the write scope. Not available with an API key
 // @Tags         settings
 // @Produce      json
 // @Success      200      {object}   SettingsData
 // @Failure      500      {string}   string
-// @Router       /api/settings/ [get]
+// @Router       /api/settings [get]
 func HandleSettingsGet(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {

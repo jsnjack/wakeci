@@ -140,8 +140,22 @@ func initApp() func() {
 
 // @title wakeci API documentation
 // @version 1.0
+// @description Authenticate with an API key (Authorization: Bearer wk_...), or with the admin password as Basic auth with an empty user name.
+// @description A key may only use the routes that name the scope it needs ("API key scope"), and only on its jobs.
+// @description Missing or wrong credentials get 401, a request the key or user may not make gets 403, an unknown route or build 404.
 
 // @BasePath /
+
+// @securityDefinitions.basic PasswordAuth
+// @description The admin password, with an empty user name
+
+// @securityDefinitions.apikey APIKey
+// @in header
+// @name Authorization
+// @description An API key, sent as "Bearer wk_..."
+
+// @security APIKey
+// @security PasswordAuth
 func main() {
 	cleanup := initApp()
 	tasksLeft := run(cleanup)
@@ -382,11 +396,7 @@ func run(cleanup func()) (tasksLeft bool) {
 	storage := HandleWakespaceResource(http.FileServer(http.Dir(Config.WorkDir + "wakespace")))
 	router.Route("/storage", storageRoutes(storage))
 
-	router.Route("/docs", func(router chi.Router) {
-		router.Use(StorageSecurityMi)
-		router.Get("/api/", HandleAPIDocsView)
-		router.Method("GET", "/swagger.json", http.FileServer(http.FS(APIDocs)))
-	})
+	router.Route("/docs", docsRoutes)
 
 	vuefs := http.FileServer(http.FS(Assets))
 	router.Method("GET", "/*", HandleVueResources(vuefs))
@@ -474,8 +484,28 @@ func run(cleanup func()) (tasksLeft bool) {
 	return tasksLeft
 }
 
+// docsRoutes registers the API documentation. It is public, and also
+// served to requests with an API key, so agents can read it with their key.
+func docsRoutes(router chi.Router) {
+	router.Use(StorageSecurityMi)
+	router.Get("/api/", HandleAPIDocsView)
+	router.Method("GET", "/swagger.json", http.FileServer(http.FS(APIDocs)))
+}
+
 // storageRoutes registers the /storage routes, which serve the files of
 // builds with storage, for logged-in users and the admin password
+// @Summary      Download a file of a build
+// @Description  The task logs are task_<id>.log, with the IDs of status_update.tasks in GET /api/build/{id}. Artifacts are artifacts/<filename>, with the filenames of status_update.build_artifacts, so a job that collects artifacts/** has paths such as artifacts/artifacts/report.json. A task that didn't run has no log (404). Supports HEAD and Range, e.g. Range: bytes=-65536 for the end of a log. API key scope: read
+// @Tags         build
+// @Produce      plain
+// @Param        id       path    integer   true   "Build ID"
+// @Param        path     path    string    true   "File in the build, may contain /"
+// @Param        Range    header  string    false  "Byte range, e.g. bytes=-65536"
+// @Success      200      {file}     file
+// @Success      206      {file}     file
+// @Failure      403      {string}   string
+// @Failure      404      {string}   string
+// @Router       /storage/build/{id}/{path} [get]
 func storageRoutes(storage http.Handler) func(chi.Router) {
 	return func(router chi.Router) {
 		router.Use(StorageSecurityMi)

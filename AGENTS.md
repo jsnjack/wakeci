@@ -381,6 +381,9 @@ AGENTS.universal.md for the general contract.
 - When adding an API route, decide whether API keys may use it. If so,
   register it in `newAPIKeyRouter` too, with its scope and job resolver, and
   make list handlers filter with `apiKeyFromContext`.
+- Swagger `@Router` paths start with `/api` or `/storage` (basePath is `/`)
+  and must be routes as written, slash included; `TestAPISpecMatchesTheRoutes`
+  checks the generated spec. Name the API key scope in `@Description`.
 - A new route that changes something needs an entry in `auditedRoutes`
   (`TestAuditedRoutes` fails without one). Audit attrs carry names and IDs,
   never passwords, tokens, secrets or run parameter values, nor names a

@@ -99,7 +99,7 @@ func getBuildConfig(buildID int) (*Job, error) {
 
 // HandleGetBuild Returns information required to bootstrap build page
 // @Summary      Return status of the build
-// @Description  Contains information about the job and the latest build status
+// @Description  Contains information about the job and the latest build status. API key scope: read
 // @Tags         build
 // @Produce      json
 // @Param        id       path    integer   true  "Build ID"
@@ -158,6 +158,7 @@ type GetBuildPayload struct {
 
 // HandleAbortBuild aborts build
 // @Summary      Abort the build
+// @Description  API key scope: run
 // @Tags         build
 // @Produce      plain
 // @Param        id       path    integer   true  "Build ID"
@@ -183,6 +184,7 @@ func HandleAbortBuild(w http.ResponseWriter, r *http.Request) {
 
 // HandleFlushTaskLogs signals to flush logs
 // @Summary      Signal the build to flush its log buffer
+// @Description  API key scope: run
 // @Tags         build
 // @Produce      plain
 // @Param        id       path    integer   true  "Build ID"
@@ -210,7 +212,7 @@ func HandleFlushTaskLogs(w http.ResponseWriter, r *http.Request) {
 
 // HandleStartBuild takes the build from the queue and starts to run it immediately
 // @Summary      Takes the build from the queue and starts to run it immediately, ignorring the number of allowed concurrent builds and concurrency parameter
-// @Description  Not while wakeci is stopping (409)
+// @Description  Not while wakeci is stopping (409). API key scope: run
 // @Tags         build
 // @Produce      plain
 // @Param        id       path    integer   true  "Build ID"
