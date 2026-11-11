@@ -158,16 +158,7 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request) {
 		Summary:      summary,
 	}
 
-	payloadB, err := json.Marshal(payload)
-	if err != nil {
-		logger.Error("marshal build payload", "build", buildID, "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Header().Set("Content-Type", "text/plain")
-		writeBody(logger, w, []byte(err.Error()))
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	writeBody(logger, w, payloadB)
+	writeCachedJSON(w, r, logger, payload)
 }
 
 // addTaskLogs names the build's tasks and says where their logs are and how

@@ -155,7 +155,7 @@ func HandleBuildSummary(w http.ResponseWriter, r *http.Request) {
 		}
 		summary.Failed = append(summary.Failed, failed)
 	}
-	writeJSON(w, logger, summary)
+	writeCachedJSON(w, r, logger, summary)
 }
 
 // HandleTaskLog returns a task's log, its end, or the lines that contain a

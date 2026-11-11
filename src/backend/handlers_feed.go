@@ -1,9 +1,7 @@
 package main
 
 import (
-	"crypto/sha256"
 	"encoding/binary"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -189,23 +187,7 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 		writePlainText(w, logger, http.StatusInternalServerError, err.Error())
 		return
 	}
-	payloadB, err := json.Marshal(payload)
-	if err != nil {
-		logger.Error("marshal feed payload", "err", err)
-		writePlainText(w, logger, http.StatusInternalServerError, err.Error())
-		return
-	}
-	sum := sha256.Sum256(payloadB)
-	etag := `"` + hex.EncodeToString(sum[:16]) + `"`
-	w.Header().Set("ETag", etag)
-	// Pollers may keep the page, but must ask whether it changed
-	w.Header().Set("Cache-Control", "no-cache")
-	if r.Header.Get("If-None-Match") == etag {
-		w.WriteHeader(http.StatusNotModified)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	writeBody(logger, w, payloadB)
+	writeCachedJSON(w, r, logger, payload)
 }
 
 // isStaleBuild reports whether the history has a build as pending or running
