@@ -75,10 +75,14 @@ type APIKey struct {
 	Grant
 	// CreatedBy is the single sign-on email of whoever created the key, empty
 	// if they used the password. It lets offboarding revoke a person's keys.
-	CreatedBy  string     `json:"createdBy"`
-	CreatedAt  time.Time  `json:"createdAt"`
-	ExpiresAt  *time.Time `json:"expiresAt,omitempty"`
-	LastUsedAt *time.Time `json:"lastUsedAt,omitempty"`
+	CreatedBy string `json:"createdBy"`
+	// CreatorGroups are the creator's single sign-on groups as of their last
+	// login; the key can't do more than these groups allow. Nil for a key made
+	// with the password or before wakeci recorded them.
+	CreatorGroups []string   `json:"creatorGroups"`
+	CreatedAt     time.Time  `json:"createdAt"`
+	ExpiresAt     *time.Time `json:"expiresAt,omitempty"`
+	LastUsedAt    *time.Time `json:"lastUsedAt,omitempty"`
 }
 
 // storedAPIKey is an API key as stored in APIKeysBucket. Only a hash of the
@@ -227,6 +231,43 @@ func apiKeyFromForm(form url.Values, now time.Time) (*APIKey, error) {
 		key.ExpiresAt = &expires
 	}
 	return key, nil
+}
+
+// refreshKeyCreatorGroups records groups as the creator groups of the keys
+// email created, so that the keys follow the groups the person is in now
+func refreshKeyCreatorGroups(email string, groups []string) error {
+	apiKeyOwnersMu.Lock()
+	defer apiKeyOwnersMu.Unlock()
+	return DB.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(APIKeysBucket)
+		updates := map[string][]byte{}
+		err := b.ForEach(func(k, v []byte) error {
+			var stored storedAPIKey
+			if err := json.Unmarshal(v, &stored); err != nil {
+				return fmt.Errorf("decode api key: %w", err)
+			}
+			if !strings.EqualFold(stored.CreatedBy, email) || slices.Equal(stored.CreatorGroups, groups) {
+				return nil
+			}
+			stored.CreatorGroups = append([]string{}, groups...)
+			data, err := json.Marshal(stored)
+			if err != nil {
+				return fmt.Errorf("encode api key: %w", err)
+			}
+			updates[string(k)] = data
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		// Not inside ForEach: Bolt doesn't allow changing a bucket it iterates
+		for k, data := range updates {
+			if err := b.Put([]byte(k), data); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // saveNewAPIKey stores key under a new ID and returns its token
@@ -401,6 +442,19 @@ func HandleAPIKeyCreate(w http.ResponseWriter, r *http.Request) {
 		logger.Warn("find who creates an api key", "err", err)
 		writePlainText(w, logger, http.StatusForbidden, "Forbidden")
 		return
+	}
+	if key.CreatedBy != "" {
+		access := accessFromContext(r.Context())
+		if access == nil {
+			writePlainText(w, logger, http.StatusForbidden, "Forbidden")
+			return
+		}
+		if err := access.checkWithin(&key.Grant); err != nil {
+			writePlainText(w, logger, http.StatusForbidden, "The key can't do more than you: "+err.Error())
+			return
+		}
+		// Never nil, which would leave the key unlimited by groups
+		key.CreatorGroups = append([]string{}, access.groups...)
 	}
 	token, err := saveNewAPIKey(key)
 	if err != nil {
@@ -589,33 +643,33 @@ func newAPIKeyRouter(storage http.Handler) http.Handler {
 
 	router.Route("/api", func(router chi.Router) {
 		// Lists are filtered to the key's jobs by their handlers
-		router.With(requireAPIKey(ScopeRead, nil)).Get("/feed", HandleFeedView)
+		router.With(requireAccess(ScopeRead, nil)).Get("/feed", HandleFeedView)
 
 		router.Route("/jobs", func(router chi.Router) {
-			router.With(requireAPIKey(ScopeRead, nil)).Get("/", HandleJobsView)
-			router.With(requireAPIKey(ScopeWrite, nil)).Post("/create", HandleJobsCreate)
+			router.With(requireAccess(ScopeRead, nil)).Get("/", HandleJobsView)
+			router.With(requireAccess(ScopeWrite, nil)).Post("/create", HandleJobsCreate)
 		})
 
 		router.Route("/job", func(router chi.Router) {
-			router.With(requireAPIKey(ScopeRun, jobFromName), rejectUnsafeParams).Post("/{name}/run", HandleRunJob)
-			router.With(requireAPIKey(ScopeWrite, jobFromName)).Delete("/{name}", HandleDeleteJob)
-			router.With(requireAPIKey(ScopeWrite, jobFromName)).Post("/{name}", HandleJobPost)
-			router.With(requireAPIKey(ScopeRead, jobFromName)).Get("/{name}", HandleJobGet)
-			router.With(requireAPIKey(ScopeWrite, jobFromName)).Post("/{name}/set_active", HandleJobSetActive)
+			router.With(requireAccess(ScopeRun, jobFromName), rejectUnsafeParams).Post("/{name}/run", HandleRunJob)
+			router.With(requireAccess(ScopeWrite, jobFromName)).Delete("/{name}", HandleDeleteJob)
+			router.With(requireAccess(ScopeWrite, jobFromName)).Post("/{name}", HandleJobPost)
+			router.With(requireAccess(ScopeRead, jobFromName)).Get("/{name}", HandleJobGet)
+			router.With(requireAccess(ScopeWrite, jobFromName)).Post("/{name}/set_active", HandleJobSetActive)
 		})
 
 		router.Route("/build", func(router chi.Router) {
-			router.With(requireAPIKey(ScopeRead, jobFromBuild)).Get("/{id}", HandleGetBuild)
-			router.With(requireAPIKey(ScopeRun, jobFromBuild)).Post("/{id}/abort", HandleAbortBuild)
-			router.With(requireAPIKey(ScopeRun, jobFromBuild)).Post("/{id}/flush", HandleFlushTaskLogs)
-			router.With(requireAPIKey(ScopeRun, jobFromBuild)).Post("/{id}/start", HandleStartBuild)
+			router.With(requireAccess(ScopeRead, jobFromBuild)).Get("/{id}", HandleGetBuild)
+			router.With(requireAccess(ScopeRun, jobFromBuild)).Post("/{id}/abort", HandleAbortBuild)
+			router.With(requireAccess(ScopeRun, jobFromBuild)).Post("/{id}/flush", HandleFlushTaskLogs)
+			router.With(requireAccess(ScopeRun, jobFromBuild)).Post("/{id}/start", HandleStartBuild)
 		})
 	})
 
 	router.Route("/storage", func(router chi.Router) {
 		router.Use(StorageSecurityMi)
-		router.With(requireAPIKey(ScopeRead, jobFromStorage)).Method("GET", "/build/*", storage)
-		router.With(requireAPIKey(ScopeRead, jobFromStorage)).Method("HEAD", "/build/*", storage)
+		router.With(requireAccess(ScopeRead, jobFromStorage)).Method("GET", "/build/*", storage)
+		router.With(requireAccess(ScopeRead, jobFromStorage)).Method("HEAD", "/build/*", storage)
 	})
 	return router
 }
@@ -688,46 +742,38 @@ func APIKeyAuthMi(next http.Handler) http.Handler {
 		if err := touchAPIKey(key, now); err != nil {
 			logger.Error("record api key use", "err", err)
 		}
+		access, err := apiKeyAccess(key)
+		if err != nil {
+			logger.Error("find api key access", "err", err)
+			writePlainText(w, logger, http.StatusInternalServerError, "Can't read the access of this API key")
+			return
+		}
 		ctx := context.WithValue(r.Context(), HL, logger)
 		ctx = context.WithValue(ctx, apiKeyContextKey, key)
+		ctx = context.WithValue(ctx, accessContextKey{}, access)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// apiKeyAccess is what a request with key may do: what the key grants and,
+// for a key made by a single sign-on user, also what the creator's groups
+// allow now. Keys made with the admin password, and keys made before wakeci
+// recorded the creator's groups, are limited by their grant only.
+func apiKeyAccess(key *APIKey) (*Access, error) {
+	access := &Access{Grants: []Grant{key.Grant}, subject: "This API key"}
+	if key.CreatedBy != "" && key.CreatorGroups != nil {
+		within, err := ssoGroupsAccess(key.CreatorGroups)
+		if err != nil {
+			return nil, err
+		}
+		access.Within = within
+	}
+	return access, nil
 }
 
 // jobResolver returns the job a request acts on, or the response status and
 // error when it can't
 type jobResolver func(r *http.Request) (string, int, error)
-
-// requireAPIKey lets a request through if its API key has scope and, when
-// jobOf is set, covers the job the request acts on
-func requireAPIKey(scope string, jobOf jobResolver) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			logger := requestLogger(r)
-			key := apiKeyFromContext(r.Context())
-			if key == nil || !key.HasScope(scope) {
-				logger.Warn("api key lacks scope", "scope", scope)
-				writePlainText(w, logger, http.StatusForbidden, "This API key doesn't have the "+scope+" scope")
-				return
-			}
-			if jobOf != nil {
-				job, status, err := jobOf(r)
-				if err != nil {
-					logger.Warn("find job for api key", "err", err)
-					writePlainText(w, logger, status, err.Error())
-					return
-				}
-				if !key.CoversJob(job) {
-					logger.Warn("api key doesn't cover job", "job", job)
-					// The job of a build is only known to keys that cover it
-					writePlainText(w, logger, http.StatusForbidden, "This API key doesn't cover that job")
-					return
-				}
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
-}
 
 func jobFromName(r *http.Request) (string, int, error) {
 	name, err := jobNameParam(r)
@@ -753,7 +799,7 @@ func jobFromStorage(r *http.Request) (string, int, error) {
 	first, _, _ := strings.Cut(strings.TrimPrefix(cleaned, "/"), "/")
 	id, err := strconv.Atoi(first)
 	if err != nil || strconv.Itoa(id) != first {
-		return "", http.StatusForbidden, fmt.Errorf("API keys can only read the files of a build")
+		return "", http.StatusForbidden, fmt.Errorf("only the files of a build can be read here")
 	}
 	return buildJob(id)
 }

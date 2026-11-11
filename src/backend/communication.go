@@ -19,6 +19,9 @@ const MsgTypeInUnsubscribe = "in:unsubscribe"
 type MsgBroadcast struct {
 	Type string      `json:"type"`
 	Data interface{} `json:"data"`
+	// Job is the job the message is about, so the hub only sends it to
+	// clients that may read the job; empty for messages about the server
+	Job string `json:"-"`
 }
 
 // MsgIncoming ...

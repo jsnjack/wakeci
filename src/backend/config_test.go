@@ -134,14 +134,20 @@ func TestCreateWakeConfigSSO(t *testing.T) {
 			wantEntityID: "https://ci.example.com",
 		},
 		{
-			name:    "missing groups",
-			content: "hostname: ci.example.com\n" + sso,
-			wantErr: true,
+			// The groups are managed in the settings; sso.groups only adds
+			// the first ones
+			name:         "no groups",
+			content:      "hostname: ci.example.com\n" + sso,
+			wantEnabled:  true,
+			wantACSURL:   "https://ci.example.com/auth/sso/acs",
+			wantEntityID: "https://ci.example.com",
 		},
 		{
-			name:    "groups without names",
-			content: "hostname: ci.example.com\n" + sso + "  groups: \" , \"\n",
-			wantErr: true,
+			name:         "groups without names",
+			content:      "hostname: ci.example.com\n" + sso + "  groups: \" , \"\n",
+			wantEnabled:  true,
+			wantACSURL:   "https://ci.example.com/auth/sso/acs",
+			wantEntityID: "https://ci.example.com",
 		},
 		{
 			name:    "no hostname or ACS URL",

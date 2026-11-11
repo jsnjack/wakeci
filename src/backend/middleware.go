@@ -198,7 +198,7 @@ func AuthMi(next http.Handler) http.Handler {
 			}
 			globalAuthAttemptLimiter.success(authClient(r))
 			setRequestUser(r, "basic", "", "")
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(w, withAccess(r, fullAccess))
 			return
 		}
 
@@ -211,7 +211,7 @@ func AuthMi(next http.Handler) http.Handler {
 			writeBody(logger, w, []byte("Forbidden"))
 			return
 		}
-		user, err := GlobalSessionStorage.User(sessionToken.Value)
+		user, groups, err := GlobalSessionStorage.Lookup(sessionToken.Value)
 		if err != nil {
 			logger.Warn("session verification failed", "err", err)
 			w.WriteHeader(http.StatusForbidden)
@@ -220,7 +220,22 @@ func AuthMi(next http.Handler) http.Handler {
 			return
 		}
 		setRequestUser(r, sessionAuth(user), user, "")
-		next.ServeHTTP(w, r)
+		access := fullAccess
+		if user != "" {
+			// From the groups as they are now, so a change applies at once
+			access, err = ssoGroupsAccess(groups)
+			if err != nil {
+				logger.Error("find the access of sso groups", "err", err)
+				writePlainText(w, logger, http.StatusInternalServerError, "Can't read the permissions of your groups")
+				return
+			}
+			if access.Empty() {
+				logger.Warn("sso user's groups have no access", "user", user)
+				writePlainText(w, logger, http.StatusForbidden, "None of your groups has access")
+				return
+			}
+		}
+		next.ServeHTTP(w, withAccess(r, access))
 	})
 }
 

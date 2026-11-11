@@ -744,6 +744,7 @@ func (b *Build) BroadcastUpdate() {
 	msg := MsgBroadcast{
 		Type: "build:update:" + strconv.Itoa(bID),
 		Data: json.RawMessage(data),
+		Job:  b.Job.Name,
 	}
 	WSHub.broadcast <- &msg
 
@@ -831,6 +832,7 @@ func (b *Build) ProcessLogEntry(line string, buffer *bufio.Writer, taskID int, s
 			TaskID: taskID,
 			Data:   pline,
 		},
+		Job: b.Job.Name,
 	}
 	WSHub.broadcast <- &msg
 }

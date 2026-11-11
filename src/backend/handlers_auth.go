@@ -50,9 +50,31 @@ const (
 	loginErrorSSONotAllowed = "sso_not_allowed"
 )
 
-// HandleIsLoggedIn returns 200 if user is logged in
+// HandleIsLoggedIn tells the page who is logged in and what they may do
 func HandleIsLoggedIn(w http.ResponseWriter, r *http.Request) {
-	// See AuthMi
+	logger := requestLogger(r)
+	access := accessFromContext(r.Context())
+	if access == nil {
+		writePlainText(w, logger, http.StatusForbidden, "Forbidden")
+		return
+	}
+	user, err := requestUser(r)
+	if err != nil {
+		writePlainText(w, logger, http.StatusForbidden, "Forbidden")
+		return
+	}
+	writeJSON(w, logger, LoginStatusData{User: user, Admin: access.Full, Grants: access.Grants})
+}
+
+// LoginStatusData tells the page who is logged in and what they may do, so
+// it can hide what they can't use; the API checks every request itself
+type LoginStatusData struct {
+	// User is the single sign-on email, empty for the admin password
+	User string `json:"user"`
+	// Admin is true for the admin password, which may do everything
+	Admin bool `json:"admin"`
+	// Grants are what the user's groups allow, united
+	Grants []Grant `json:"grants"`
 }
 
 // passwordMu orders password logins with password changes: a login holds it
@@ -324,7 +346,7 @@ func HandleSSOACS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c, err := GlobalSessionStorage.NewSSO(r, SSOSessionTTL, account.email, account.issuedAt)
+	c, err := GlobalSessionStorage.NewSSO(r, SSOSessionTTL, account.email, account.groups, account.issuedAt)
 	if errors.Is(err, errLoginRevoked) {
 		// A fresh login, issued after the revoke, still works unless the
 		// identity provider stopped the account
@@ -340,6 +362,10 @@ func HandleSSOACS(w http.ResponseWriter, r *http.Request) {
 			auditListAttrs("groups", account.groups)...)...)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
+	}
+	// Their keys follow the groups they are in now
+	if err := refreshKeyCreatorGroups(account.email, account.groups); err != nil {
+		logger.Error("record the groups of the person's api keys", "err", err)
 	}
 	setRequestUser(r, "sso", account.email, "")
 	audit(r, "login.sso", "ok", auditListAttrs("groups", account.groups)...)

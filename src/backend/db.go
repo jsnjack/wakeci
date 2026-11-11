@@ -40,6 +40,10 @@ var QueueBucket = []byte("queue")
 // storedSession, so a restart doesn't sign everyone out
 var SessionsBucket = []byte("sessions")
 
+// SSOGroupsBucket holds the single sign-on groups that may log in and what
+// their members may do, by the lowercased group name
+var SSOGroupsBucket = []byte("ssogroups")
+
 // ByteToInt convert byte to int via string
 func ByteToInt(b []byte) (int, error) {
 	bs := string(b)

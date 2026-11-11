@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -16,11 +18,9 @@ import (
 // Signing a person out closes the WebSockets they opened, so they stop
 // receiving build updates; other people's stay open
 func TestEndedSessionClosesWebSocket(t *testing.T) {
-	oldHub, oldSessions, oldConfig := WSHub, GlobalSessionStorage, Config
-	t.Cleanup(func() { WSHub, GlobalSessionStorage, Config = oldHub, oldSessions, oldConfig })
-	Config = &WakeConfig{}
-	WSHub = newHub()
-	go WSHub.run()
+	oldSessions, oldConfig := GlobalSessionStorage, Config
+	t.Cleanup(func() { GlobalSessionStorage, Config = oldSessions, oldConfig })
+	newTestBuildEnv(t)
 	GlobalSessionStorage = &SessionStorage{sessions: make(map[string]session)}
 	GlobalSessionStorage.OnEnd = WSHub.CloseSessions
 
@@ -31,10 +31,7 @@ func TestEndedSessionClosesWebSocket(t *testing.T) {
 
 	dial := func(user string) *websocket.Conn {
 		t.Helper()
-		cookie, err := GlobalSessionStorage.New(httptest.NewRequest("POST", "/auth/login", nil), time.Hour, user)
-		if err != nil {
-			t.Fatalf("new session: %v", err)
-		}
+		cookie := loginAs(t, user)
 		header := http.Header{"Cookie": {cookie.Name + "=" + cookie.Value}}
 		conn, resp, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http")+"/ws", header)
 		if err != nil {
@@ -112,4 +109,108 @@ func TestHubRefusesClientOfEndedSession(t *testing.T) {
 	if closed(current) || closed(basic) {
 		t.Errorf("valid clients closed: session %t, Basic auth %t", closed(current), closed(basic))
 	}
+}
+
+// A client only gets messages about jobs it may read, and messages about the
+// server
+func TestHubSendsOnlyWhatTheClientMayRead(t *testing.T) {
+	hub := newHub()
+	go hub.run()
+	readDeploy := &Access{Grants: []Grant{{Scopes: []string{ScopeRead}, Jobs: []string{"deploy"}}}}
+	runDeploy := &Access{Grants: []Grant{{Scopes: []string{ScopeRun}, Jobs: []string{"deploy"}}}}
+	client := func(access *Access) *Client {
+		c := &Client{hub: hub, send: make(chan []byte, 10), Logger: L, access: access,
+			SubscribedTo: []string{"build:update:", "build:log:1", MsgTypeQueueStatus}}
+		hub.register <- c
+		return c
+	}
+	full, reader, runner, unknown := client(fullAccess), client(readDeploy), client(runDeploy), client(nil)
+	for _, message := range []*MsgBroadcast{
+		{Type: "build:update:1", Job: "deploy"},
+		{Type: "build:update:2", Job: "nightly"},
+		{Type: "build:log:1", Job: "deploy"},
+		{Type: MsgTypeQueueStatus},
+		{Type: "build:update:3"},
+	} {
+		hub.broadcast <- message
+	}
+	// Unregistering one more client makes sure the hub sent the above
+	hub.unregister <- &Client{send: make(chan []byte)}
+
+	received := func(c *Client) []string {
+		var types []string
+		for {
+			select {
+			case data := <-c.send:
+				var message MsgBroadcast
+				if err := json.Unmarshal(data, &message); err != nil {
+					t.Fatalf("decode %q: %v", data, err)
+				}
+				types = append(types, message.Type)
+			default:
+				return types
+			}
+		}
+	}
+	tests := []struct {
+		name   string
+		client *Client
+		want   []string
+	}{
+		{"admin password", full, []string{"build:update:1", "build:update:2", "build:log:1", MsgTypeQueueStatus, "build:update:3"}},
+		{"read on deploy", reader, []string{"build:update:1", "build:log:1", MsgTypeQueueStatus}},
+		{"run without read", runner, []string{MsgTypeQueueStatus}},
+		{"no access", unknown, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := received(tt.client); !slices.Equal(got, tt.want) {
+				t.Errorf("received %q, want %q", got, tt.want)
+			}
+		})
+	}
+	if strings.Contains(string(mustMarshal(t, &MsgBroadcast{Type: "build:update:1", Job: "deploy"})), "deploy") {
+		t.Error("the job of a message is sent to the page")
+	}
+}
+
+// After a group changed, the connections with limited access are closed, so
+// the page opens them again with the new access
+func TestHubClosesRestrictedClients(t *testing.T) {
+	hub := newHub()
+	go hub.run()
+	client := func(access *Access) *Client {
+		c := &Client{hub: hub, send: make(chan []byte, 1), Logger: L, access: access}
+		hub.register <- c
+		return c
+	}
+	full := client(fullAccess)
+	everything := client(&Access{Grants: []Grant{{Scopes: []string{ScopeRead, ScopeRun, ScopeWrite}, AllJobs: true}}})
+	hub.CloseRestricted()
+	hub.unregister <- &Client{send: make(chan []byte)}
+
+	closed := func(c *Client) bool {
+		select {
+		case _, ok := <-c.send:
+			return !ok
+		default:
+			return false
+		}
+	}
+	if closed(full) {
+		t.Error("closed the admin password's connection")
+	}
+	// Even all permissions come from groups, which may have changed
+	if !closed(everything) {
+		t.Error("kept a connection whose access comes from groups")
+	}
+}
+
+func mustMarshal(t *testing.T, v any) []byte {
+	t.Helper()
+	data, err := json.Marshal(v)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	return data
 }

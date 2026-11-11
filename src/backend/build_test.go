@@ -39,6 +39,12 @@ func newTestBuildEnv(t *testing.T) {
 		if _, err := tx.CreateBucketIfNotExists(QueueBucket); err != nil {
 			return err
 		}
+		if _, err := tx.CreateBucketIfNotExists(APIKeysBucket); err != nil {
+			return err
+		}
+		if _, err := tx.CreateBucketIfNotExists(SSOGroupsBucket); err != nil {
+			return err
+		}
 		_, err := tx.CreateBucketIfNotExists(JobsBucket)
 		return err
 	})
@@ -176,7 +182,7 @@ func TestProcessLogEntryCollapsesCarriageReturns(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			build := &Build{ID: 1, Logger: L}
+			build := &Build{ID: 1, Logger: L, Job: &Job{Name: "log-test"}}
 			var buf bytes.Buffer
 			bw := bufio.NewWriter(&buf)
 

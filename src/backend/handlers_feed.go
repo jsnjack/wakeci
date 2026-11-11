@@ -53,9 +53,9 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 		search = query.Get("filter")
 	}
 	filter := CreateFilterRequest(search)
-	// An API key only sees the builds of its jobs
-	apiKey := apiKeyFromContext(r.Context())
-	filtered := filter != nil || apiKey != nil
+	// An API key or a single sign-on user only sees the builds of their jobs
+	access := accessFromContext(r.Context())
+	filtered := filter != nil || (access != nil && !access.Full)
 
 	var payload []*BuildUpdateData
 	// Builds the history still has as pending or running but the queue no
@@ -91,7 +91,7 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 					stale = append(stale, msg.ID)
 				}
 				if filtered {
-					if (apiKey != nil && !apiKey.CoversJob(msg.Name)) ||
+					if !access.Reads(msg.Name) ||
 						(filter != nil && !matchesFilter(msg.ToFilterMatchString(), filter)) {
 						continue
 					}

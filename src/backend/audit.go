@@ -249,6 +249,9 @@ var auditedRoutes = map[string]auditedRoute{
 	"POST /api/keys/":                 {event: "key.create"},
 	"DELETE /api/keys/{id}":           {event: "key.revoke", attrs: keyOfURL},
 	"DELETE /api/keys/":               {event: "access.revoke", attrs: personOfURL},
+	"POST /api/groups/":               {event: "group.create"},
+	"POST /api/groups/{name}":         {event: "group.change", attrs: groupOfURL},
+	"DELETE /api/groups/{name}":       {event: "group.delete", attrs: groupOfURL},
 	// The handler adds the version it installs, once it knows it
 	"POST /api/update/": {event: "server.update", attrs: runningVersion},
 }

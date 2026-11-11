@@ -177,9 +177,9 @@ func TestAPIKeyRoutes(t *testing.T) {
 		{"GET", "/storage/build/1/../2/task_1.log", nil, http.StatusForbidden, "doesn't cover that job"},
 		{"GET", "/storage/build/1/%2e%2e/2/task_1.log", nil, http.StatusForbidden, "doesn't cover that job"},
 		{"GET", "/storage/build/1/%2E%2E%2F2/task_1.log", nil, http.StatusForbidden, "doesn't cover that job"},
-		{"GET", "/storage/build/", nil, http.StatusForbidden, "only read the files of a build"},
-		{"GET", "/storage/build/..", nil, http.StatusForbidden, "only read the files of a build"},
-		{"GET", "/storage/build/01/task_1.log", nil, http.StatusForbidden, "only read the files of a build"},
+		{"GET", "/storage/build/", nil, http.StatusForbidden, "only the files of a build can be read here"},
+		{"GET", "/storage/build/..", nil, http.StatusForbidden, "only the files of a build can be read here"},
+		{"GET", "/storage/build/01/task_1.log", nil, http.StatusForbidden, "only the files of a build can be read here"},
 		{"POST", "/api/job/nightly/run", nil, http.StatusForbidden, "doesn't cover that job"},
 		{"POST", "/api/job/deploy/run", url.Values{"TARGET": {"{{ secrets.TOKEN }}"}}, http.StatusBadRequest, "references a secret"},
 		{"POST", "/api/job/deploy/run?TARGET=x%7B%7Bsecrets.TOKEN%7D%7D", nil, http.StatusBadRequest, "references a secret"},
@@ -682,11 +682,48 @@ func apiRouter() http.Handler {
 	return router
 }
 
+// testFullGroup is a group with access to everything. Single sign-on users
+// of tests are in it unless a test names their groups.
+const testFullGroup = "everyone"
+
+// addTestGroup lets the members of a single sign-on group do what grant
+// allows
+func addTestGroup(t *testing.T, name string, grant Grant) {
+	t.Helper()
+	if grant.Jobs == nil {
+		grant.Jobs = []string{}
+	}
+	if grant.Patterns == nil {
+		grant.Patterns = []string{}
+	}
+	err := DB.Update(func(tx *bolt.Tx) error {
+		return putSSOGroup(tx.Bucket(SSOGroupsBucket), &SSOGroup{Name: name, Grant: grant, UpdatedAt: time.Now()})
+	})
+	if err != nil {
+		t.Fatalf("add group %s: %v", name, err)
+	}
+}
+
 // loginAs returns a session cookie for user: a single sign-on email, or
 // adminUser for the admin password
 func loginAs(t *testing.T, user string) *http.Cookie {
 	t.Helper()
-	cookie, err := GlobalSessionStorage.New(httptest.NewRequest("POST", "/auth/login", nil), time.Hour, user)
+	if user == adminUser {
+		cookie, err := GlobalSessionStorage.New(httptest.NewRequest("POST", "/auth/login", nil), time.Hour, user)
+		if err != nil {
+			t.Fatalf("new session: %v", err)
+		}
+		return cookie
+	}
+	addTestGroup(t, testFullGroup, Grant{Scopes: []string{ScopeRead, ScopeRun, ScopeWrite}, AllJobs: true})
+	return loginInGroups(t, user, testFullGroup)
+}
+
+// loginInGroups returns a session cookie for a single sign-on user who is in
+// groups
+func loginInGroups(t *testing.T, user string, groups ...string) *http.Cookie {
+	t.Helper()
+	cookie, err := GlobalSessionStorage.NewSSO(httptest.NewRequest("POST", "/auth/sso/acs", nil), time.Hour, user, groups, time.Now())
 	if err != nil {
 		t.Fatalf("new session: %v", err)
 	}

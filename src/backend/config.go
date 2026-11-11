@@ -49,8 +49,10 @@ const defaultDrainTimeout = 30 * time.Minute
 type SSOConfig struct {
 	// IDPMetadata is the path to the identity provider's SAML metadata file
 	IDPMetadata string `yaml:"idpmetadata"`
-	// Groups is a comma-separated list of the groups allowed to log in, as
-	// the identity provider names them in the groups attribute
+	// Groups is a comma-separated list of groups, as the identity provider
+	// names them in the groups attribute, that are added with access to all
+	// jobs on the first start. Afterwards the groups are managed in the
+	// settings.
 	Groups string `yaml:"groups"`
 	// ACSURL is where the identity provider posts the SAML response.
 	// Defaults to https://<hostname>/auth/sso/acs
@@ -80,9 +82,6 @@ func (s *SSOConfig) resolve(hostname string) error {
 		if group = strings.TrimSpace(group); group != "" {
 			s.allowedGroups = append(s.allowedGroups, group)
 		}
-	}
-	if len(s.allowedGroups) == 0 {
-		return fmt.Errorf("sso.groups is required when sso.idpmetadata is set")
 	}
 	if s.ACSURL == "" {
 		if hostname == "" {

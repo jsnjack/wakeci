@@ -26,7 +26,8 @@ import (
 // Google Workspace it is the app attribute of the "Group membership" mapping.
 const ssoGroupsAttribute = "groups"
 
-// errSSOGroup means the user signed in but is in none of the allowed groups
+// errSSOGroup means the user signed in but is in none of the groups that may
+// log in
 var errSSOGroup = errors.New("user is not in an allowed group")
 
 // errSSOUnsolicited means the identity provider sent a login wakeci didn't
@@ -34,10 +35,11 @@ var errSSOGroup = errors.New("user is not in an allowed group")
 var errSSOUnsolicited = errors.New("unsolicited SAML response")
 
 // SSOAuth signs users in through a SAML 2.0 identity provider, such as Google
-// Workspace, and lets in members of the allowed groups only
+// Workspace, and lets in members of the groups that may log in only
 type SSOAuth struct {
-	sp     *saml2.SAMLServiceProvider
-	groups []string
+	sp *saml2.SAMLServiceProvider
+	// groupKnown reports whether a group may log in
+	groupKnown func(group string) bool
 	// stateKey signs the login state cookie
 	stateKey []byte
 	// usedRequests holds the IDs of login requests that already got their
@@ -51,8 +53,9 @@ type SSOAuth struct {
 var GlobalSSOAuth *SSOAuth
 
 // NewSSOAuth creates a single sign-on client from config, reading the
-// identity provider's metadata file
-func NewSSOAuth(cfg SSOConfig) (*SSOAuth, error) {
+// identity provider's metadata file. groupKnown reports whether the members
+// of a group may log in.
+func NewSSOAuth(cfg SSOConfig, groupKnown func(group string) bool) (*SSOAuth, error) {
 	data, err := os.ReadFile(cfg.IDPMetadata)
 	if err != nil {
 		return nil, fmt.Errorf("read identity provider metadata: %w", err)
@@ -77,7 +80,7 @@ func NewSSOAuth(cfg SSOConfig) (*SSOAuth, error) {
 			// which should be reported as "not allowed", not as a broken response
 			AllowMissingAttributes: true,
 		},
-		groups:       cfg.allowedGroups,
+		groupKnown:   groupKnown,
 		stateKey:     stateKey,
 		usedRequests: make(map[string]time.Time),
 	}, nil
@@ -185,8 +188,13 @@ func (s *SSOAuth) VerifyResponse(encodedResponse, requestID string) (*ssoLogin, 
 	case info.NameID == "":
 		return nil, fmt.Errorf("assertion has no NameID")
 	}
-	groups := info.Values.GetAll(ssoGroupsAttribute)
-	if !slices.ContainsFunc(groups, s.groupAllowed) {
+	groups := []string{}
+	for _, group := range info.Values.GetAll(ssoGroupsAttribute) {
+		if group = strings.TrimSpace(group); group != "" {
+			groups = append(groups, group)
+		}
+	}
+	if !slices.ContainsFunc(groups, s.groupKnown) {
 		return nil, &ssoGroupError{email: info.NameID, groups: groups}
 	}
 	return &ssoLogin{email: info.NameID, groups: groups, issuedAt: info.Assertions[0].IssueInstant}, nil
@@ -235,12 +243,6 @@ func (s *SSOAuth) useRequest(requestID string, now time.Time) bool {
 	// The login state was sealed before now, so it expires before this does
 	s.usedRequests[requestID] = now.Add(ssoStateTTL)
 	return true
-}
-
-func (s *SSOAuth) groupAllowed(group string) bool {
-	return slices.ContainsFunc(s.groups, func(allowed string) bool {
-		return strings.EqualFold(strings.TrimSpace(group), allowed)
-	})
 }
 
 // ssoLoginState is kept in a cookie from the redirect to the identity

@@ -273,6 +273,11 @@ func run(cleanup func()) (tasksLeft bool) {
 			return err
 		}
 
+		_, err = tx.CreateBucketIfNotExists(SSOGroupsBucket)
+		if err != nil {
+			return err
+		}
+
 		return nil
 	})
 
@@ -287,12 +292,15 @@ func run(cleanup func()) (tasksLeft bool) {
 	// Last before the database closes
 	defer GlobalSessionStorage.saveUnsaved()
 
+	if err := seedSSOGroups(Config.SSO.allowedGroups, time.Now()); err != nil {
+		fatal("add the groups of sso.groups", err)
+	}
 	if Config.SSO.Enabled() {
-		GlobalSSOAuth, err = NewSSOAuth(Config.SSO)
+		GlobalSSOAuth, err = NewSSOAuth(Config.SSO, knownSSOGroup)
 		if err != nil {
 			fatal("set up sso", err)
 		}
-		L.Info("sso enabled", "groups", Config.SSO.allowedGroups)
+		L.Info("sso enabled")
 	}
 
 	GlobalQueue, err = CreateQueue()
@@ -304,6 +312,7 @@ func run(cleanup func()) (tasksLeft bool) {
 	WSHub = newHub()
 	go WSHub.run()
 	GlobalSessionStorage.OnEnd = WSHub.CloseSessions
+	onSSOAccessChange = WSHub.CloseRestricted
 
 	// Runs after the cron jobs ended, so builds they queued are saved with
 	// their on_pending tasks done. A further signal ends the wait
@@ -371,13 +380,7 @@ func run(cleanup func()) (tasksLeft bool) {
 	router.Route("/api", apiRoutes)
 
 	storage := HandleWakespaceResource(http.FileServer(http.Dir(Config.WorkDir + "wakespace")))
-	router.Route("/storage", func(router chi.Router) {
-		// Storage server
-		router.Use(StorageSecurityMi)
-		router.Use(AuthMi)
-		router.Method("GET", "/build/*", storage)
-		router.Method("HEAD", "/build/*", storage)
-	})
+	router.Route("/storage", storageRoutes(storage))
 
 	router.Route("/docs", func(router chi.Router) {
 		router.Use(StorageSecurityMi)
@@ -471,48 +474,73 @@ func run(cleanup func()) (tasksLeft bool) {
 	return tasksLeft
 }
 
+// storageRoutes registers the /storage routes, which serve the files of
+// builds with storage, for logged-in users and the admin password
+func storageRoutes(storage http.Handler) func(chi.Router) {
+	return func(router chi.Router) {
+		router.Use(StorageSecurityMi)
+		router.Use(AuthMi)
+		router.With(requireAccess(ScopeRead, jobFromStorage)).Method("GET", "/build/*", storage)
+		router.With(requireAccess(ScopeRead, jobFromStorage)).Method("HEAD", "/build/*", storage)
+	}
+}
+
 // apiRoutes registers the /api routes for logged-in users and the admin
-// password. API keys use newAPIKeyRouter instead.
+// password. API keys use newAPIKeyRouter instead. Every route says what it
+// needs: a single sign-on user only gets what their groups allow, while the
+// admin password passes every check.
 func apiRoutes(router chi.Router) {
 	// Before AuthMi, so refused changes are audited too
 	router.Use(AuditMi)
 	router.Use(AuthMi)
-	router.Get("/feed", HandleFeedView)
+	router.With(requireAccess(ScopeRead, nil)).Get("/feed", HandleFeedView)
 
 	router.Route("/jobs", func(router chi.Router) {
-		router.Get("/", HandleJobsView)
-		router.Post("/create", HandleJobsCreate)
+		router.With(requireAccess(ScopeRead, nil)).Get("/", HandleJobsView)
+		router.With(requireAccess(ScopeWrite, nil)).Post("/create", HandleJobsCreate)
 	})
 
 	router.Route("/job", func(router chi.Router) {
-		router.Post("/{name}/run", HandleRunJob)
-		router.Delete("/{name}", HandleDeleteJob)
-		router.Post("/{name}", HandleJobPost)
-		router.Get("/{name}", HandleJobGet)
-		router.Post("/{name}/set_active", HandleJobSetActive)
+		router.With(requireAccess(ScopeRun, jobFromName)).Post("/{name}/run", HandleRunJob)
+		router.With(requireAccess(ScopeWrite, jobFromName)).Delete("/{name}", HandleDeleteJob)
+		router.With(requireAccess(ScopeWrite, jobFromName)).Post("/{name}", HandleJobPost)
+		router.With(requireAccess(ScopeRead, jobFromName)).Get("/{name}", HandleJobGet)
+		router.With(requireAccess(ScopeWrite, jobFromName)).Post("/{name}/set_active", HandleJobSetActive)
 	})
 
 	router.Route("/build", func(router chi.Router) {
-		router.Get("/{id}", HandleGetBuild)
-		router.Post("/{id}/abort", HandleAbortBuild)
-		router.Post("/{id}/flush", HandleFlushTaskLogs)
-		router.Post("/{id}/start", HandleStartBuild)
+		router.With(requireAccess(ScopeRead, jobFromBuild)).Get("/{id}", HandleGetBuild)
+		router.With(requireAccess(ScopeRun, jobFromBuild)).Post("/{id}/abort", HandleAbortBuild)
+		router.With(requireAccess(ScopeRun, jobFromBuild)).Post("/{id}/flush", HandleFlushTaskLogs)
+		router.With(requireAccess(ScopeRun, jobFromBuild)).Post("/{id}/start", HandleStartBuild)
 	})
 
-	router.Get("/settings", HandleSettingsGet)
-	router.Post("/settings", HandleSettingsPost)
+	// Write can run any command on the server, so it may change the
+	// server's settings too
+	router.With(requireAccess(ScopeWrite, nil)).Get("/settings", HandleSettingsGet)
+	router.With(requireAccess(ScopeWrite, nil)).Post("/settings", HandleSettingsPost)
 
+	// Every logged-in user: the queue banner shows the server's state
 	router.Get("/queue/", HandleQueueGet)
 
 	router.Route("/update", func(router chi.Router) {
-		router.Get("/", HandleUpdateGet)
-		router.Post("/", HandleUpdatePost)
+		router.With(requireAccess(ScopeWrite, nil)).Get("/", HandleUpdateGet)
+		router.With(requireAccess(ScopeWrite, nil)).Post("/", HandleUpdatePost)
 	})
 
+	// Every logged-in user manages their own keys; the handlers check the
+	// rest
 	router.Route("/keys", func(router chi.Router) {
 		router.Get("/", HandleAPIKeysList)
 		router.Post("/", HandleAPIKeyCreate)
 		router.Delete("/", HandleAPIKeysRevokeBy)
 		router.Delete("/{id}", HandleAPIKeyRevoke)
+	})
+
+	router.Route("/groups", func(router chi.Router) {
+		router.With(requireAccess(ScopeWrite, nil)).Get("/", HandleSSOGroupsList)
+		router.With(requireAdmin).Post("/", HandleSSOGroupCreate)
+		router.With(requireAdmin).Post("/{name}", HandleSSOGroupUpdate)
+		router.With(requireAdmin).Delete("/{name}", HandleSSOGroupDelete)
 	})
 }

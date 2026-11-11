@@ -13,12 +13,14 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/beevik/etree"
 	dsig "github.com/russellhaering/goxmldsig"
+	bolt "go.etcd.io/bbolt"
 )
 
 const (
@@ -99,26 +101,31 @@ func (m testMetadata) xml() string {
 `, m.entityID, m.keyUse, m.cert, m.binding, testIDPSSOURL)
 }
 
+// newSSOTestEnv sets up single sign-on with testSSOGroups as the groups
+// that may log in, each with access to everything
 func newSSOTestEnv(t *testing.T) {
 	t.Helper()
+	originalConfig := Config
+	newTestBuildEnv(t)
+	Config.Port = "8081"
+	if err := seedSSOGroups(testSSOGroups, time.Now()); err != nil {
+		t.Fatalf("seed groups: %v", err)
+	}
 	path := filepath.Join(t.TempDir(), "idp.xml")
 	if err := os.WriteFile(path, []byte(newTestMetadata(t).xml()), 0600); err != nil {
 		t.Fatalf("write metadata: %v", err)
 	}
 	auth, err := NewSSOAuth(SSOConfig{
-		IDPMetadata:   path,
-		ACSURL:        testSSOACSURL,
-		EntityID:      testSSOEntityID,
-		allowedGroups: testSSOGroups,
-	})
+		IDPMetadata: path,
+		ACSURL:      testSSOACSURL,
+		EntityID:    testSSOEntityID,
+	}, knownSSOGroup)
 	if err != nil {
 		t.Fatalf("NewSSOAuth: %v", err)
 	}
 
-	originalConfig := Config
 	originalSessions := GlobalSessionStorage
 	originalSSO := GlobalSSOAuth
-	Config = &WakeConfig{Port: "8081"}
 	GlobalSessionStorage = &SessionStorage{sessions: make(map[string]session)}
 	GlobalSSOAuth = auth
 	t.Cleanup(func() {
@@ -664,7 +671,13 @@ func TestSSOACS(t *testing.T) {
 			rec := httptest.NewRecorder()
 			events, _ := captureAudit(t)
 			HandleSSOACS(rec, req)
-			groups, err := json.Marshal(append([]string{}, response.groups...))
+			sent := []string{}
+			for _, group := range response.groups {
+				if group = strings.TrimSpace(group); group != "" {
+					sent = append(sent, group)
+				}
+			}
+			groups, err := json.Marshal(sent)
 			if err != nil {
 				t.Fatalf("encode groups: %v", err)
 			}
@@ -796,11 +809,10 @@ func TestParseIDPMetadata(t *testing.T) {
 
 func TestNewSSOAuthMissingMetadata(t *testing.T) {
 	_, err := NewSSOAuth(SSOConfig{
-		IDPMetadata:   filepath.Join(t.TempDir(), "missing.xml"),
-		ACSURL:        testSSOACSURL,
-		EntityID:      testSSOEntityID,
-		allowedGroups: testSSOGroups,
-	})
+		IDPMetadata: filepath.Join(t.TempDir(), "missing.xml"),
+		ACSURL:      testSSOACSURL,
+		EntityID:    testSSOEntityID,
+	}, knownSSOGroup)
 	if err == nil {
 		t.Error("expected an error for a missing metadata file")
 	}
@@ -955,5 +967,54 @@ func TestSSOACSAfterRevoke(t *testing.T) {
 	rec = post(time.Now().Add(2 * revokedLoginLeeway))
 	if got := rec.Header().Get("Location"); got != testLoginRedirect || findCookie(rec.Result().Cookies(), "session") == nil {
 		t.Errorf("login issued after the revoke: Location = %q, want %q and a session", got, testLoginRedirect)
+	}
+}
+
+// A group the admin added in the settings may log in. The session keeps the
+// groups the identity provider sent, and the person's API keys follow them.
+func TestSSOLoginWithGroupFromSettings(t *testing.T) {
+	newSSOTestEnv(t)
+	addTestGroup(t, "Service Team", Grant{Scopes: []string{ScopeRead}, Jobs: []string{"deploy"}})
+	key, err := apiKeyFromForm(url.Values{"name": {"ci"}, "scope": {"read"}, "allJobs": {"true"}, "expiresInDays": {"30"}}, time.Now())
+	if err != nil {
+		t.Fatalf("apiKeyFromForm: %v", err)
+	}
+	key.CreatedBy = "Alice@Example.com"
+	if _, err := saveNewAPIKey(key); err != nil {
+		t.Fatalf("save key: %v", err)
+	}
+
+	_, stateCookie := startSSOLogin(t, testLoginRedirect)
+	response := newTestSAMLResponse(openTestLoginState(t, stateCookie).RequestID)
+	response.groups = []string{"Sales", " service team "}
+	req := httptest.NewRequest(http.MethodPost, SSOACSPath, strings.NewReader(url.Values{"SAMLResponse": {response.encode(t)}}.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(stateCookie)
+	rec := httptest.NewRecorder()
+	HandleSSOACS(rec, req)
+
+	session := findCookie(rec.Result().Cookies(), "session")
+	if session == nil {
+		t.Fatalf("no session cookie; Location %q", rec.Header().Get("Location"))
+	}
+	user, groups, err := GlobalSessionStorage.Lookup(session.Value)
+	if err != nil || user != testSSOEmail || !slices.Equal(groups, []string{"Sales", "service team"}) {
+		t.Errorf("session = %q %q %v, want %s in Sales and service team", user, groups, err, testSSOEmail)
+	}
+	var keys []storedAPIKey
+	if err := DB.View(func(tx *bolt.Tx) error {
+		return tx.Bucket(APIKeysBucket).ForEach(func(_, data []byte) error {
+			var stored storedAPIKey
+			if err := json.Unmarshal(data, &stored); err != nil {
+				return err
+			}
+			keys = append(keys, stored)
+			return nil
+		})
+	}); err != nil {
+		t.Fatalf("read keys: %v", err)
+	}
+	if len(keys) != 1 || !slices.Equal(keys[0].CreatorGroups, []string{"Sales", "service team"}) {
+		t.Errorf("key creator groups = %+v, want the groups of the login", keys)
 	}
 }
