@@ -648,7 +648,7 @@ func TestAuditAPIKey(t *testing.T) {
 		},
 		{
 			name: "a route that doesn't exist", method: "DELETE", target: "/api/nothing", token: readToken,
-			want: map[string]string{"event": "request", "outcome": "failed", "status": "403", "method": "DELETE", "path": "/api/nothing"},
+			want: map[string]string{"event": "request", "outcome": "failed", "status": "404", "method": "DELETE", "path": "/api/nothing"},
 		},
 	}
 	for _, tt := range tests {

@@ -168,7 +168,7 @@ func TestAPIKeyRoutes(t *testing.T) {
 		{"GET", "/api/job/nightly", nil, http.StatusForbidden, "doesn't cover that job"},
 		{"GET", "/api/build/1", nil, http.StatusOK, `"name":"deploy"`},
 		{"GET", "/api/build/2", nil, http.StatusForbidden, "doesn't cover that job"},
-		{"GET", "/api/build/99", nil, http.StatusNotFound, "build 99 not found"},
+		{"GET", "/api/build/99", nil, http.StatusNotFound, "build 99 not found on this server, which holds builds 1 to 2"},
 		{"GET", "/api/build/x", nil, http.StatusBadRequest, "invalid build ID"},
 		{"GET", "/storage/build/1/task_1.log", nil, http.StatusOK, "log of deploy"},
 		{"HEAD", "/storage/build/1/task_1.log", nil, http.StatusOK, ""},
@@ -206,7 +206,10 @@ func TestAPIKeyRoutes(t *testing.T) {
 		{"GET", "/ws", nil, http.StatusForbidden, "can't be used here"},
 		{"GET", "/auth/_isLoggedIn", nil, http.StatusForbidden, "can't be used here"},
 		{"GET", "/", nil, http.StatusForbidden, "can't be used here"},
-		{"DELETE", "/api/feed", nil, http.StatusForbidden, "can't be used here"},
+		{"DELETE", "/api/feed", nil, http.StatusMethodNotAllowed, "DELETE isn't allowed on /api/feed"},
+		{"GET", "/api/feed/", nil, http.StatusNotFound, "No API route /api/feed/"},
+		{"GET", "/api/job/deploy/", nil, http.StatusNotFound, "No API route /api/job/deploy/"},
+		{"GET", "/api/build/1/artifacts", nil, http.StatusNotFound, "No API route /api/build/1/artifacts"},
 		{"GET", "/storage/other", nil, http.StatusForbidden, "can't be used here"},
 	}
 	for _, tt := range tests {

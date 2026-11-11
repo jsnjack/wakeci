@@ -39,17 +39,10 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 	}
 
 	offset, err := strconv.Atoi(offsetS)
-	if err != nil {
-		errMsg := fmt.Sprintf("Invalid offset: %q", offsetS)
+	if err != nil || offset < 0 {
 		logger.Warn("invalid offset", "offset", offsetS)
-		w.WriteHeader(http.StatusBadRequest)
-		w.Header().Set("Content-Type", "text/plain")
-		writeBody(logger, w, []byte(errMsg))
+		writePlainText(w, logger, http.StatusBadRequest, fmt.Sprintf("Invalid offset: %q", offsetS))
 		return
-	}
-
-	if offset < 0 {
-		offset = 1
 	}
 
 	// q is the search; filter, its old name, still works for clients that

@@ -104,8 +104,10 @@ src/frontend/                Vue 3 + Vite SPA
    against the hash in the `apikeys` bucket and its expiry, then each route's
    `requireAPIKey(scope, jobResolver)` checks the scope and the job: from
    `{name}`, or from the build's history entry for `/build/{id}` and
-   `/storage/build/{id}/...`. Anything not registered there gets 403. The
-   feed and job list filter themselves with `apiKeyFromContext`.
+   `/storage/build/{id}/...`. A route not registered there gets 403; an
+   `/api` path that no router has gets 404 (405 for another method's path),
+   so a mistyped URL doesn't look like a refusal. The feed and job list
+   filter themselves with `apiKeyFromContext`.
 7. **Live UI updates**: `Build.BroadcastUpdate` persists build state to the
    `history` bucket (and to the `queue` bucket while the build is pending)
    and pushes it over `WSHub` to any client subscribed to that build/feed

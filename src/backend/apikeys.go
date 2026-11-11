@@ -657,13 +657,18 @@ func routeAPIKeys(keyRouter, router http.Handler) http.Handler {
 
 // newAPIKeyRouter routes requests that carry an API key. Only the routes
 // registered here accept keys, each with the scope it needs and the job it
-// acts on; anything else gets 403. So a route added to the main router stays
-// closed to keys until it is added here too.
+// acts on; any other route gets 403. So a route added to the main router
+// stays closed to keys until it is added here too.
 func newAPIKeyRouter(storage http.Handler) http.Handler {
 	router := chi.NewRouter()
+	// Only to tell an /api route that keys can't use from one that doesn't
+	// exist; it never serves a request
+	passwordRoutes := chi.NewRouter()
+	passwordRoutes.Route("/api", apiRoutes)
+	reject := rejectAPIKeyRoute(passwordRoutes, router)
 	// Set before the routes, so the sub-routers get them too
-	router.NotFound(rejectAPIKeyRoute)
-	router.MethodNotAllowed(rejectAPIKeyRoute)
+	router.NotFound(reject)
+	router.MethodNotAllowed(reject)
 	router.Use(LogMi)
 	router.Use(SecurityMi)
 	router.Use(CORSMi)
@@ -704,10 +709,42 @@ func newAPIKeyRouter(storage http.Handler) http.Handler {
 	return router
 }
 
-func rejectAPIKeyRoute(w http.ResponseWriter, r *http.Request) {
-	logger := requestLogger(r)
-	logger.Warn("api key used on a route that doesn't accept keys", "method", r.Method, "path", r.URL.Path)
-	writePlainText(w, logger, http.StatusForbidden, "API keys can't be used here")
+// rejectAPIKeyRoute answers a key's request that the key router has no route
+// for. Under /api, a path that doesn't exist gets 404 and one that exists
+// only with other methods gets 405, so that a client can tell a mistyped URL
+// from a route closed to keys. Everything else gets 403.
+func rejectAPIKeyRoute(passwordRoutes, keyRoutes chi.Routes) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		logger := requestLogger(r)
+		routePath := r.URL.Path
+		if r.URL.RawPath != "" {
+			routePath = r.URL.RawPath
+		}
+		if !strings.HasPrefix(routePath, "/api/") || hasRoute(passwordRoutes, r.Method, routePath) {
+			logger.Warn("api key used on a route that doesn't accept keys", "method", r.Method, "path", r.URL.Path)
+			writePlainText(w, logger, http.StatusForbidden, "API keys can't be used here")
+			return
+		}
+		var allowed []string
+		for _, method := range routeMethods {
+			if hasRoute(keyRoutes, method, routePath) || hasRoute(passwordRoutes, method, routePath) {
+				allowed = append(allowed, method)
+			}
+		}
+		if len(allowed) > 0 {
+			w.Header().Set("Allow", strings.Join(allowed, ", "))
+			writePlainText(w, logger, http.StatusMethodNotAllowed, r.Method+" isn't allowed on "+r.URL.Path)
+			return
+		}
+		writePlainText(w, logger, http.StatusNotFound, "No API route "+r.URL.Path)
+	}
+}
+
+// routeMethods are the methods the API's routes use
+var routeMethods = []string{http.MethodGet, http.MethodHead, http.MethodPost, http.MethodDelete}
+
+func hasRoute(routes chi.Routes, method, routePath string) bool {
+	return routes.Find(chi.NewRouteContext(), method, routePath) != ""
 }
 
 // APIKeyAuthMi checks the API key a request carries and adds it to the context
@@ -790,10 +827,9 @@ func jobFromName(r *http.Request) (string, int, error) {
 }
 
 func jobFromBuild(r *http.Request) (string, int, error) {
-	idp := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idp)
+	id, err := buildIDParam(r)
 	if err != nil {
-		return "", http.StatusBadRequest, fmt.Errorf("invalid build ID %q", idp)
+		return "", http.StatusBadRequest, err
 	}
 	return buildJob(id)
 }
@@ -813,19 +849,12 @@ func jobFromStorage(r *http.Request) (string, int, error) {
 
 // buildJob returns the name of the job that build id belongs to
 func buildJob(id int) (string, int, error) {
-	var build BuildUpdateData
-	err := DB.View(func(tx *bolt.Tx) error {
-		data := tx.Bucket(HistoryBucket).Get(Itob(id))
-		if data == nil {
-			return errBuildNotFound
-		}
-		return json.Unmarshal(data, &build)
-	})
+	build, err := readBuildStatus(id)
 	switch {
 	case errors.Is(err, errBuildNotFound):
-		return "", http.StatusNotFound, fmt.Errorf("build %d not found", id)
+		return "", http.StatusNotFound, err
 	case err != nil:
-		return "", http.StatusInternalServerError, fmt.Errorf("read build %d: %w", id, err)
+		return "", http.StatusInternalServerError, err
 	}
 	return build.Name, 0, nil
 }
