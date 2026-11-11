@@ -196,7 +196,7 @@ func TestAuditActions(t *testing.T) {
 		},
 		{
 			name: "run without logging in", method: "POST", target: "/api/job/deploy/run",
-			want: map[string]string{"event": "build.run", "outcome": "failed", "status": "403", "auth": "", "user": "", "job": "deploy"},
+			want: map[string]string{"event": "build.run", "outcome": "failed", "status": "401", "auth": "", "user": "", "job": "deploy"},
 		},
 		{
 			name: "edit", user: alice, method: "POST", target: "/api/job/nightly", form: jobForm,
@@ -247,7 +247,7 @@ func TestAuditActions(t *testing.T) {
 			// Finding the job reads the history, which only a signed-in
 			// request may make the server do
 			name: "abort without logging in", method: "POST", target: "/api/build/1/abort",
-			want: map[string]string{"event": "build.abort", "outcome": "failed", "status": "403", "build": "1", "job": ""},
+			want: map[string]string{"event": "build.abort", "outcome": "failed", "status": "401", "build": "1", "job": ""},
 		},
 		{
 			name: "start", user: alice, method: "POST", target: "/api/build/2/start",
@@ -314,7 +314,7 @@ func TestAuditActions(t *testing.T) {
 		},
 		{
 			name: "revoke access without logging in", method: "DELETE", target: "/api/keys/?createdBy=bob%40example.com",
-			want: map[string]string{"event": "access.revoke", "outcome": "failed", "status": "403", "person": "bob@example.com"},
+			want: map[string]string{"event": "access.revoke", "outcome": "failed", "status": "401", "person": "bob@example.com"},
 		},
 		{
 			// A router mounted at /keys serves /keys as /keys/
@@ -538,7 +538,7 @@ func TestAuditUpdate(t *testing.T) {
 		return onlyAuditEvent(t, events())
 	}
 	checkAuditEvent(t, update(nil, "2.0.0"), map[string]string{
-		"event": "server.update", "outcome": "failed", "status": "403", "from": "1.0.0", "to": "", "auth": "",
+		"event": "server.update", "outcome": "failed", "status": "401", "from": "1.0.0", "to": "", "auth": "",
 	})
 	checkAuditEvent(t, update(cookie, "1.5.0"), map[string]string{
 		"event": "server.update", "outcome": "failed", "status": "409", "from": "1.0.0", "to": "", "auth": "password",
@@ -787,7 +787,7 @@ func TestAuditBasicAuthFailure(t *testing.T) {
 		t.Fatalf("got %d audit events, want login.basic and build.run: %v", len(got), got)
 	}
 	checkAuditEvent(t, got[0], map[string]string{"event": "login.basic", "outcome": "failed", "auth": ""})
-	checkAuditEvent(t, got[1], map[string]string{"event": "build.run", "outcome": "failed", "status": "403", "auth": ""})
+	checkAuditEvent(t, got[1], map[string]string{"event": "build.run", "outcome": "failed", "status": "401", "auth": ""})
 }
 
 func TestAuditLogout(t *testing.T) {
@@ -875,7 +875,7 @@ func TestRequestLineSaysWho(t *testing.T) {
 	// A session token never reaches the logs
 	invalid := &http.Cookie{Name: "session", Value: "not-a-real-session-token"}
 	line = request(invalid)
-	if line["auth"] != nil || line["status"] != float64(http.StatusForbidden) {
+	if line["auth"] != nil || line["status"] != float64(http.StatusUnauthorized) {
 		t.Errorf("request line = %v", line)
 	}
 	if strings.Contains(buf.String(), invalid.Value) {

@@ -817,8 +817,8 @@ func TestHandleAPIKeys(t *testing.T) {
 	}
 
 	// Without a valid session nothing is shown or changed
-	if rec := apiCall("GET", "/api/keys/", nil, nil, nil); rec.Code != http.StatusForbidden {
-		t.Errorf("list without a session: status = %d, want 403", rec.Code)
+	if rec := apiCall("GET", "/api/keys/", nil, nil, nil); rec.Code != http.StatusUnauthorized {
+		t.Errorf("list without a session: status = %d, want 401", rec.Code)
 	}
 	// Basic auth with the admin password is the admin too
 	rec := apiCall("GET", "/api/keys/", nil, nil, func(r *http.Request) { r.SetBasicAuth("", "admin") })
@@ -905,8 +905,8 @@ func TestRevokePersonEndsSessions(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &revoked); err != nil || revoked != (RevokedData{Keys: 1, Sessions: 1}) {
 		t.Fatalf("revoke alice: status = %d, body %q; want 1 key and 1 session", rec.Code, rec.Body.String())
 	}
-	if rec := apiCall("POST", "/api/keys/", aliceCookie, form, nil); rec.Code != http.StatusForbidden {
-		t.Errorf("alice creating a key after the revoke: status = %d, want 403", rec.Code)
+	if rec := apiCall("POST", "/api/keys/", aliceCookie, form, nil); rec.Code != http.StatusUnauthorized {
+		t.Errorf("alice creating a key after the revoke: status = %d, want 401", rec.Code)
 	}
 	if rec := apiCall("GET", "/api/keys/", bobCookie, nil, nil); rec.Code != http.StatusOK {
 		t.Errorf("bob after alice's revoke: status = %d, want 200", rec.Code)
@@ -929,8 +929,8 @@ func TestWrongBasicAuthWithSSOCookie(t *testing.T) {
 		{"DELETE", "/api/keys/" + victim.Key.ID, nil},
 		{"POST", "/api/settings", url.Values{"password": {"taken"}, "concurrentBuilds": {"2"}, "buildHistorySize": {"200"}}},
 	} {
-		if rec := apiCall(call.method, call.target, aliceCookie, call.form, wrongPassword); rec.Code != http.StatusForbidden {
-			t.Errorf("%s %s with a wrong password: status = %d, want 403", call.method, call.target, rec.Code)
+		if rec := apiCall(call.method, call.target, aliceCookie, call.form, wrongPassword); rec.Code != http.StatusUnauthorized {
+			t.Errorf("%s %s with a wrong password: status = %d, want 401", call.method, call.target, rec.Code)
 		}
 	}
 	if _, err := verifyAPIKey(victim.Token, time.Now()); err != nil {
@@ -962,8 +962,8 @@ func TestRevokePersonWithoutKeys(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &revoked); err != nil || revoked != (RevokedData{Keys: 0, Sessions: 1}) {
 		t.Fatalf("revoke carol: status = %d, body %q; want 0 keys and 1 session", rec.Code, rec.Body.String())
 	}
-	if rec := apiCall("GET", "/api/keys/", carol, nil, nil); rec.Code != http.StatusForbidden {
-		t.Errorf("carol after the revoke: status = %d, want 403", rec.Code)
+	if rec := apiCall("GET", "/api/keys/", carol, nil, nil); rec.Code != http.StatusUnauthorized {
+		t.Errorf("carol after the revoke: status = %d, want 401", rec.Code)
 	}
 }
 

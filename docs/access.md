@@ -60,12 +60,18 @@ status and a user's own keys are open to every logged-in user.
 covers no real job and fails for any route that lets them through and isn't
 listed as open.
 
+Missing or wrong credentials get 401 (`refuseCredentials`), and a refusal
+of what was asked for gets 403, so a client can tell "log in again" from
+"not allowed". The 401 carries a Basic challenge only when the request sent
+Basic auth: a browser shows its own password dialog for a Basic challenge
+on the page's own requests.
+
 The feed and the job list filter themselves with `Access.Reads`.
 
 The access is computed from the groups as they are on every request, not
 kept in the session, so a change in the settings applies to the members'
 next request. A user whose groups now allow nothing gets 403 from `AuthMi`,
-and the page logs out. Sessions keep the groups the identity provider sent
+and the page logs out, as it does on any 401. Sessions keep the groups the identity provider sent
 (`session.groups`); a single sign-on session saved before sessions kept
 them is ended when wakeci loads it, so that user logs in once more.
 
@@ -84,10 +90,10 @@ the admin password, and the page opens it again at once with the new access.
 `/auth/_isLoggedIn` returns the user, whether it is the admin password, and
 the grants. The store's `can(scope, job)` and `canAny(scope)` mirror the
 backend's rules to hide what the user can't use: run and abort buttons,
-editing, the settings link. The API checks every request regardless. A 403
-logs the page out only if `/auth/_isLoggedIn` fails too; otherwise the
-request was something the user's groups don't allow, and the page shows the
-error and reads the permissions again.
+editing, the settings link. The API checks every request regardless. A 401
+logs the page out. A 403 logs it out only if `/auth/_isLoggedIn` fails too;
+otherwise the request was something the user's groups don't allow, and the
+page shows the error and reads the permissions again.
 
 ## What it doesn't do
 

@@ -143,3 +143,18 @@ test("should stay logged in when the groups don't allow a request", async ({ pag
     await expect(page.getByText("Your account doesn't have the run scope")).toBeVisible();
     await expect(page).toHaveURL(/\/jobs$/);
 });
+
+test("should go to the login page when the session ended", async ({ page }) => {
+    await page.goto("/jobs");
+    await expect(page.getByTestId("create-job")).toBeVisible();
+    await page.route("**/api/jobs/", (route) =>
+        route.fulfill({
+            status: 401,
+            contentType: "text/plain",
+            headers: { "WWW-Authenticate": 'Bearer realm="wakeci"' },
+            body: "The session ended; log in again",
+        }),
+    );
+    await page.reload();
+    await expect(page).toHaveURL(/\/login/);
+});

@@ -31,10 +31,14 @@ axios.interceptors.response.use(
                 text: escapeHtml((error.response && error.response.data) || error),
                 type: "error",
             });
-            if (error.response?.status === 403) {
-                // Either the session ended or the user's groups don't allow
-                // the request; only the first logs out. The permissions may
-                // have changed, so they are read again.
+            if (error.response?.status === 401) {
+                // The session ended
+                store.commit("LOG_OUT");
+                router.push("/login");
+            } else if (error.response?.status === 403) {
+                // The user's groups don't allow the request, or no longer
+                // allow anything. The permissions may have changed, so they
+                // are read again.
                 axios.get("/auth/_isLoggedIn").then(
                     (response) => store.commit("LOG_IN", response.data),
                     () => {

@@ -203,6 +203,9 @@ values aren't turned into secrets. A `run` key still chooses the job's parameter
 them as untrusted input: quote them, and don't let one pick where a job sends
 a secret, such as the URL a token is posted to.
 
+A request with a missing, wrong or expired key, password or session gets
+401; a request for something the key or the user may not do gets 403.
+
 The key is shown once, when it is created; wakeci only stores a hash of it.
 Revoking a key stops it at once. Keys don't depend on the password, and
 survive restarts.

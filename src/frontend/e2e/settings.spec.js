@@ -23,7 +23,7 @@ test("should modify settings", async ({ page, backend }) => {
     await page.getByTestId("save-settings").click();
     await expect(page.locator(".notification-content")).toContainText("Saved");
     // The password change ended the other password sessions
-    expect((await backend.api.get("/api/settings")).status()).toBe(403);
+    expect((await backend.api.get("/api/settings")).status()).toBe(401);
     await backend.logIn();
 });
 

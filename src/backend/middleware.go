@@ -191,9 +191,7 @@ func AuthMi(next http.Handler) http.Handler {
 				if blocked {
 					return
 				}
-				w.Header().Set("Content-Type", "text/plain")
-				w.WriteHeader(http.StatusForbidden)
-				writeBody(logger, w, []byte("Forbidden"))
+				refuseCredentials(w, r, logger, "Wrong password")
 				return
 			}
 			globalAuthAttemptLimiter.success(authClient(r))
@@ -206,17 +204,13 @@ func AuthMi(next http.Handler) http.Handler {
 		sessionToken, err := r.Cookie("session")
 		if err != nil {
 			logger.Warn("missing session cookie", "err", err)
-			w.WriteHeader(http.StatusForbidden)
-			w.Header().Set("Content-Type", "text/plain")
-			writeBody(logger, w, []byte("Forbidden"))
+			refuseCredentials(w, r, logger, "Not logged in: send an API key as a Bearer token, or the password with Basic auth")
 			return
 		}
 		user, groups, err := GlobalSessionStorage.Lookup(sessionToken.Value)
 		if err != nil {
 			logger.Warn("session verification failed", "err", err)
-			w.WriteHeader(http.StatusForbidden)
-			w.Header().Set("Content-Type", "text/plain")
-			writeBody(logger, w, []byte("Forbidden"))
+			refuseCredentials(w, r, logger, "The session ended; log in again")
 			return
 		}
 		setRequestUser(r, sessionAuth(user), user, "")
@@ -237,6 +231,19 @@ func AuthMi(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, withAccess(r, access))
 	})
+}
+
+// refuseCredentials answers a request whose credentials are missing or wrong
+// with 401, so that a client can tell it from a refusal of what it asked for
+// (403). Only a request that sent Basic auth gets a Basic challenge: one on
+// a page's own requests would make the browser ask for a password itself.
+func refuseCredentials(w http.ResponseWriter, r *http.Request, logger *slog.Logger, text string) {
+	if _, _, ok := r.BasicAuth(); ok {
+		w.Header().Set("WWW-Authenticate", `Basic realm="wakeci", charset="UTF-8"`)
+	} else {
+		w.Header().Set("WWW-Authenticate", `Bearer realm="wakeci"`)
+	}
+	writePlainText(w, logger, http.StatusUnauthorized, text)
 }
 
 // requestUser returns who made a request: the single sign-on email, or empty
