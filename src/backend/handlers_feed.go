@@ -22,7 +22,7 @@ import (
 // @Success      200      {array}    BuildUpdateData
 // @Failure      400      {string}   string
 // @Failure      500      {string}   string
-// @Router       /feed/ [get]
+// @Router       /api/feed/ [get]
 func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {

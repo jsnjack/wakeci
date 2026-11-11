@@ -16,7 +16,7 @@ import (
 // @Produce      json
 // @Success      200      {array}    JobsListData
 // @Failure      500      {string}   string
-// @Router       /jobs/ [get]
+// @Router       /api/jobs/ [get]
 func HandleJobsView(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {
@@ -80,7 +80,7 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request) {
 // @Param        name     formData    string   true   "Name of the job (also the name of the file in which the job is stored)"
 // @Success      200      {string}    string
 // @Failure      500      {string}    string
-// @Router       /jobs/create [post]
+// @Router       /api/jobs/create [post]
 func HandleJobsCreate(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {

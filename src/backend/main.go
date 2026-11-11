@@ -141,7 +141,7 @@ func initApp() func() {
 // @title wakeci API documentation
 // @version 1.0
 
-// @BasePath /api
+// @BasePath /
 func main() {
 	cleanup := initApp()
 	tasksLeft := run(cleanup)

@@ -52,7 +52,7 @@ func requireJobName(w http.ResponseWriter, r *http.Request, logger *slog.Logger)
 // @Param        param2   formData   string   false  "Override default `params` of the job"
 // @Success      200      {integer}  integer
 // @Failure      400      {string}   string
-// @Router       /job/{name}/run [post]
+// @Router       /api/job/{name}/run [post]
 func HandleRunJob(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {
@@ -115,7 +115,7 @@ func usedParams(build *Build, params url.Values) ([]string, int) {
 // @Produce      json
 // @Success      200      {object}   JobData
 // @Failure      500      {string}   string
-// @Router       /job/{name}/ [get]
+// @Router       /api/job/{name}/ [get]
 func HandleJobGet(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {
@@ -158,7 +158,7 @@ func HandleJobGet(w http.ResponseWriter, r *http.Request) {
 // @Param        fileContent     formData    string   true   "New content of the job"
 // @Success      200      {string}   string
 // @Failure      400      {string}   string
-// @Router       /job/{name}/ [post]
+// @Router       /api/job/{name}/ [post]
 func HandleJobPost(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {
@@ -217,7 +217,7 @@ func HandleJobPost(w http.ResponseWriter, r *http.Request) {
 // @Success      200      {string}    string
 // @Failure      400      {string}    string
 // @Failure      500      {string}    string
-// @Router       /job/{name} [delete]
+// @Router       /api/job/{name} [delete]
 func HandleDeleteJob(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {
@@ -262,7 +262,7 @@ func HandleDeleteJob(w http.ResponseWriter, r *http.Request) {
 // @Param        name     path    string   true   "Name of the job"
 // @Success      200      {string}    string
 // @Failure      500      {string}    string
-// @Router       /job/{name}/set_active [post]
+// @Router       /api/job/{name}/set_active [post]
 func HandleJobSetActive(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {

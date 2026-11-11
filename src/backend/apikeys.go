@@ -351,7 +351,7 @@ type APIKeysData struct {
 // @Success      200      {object}   APIKeysData
 // @Failure      403      {string}   string
 // @Failure      500      {string}   string
-// @Router       /keys/ [get]
+// @Router       /api/keys/ [get]
 func HandleAPIKeysList(w http.ResponseWriter, r *http.Request) {
 	logger := requestLogger(r)
 	user, err := requestUser(r)
@@ -423,7 +423,7 @@ func keyPeople(keys []*APIKey, signedIn []string) []string {
 // @Success      200      {object}   NewAPIKeyData
 // @Failure      400      {string}   string
 // @Failure      500      {string}   string
-// @Router       /keys/ [post]
+// @Router       /api/keys/ [post]
 func HandleAPIKeyCreate(w http.ResponseWriter, r *http.Request) {
 	logger := requestLogger(r)
 	if err := r.ParseForm(); err != nil {
@@ -480,7 +480,7 @@ func HandleAPIKeyCreate(w http.ResponseWriter, r *http.Request) {
 // @Failure      400        {string}   string
 // @Failure      403        {string}   string
 // @Failure      500        {string}   string
-// @Router       /keys/ [delete]
+// @Router       /api/keys/ [delete]
 func HandleAPIKeysRevokeBy(w http.ResponseWriter, r *http.Request) {
 	logger := requestLogger(r)
 	if user, err := requestUser(r); err != nil || user != "" {
@@ -545,7 +545,7 @@ func HandleAPIKeysRevokeBy(w http.ResponseWriter, r *http.Request) {
 // @Success      200      {string}   string
 // @Failure      404      {string}   string
 // @Failure      500      {string}   string
-// @Router       /keys/{id} [delete]
+// @Router       /api/keys/{id} [delete]
 func HandleAPIKeyRevoke(w http.ResponseWriter, r *http.Request) {
 	logger := requestLogger(r)
 	user, err := requestUser(r)

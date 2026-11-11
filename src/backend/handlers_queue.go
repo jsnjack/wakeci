@@ -10,7 +10,7 @@ import (
 // @Tags         queue
 // @Produce      json
 // @Success      200      {object}   QueueStatusData
-// @Router       /queue/ [get]
+// @Router       /api/queue/ [get]
 func HandleQueueGet(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, requestLogger(r), GlobalQueue.Status())
 }

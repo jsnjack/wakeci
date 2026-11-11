@@ -226,7 +226,7 @@ func requireAdmin(next http.Handler) http.Handler {
 // @Success      200      {object}   SSOGroupsData
 // @Failure      403      {string}   string
 // @Failure      500      {string}   string
-// @Router       /groups/ [get]
+// @Router       /api/groups/ [get]
 func HandleSSOGroupsList(w http.ResponseWriter, r *http.Request) {
 	logger := requestLogger(r)
 	groups, err := listSSOGroups()
@@ -255,7 +255,7 @@ func HandleSSOGroupsList(w http.ResponseWriter, r *http.Request) {
 // @Failure      403       {string}   string
 // @Failure      409       {string}   string
 // @Failure      500       {string}   string
-// @Router       /groups/ [post]
+// @Router       /api/groups/ [post]
 func HandleSSOGroupCreate(w http.ResponseWriter, r *http.Request) {
 	logger := requestLogger(r)
 	if err := r.ParseForm(); err != nil {
@@ -311,7 +311,7 @@ func HandleSSOGroupCreate(w http.ResponseWriter, r *http.Request) {
 // @Failure      403       {string}   string
 // @Failure      404       {string}   string
 // @Failure      500       {string}   string
-// @Router       /groups/{name} [post]
+// @Router       /api/groups/{name} [post]
 func HandleSSOGroupUpdate(w http.ResponseWriter, r *http.Request) {
 	logger := requestLogger(r)
 	name, err := ssoGroupNameParam(r)
@@ -367,7 +367,7 @@ func HandleSSOGroupUpdate(w http.ResponseWriter, r *http.Request) {
 // @Failure      403       {string}   string
 // @Failure      404       {string}   string
 // @Failure      500       {string}   string
-// @Router       /groups/{name} [delete]
+// @Router       /api/groups/{name} [delete]
 func HandleSSOGroupDelete(w http.ResponseWriter, r *http.Request) {
 	logger := requestLogger(r)
 	name, err := ssoGroupNameParam(r)

@@ -338,7 +338,7 @@ func closeBody(body io.Closer) {
 // @Tags         update
 // @Produce      json
 // @Success      200      {object}   UpdateData
-// @Router       /update/ [get]
+// @Router       /api/update/ [get]
 func HandleUpdateGet(w http.ResponseWriter, r *http.Request) {
 	logger := requestLogger(r)
 	ctx, cancel := context.WithTimeout(r.Context(), releaseCheckTimeout)
@@ -375,7 +375,7 @@ func HandleUpdateGet(w http.ResponseWriter, r *http.Request) {
 // @Failure      409      {string}   string
 // @Failure      500      {string}   string
 // @Failure      502      {string}   string
-// @Router       /update/ [post]
+// @Router       /api/update/ [post]
 func HandleUpdatePost(w http.ResponseWriter, r *http.Request) {
 	logger := requestLogger(r)
 	if !updateMutex.TryLock() {
