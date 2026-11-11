@@ -142,3 +142,103 @@ func TestFeedQuery(t *testing.T) {
 		}
 	}
 }
+
+func TestFeedCursorAndFilters(t *testing.T) {
+	newAPIKeyTestEnv(t)
+	// Builds 1 (deploy) and 2 (nightly) exist; odd IDs are deploy, and every
+	// fifth build failed
+	for id := 3; id <= 40; id++ {
+		job := "nightly"
+		if id%2 == 1 {
+			job = "deploy"
+		}
+		addTestBuild(t, id, job)
+	}
+	for id := 5; id <= 40; id += 5 {
+		job := "nightly"
+		if id%2 == 1 {
+			job = "deploy"
+		}
+		data, err := json.Marshal(BuildUpdateData{ID: id, Name: job, Status: StatusFailed})
+		if err != nil {
+			t.Fatalf("marshal build: %v", err)
+		}
+		if err := DB.Update(func(tx *bolt.Tx) error { return tx.Bucket(HistoryBucket).Put(Itob(id), data) }); err != nil {
+			t.Fatalf("save build: %v", err)
+		}
+	}
+	basicAuth := func(r *http.Request) { r.SetBasicAuth("", "admin") }
+
+	tests := []struct {
+		query string
+		want  []int
+	}{
+		{"limit=3", []int{40, 39, 38}},
+		{"before=10&limit=3", []int{9, 8, 7}},
+		{"after=37", []int{40, 39, 38}},
+		{"after=30&before=34", []int{33, 32, 31}},
+		{"before=1000&limit=2", []int{40, 39}},
+		{"after=40", []int{}},
+		{"job=deploy&limit=3", []int{39, 37, 35}},
+		{"job=deploy&job=nightly&limit=2", []int{40, 39}},
+		{"job=deplo", []int{}},
+		{"status=failed", []int{40, 35, 30, 25, 20, 15, 10, 5}},
+		{"status=failed&job=deploy", []int{35, 25, 15, 5}},
+		{"status=failed&before=30&limit=2", []int{25, 20}},
+		{"offset=2&limit=2", []int{38, 37}},
+		{"offset=1&job=deploy&limit=2", []int{37, 35}},
+		{"limit=200", nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.query, func(t *testing.T) {
+			rec := apiCall("GET", "/api/feed?"+tt.query, nil, nil, basicAuth)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d; body %q", rec.Code, rec.Body.String())
+			}
+			got := buildIDs(t, rec.Body.Bytes())
+			if tt.want == nil {
+				if len(got) != 40 {
+					t.Errorf("got %d builds, want all 40", len(got))
+				}
+				return
+			}
+			if len(tt.want) == 0 && rec.Body.String() != "[]" {
+				t.Errorf("body = %q, want []", rec.Body.String())
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("builds = %v, want %v", got, tt.want)
+			}
+		})
+	}
+
+	for _, query := range []string{"limit=0", "limit=201", "before=0", "after=x", "offset=-1", "status=done"} {
+		t.Run("invalid "+query, func(t *testing.T) {
+			if rec := apiCall("GET", "/api/feed?"+query, nil, nil, basicAuth); rec.Code != http.StatusBadRequest {
+				t.Errorf("status = %d, want 400; body %q", rec.Code, rec.Body.String())
+			}
+		})
+	}
+}
+
+// A poller can ask whether the page changed instead of downloading it again
+func TestFeedETag(t *testing.T) {
+	newAPIKeyTestEnv(t)
+	basicAuth := func(r *http.Request) { r.SetBasicAuth("", "admin") }
+	first := apiCall("GET", "/api/feed?limit=5", nil, nil, basicAuth)
+	etag := first.Header().Get("ETag")
+	if first.Code != http.StatusOK || etag == "" {
+		t.Fatalf("first request: %d, ETag %q", first.Code, etag)
+	}
+	ifNoneMatch := func(r *http.Request) {
+		basicAuth(r)
+		r.Header.Set("If-None-Match", etag)
+	}
+	if rec := apiCall("GET", "/api/feed?limit=5", nil, nil, ifNoneMatch); rec.Code != http.StatusNotModified || rec.Body.Len() != 0 {
+		t.Errorf("unchanged page: %d with %d bytes, want 304 and no body", rec.Code, rec.Body.Len())
+	}
+	addTestBuild(t, 3, "deploy")
+	rec := apiCall("GET", "/api/feed?limit=5", nil, nil, ifNoneMatch)
+	if rec.Code != http.StatusOK || rec.Header().Get("ETag") == etag {
+		t.Errorf("changed page: %d, ETag %q; want 200 and a new ETag", rec.Code, rec.Header().Get("ETag"))
+	}
+}

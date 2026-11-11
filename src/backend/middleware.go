@@ -100,7 +100,7 @@ func LogMi(next http.Handler) http.Handler {
 // loggedQueryParams are the query parameters the request line shows: those
 // that say what a client reads. Others can carry run parameters, and so
 // secrets.
-var loggedQueryParams = []string{"q", "filter", "offset"}
+var loggedQueryParams = []string{"q", "filter", "offset", "limit", "before", "after", "job", "status"}
 
 // loggedQuery returns the query parameters of loggedQueryParams that are set
 func loggedQuery(query url.Values) string {

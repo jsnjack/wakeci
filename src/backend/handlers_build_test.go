@@ -76,7 +76,7 @@ func TestBuildRoutesClientErrors(t *testing.T) {
 		{"POST", "/api/build/x/abort", http.StatusBadRequest, `invalid build ID "x"`},
 		{"POST", "/api/build/x/flush", http.StatusBadRequest, `invalid build ID "x"`},
 		{"POST", "/api/build/x/start", http.StatusBadRequest, `invalid build ID "x"`},
-		{"GET", "/api/feed?offset=-1", http.StatusBadRequest, `Invalid offset: "-1"`},
+		{"GET", "/api/feed?offset=-1", http.StatusBadRequest, `invalid offset: "-1", want 0 to`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.method+" "+tt.target, func(t *testing.T) {
