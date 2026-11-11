@@ -231,14 +231,16 @@ export default {
         selectedCount() {
             return this.jobs.filter((job) => this.isSelected(job.name)).length;
         },
-        // What the API takes: the job fields only count while they are shown
+        // What the API takes: the job fields only count while they are shown.
+        // Copies, so that ticking a job, which changes pickedJobs in place,
+        // makes a new grant for v-model.
         grant() {
             const selected = this.jobAccess === "selected";
             return {
-                scopes: this.selectedScopes,
+                scopes: [...this.selectedScopes],
                 allJobs: !selected,
-                jobs: selected ? this.pickedJobs : [],
-                patterns: selected ? this.patterns : [],
+                jobs: selected ? [...this.pickedJobs] : [],
+                patterns: selected ? [...this.patterns] : [],
             };
         },
     },
