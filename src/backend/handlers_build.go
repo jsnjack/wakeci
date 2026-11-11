@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -137,10 +138,15 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request) {
 	}
 	addTaskLogs(buildStatusData, job)
 	addArtifactURLs(buildStatusData)
+	summary, err := readJobSummary(buildID)
+	if err != nil {
+		logger.Error("read job summary", "build", buildID, "err", err)
+	}
 
 	payload := GetBuildPayload{
 		Job:          job,
 		StatusUpdate: buildStatusData,
+		Summary:      summary,
 	}
 
 	payloadB, err := json.Marshal(payload)
@@ -194,6 +200,37 @@ func storageURL(id int, file string) string {
 type GetBuildPayload struct {
 	Job          *Job             `json:"job"`
 	StatusUpdate *BuildUpdateData `json:"status_update"`
+	// Summary is what the job wrote to $WAKE_SUMMARY, empty if nothing
+	Summary string `json:"summary"`
+}
+
+// jobSummaryFile is where a build's tasks write its summary, in its
+// wakespace; tasks get the path as WAKE_SUMMARY
+const jobSummaryFile = "summary.md"
+
+// maxJobSummary caps the summary a job wrote, which pages and agents read
+// whole
+const maxJobSummary = 64 * 1024
+
+// readJobSummary returns what the build's tasks wrote to $WAKE_SUMMARY, at
+// most maxJobSummary bytes, or "" if they wrote nothing
+func readJobSummary(buildID int) (string, error) {
+	f, err := os.Open(Config.WorkDir + "wakespace/" + strconv.Itoa(buildID) + "/" + jobSummaryFile)
+	if errors.Is(err, os.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("open job summary: %w", err)
+	}
+	defer closeLog(f, jobSummaryFile)
+	data, err := io.ReadAll(io.LimitReader(f, maxJobSummary+1))
+	if err != nil {
+		return "", fmt.Errorf("read job summary: %w", err)
+	}
+	if len(data) > maxJobSummary {
+		return strings.ToValidUTF8(string(data[:maxJobSummary]), "") + "\n... (cut at 64 KB)", nil
+	}
+	return strings.ToValidUTF8(string(data), ""), nil
 }
 
 // HandleAbortBuild aborts build

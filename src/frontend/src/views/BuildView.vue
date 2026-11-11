@@ -75,6 +75,16 @@
         </div>
     </article>
 
+    <!-- Plain text: a summary can hold text from logs or pull requests -->
+    <article
+        v-if="summary"
+        class="border"
+        data-cy="build-summary"
+    >
+        <h6 class="small">Summary</h6>
+        <pre class="summary">{{ summary }}</pre>
+    </article>
+
     <article
         v-if="statusUpdate.params && statusUpdate.params.length > 0"
         class="border"
@@ -169,6 +179,8 @@ export default {
         return {
             name: "",
             job: {},
+            // What the job wrote to $WAKE_SUMMARY
+            summary: "",
             statusUpdate: {
                 tasks: [],
                 id: NaN,
@@ -270,6 +282,7 @@ export default {
                 .then((response) => {
                     this.statusUpdate = response.data.status_update;
                     this.job = response.data.job;
+                    this.summary = response.data.summary || "";
                     this.updateTitle();
                 })
                 .catch(() => {
@@ -288,8 +301,13 @@ export default {
                 .catch(() => {});
         },
         applyBuildUpdate(ev) {
+            const wasDone = this.isDone;
             this.statusUpdate = Object.assign({}, this.statusUpdate, ev);
             this.updateTitle();
+            // The last tasks usually write the summary, which updates don't carry
+            if (!wasDone && this.isDone) {
+                this.fetch();
+            }
         },
         updateTitle() {
             const statusIcon = this.getStatusIcon(this.statusUpdate.status);
@@ -368,4 +386,10 @@ export default {
 };
 </script>
 
-<style scoped></style>
+<style scoped>
+.summary {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    margin: 0;
+}
+</style>

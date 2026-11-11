@@ -45,7 +45,9 @@ type BuildSummary struct {
 	Duration     time.Duration       `json:"duration"`
 	DurationText string              `json:"durationText"`
 	Params       []map[string]string `json:"params"`
-	Tasks        []*TaskStatus       `json:"tasks"`
+	// JobSummary is what the job wrote to $WAKE_SUMMARY, empty if nothing
+	JobSummary string        `json:"jobSummary"`
+	Tasks      []*TaskStatus `json:"tasks"`
 	// Failed are the tasks that failed, timed out or were aborted, with the
 	// end of their logs
 	Failed    []FailedTask    `json:"failed"`
@@ -66,7 +68,7 @@ type FailedTask struct {
 // HandleBuildSummary returns a build with the end of the logs of its failed
 // tasks
 // @Summary      Summarize a build: status, tasks, artifacts and the end of the logs of failed tasks
-// @Description  One request for "why did this build fail". failed lists the tasks that failed, timed out or were aborted, with the last lines of their logs. API key scope: read
+// @Description  One request for "why did this build fail". jobSummary is what the job wrote to $WAKE_SUMMARY; failed lists the tasks that failed, timed out or were aborted, with the last lines of their logs. API key scope: read
 // @Tags         build
 // @Produce      json
 // @Param        id       path    integer   true   "Build ID"
@@ -106,8 +108,13 @@ func HandleBuildSummary(w http.ResponseWriter, r *http.Request) {
 	}
 	addTaskLogs(build, job)
 	addArtifactURLs(build)
+	jobSummary, err := readJobSummary(id)
+	if err != nil {
+		logger.Error("read job summary", "build", id, "err", err)
+	}
 
 	summary := BuildSummary{
+		JobSummary:   jobSummary,
 		ID:           build.ID,
 		Job:          build.Name,
 		Status:       build.Status,

@@ -214,3 +214,51 @@ func TestTaskLogRoute(t *testing.T) {
 		}
 	}
 }
+
+// What a job writes to $WAKE_SUMMARY reaches the build JSON and the
+// summary, cut at 64 KB
+func TestJobSummary(t *testing.T) {
+	newAPIKeyTestEnv(t)
+	addFailedTestBuild(t)
+	basicAuth := func(r *http.Request) { r.SetBasicAuth("", "admin") }
+	build := &Build{ID: 7, Job: &Job{Name: "deploy"}}
+	var summaryPath string
+	for _, env := range build.generateDefaultEnvVariables() {
+		if value, ok := strings.CutPrefix(env, "WAKE_SUMMARY="); ok {
+			summaryPath = value
+		}
+	}
+	if summaryPath != filepath.Join(Config.WorkDir, "wakespace", "7", "summary.md") {
+		t.Fatalf("WAKE_SUMMARY = %q, want summary.md in the build's wakespace", summaryPath)
+	}
+
+	readSummaries := func() (string, string) {
+		t.Helper()
+		var payload GetBuildPayload
+		if err := json.Unmarshal(apiCall("GET", "/api/build/7", nil, nil, basicAuth).Body.Bytes(), &payload); err != nil {
+			t.Fatalf("decode build: %v", err)
+		}
+		var summary BuildSummary
+		if err := json.Unmarshal(apiCall("GET", "/api/build/7/summary", nil, nil, basicAuth).Body.Bytes(), &summary); err != nil {
+			t.Fatalf("decode summary: %v", err)
+		}
+		return payload.Summary, summary.JobSummary
+	}
+
+	if build, summary := readSummaries(); build != "" || summary != "" {
+		t.Errorf("without a summary file: %q, %q; want empty", build, summary)
+	}
+	text := "### Failed tests\n- test_login\n"
+	if err := os.WriteFile(summaryPath, []byte(text), 0644); err != nil {
+		t.Fatalf("write summary: %v", err)
+	}
+	if build, summary := readSummaries(); build != text || summary != text {
+		t.Errorf("summaries = %q, %q; want %q", build, summary, text)
+	}
+	if err := os.WriteFile(summaryPath, []byte(strings.Repeat("x", maxJobSummary+10)), 0644); err != nil {
+		t.Fatalf("write summary: %v", err)
+	}
+	if build, _ := readSummaries(); len(build) != maxJobSummary+len("\n... (cut at 64 KB)") || !strings.HasSuffix(build, "(cut at 64 KB)") {
+		t.Errorf("long summary: %d bytes ending %q, want it cut at 64 KB", len(build), build[len(build)-20:])
+	}
+}
