@@ -36,7 +36,10 @@
         </nav>
     </dialog>
 
-    <nav class="no-margin m l">
+    <nav
+        v-if="canAny('write')"
+        class="no-margin m l"
+    >
         <div class="max"></div>
         <button
             data-cy="create-job"
@@ -97,6 +100,7 @@
 <script>
 import JobItem from "@/components/JobItem.vue";
 import axios from "axios";
+import vuex from "vuex";
 import debounce from "lodash/debounce";
 
 export default {
@@ -112,6 +116,7 @@ export default {
         };
     },
     computed: {
+        ...vuex.mapGetters(["canAny"]),
         isModalOpen: function () {
             return this.modalOpen;
         },

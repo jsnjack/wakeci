@@ -99,8 +99,8 @@ export default {
         fetch() {
             return axios
                 .get("/auth/_isLoggedIn")
-                .then(() => {
-                    this.$store.commit("LOG_IN");
+                .then((response) => {
+                    this.$store.commit("LOG_IN", response.data);
                     this.$router.replace(this.getRedirectURL);
                 })
                 .catch(() => {});
@@ -148,10 +148,8 @@ export default {
                         "Content-type": "application/x-www-form-urlencoded",
                     },
                 })
-                .then(() => {
-                    this.$store.commit("LOG_IN");
-                    this.$router.replace(this.getRedirectURL);
-                })
+                // The session's permissions come with the login status
+                .then(() => this.fetch())
                 .catch(() => {});
         },
     },

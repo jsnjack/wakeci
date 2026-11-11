@@ -32,9 +32,10 @@
                 <i>key</i>
             </router-link>
             <router-link
-                v-if="auth.isLoggedIn"
+                v-if="auth.isLoggedIn && canAny('write')"
                 to="/settings"
                 class="button circle transparent m l"
+                data-cy="nav-settings"
             >
                 <div class="tooltip bottom">Settings</div>
                 <i>settings</i>
@@ -98,6 +99,7 @@ export default {
     },
     computed: {
         ...vuex.mapState(["ws", "auth", "currentPage", "theme"]),
+        ...vuex.mapGetters(["canAny"]),
         getVesion: function () {
             return import.meta.env.VITE_VERSION || "0.0.0";
         },

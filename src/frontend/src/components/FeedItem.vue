@@ -63,6 +63,7 @@
 
         <!-- Abort build -->
         <a
+            v-if="can('run', build.name)"
             :disabled="isDone ? true : null"
             :href="getAbortURL"
             class="button circle transparent"
@@ -75,7 +76,7 @@
 
         <!-- Start build -->
         <StartBuildNowButton
-            v-if="build.id"
+            v-if="build.id && can('run', build.name)"
             :status="build.status"
             :build-i-d="build.id"
         />
@@ -88,6 +89,7 @@ import ParamItem from "@/components/ParamItem.vue";
 import SimpleDuration from "@/components/SimpleDuration.vue";
 import SimpleStartedAgo from "@/components/SimpleStartedAgo.vue";
 import axios from "axios";
+import vuex from "vuex";
 import StartBuildNowButton from "./StartBuildNowButton.vue";
 
 const MAX_DEFAULT_NUMBER_OF_PARAMS = 3;
@@ -113,6 +115,7 @@ export default {
         };
     },
     computed: {
+        ...vuex.mapGetters(["can"]),
         getAbortURL: function () {
             return `/api/build/${this.build.id}/abort`;
         },

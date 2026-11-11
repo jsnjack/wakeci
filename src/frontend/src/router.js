@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory, isNavigationFailure, NavigationFailureType } from "vue-router";
 import { notify } from "@kyvg/vue3-notification";
 
-import { requireAuth } from "./auth";
+import { requireAdmin, requireAuth } from "./auth";
 import { store } from "./store/index";
 // Every full page load passes through /login while the session is checked,
 // so the login page is in the main chunk instead of one more request
@@ -56,6 +56,19 @@ const router = createRouter({
             name: "settings",
             component: () => import("./views/SettingsView.vue"),
             beforeEnter: requireAuth,
+        },
+        {
+            path: "/settings/groups/new",
+            name: "groupCreate",
+            component: () => import("./views/GroupEditView.vue"),
+            beforeEnter: [requireAuth, requireAdmin],
+        },
+        {
+            path: "/settings/groups/:name",
+            name: "groupEdit",
+            component: () => import("./views/GroupEditView.vue"),
+            beforeEnter: [requireAuth, requireAdmin],
+            props: (route) => ({ groupName: route.params.name }),
         },
         {
             path: "/keys",

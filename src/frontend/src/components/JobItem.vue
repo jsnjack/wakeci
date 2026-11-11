@@ -13,6 +13,7 @@
             <input
                 :checked="isActive"
                 type="checkbox"
+                :disabled="!canAny('write')"
                 @click.prevent="toggleIsActive"
             />
             <span></span>
@@ -20,23 +21,25 @@
 
         <!-- Start job -->
         <RunJobButton
+            v-if="can('run', job.name)"
             :disabled="!isActive"
             :params="job.defaultParams"
             :job-name="job.name"
         />
 
-        <!-- Edit job -->
+        <!-- Edit job, or only view it without write -->
         <router-link
             :to="{ name: 'jobEdit', params: { name: job.name } }"
             class="button circle transparent"
             data-cy="edit-job-button"
         >
-            <i>edit</i>
-            <div class="tooltip bottom">Edit</div>
+            <i>{{ canAny("write") ? "edit" : "visibility" }}</i>
+            <div class="tooltip bottom">{{ canAny("write") ? "Edit" : "View" }}</div>
         </router-link>
 
         <!-- Delete job -->
         <button
+            v-if="canAny('write')"
             class="circle transparent"
             data-cy="delete-job-button"
             @click.prevent="toggleModalDelete"
@@ -73,6 +76,7 @@
 
 <script>
 import RunJobButton from "@/components/RunJobButton.vue";
+import vuex from "vuex";
 import { escapeHtml } from "@/store/utils";
 import axios from "axios";
 
@@ -90,7 +94,9 @@ export default {
             isActive: this.job.active === "true",
         };
     },
-    computed: {},
+    computed: {
+        ...vuex.mapGetters(["can", "canAny"]),
+    },
     methods: {
         deleteJob() {
             const url = `/api/job/${encodeURIComponent(this.job.name)}`;

@@ -21,13 +21,20 @@ const mutations = {
             state.ws.buffer.push(msg);
         }
     },
-    LOG_IN(state) {
+    // status is the answer of /auth/_isLoggedIn
+    LOG_IN(state, status) {
         state.ws.failedAttempts = 0;
         state.auth.isLoggedIn = true;
+        state.auth.user = status?.user || "";
+        state.auth.admin = status?.admin === true;
+        state.auth.grants = status?.grants || [];
     },
     LOG_OUT(state) {
         state.ws.failedAttempts = 0;
         state.auth.isLoggedIn = false;
+        state.auth.user = "";
+        state.auth.admin = false;
+        state.auth.grants = [];
         if (state.ws.obj.close) {
             state.ws.obj.close();
         }

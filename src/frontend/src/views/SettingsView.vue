@@ -115,15 +115,19 @@
                 </button>
             </nav>
         </form>
+
+        <SSOGroupsCard />
     </div>
 </template>
 
 <script>
+import SSOGroupsCard from "@/components/SSOGroupsCard.vue";
 import { escapeHtml } from "@/store/utils";
 import axios from "axios";
 import vuex from "vuex";
 
 export default {
+    components: { SSOGroupsCard },
     data: function () {
         return {
             password: "",

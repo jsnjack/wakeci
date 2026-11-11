@@ -50,6 +50,8 @@
         <AccessPicker
             ref="access"
             v-model="grant"
+            :scope-names="scopeNames"
+            :all-jobs-hint="auth.admin ? undefined : 'All jobs your groups allow, including jobs added later'"
         />
 
         <nav class="right-align">
@@ -130,6 +132,7 @@
 <script>
 import AccessPicker from "@/components/AccessPicker.vue";
 import axios from "axios";
+import vuex from "vuex";
 
 export default {
     components: { AccessPicker },
@@ -137,7 +140,13 @@ export default {
         return {
             name: "",
             expiresInDays: "90",
-            grant: { scopes: ["read"], allJobs: true, jobs: [], patterns: [] },
+            grant: {
+                // The first scope offered, read for the admin password
+                scopes: ["read", "run", "write"].filter((scope) => this.$store.getters.canAny(scope)).slice(0, 1),
+                allJobs: true,
+                jobs: [],
+                patterns: [],
+            },
             nameError: false,
             creating: false,
             token: "",
@@ -148,6 +157,11 @@ export default {
         };
     },
     computed: {
+        ...vuex.mapState(["auth"]),
+        // A key can't do more than the person who creates it
+        scopeNames() {
+            return ["read", "run", "write"].filter((scope) => this.$store.getters.canAny(scope));
+        },
         // A request the new key is allowed to make
         example() {
             const curl = `curl -H "Authorization: Bearer ${this.token}"`;

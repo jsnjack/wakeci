@@ -2,7 +2,7 @@
     <h6 class="small">Scopes</h6>
     <ul class="list border">
         <li
-            v-for="scope in scopes"
+            v-for="scope in offeredScopes"
             :key="scope.name"
         >
             <label class="checkbox">
@@ -43,7 +43,7 @@
                 <span>
                     <span class="option-text">
                         All jobs
-                        <small class="muted">Including jobs added later</small>
+                        <small class="muted">{{ allJobsHint }}</small>
                     </span>
                 </span>
             </label>
@@ -183,6 +183,15 @@ export default {
             type: String,
             default: "key",
         },
+        // The scopes offered; the others can't be picked
+        scopeNames: {
+            type: Array,
+            default: () => ["read", "run", "write"],
+        },
+        allJobsHint: {
+            type: String,
+            default: "Including jobs added later",
+        },
     },
     emits: ["update:modelValue"],
     data: function () {
@@ -211,6 +220,9 @@ export default {
         };
     },
     computed: {
+        offeredScopes() {
+            return this.scopes.filter((scope) => this.scopeNames.includes(scope.name));
+        },
         writeSelected() {
             return this.selectedScopes.includes("write");
         },

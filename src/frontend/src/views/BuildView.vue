@@ -46,6 +46,7 @@
                 </div>
             </button>
             <a
+                v-if="can('run', job.name)"
                 class="button circle transparent"
                 :disabled="isDone ? true : null"
                 :href="getAbortURL"
@@ -56,7 +57,7 @@
                 <div class="tooltip bottom">Abort</div>
             </a>
             <StartBuildNowButton
-                v-if="statusUpdate.id"
+                v-if="statusUpdate.id && can('run', job.name)"
                 :status="statusUpdate.status"
                 :build-i-d="statusUpdate.id"
             />
@@ -66,6 +67,7 @@
                 :build-id="statusUpdate.id"
             />
             <RunJobButton
+                v-if="can('run', job.name)"
                 :params="statusUpdate.params"
                 :job-name="job.name"
                 :icon="'replay'"
@@ -180,6 +182,7 @@ export default {
     },
     computed: {
         ...vuex.mapState(["ws"]),
+        ...vuex.mapGetters(["can"]),
         getMainTasks() {
             return this.statusUpdate.tasks.filter((item) => {
                 return item.kind === "main";
