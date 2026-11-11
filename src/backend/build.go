@@ -1047,6 +1047,8 @@ func CreateBuild(job *Job, jobPath string, startedWithAPIKey bool) (*Build, erro
 type ArtifactInfo struct {
 	Filename string `json:"filename"`
 	Size     int64  `json:"size"`
+	// URL is where to download it, filled in by the API, not stored
+	URL string `json:"url,omitempty"`
 }
 
 // Used to expand env variables in commands

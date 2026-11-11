@@ -51,6 +51,11 @@ type TaskStatus struct {
 	StartedAt time.Time     `json:"startedAt"`
 	Duration  time.Duration `json:"duration"`
 	Kind      string        `json:"kind"`
+	// Name, Log and LogSize are only filled in by GET /api/build/{id}. Log
+	// is the URL of the task's log, empty if the task wrote none.
+	Name    string `json:"name,omitempty"`
+	Log     string `json:"log,omitempty"`
+	LogSize int64  `json:"logSize,omitempty"`
 }
 
 // When StartedAt field is serialized to JSON, it has fixed second's precision

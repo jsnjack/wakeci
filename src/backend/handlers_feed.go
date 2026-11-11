@@ -173,6 +173,7 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 				skip--
 				continue
 			}
+			addArtifactURLs(&msg)
 			payload = append(payload, &msg)
 			if len(payload) >= f.limit {
 				break

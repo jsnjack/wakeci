@@ -495,7 +495,7 @@ func docsRoutes(router chi.Router) {
 // storageRoutes registers the /storage routes, which serve the files of
 // builds with storage, for logged-in users and the admin password
 // @Summary      Download a file of a build
-// @Description  The task logs are task_<id>.log, with the IDs of status_update.tasks in GET /api/build/{id}. Artifacts are artifacts/<filename>, with the filenames of status_update.build_artifacts, so a job that collects artifacts/** has paths such as artifacts/artifacts/report.json. A task that didn't run has no log (404). Supports HEAD and Range, e.g. Range: bytes=-65536 for the end of a log. API key scope: read
+// @Description  GET /api/build/{id} gives the URL of each task's log (status_update.tasks[].log, absent for a task that wrote none) and of each artifact (status_update.build_artifacts[].url). They are task_<id>.log and artifacts/<filename>, so a job that collects artifacts/** has paths such as artifacts/artifacts/report.json. Supports HEAD and Range, e.g. Range: bytes=-65536 for the end of a log. API key scope: read
 // @Tags         build
 // @Produce      plain
 // @Param        id       path    integer   true   "Build ID"

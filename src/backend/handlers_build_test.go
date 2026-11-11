@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -99,5 +100,71 @@ func TestReadBuildStatusWithEmptyHistory(t *testing.T) {
 	_, err := readBuildStatus(5)
 	if err == nil || err.Error() != "build 5 not found on this server, which has no builds" {
 		t.Fatalf("err = %v, want build 5 not found on this server, which has no builds", err)
+	}
+}
+
+// A build's JSON names its tasks and says where their logs and its
+// artifacts are, so clients don't put the paths together themselves
+func TestBuildFileURLs(t *testing.T) {
+	newAPIKeyTestEnv(t)
+	build := BuildUpdateData{
+		ID: 7, Name: "deploy", Status: StatusFailed,
+		Tasks:          []*TaskStatus{{ID: 0, Status: StatusFailed}, {ID: 1, Status: StatusSkipped}},
+		BuildArtifacts: []*ArtifactInfo{{Filename: "artifacts/selenium/report #1.json", Size: 12}},
+	}
+	data, err := json.Marshal(build)
+	if err != nil {
+		t.Fatalf("marshal build: %v", err)
+	}
+	if err := DB.Update(func(tx *bolt.Tx) error { return tx.Bucket(HistoryBucket).Put(Itob(7), data) }); err != nil {
+		t.Fatalf("save build: %v", err)
+	}
+	dir := filepath.Join(Config.WorkDir, "wakespace", "7")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatalf("create wakespace: %v", err)
+	}
+	plan := "name: deploy\ntasks:\n  - id: 0\n    name: Run the tests\n  - id: 1\n    name: Upload the report\n"
+	if err := os.WriteFile(filepath.Join(dir, "build_plan.yaml"), []byte(plan), 0644); err != nil {
+		t.Fatalf("write build plan: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "task_0.log"), []byte("FAILED test_login\n"), 0644); err != nil {
+		t.Fatalf("write log: %v", err)
+	}
+	basicAuth := func(r *http.Request) { r.SetBasicAuth("", "admin") }
+
+	rec := apiCall("GET", "/api/build/7", nil, nil, basicAuth)
+	var payload struct {
+		StatusUpdate BuildUpdateData `json:"status_update"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode %q: %v", rec.Body.String(), err)
+	}
+	tasks := payload.StatusUpdate.Tasks
+	if len(tasks) != 2 {
+		t.Fatalf("tasks = %+v, want 2", tasks)
+	}
+	if tasks[0].Name != "Run the tests" || tasks[0].Log != "/storage/build/7/task_0.log" || tasks[0].LogSize != 18 {
+		t.Errorf("task 0 = %+v, want its name, log URL and size", tasks[0])
+	}
+	if tasks[1].Name != "Upload the report" || tasks[1].Log != "" || tasks[1].LogSize != 0 {
+		t.Errorf("task 1 = %+v, want its name and no log", tasks[1])
+	}
+	wantURL := "/storage/build/7/artifacts/artifacts/selenium/report%20%231.json"
+	if got := payload.StatusUpdate.BuildArtifacts[0].URL; got != wantURL {
+		t.Errorf("artifact URL = %q, want %q", got, wantURL)
+	}
+
+	rec = apiCall("GET", "/api/feed?limit=1", nil, nil, basicAuth)
+	if !strings.Contains(rec.Body.String(), `"url":"`+wantURL+`"`) {
+		t.Errorf("feed = %s, want the artifact URL", rec.Body.String())
+	}
+	// The history keeps none of it
+	if err := DB.View(func(tx *bolt.Tx) error {
+		if stored := string(tx.Bucket(HistoryBucket).Get(Itob(7))); strings.Contains(stored, "url") || strings.Contains(stored, "Run the tests") {
+			t.Errorf("history entry = %s, want no URLs or names", stored)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("read history: %v", err)
 	}
 }

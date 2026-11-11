@@ -211,8 +211,9 @@ with `limit`. A script that keeps up with new builds remembers the newest
 build ID it has and asks for `?after=<id>&limit=200`; `before=<id>` pages
 back from the oldest ID it got. `job` and `status` keep only builds of those
 jobs or with those statuses, by exact value, and `q` searches. An unchanged
-page answers `If-None-Match` with 304. The full API is described at
-`/docs/api/`.
+page answers `If-None-Match` with 304. A build (`GET /api/build/<id>`)
+names its tasks and gives the URL and size of each task's log, and the URL
+of each artifact. The full API is described at `/docs/api/`.
 
 The key is shown once, when it is created; wakeci only stores a hash of it.
 Revoking a key stops it at once. Keys don't depend on the password, and

@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	bolt "go.etcd.io/bbolt"
@@ -99,7 +101,7 @@ func getBuildConfig(buildID int) (*Job, error) {
 
 // HandleGetBuild Returns information required to bootstrap build page
 // @Summary      Return status of the build
-// @Description  Contains information about the job and the latest build status. API key scope: read
+// @Description  Contains the job and the build's status. Each task in status_update.tasks has its name, and the URL (log) and size (logSize) of its log if it wrote one; each artifact in status_update.build_artifacts has its download url. API key scope: read
 // @Tags         build
 // @Produce      json
 // @Param        id       path    integer   true  "Build ID"
@@ -133,6 +135,8 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request) {
 		writePlainText(w, logger, http.StatusInternalServerError, err.Error())
 		return
 	}
+	addTaskLogs(buildStatusData, job)
+	addArtifactURLs(buildStatusData)
 
 	payload := GetBuildPayload{
 		Job:          job,
@@ -149,6 +153,42 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	writeBody(logger, w, payloadB)
+}
+
+// addTaskLogs names the build's tasks and says where their logs are and how
+// big, so clients neither join the task lists by index nor ask for logs of
+// tasks that never ran
+func addTaskLogs(build *BuildUpdateData, job *Job) {
+	names := make(map[int]string, len(job.Tasks))
+	for _, task := range job.Tasks {
+		names[task.ID] = task.Name
+	}
+	dir := Config.WorkDir + "wakespace/" + strconv.Itoa(build.ID) + "/"
+	for _, task := range build.Tasks {
+		task.Name = names[task.ID]
+		file := fmt.Sprintf("task_%d.log", task.ID)
+		if info, err := os.Stat(dir + file); err == nil {
+			task.Log = storageURL(build.ID, file)
+			task.LogSize = info.Size()
+		}
+	}
+}
+
+// addArtifactURLs says where the build's artifacts can be downloaded: under
+// artifacts/ in its storage, with the path the job collected them from
+func addArtifactURLs(build *BuildUpdateData) {
+	for _, artifact := range build.BuildArtifacts {
+		artifact.URL = storageURL(build.ID, "artifacts/"+artifact.Filename)
+	}
+}
+
+// storageURL is the URL of file, a path in a build's storage
+func storageURL(id int, file string) string {
+	parts := strings.Split(file, "/")
+	for i, part := range parts {
+		parts[i] = url.PathEscape(part)
+	}
+	return "/storage/build/" + strconv.Itoa(id) + "/" + strings.Join(parts, "/")
 }
 
 type GetBuildPayload struct {
