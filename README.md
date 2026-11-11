@@ -220,8 +220,9 @@ in one request: the status, the tasks, the artifacts and the last 100 lines
 (`tail=200`) or the lines that contain a text (`grep=FAILED`, with line
 numbers). Both build routes take `wait=<seconds>` (at most 300): the request
 answers as soon as the build ends, so a script that waits for a build
-needs one request every 5 minutes instead of polling. The full API is
-described at `/docs/api/`.
+needs one request every 5 minutes instead of polling. `GET /api/whoami`
+tells a key or a login what it may do, and which server answers, with the
+range of build IDs it holds. The full API is described at `/docs/api/`.
 
 The key is shown once, when it is created; wakeci only stores a hash of it.
 Revoking a key stops it at once. Keys don't depend on the password, and

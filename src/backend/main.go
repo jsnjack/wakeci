@@ -556,6 +556,7 @@ func apiRoutes(router chi.Router) {
 
 	// Every logged-in user: the queue banner shows the server's state
 	router.Get("/queue/", HandleQueueGet)
+	router.Get("/whoami", HandleWhoAmI)
 
 	router.Route("/update", func(router chi.Router) {
 		router.With(requireAccess(ScopeWrite, nil)).Get("/", HandleUpdateGet)

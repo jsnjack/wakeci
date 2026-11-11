@@ -346,8 +346,9 @@ func TestEveryAPIRouteChecksAccess(t *testing.T) {
 		// Filtered to the user's jobs
 		"GET /api/feed":  true,
 		"GET /api/jobs/": true,
-		// The state of the server, for the banner
+		// The state of the server, for the banner, and the user's own access
 		"GET /api/queue/": true,
+		"GET /api/whoami": true,
 		// Their own keys; creating one checks the user's access itself
 		"GET /api/keys/":        true,
 		"POST /api/keys/":       true,
