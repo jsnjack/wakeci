@@ -145,16 +145,19 @@ test("should stay logged in when the groups don't allow a request", async ({ pag
 });
 
 test("should go to the login page when the session ended", async ({ page }) => {
-    await page.goto("/jobs");
-    await expect(page.getByTestId("create-job")).toBeVisible();
-    await page.route("**/api/jobs/", (route) =>
+    await page.goto("/");
+    await expect(page.locator("header h6")).toHaveText("Feed");
+    // The session ends: every request, the login check too, gets 401
+    const ended = (route) =>
         route.fulfill({
             status: 401,
             contentType: "text/plain",
             headers: { "WWW-Authenticate": 'Bearer realm="wakeci"' },
             body: "The session ended; log in again",
-        }),
-    );
-    await page.reload();
+        });
+    await page.route("**/api/jobs/", ended);
+    await page.route("**/auth/_isLoggedIn", ended);
+    await page.locator('header a[href="/jobs"]').click();
     await expect(page).toHaveURL(/\/login/);
+    await expect(page.getByText("The session ended; log in again")).toBeVisible();
 });
