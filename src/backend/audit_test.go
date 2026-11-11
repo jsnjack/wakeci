@@ -835,9 +835,9 @@ func TestAuditScheduledBuild(t *testing.T) {
 func TestRequestLineSaysWho(t *testing.T) {
 	newAuditTestEnv(t)
 	buf := &syncBuffer{}
-	oldL := L
-	L = slog.New(slog.NewJSONHandler(buf, &slog.HandlerOptions{Level: slog.LevelWarn}))
-	t.Cleanup(func() { L = oldL })
+	oldLog := requestLog
+	requestLog = slog.New(slog.NewJSONHandler(buf, nil))
+	t.Cleanup(func() { requestLog = oldLog })
 
 	router := chi.NewRouter()
 	router.Use(LogMi)

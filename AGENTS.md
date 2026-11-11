@@ -234,6 +234,10 @@ AGENTS.universal.md for the general contract.
   client can't write huge lines (e.g. with a long URL). Lists of names go
   through `auditListAttrs`: JSON, since names can hold commas, kept valid
   within the limit by leaving names out and counting them.
+- **Request lines are always on** (`requestLog`, INFO, stderr and the
+  trace file), so reads show in the journal without `--debug` and WARN
+  means a warning. The query shows only `loggedQueryParams`: others can
+  carry run parameters, and so secrets.
 - **Per-request/per-build loggers carry context via `slog.Logger.With`**
   (request ID + host, or build ID) rather than a shared global, so log lines
   from concurrent builds/requests stay attributable.

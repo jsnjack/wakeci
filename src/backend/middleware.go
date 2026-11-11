@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"path"
 	"strings"
 	"time"
@@ -28,11 +29,19 @@ const HL HandlerLogger = "logger"
 type statusRecorder struct {
 	http.ResponseWriter
 	status int
+	// bytes is the size of the body written
+	bytes int
 }
 
 func (rec *statusRecorder) WriteHeader(status int) {
 	rec.status = status
 	rec.ResponseWriter.WriteHeader(status)
+}
+
+func (rec *statusRecorder) Write(data []byte) (int, error) {
+	n, err := rec.ResponseWriter.Write(data)
+	rec.bytes += n
+	return n, err
 }
 
 func (rec *statusRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
@@ -68,17 +77,51 @@ func LogMi(next http.Handler) http.Handler {
 
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		defer func() {
-			attrs := []any{"method", r.Method, "path", r.URL.Path, "status", rec.status, "took", time.Since(startTime)}
+			attrs := []any{"logID", info.logID, "host", info.ip, "method", r.Method, "path", r.URL.Path}
+			if query := loggedQuery(r.URL.Query()); query != "" {
+				attrs = append(attrs, "query", query)
+			}
+			attrs = append(attrs, "status", rec.status, "bytes", rec.bytes, "took", time.Since(startTime))
 			attrs = append(attrs, info.who()...)
 			if info.forwardedFor != "" {
 				attrs = append(attrs, "forwardedFor", info.forwardedFor)
 			}
-			handlerLogger.Warn("request completed", attrs...)
+			if ua := r.UserAgent(); ua != "" {
+				attrs = append(attrs, "ua", cutLogValue(ua))
+			}
+			requestLog.Info("request completed", attrs...)
 		}()
 
 		// Call actual handler
 		next.ServeHTTP(rec, r)
 	})
+}
+
+// loggedQueryParams are the query parameters the request line shows: those
+// that say what a client reads. Others can carry run parameters, and so
+// secrets.
+var loggedQueryParams = []string{"q", "filter", "offset"}
+
+// loggedQuery returns the query parameters of loggedQueryParams that are set
+func loggedQuery(query url.Values) string {
+	shown := url.Values{}
+	for _, name := range loggedQueryParams {
+		if values, ok := query[name]; ok {
+			shown[name] = values
+		}
+	}
+	return cutLogValue(shown.Encode())
+}
+
+// maxLogValue is the most of a client's value a log line shows, so a client
+// can't make huge lines
+const maxLogValue = 256
+
+func cutLogValue(value string) string {
+	if len(value) <= maxLogValue {
+		return value
+	}
+	return strings.ToValidUTF8(value[:maxLogValue], "") + "..."
 }
 
 // CORSMi adds CORS headers

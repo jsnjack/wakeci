@@ -16,6 +16,11 @@ const LevelTrace = slog.Level(-8)
 // run before that (tests, in particular) never see a nil logger.
 var L = slog.New(slog.NewTextHandler(io.Discard, nil))
 
+// requestLog writes one line per HTTP request, always, so the requests
+// clients make can be read in the journal without --debug. initLogger sets
+// it up; until then it discards.
+var requestLog = slog.New(slog.NewTextHandler(io.Discard, nil))
+
 // fanoutHandler dispatches a record to every handler that accepts its level.
 // It lets --debug (stderr) and --trace (file) be enabled independently or
 // together, each at its own level.
@@ -73,6 +78,7 @@ func initLogger(tracePath, level string) func() {
 	handlers := []slog.Handler{
 		slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: stderrLevel}),
 	}
+	requestHandlers := []slog.Handler{slog.NewTextHandler(os.Stderr, nil)}
 
 	cleanup := func() {}
 	if tracePath != "" {
@@ -84,10 +90,12 @@ func initLogger(tracePath, level string) func() {
 				}
 			}
 			handlers = append(handlers, slog.NewTextHandler(f, &slog.HandlerOptions{Level: LevelTrace}))
+			requestHandlers = append(requestHandlers, slog.NewTextHandler(f, &slog.HandlerOptions{Level: LevelTrace}))
 		}
 	}
 
 	L = slog.New(&fanoutHandler{handlers: handlers})
+	requestLog = slog.New(&fanoutHandler{handlers: requestHandlers})
 	slog.SetDefault(L)
 	return cleanup
 }
