@@ -64,6 +64,7 @@ src/frontend/                Vue 3 + Vite SPA
 | File | Read before working on |
 |---|---|
 | [docs/restart.md](docs/restart.md) | Stopping, draining, restarting, restoring queued builds, saved sessions, self-update |
+| [docs/access.md](docs/access.md) | Single sign-on groups and their permissions, API key scopes, access checks on routes and live updates |
 
 ---
 
@@ -95,19 +96,22 @@ src/frontend/                Vue 3 + Vite SPA
    the request ID; the identity provider posts the SAMLResponse to
    `/auth/sso/acs`, which checks the signature against the metadata
    certificate, issuer, audience, recipient, validity window and
-   `InResponseTo`, then requires one of `sso.groups` in the `groups`
-   attribute and creates the same kind of session cookie. API clients use
-   an API key or Basic auth with the password; `AuthMi` is unchanged.
+   `InResponseTo`, then requires one of the groups in the settings in the
+   `groups` attribute and creates the same kind of session cookie, which
+   keeps the groups it was sent. API clients use an API key or Basic auth
+   with the password.
 6. **API keys**: `routeAPIKeys` sends every request with
    `Authorization: Bearer wk_...` to a separate router (`newAPIKeyRouter`)
    that only has the routes keys may use. `APIKeyAuthMi` checks the token
    against the hash in the `apikeys` bucket and its expiry, then each route's
-   `requireAPIKey(scope, jobResolver)` checks the scope and the job: from
+   `requireAccess(scope, jobResolver)` checks the scope and the job: from
    `{name}`, or from the build's history entry for `/build/{id}` and
    `/storage/build/{id}/...`. A route not registered there gets 403; an
    `/api` path that no router has gets 404 (405 for another method's path),
-   so a mistyped URL doesn't look like a refusal. The feed and job list
-   filter themselves with `apiKeyFromContext`.
+   so a mistyped URL doesn't look like a refusal. The session routes check
+   single sign-on users the same way, with what their groups allow
+   ([docs/access.md](docs/access.md)). The feed and job list filter
+   themselves with `accessFromContext`.
 7. **Live UI updates**: `Build.BroadcastUpdate` persists build state to the
    `history` bucket (and to the `queue` bucket while the build is pending)
    and pushes it over `WSHub` to any client subscribed to that build/feed
@@ -181,7 +185,7 @@ because `--trace` would make concurrent backends overwrite `/tmp/wakeci.log`.
 | `secretsfile` | *(empty)* | YAML map of secret values, injected via `injectSecrets` |
 | `timezone` | *(empty)* | Default timezone for cron `interval` schedules |
 | `sso.idpmetadata` | *(empty)* | Path to the identity provider's SAML metadata; setting it enables "Sign in with SSO" |
-| `sso.groups` | *(empty)* | Comma-separated group names allowed to log in, matched case-insensitively against the `groups` attribute; required with `idpmetadata` |
+| `sso.groups` | *(empty)* | Comma-separated groups added with every permission on the first start; afterwards groups and their permissions are managed in the settings |
 | `sso.acsurl` | `https://<hostname>/auth/sso/acs` | Where the identity provider posts the response; must be https (http only on localhost) with path `/auth/sso/acs`; required if `hostname` is empty |
 | `sso.entityid` | scheme and host of `sso.acsurl` | SP entity ID; must match the Entity ID registered at the identity provider (checked as the assertion audience) |
 | `draintimeout` | `30m` | How long a stopping wakeci waits for running builds before it aborts them; systemd's `TimeoutStopSec` must exceed it by 3 minutes |
@@ -285,8 +289,9 @@ AGENTS.universal.md for the general contract.
   refused by `NewSSO`, under the same lock as `DeleteUser`, so a login
   obtained before the offboarding can't recreate a session. A fresh login
   still works unless Google stopped the account.
-  This is not a role system: SSO users can still edit jobs, which runs
-  commands on the server, so they are trusted; roles are future work.
+  What an SSO user may do comes from their groups, set by the admin
+  password in the settings ([docs/access.md](docs/access.md)); `write`
+  still runs commands on the server, so those who have it are trusted.
   Sessions carry the SSO email (`session.user`, empty for the password) and
   each key records it in `CreatedBy`. `requestUser` reads it, Basic auth
   first like `AuthMi`. The admin password (password login or Basic auth)
@@ -364,8 +369,12 @@ AGENTS.universal.md for the general contract.
   cookies off cross-site POSTs; the session cookie stays `Strict`. Don't
   "align" them. SSO therefore needs HTTPS (browsers accept `Secure` cookies
   on `http://localhost`).
-- `sso.groups` must match what the identity provider sends: Google sends
-  group names, not emails. A rejected login logs the received groups.
+- Group names in the settings must match what the identity provider sends:
+  Google sends group names, not emails. A rejected login logs the received
+  groups.
+- Every route of `apiRoutes` declares what it needs (`requireAccess` or
+  `requireAdmin`); `TestEveryAPIRouteChecksAccess` fails for one that lets a
+  user with no real permission through and isn't listed as open.
 - `Build.Logger`, `Cleaner.Logger`, and the per-request `HL` context logger
   are all `*slog.Logger` instances scoped with `.With(...)`; they are
   unrelated to the per-task `task_N.log` files.

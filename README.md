@@ -93,7 +93,8 @@ timezone: Europe/Amsterdam
 sso:
   # Metadata file downloaded from the identity provider. Keep it outside jobdir
   idpmetadata: ./GoogleIDPMetadata.xml
-  # Comma-separated groups allowed to log in, as named in the "groups" attribute
+  # Groups added with every permission on the first start, as named in the
+  # "groups" attribute. Afterwards groups are managed in the settings.
   groups: Developers, Ops
   # Where the identity provider posts the response.
   # Defaults to https://<hostname>/auth/sso/acs
@@ -157,12 +158,17 @@ console (Apps, Web and mobile apps, Add app, Add custom SAML app):
    ID `https://<hostname>`, Name ID format `EMAIL`, Name ID
    `Basic Information > Primary email`.
 3. Attribute mapping: under "Group membership", pick the groups and set the app
-   attribute to `groups`. List the same group names in `sso.groups`.
+   attribute to `groups`. Add the same group names in wakeci's settings.
 4. User access: turn the app on for those groups.
 
 Only accounts of your own Workspace can sign in to a custom SAML app, and of
-those only members of a group in `sso.groups` can log in; a rejected login
-logs the groups wakeci received. Opening wakeci from the Google apps menu
+those only members of a group listed in wakeci's settings can log in; a
+rejected login logs the groups wakeci received. With the admin password, the
+settings page lists the groups and what their members may do: read, run or
+write, on all jobs or on selected jobs and name patterns, as for API keys.
+Someone in several groups gets the permissions of all of them, and a change
+applies to their next request. The groups in `sso.groups` are added once,
+on the first start, with every permission. Opening wakeci from the Google apps menu
 starts a normal login. SSO sessions last 12 hours, password sessions 5 days.
 API calls use an API key (see below) or Basic auth with the password.
 
@@ -205,8 +211,10 @@ Each key records who created it. Logged in with the admin password, the API
 keys page shows every key and who made it, and can revoke all keys of a
 person, which also signs them out. People who sign in with SSO only see and
 revoke the keys they created, and only the admin password can change the
-password. Everything else is open to them, including editing jobs, which
-runs commands on the server, so only give SSO access to people you trust.
+password or the groups. A key made by someone who signs in with SSO can't do
+more than their groups allow at the time of each request, so a key on all
+jobs means all jobs their groups allow. Only give `write` to groups you
+trust: editing a job runs commands on the server.
 
 wakeci can't tell on its own that a Google account is gone, so when someone
 leaves:
