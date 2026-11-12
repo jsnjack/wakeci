@@ -20,6 +20,7 @@ func TestRequestLine(t *testing.T) {
 
 	tests := []struct {
 		name      string
+		method    string
 		target    string
 		userAgent string
 		want      map[string]any
@@ -32,10 +33,12 @@ func TestRequestLine(t *testing.T) {
 			want:      map[string]any{"level": "INFO", "query": "offset=15&q=%2Bname%3Atest_init", "bytes": float64(5), "ua": "curl/8.9.1", "status": float64(200)},
 		},
 		{
+			// A run takes parameters from the query, and a job's parameter
+			// may share a name with a logged one
 			name:    "run parameters",
-			target:  "/api/job/deploy/run?TOKEN=s3cr3t&q=x",
-			want:    map[string]any{"query": "q=x"},
-			notWant: []string{"s3cr3t", "TOKEN"},
+			method:  "POST",
+			target:  "/api/job/deploy/run?TOKEN=s3cr3t&q=s3cr3t-too",
+			notWant: []string{"s3cr3t", "TOKEN", `"query"`},
 		},
 		{
 			name:    "no query",
@@ -52,7 +55,11 @@ func TestRequestLine(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			buf.buf.Reset()
-			req := httptest.NewRequest("GET", tt.target, nil)
+			method := tt.method
+			if method == "" {
+				method = "GET"
+			}
+			req := httptest.NewRequest(method, tt.target, nil)
 			req.Header.Del("User-Agent")
 			if tt.userAgent != "" {
 				req.Header.Set("User-Agent", tt.userAgent)

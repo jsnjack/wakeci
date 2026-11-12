@@ -78,8 +78,12 @@ func LogMi(next http.Handler) http.Handler {
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		defer func() {
 			attrs := []any{"logID", info.logID, "host", info.ip, "method", r.Method, "path", r.URL.Path}
-			if query := loggedQuery(r.URL.Query()); query != "" {
-				attrs = append(attrs, "query", query)
+			// Only reads: a run takes its parameters from the query too, and a
+			// job's parameter may share a name with a logged one
+			if r.Method == http.MethodGet || r.Method == http.MethodHead {
+				if query := loggedQuery(r.URL.Query()); query != "" {
+					attrs = append(attrs, "query", query)
+				}
 			}
 			attrs = append(attrs, "status", rec.status, "bytes", rec.bytes, "took", time.Since(startTime))
 			attrs = append(attrs, info.who()...)
@@ -97,9 +101,9 @@ func LogMi(next http.Handler) http.Handler {
 	})
 }
 
-// loggedQueryParams are the query parameters the request line shows: those
-// that say what a client reads. Others can carry run parameters, and so
-// secrets.
+// loggedQueryParams are the query parameters the request line shows for a
+// read (GET or HEAD): those that say what a client reads. Others can carry
+// run parameters, and so secrets.
 var loggedQueryParams = []string{"q", "filter", "offset", "limit", "before", "after", "job", "status", "tail", "wait"}
 
 // loggedQuery returns the query parameters of loggedQueryParams that are set
