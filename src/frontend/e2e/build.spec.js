@@ -272,6 +272,28 @@ tasks:
     await expect(page.locator("body")).toContainText("WAKE_BUILD_ID=");
 });
 
+test("should show what the finally tasks add to the summary", async ({ page, wake }) => {
+    const jobName = await wake.createJob(`desc: summary from finally
+tasks:
+  - name: Test
+    run: |
+      sleep 2
+      echo "Tests ran" >> "$WAKE_SUMMARY"
+finally:
+  - name: Report
+    run: |
+      sleep 2
+      echo "Report sent" >> "$WAKE_SUMMARY"
+`);
+    const id = await wake.runJob(jobName);
+    await wake.waitForBuild(id, "running");
+    // The status is final before the finally task runs, so the page read
+    // the summary only then, and missed what that task wrote
+    await wake.livePage(`/build/${id}`);
+    await expect(page.getByTestId("build-summary")).toContainText("Tests ran\nReport sent", { timeout: 15000 });
+    await wake.waitForBuild(id);
+});
+
 test("should show the summary a job writes when the build ends", async ({ page, wake }) => {
     const jobName = await wake.createJob(`desc: summary
 tasks:

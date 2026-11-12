@@ -80,7 +80,7 @@ type Build struct {
 	BuildArtifacts []*ArtifactInfo
 	StartedAt      time.Time
 	Duration       time.Duration // ns
-	ETA            int           // seconds
+	ETA            int           // ns, see BuildUpdateData.ETA
 	timer          *time.Timer   // A timer for Job.Timeout
 	mutex          deadlock.Mutex
 	// untrustedParams means the params came from someone who may not edit
@@ -647,6 +647,8 @@ func (b *Build) Cleanup() {
 		b.timer.Stop()
 	}
 	GlobalQueue.Remove(b.ID)
+	// Waiting requests take a build as ended once it left the queue
+	buildChanges.notify(b.ID)
 	GlobalQueue.Take()
 }
 

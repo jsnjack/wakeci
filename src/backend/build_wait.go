@@ -85,10 +85,22 @@ var buildWaitsEnd = newStopSignal()
 // buildDoneStatuses are the statuses of a build that has ended
 var buildDoneStatuses = []ItemStatus{StatusFinished, StatusFailed, StatusAborted, StatusTimedOut, StatusSkipped}
 
-// isBuildDone reports whether the build has ended. A build the queue no
-// longer knows will never change, so waiting for it ends too.
-func isBuildDone(build *BuildUpdateData) bool {
-	return slices.Contains(buildDoneStatuses, build.Status) || (GlobalQueue != nil && isStaleBuild(build))
+// buildLeftQueue reports whether build id has ended: it has left the queue,
+// which Cleanup does last. Its status is final earlier, before its on_* and
+// finally tasks run and its artifacts are collected. A build the queue
+// doesn't know will never change either, whatever its status says. Without
+// a queue (tests) it is false, and only the status tells.
+func buildLeftQueue(id int) bool {
+	return GlobalQueue != nil && !GlobalQueue.Verify(id)
+}
+
+// isBuildDone reports whether build, read after the check for left, has
+// ended
+func isBuildDone(build *BuildUpdateData, left bool) bool {
+	if GlobalQueue == nil {
+		return slices.Contains(buildDoneStatuses, build.Status)
+	}
+	return left
 }
 
 // waitForBuild reads build id and, with seconds, waits until it has ended,
@@ -104,8 +116,12 @@ func waitForBuild(r *http.Request, id int, seconds int) (*BuildUpdateData, error
 	for {
 		// Before reading, so a change between the read and the wait wakes it
 		changed, release := buildChanges.watch(id)
+		// Before reading too: a build saves its last state before it leaves
+		// the queue, so one that had left is read as it ended. Checked after
+		// the read, a build that ended in between would be read as it was.
+		left := buildLeftQueue(id)
 		build, err := readBuildStatus(id)
-		if err != nil || seconds <= 0 || isBuildDone(build) {
+		if err != nil || seconds <= 0 || isBuildDone(build, left) {
 			release()
 			return build, err
 		}

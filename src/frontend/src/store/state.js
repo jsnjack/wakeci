@@ -6,6 +6,10 @@ const state = {
         buffer: [],
         failedAttempts: 0,
         maxFailedAttempts: 10,
+        // Counts the connections after the first. The server closes a
+        // connection when the user's permissions change, so pages watch it
+        // to load their data again, also what was sent while disconnected.
+        reconnects: 0,
     },
     auth: {
         isLoggedIn: false,

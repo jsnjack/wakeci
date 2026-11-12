@@ -33,8 +33,10 @@ the range of IDs a server has. Ask the server in the URL.
 ## Wait for a build
 
 `GET /api/build/<id>?wait=300` (or `/summary?wait=300`) answers as soon as
-the build ends, or after 300 seconds; repeat until its status is finished,
-failed, aborted or timed out. Don't poll in a loop.
+the build has ended, or after 300 seconds; repeat until its status is
+finished, failed, aborted or timed out. Don't poll in a loop. The status is
+final before the build's on_* and finally tasks run and its artifacts are
+collected; `duration` stays 0 until they are done.
 
 ## Find builds
 

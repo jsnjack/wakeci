@@ -20,7 +20,7 @@ import (
 const mcpInstructions = `wakeci runs CI jobs as builds. Every tool works with the API key of this connection, on the jobs the key covers.
 To find out why a build failed, call build_summary with its ID: it lists the failed tasks with the end of their logs, and the summary the job wrote, if any. Then read_log with grep finds more in a log.
 A build page URL such as https://ci.example.com/build/123 has the build ID 123. Build IDs belong to one server: whoami says which hostname and range of IDs this server has.
-build_summary with wait waits for a running build to end.`
+build_summary with wait waits for a running build to end, its on_* and finally tasks included.`
 
 // mcpArtifactLimit is the most of an artifact read_artifact returns
 const mcpArtifactLimit = 256 * 1024

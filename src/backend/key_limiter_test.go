@@ -37,6 +37,32 @@ func TestKeyRequestLimiter(t *testing.T) {
 	}
 }
 
+// TestKeyRequestLimiterKeepsEmptyBuckets is a regression test: buckets
+// unused for apiKeyBucketIdle were dropped, so with a burst larger than that
+// time refills, an exhausted key got the whole burst back
+func TestKeyRequestLimiterKeepsEmptyBuckets(t *testing.T) {
+	limiter := newKeyRequestLimiter(1000, 1)
+	now := time.Now()
+	for range 1000 {
+		limiter.take("a", now)
+	}
+	limiter.take("b", now)
+	later := now.Add(apiKeyBucketIdle + time.Minute)
+	allowed := 0
+	for range 1000 {
+		if wait, _ := limiter.take("a", later); wait == 0 {
+			allowed++
+		}
+	}
+	if refilled := int((apiKeyBucketIdle + time.Minute).Seconds()); allowed != refilled {
+		t.Errorf("after %v idle an exhausted key sent %d requests, want the %d refilled", apiKeyBucketIdle+time.Minute, allowed, refilled)
+	}
+	// A bucket that would be full again is dropped
+	if _, kept := limiter.buckets["b"]; kept {
+		t.Error("a bucket that refilled was kept")
+	}
+}
+
 func TestAPIKeyTooManyRequests(t *testing.T) {
 	router := newAPIKeyTestEnv(t)
 	old := apiKeyRequestLimiter
