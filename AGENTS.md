@@ -36,6 +36,7 @@ src/backend/                 Go server (package main, module "wakeci")
   restart.go                 Restores queued builds at startup, marks interrupted ones aborted, drains on stop
   update.go                  Self-update: latest GitHub release, download + checks, binary swap, handlers
   cleanup.go                 Periodic removal of old build workspaces/history
+  stats.go, analytics.go     Build stats kept past cleanup; analytics page and job insights (insights.go)
   eta.go                     Rolling average build duration, used for ETA display
   secrets.go                 injectSecrets: redacts/substitutes secret values in commands
   session.go                 Cookie sessions by token hash, saved in the sessions bucket, per-session TTL
@@ -51,7 +52,7 @@ src/backend/                 Go server (package main, module "wakeci")
   docs/, assets/             swag-generated OpenAPI spec and embedded frontend build (git-ignored)
 
 src/frontend/                Vue 3 + Vite SPA
-  src/views/                 Pages (feed, job editor, build view, settings, docs)
+  src/views/                 Pages (feed, job editor, build view, analytics, settings, docs)
   src/components/            Shared Vue components
   src/store/                 Vuex store
   e2e/                       Playwright E2E tests and isolated backend fixtures
@@ -68,6 +69,7 @@ src/frontend/                Vue 3 + Vite SPA
 | [docs/access.md](docs/access.md) | Single sign-on groups and their permissions, API key scopes, access checks on routes and live updates |
 | [docs/deprecations.md](docs/deprecations.md) | Old parameters and fields that still work, their users and their removal |
 | [docs/settings.md](docs/settings.md) | Wakefile.yaml or the settings page, the settings file, `--import-settings` |
+| [docs/analytics.md](docs/analytics.md) | Build stats, who started a build, the analytics page, job insights |
 
 ---
 
@@ -75,7 +77,7 @@ src/frontend/                Vue 3 + Vite SPA
 
 1. **Startup** (`main.go`): parse flags → init logger → load `WakeConfig` → open
    BoltDB → bootstrap buckets/default password → start WebSocket hub, cron,
-   job watcher → `RestoreQueue` and `MarkInterruptedBuilds` → cleanup ticker
+   job watcher → `RestoreQueue`, `MarkInterruptedBuilds`, `BackfillBuildStats` → cleanup ticker
    → bind the port → `Queue.Take` starts the restored builds → serve HTTP (or
    HTTP+HTTPS via autocert on port 443).
 2. **Job registration**: job YAML files in `jobdir` are scanned at startup
@@ -117,17 +119,14 @@ src/frontend/                Vue 3 + Vite SPA
    ([docs/access.md](docs/access.md)). The feed and job list filter
    themselves with `accessFromContext`.
 7. **Live UI updates**: `Build.BroadcastUpdate` persists build state to the
-   `history` bucket (and to the `queue` bucket while the build is pending)
+   `history` and `buildstats` buckets (and `queue` while pending)
    and pushes it over `WSHub` to any client subscribed to that build/feed
    topic. Queue state (stopping, abort time, version) goes out as
    `queue:status`, which `App.vue` subscribes to on every connection for the
    banner.
-8. **Stop, restart and update** ([docs/restart.md](docs/restart.md)): a
-   signal or `HandleUpdatePost` calls `Queue.BeginStop`; `drainQueue` waits
-   for running builds until `draintimeout`, then aborts them, and `stopTasks`
-   ends what still runs before the DB closes. Queued builds and sessions are
-   saved, and after an update `main` re-execs the new binary (same PID)
-   unless a stop signal cancelled it.
+8. **Stop, restart and update**: a signal or an update drains the queue,
+   saves queued builds and sessions, and restarts in place
+   ([docs/restart.md](docs/restart.md)).
 9. **Audit log**: `LogMi` gives each request a `requestInfo` (log ID, IP,
    `X-Forwarded-For`); `AuthMi` and `APIKeyAuthMi` record who made it with
    `setRequestUser` once the credentials check out, and the request line
