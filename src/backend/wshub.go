@@ -48,6 +48,14 @@ func (h *Hub) run() {
 				close(client.send)
 				continue
 			}
+			// Groups may have changed after AuthMi read them, and
+			// CloseRestricted only reaches registered clients; the page
+			// connects again with the new access
+			if client.access != nil && !client.access.Full && client.access.version != ssoAccessVersion.Load() {
+				client.Logger.Info("closing ws connection: its access changed")
+				close(client.send)
+				continue
+			}
 			client.Logger.Debug("ws connection registered")
 			h.clients[client] = true
 		case client := <-h.unregister:

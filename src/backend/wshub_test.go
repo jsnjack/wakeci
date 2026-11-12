@@ -116,8 +116,10 @@ func TestHubRefusesClientOfEndedSession(t *testing.T) {
 func TestHubSendsOnlyWhatTheClientMayRead(t *testing.T) {
 	hub := newHub()
 	go hub.run()
-	readDeploy := &Access{Grants: []Grant{{Scopes: []string{ScopeRead}, Jobs: []string{"deploy"}}}}
-	runDeploy := &Access{Grants: []Grant{{Scopes: []string{ScopeRun}, Jobs: []string{"deploy"}}}}
+	// As ssoGroupsAccess makes them now, so the hub takes them as current
+	version := ssoAccessVersion.Load()
+	readDeploy := &Access{Grants: []Grant{{Scopes: []string{ScopeRead}, Jobs: []string{"deploy"}}}, version: version}
+	runDeploy := &Access{Grants: []Grant{{Scopes: []string{ScopeRun}, Jobs: []string{"deploy"}}}, version: version}
 	client := func(access *Access) *Client {
 		c := &Client{hub: hub, send: make(chan []byte, 10), Logger: L, access: access,
 			SubscribedTo: []string{"build:update:", "build:log:1", MsgTypeQueueStatus}}
@@ -213,4 +215,50 @@ func mustMarshal(t *testing.T, v any) []byte {
 		t.Fatalf("marshal: %v", err)
 	}
 	return data
+}
+
+// A connection whose access was computed before a group change, but that
+// registers only after the hub closed the restricted ones, is closed too:
+// otherwise it would keep the old access until it disconnects
+func TestHubClosesClientsRegisteredAfterAnAccessChange(t *testing.T) {
+	newTestBuildEnv(t)
+	addTestGroup(t, "Ops", Grant{Scopes: []string{ScopeRead}, AllJobs: true})
+	hub := newHub()
+	go hub.run()
+	oldChange := onSSOAccessChange
+	onSSOAccessChange = hub.CloseRestricted
+	t.Cleanup(func() { onSSOAccessChange = oldChange })
+
+	before, err := ssoGroupsAccess([]string{"Ops"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The group changes between AuthMi and the client's registration
+	ssoAccessChanged()
+	after, err := ssoGroupsAccess([]string{"Ops"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stale := &Client{hub: hub, send: make(chan []byte, 1), Logger: L, access: before}
+	fresh := &Client{hub: hub, send: make(chan []byte, 1), Logger: L, access: after}
+	full := &Client{hub: hub, send: make(chan []byte, 1), Logger: L, access: fullAccess}
+	for _, c := range []*Client{stale, fresh, full} {
+		hub.register <- c
+	}
+	hub.unregister <- &Client{send: make(chan []byte)}
+
+	closed := func(c *Client) bool {
+		select {
+		case _, ok := <-c.send:
+			return !ok
+		default:
+			return false
+		}
+	}
+	if !closed(stale) {
+		t.Error("kept a connection whose access predates the change")
+	}
+	if closed(fresh) || closed(full) {
+		t.Error("closed a connection with current access")
+	}
 }

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -142,7 +143,7 @@ func listSSOGroups() ([]SSOGroup, error) {
 // grants of those groups that exist, or, if none does, the rule for people
 // in no group
 func ssoGroupsAccess(groups []string) (*Access, error) {
-	access := &Access{Grants: []Grant{}, subject: "Your account", groups: slices.Clone(groups)}
+	access := &Access{Grants: []Grant{}, subject: "Your account", groups: slices.Clone(groups), version: ssoAccessVersion.Load()}
 	err := DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(SSOGroupsBucket)
 		for _, name := range groups {
@@ -243,7 +244,14 @@ func ssoGrantAuditAttrs(grant Grant) []any {
 	return attrs
 }
 
+// ssoAccessVersion counts the changes of what single sign-on groups allow.
+// ssoGroupsAccess records it before it reads the groups, and a change adds
+// one after it is saved, so an access that may predate a change has an
+// older version
+var ssoAccessVersion atomic.Int64
+
 func ssoAccessChanged() {
+	ssoAccessVersion.Add(1)
 	if onSSOAccessChange != nil {
 		onSSOAccessChange()
 	}

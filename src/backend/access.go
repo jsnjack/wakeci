@@ -48,6 +48,9 @@ type Access struct {
 	subject string
 	// groups are the single sign-on groups the access comes from
 	groups []string
+	// version is ssoAccessVersion when the groups' access was read, so the
+	// hub can tell a connection that registers after a change
+	version int64
 }
 
 // fullAccess is the admin password's access
