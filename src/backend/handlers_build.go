@@ -127,11 +127,7 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request) {
 		writePlainText(w, logger, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := waitForBuild(r, buildID, wait); err != nil && !errors.Is(err, errBuildNotFound) {
-		logger.Error("wait for build", "build", buildID, "err", err)
-	}
-
-	buildStatusData, err := readBuildStatus(buildID)
+	buildStatusData, err := waitForBuild(r, buildID, wait)
 	if errors.Is(err, errBuildNotFound) {
 		writePlainText(w, logger, http.StatusNotFound, err.Error())
 		return

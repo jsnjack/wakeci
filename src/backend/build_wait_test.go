@@ -30,8 +30,9 @@ func waitTime(t *testing.T, ctx context.Context, id, seconds int) time.Duration 
 	t.Helper()
 	started := time.Now()
 	req := httptest.NewRequest("GET", "/api/build/1", nil).WithContext(ctx)
-	if err := waitForBuild(req, id, seconds); err != nil {
-		t.Fatalf("waitForBuild: %v", err)
+	build, err := waitForBuild(req, id, seconds)
+	if err != nil || build == nil || build.ID != id {
+		t.Fatalf("waitForBuild = %+v, %v; want build %d", build, err, id)
 	}
 	return time.Since(started)
 }
@@ -59,7 +60,7 @@ func TestWaitForBuild(t *testing.T) {
 	go func() {
 		time.Sleep(200 * time.Millisecond)
 		saveTestBuildStatus(t, 3, StatusFailed)
-		buildChanges.notify()
+		buildChanges.notify(3)
 	}()
 	if took := waitTime(t, context.Background(), 3, 10); took > 2*time.Second {
 		t.Errorf("waited %v after the build ended", took)
@@ -97,5 +98,41 @@ func TestBuildWaitParameter(t *testing.T) {
 	}
 	if rec := apiCall("GET", "/api/build/99?wait=30", nil, nil, basicAuth); rec.Code != http.StatusNotFound {
 		t.Errorf("wait for an unknown build: %d, want 404", rec.Code)
+	}
+}
+
+// A build's update wakes only those waiting for that build, so waiting
+// agents don't each read their build again on every other build's update;
+// signals nobody holds any more are dropped
+func TestBuildSignalsWakeOnlyTheirBuild(t *testing.T) {
+	s := newBuildSignals()
+	two, releaseTwo := s.watch(2)
+	three, releaseThree := s.watch(3)
+	alsoThree, releaseAlsoThree := s.watch(3)
+	s.notify(3)
+	select {
+	case <-two:
+		t.Error("build 3's update woke a wait for build 2")
+	default:
+	}
+	for i, ch := range []<-chan struct{}{three, alsoThree} {
+		select {
+		case <-ch:
+		default:
+			t.Errorf("build 3's update didn't wake wait %d for it", i)
+		}
+	}
+	// A wait that starts after the update waits for the next one
+	again, releaseAgain := s.watch(3)
+	select {
+	case <-again:
+		t.Error("a new wait for build 3 woke at once")
+	default:
+	}
+	for _, release := range []func(){releaseTwo, releaseThree, releaseAlsoThree, releaseAgain} {
+		release()
+	}
+	if len(s.waiting) != 0 {
+		t.Errorf("signals left after every wait ended: %v", s.waiting)
 	}
 }

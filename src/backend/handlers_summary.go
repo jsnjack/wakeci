@@ -99,10 +99,7 @@ func HandleBuildSummary(w http.ResponseWriter, r *http.Request) {
 		writePlainText(w, logger, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := waitForBuild(r, id, wait); err != nil && !errors.Is(err, errBuildNotFound) {
-		logger.Error("wait for build", "build", id, "err", err)
-	}
-	build, err := readBuildStatus(id)
+	build, err := waitForBuild(r, id, wait)
 	if errors.Is(err, errBuildNotFound) {
 		writePlainText(w, logger, http.StatusNotFound, err.Error())
 		return
