@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -30,6 +32,9 @@ func jobNameParam(r *http.Request) (string, error) {
 	return name, nil
 }
 
+// errNoSuchJob is a job that the jobs bucket doesn't have
+var errNoSuchJob = errors.New("no such job")
+
 func requireJobName(w http.ResponseWriter, r *http.Request, logger *slog.Logger) (string, bool) {
 	name, err := jobNameParam(r)
 	if err == nil {
@@ -44,15 +49,16 @@ func requireJobName(w http.ResponseWriter, r *http.Request, logger *slog.Logger)
 
 // HandleRunJob adds job to queue
 // @Summary      Start a job
-// @Description  A new build for the job `name` is created and added to the queue. Returns build id
+// @Description  Creates a build of the job and adds it to the queue; returns the build ID. Send the job's parameters as form fields or query parameters with their names; others are ignored. API key scope: run. An API key, and a single sign-on user who may not edit jobs (write), can't send parameters that reference a secret or contain quotes, line breaks or NUL.
 // @Tags         job
 // @Produce      plain
 // @Param        name     path       string   true   "Name of the job"
-// @Param        param1   query      string   false  "Override default `params` of the job"
-// @Param        param2   formData   string   false  "Override default `params` of the job"
 // @Success      200      {integer}  integer
 // @Failure      400      {string}   string
-// @Router       /job/{name}/run [post]
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      429      {string}   string
+// @Router       /api/job/{name}/run [post]
 func HandleRunJob(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {
@@ -68,7 +74,7 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request) {
 		logger.Error("parse form", "err", err)
 	}
 
-	build, err := RunJob(name, r.Form, apiKeyFromContext(r.Context()) != nil)
+	build, err := RunJob(name, r.Form, paramsUntrusted(r))
 	if err != nil {
 		logger.Error("run job", "job", name, "err", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -111,11 +117,18 @@ func usedParams(build *Build, params url.Values) ([]string, int) {
 
 // HandleJobGet returns content of a specific job file
 // @Summary      Return the content of the job
+// @Description  API key scope: read
 // @Tags         job
 // @Produce      json
+// @Param        name     path       string   true   "Name of the job"
 // @Success      200      {object}   JobData
+// @Failure      400      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      404      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}   string
-// @Router       /job/{name}/ [get]
+// @Router       /api/job/{name} [get]
 func HandleJobGet(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {
@@ -128,11 +141,14 @@ func HandleJobGet(w http.ResponseWriter, r *http.Request) {
 
 	path := Config.JobDir + name + Config.jobsExt
 	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		logger.Warn("read missing job", "job", name)
+		writePlainText(w, logger, http.StatusNotFound, "No such job")
+		return
+	}
 	if err != nil {
 		logger.Error("read job file", "path", path, "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Header().Set("Content-Type", "text/plain")
-		writeBody(logger, w, []byte(err.Error()))
+		writePlainText(w, logger, http.StatusInternalServerError, err.Error())
 		return
 	}
 	jd := JobData{
@@ -152,13 +168,17 @@ func HandleJobGet(w http.ResponseWriter, r *http.Request) {
 
 // HandleJobPost updates content of a specific job
 // @Summary      Update the content of the job
-// @Description  All parameters are available as query parameters and as formData
+// @Description  API key scope: write
 // @Tags         job
 // @Produce      plain
+// @Param        name            path        string   true   "Name of the job"
 // @Param        fileContent     formData    string   true   "New content of the job"
 // @Success      200      {string}   string
 // @Failure      400      {string}   string
-// @Router       /job/{name}/ [post]
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      429      {string}   string
+// @Router       /api/job/{name} [post]
 func HandleJobPost(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {
@@ -211,13 +231,18 @@ func HandleJobPost(w http.ResponseWriter, r *http.Request) {
 
 // HandleDeleteJob deletes the job
 // @Summary      Delete the job
+// @Description  API key scope: write
 // @Tags         job
 // @Produce      plain
 // @Param        name     path    string   true   "Name of the job to delete"
 // @Success      200      {string}    string
 // @Failure      400      {string}    string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      404      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}    string
-// @Router       /job/{name} [delete]
+// @Router       /api/job/{name} [delete]
 func HandleDeleteJob(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {
@@ -244,25 +269,29 @@ func HandleDeleteJob(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if os.IsNotExist(err) {
 		logger.Warn("delete missing job", "job", name, "err", err)
-		w.WriteHeader(http.StatusNotFound)
+		writePlainText(w, logger, http.StatusNotFound, "No such job")
 		return
 	} else {
 		logger.Error("stat job file", "path", path, "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Header().Set("Content-Type", "text/plain")
-		writeBody(logger, w, []byte(err.Error()))
+		writePlainText(w, logger, http.StatusInternalServerError, err.Error())
 		return
 	}
 }
 
 // HandleJobSetActive sets if job is active (enabled/disabled)
 // @Summary      Enable/disable the job. Returns if the job is active
+// @Description  API key scope: write
 // @Tags         job
 // @Produce      plain
 // @Param        name     path    string   true   "Name of the job"
 // @Success      200      {string}    string
+// @Failure      400      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      404      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}    string
-// @Router       /job/{name}/set_active [post]
+// @Router       /api/job/{name}/set_active [post]
 func HandleJobSetActive(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {
@@ -283,11 +312,8 @@ func HandleJobSetActive(w http.ResponseWriter, r *http.Request) {
 		// Not the value in the logs: it could be a secret typed into the
 		// wrong field
 		addAuditAttrs(r, "active", "invalid")
-		m := fmt.Sprintf("Invalid active flag for a job: %s\n", activeStatus)
 		logger.Warn("invalid active flag for a job", "job", name)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Header().Set("Content-Type", "text/plain")
-		writeBody(logger, w, []byte(m))
+		writePlainText(w, logger, http.StatusBadRequest, fmt.Sprintf("Invalid active flag for a job: %s, want true or false\n", activeStatus))
 		return
 	}
 
@@ -295,7 +321,7 @@ func HandleJobSetActive(w http.ResponseWriter, r *http.Request) {
 		b := tx.Bucket([]byte(JobsBucket))
 		jb := b.Bucket([]byte(name))
 		if jb == nil {
-			return fmt.Errorf("invalid job name: %s", name)
+			return errNoSuchJob
 		}
 		err := jb.Put([]byte("active"), []byte(activeStatus))
 		if err == nil {
@@ -303,11 +329,14 @@ func HandleJobSetActive(w http.ResponseWriter, r *http.Request) {
 		}
 		return err
 	})
+	if errors.Is(err, errNoSuchJob) {
+		logger.Warn("set active state of a missing job", "job", name)
+		writePlainText(w, logger, http.StatusNotFound, "No such job")
+		return
+	}
 	if err != nil {
 		logger.Error("set job active state", "job", name, "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Header().Set("Content-Type", "text/plain")
-		writeBody(logger, w, []byte(err.Error()))
+		writePlainText(w, logger, http.StatusInternalServerError, err.Error())
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain")

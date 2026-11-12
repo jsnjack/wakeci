@@ -19,6 +19,9 @@ const MsgTypeInUnsubscribe = "in:unsubscribe"
 type MsgBroadcast struct {
 	Type string      `json:"type"`
 	Data interface{} `json:"data"`
+	// Job is the job the message is about, so the hub only sends it to
+	// clients that may read the job; empty for messages about the server
+	Job string `json:"-"`
 }
 
 // MsgIncoming ...
@@ -46,8 +49,13 @@ type TaskStatus struct {
 	ID        int           `json:"id"`
 	Status    ItemStatus    `json:"status"`
 	StartedAt time.Time     `json:"startedAt"`
-	Duration  time.Duration `json:"duration"`
+	Duration  time.Duration `json:"duration" swaggertype:"integer"` // nanoseconds
 	Kind      string        `json:"kind"`
+	// Name, Log and LogSize are only filled in by GET /api/build/{id}. Log
+	// is the URL of the task's log, empty if the task wrote none.
+	Name    string `json:"name,omitempty"`
+	Log     string `json:"log,omitempty"`
+	LogSize int64  `json:"logSize,omitempty"`
 }
 
 // When StartedAt field is serialized to JSON, it has fixed second's precision
@@ -79,10 +87,10 @@ type BuildUpdateData struct {
 	Status         ItemStatus          `json:"status"`
 	Tasks          []*TaskStatus       `json:"tasks"`
 	Params         []map[string]string `json:"params"`
-	Artifacts      []string            `json:"artifacts"` // Deprecate in favor of BuildArtifacts
+	Artifacts      []string            `json:"artifacts"` // Deprecated: file names only; use build_artifacts
 	BuildArtifacts []*ArtifactInfo     `json:"build_artifacts"`
 	StartedAt      time.Time           `json:"startedAt"`
-	Duration       time.Duration       `json:"duration"`
+	Duration       time.Duration       `json:"duration" swaggertype:"integer"` // nanoseconds
 	ETA            int                 `json:"eta"`
 }
 
@@ -124,6 +132,12 @@ type CommandLogData struct {
 type SettingsData struct {
 	ConcurrentBuilds int `json:"concurrentBuilds"`
 	BuildHistorySize int `json:"buildHistorySize"`
+	// APIKeyRate is how many requests a second each API key may keep
+	// sending, and APIKeyBurst how many at once
+	APIKeyRate  int `json:"apiKeyRate"`
+	APIKeyBurst int `json:"apiKeyBurst"`
+	// Server is what Wakefile.yaml set, which the page shows read-only
+	Server ServerConfigData `json:"server"`
 	// Admin is true for the admin password, which alone may change it
 	Admin bool `json:"admin"`
 }

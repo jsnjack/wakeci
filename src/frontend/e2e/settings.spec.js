@@ -9,6 +9,10 @@ test("should modify settings", async ({ page, backend }) => {
     await page.locator("input[type=password]").fill("secret");
     await page.locator("#concurrent-builds").fill("100");
     await page.locator("#build-history-size").fill("100");
+    await expect(page.getByTestId("api-key-rate")).toHaveValue("10");
+    await expect(page.getByTestId("api-key-burst")).toHaveValue("120");
+    await page.getByTestId("api-key-rate").fill("50");
+    await page.getByTestId("api-key-burst").fill("500");
     await page.getByTestId("save-settings").click();
     await expect(page.locator(".notification-content")).toContainText("Saved");
     await page.getByTestId("logout").click();
@@ -17,13 +21,17 @@ test("should modify settings", async ({ page, backend }) => {
     await page.goto("/settings");
     await expect(page.locator("#concurrent-builds")).toHaveValue("100");
     await expect(page.locator("#build-history-size")).toHaveValue("100");
+    await expect(page.getByTestId("api-key-rate")).toHaveValue("50");
+    await expect(page.getByTestId("api-key-burst")).toHaveValue("500");
     await page.locator("input[type=password]").fill("admin");
     await page.locator("#concurrent-builds").fill("2");
     await page.locator("#build-history-size").fill("200");
+    await page.getByTestId("api-key-rate").fill("10");
+    await page.getByTestId("api-key-burst").fill("120");
     await page.getByTestId("save-settings").click();
     await expect(page.locator(".notification-content")).toContainText("Saved");
     // The password change ended the other password sessions
-    expect((await backend.api.get("/api/settings")).status()).toBe(403);
+    expect((await backend.api.get("/api/settings")).status()).toBe(401);
     await backend.logIn();
 });
 
@@ -35,4 +43,32 @@ test("should not offer the password to SSO users", async ({ page }) => {
     await login(page);
     await expect(page.locator("#concurrent-builds")).toBeVisible();
     await expect(page.locator("input[type=password]")).toHaveCount(0);
+});
+
+test("should limit each API key as the settings say", async ({ backend, playwright }) => {
+    const form = (fields) => ({ data: new URLSearchParams(fields).toString(), headers: { "Content-Type": "application/x-www-form-urlencoded" } });
+    const settings = await (await backend.api.get("/api/settings")).json();
+    const save = async (rate, burst) => {
+        const fields = { concurrentBuilds: settings.concurrentBuilds, buildHistorySize: settings.buildHistorySize, apiKeyRate: rate, apiKeyBurst: burst };
+        await expect(await backend.api.post("/api/settings", form(fields))).toBeOK();
+    };
+    const created = await backend.api.post("/api/keys/", form({ name: "limited", scope: "read", allJobs: "true", expiresInDays: "1" }));
+    await expect(created).toBeOK();
+    const key = await playwright.request.newContext({
+        baseURL: backend.url,
+        storageState: { cookies: [], origins: [] },
+        extraHTTPHeaders: { Authorization: `Bearer ${(await created.json()).token}` },
+    });
+    // Other tests of this worker use the same wakeci
+    try {
+        await save(1, 2);
+        expect((await key.get("/api/whoami")).status()).toBe(200);
+        expect((await key.get("/api/whoami")).status()).toBe(200);
+        const refused = await key.get("/api/whoami");
+        expect(refused.status()).toBe(429);
+        expect(Number(refused.headers()["retry-after"])).toBeGreaterThanOrEqual(1);
+    } finally {
+        await save(10, 120);
+        await key.dispose();
+    }
 });

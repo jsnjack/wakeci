@@ -12,24 +12,29 @@ import (
 
 // HandleJobsView returns all available jobs
 // @Summary      Returns list of available jobs
+// @Description  API key scope: read; a key or a single sign-on user only sees their jobs
 // @Tags         jobs
 // @Produce      json
 // @Success      200      {array}    JobsListData
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}   string
-// @Router       /jobs/ [get]
+// @Router       /api/jobs/ [get]
 func HandleJobsView(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {
 		logger = L
 	}
 
-	apiKey := apiKeyFromContext(r.Context())
-	var data []*JobsListData
+	access := accessFromContext(r.Context())
+	// [], not null, when there are no jobs
+	data := []*JobsListData{}
 	err := DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(JobsBucket))
 		c := b.Cursor()
 		for key, _ := c.First(); key != nil; key, _ = c.Next() {
-			if apiKey != nil && !apiKey.CoversJob(string(key)) {
+			if !access.Reads(string(key)) {
 				continue
 			}
 			job := JobsListData{
@@ -41,6 +46,9 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request) {
 				err := json.Unmarshal(params, &job.DefaultParams)
 				if err != nil {
 					return err
+				}
+				if job.DefaultParams == nil {
+					job.DefaultParams = []map[string]string{}
 				}
 				desc := jb.Get([]byte("desc"))
 				job.Desc = string(desc)
@@ -74,13 +82,17 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request) {
 
 // HandleJobsCreate creates a new job file from default template
 // @Summary      Create new empty job
-// @Description  The job is created from the default template. All parameters are available as query parameters and as formData
+// @Description  The job is created from the default template. API key scope: write. All parameters are available as query parameters and as formData
 // @Tags         jobs
 // @Produce      plain
 // @Param        name     formData    string   true   "Name of the job (also the name of the file in which the job is stored)"
 // @Success      200      {string}    string
+// @Failure      400      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}    string
-// @Router       /jobs/create [post]
+// @Router       /api/jobs/create [post]
 func HandleJobsCreate(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
 	if !ok {

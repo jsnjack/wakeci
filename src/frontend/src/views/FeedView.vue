@@ -80,6 +80,7 @@
         <div class="max"></div>
         <button
             v-show="moreEnabled && !isFetching && !filterIsDirty"
+            data-cy="more"
             @click.prevent="fetchNow(true)"
         >
             more...
@@ -166,12 +167,15 @@ export default {
     created() {
         this.fetch = debounce((more = false) => {
             this.isFetching = true;
-            let offset = 0;
-            if (more) {
-                offset = this.builds.length;
+            // More builds are those older than the oldest one shown. Unlike
+            // skipping as many builds as are shown, that can't repeat or miss
+            // builds when the page and the server filter one differently
+            let before = "";
+            if (more && this.builds.length > 0) {
+                before = `before=${Math.min(...this.builds.map((build) => build.id))}&`;
             }
             axios
-                .get(`/api/feed?offset=${offset}&q=${encodeURIComponent(this.filter)}`)
+                .get(`/api/feed?${before}q=${encodeURIComponent(this.filter)}`)
                 .then((response) => {
                     this.isFetching = false;
 

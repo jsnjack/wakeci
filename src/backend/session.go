@@ -41,12 +41,18 @@ type session struct {
 	expires time.Time
 	// user is the email of a single sign-on login, empty for the password
 	user string
+	// groups are the groups the identity provider sent at login
+	groups []string
 }
 
 // storedSession is a session as SessionsBucket keeps it
 type storedSession struct {
 	Expires time.Time `json:"expires"`
 	User    string    `json:"user"`
+	// Groups is [] for a single sign-on user in no group, whom "People in
+	// no group" let in, and missing in sessions saved before sessions kept
+	// the groups
+	Groups []string `json:"groups"`
 }
 
 // sessionKey identifies the session with token in SessionStorage and
@@ -100,7 +106,11 @@ func (s *SessionStorage) save(saved map[string]session, deleted []string) {
 	err := s.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(SessionsBucket)
 		for key, val := range saved {
-			data, err := json.Marshal(storedSession{Expires: val.expires, User: val.user})
+			groups := val.groups
+			if val.user != "" && groups == nil {
+				groups = []string{}
+			}
+			data, err := json.Marshal(storedSession{Expires: val.expires, User: val.user, Groups: groups})
 			if err != nil {
 				return err
 			}
@@ -137,6 +147,7 @@ func (s *SessionStorage) saveUnsaved() {
 func (s *SessionStorage) load() error {
 	now := time.Now()
 	var expired []string
+	withoutGroups := 0
 	err := s.db.View(func(tx *bolt.Tx) error {
 		return tx.Bucket(SessionsBucket).ForEach(func(k, v []byte) error {
 			var stored storedSession
@@ -149,12 +160,23 @@ func (s *SessionStorage) load() error {
 				expired = append(expired, string(k))
 				return nil
 			}
-			s.sessions[string(k)] = session{expires: stored.Expires, user: stored.User}
+			// Saved before sessions kept the groups: what it may do is
+			// unknown, so its user logs in again. A session in no group
+			// has [] instead.
+			if stored.User != "" && stored.Groups == nil {
+				withoutGroups++
+				expired = append(expired, string(k))
+				return nil
+			}
+			s.sessions[string(k)] = session{expires: stored.Expires, user: stored.User, groups: stored.Groups}
 			return nil
 		})
 	})
 	if err != nil {
 		return fmt.Errorf("load sessions: %w", err)
+	}
+	if withoutGroups > 0 {
+		L.Info("ended single sign-on sessions saved without their groups; their users log in again", "sessions", withoutGroups)
 	}
 	s.saveMu.Lock()
 	defer s.saveMu.Unlock()
@@ -180,17 +202,18 @@ func sessionCookie(r *http.Request) *http.Cookie {
 // New creates new session for user (empty for the password) which expires
 // after ttl and returns a cookie.
 func (s *SessionStorage) New(r *http.Request, ttl time.Duration, user string) (*http.Cookie, error) {
-	return s.create(r, ttl, user, nil)
+	return s.create(r, ttl, user, nil, nil)
 }
 
-// NewSSO creates a session for a single sign-on login that the identity
-// provider issued at issuedAt, unless the person's access was revoked after
-// that: a login obtained before an offboarding mustn't undo it.
-func (s *SessionStorage) NewSSO(r *http.Request, ttl time.Duration, user string, issuedAt time.Time) (*http.Cookie, error) {
-	return s.create(r, ttl, user, &issuedAt)
+// NewSSO creates a session for a single sign-on login of a member of groups
+// that the identity provider issued at issuedAt, unless the person's access
+// was revoked after that: a login obtained before an offboarding mustn't
+// undo it.
+func (s *SessionStorage) NewSSO(r *http.Request, ttl time.Duration, user string, groups []string, issuedAt time.Time) (*http.Cookie, error) {
+	return s.create(r, ttl, user, groups, &issuedAt)
 }
 
-func (s *SessionStorage) create(r *http.Request, ttl time.Duration, user string, issuedAt *time.Time) (*http.Cookie, error) {
+func (s *SessionStorage) create(r *http.Request, ttl time.Duration, user string, groups []string, issuedAt *time.Time) (*http.Cookie, error) {
 	sessionToken, err := uuid.NewV4()
 	if err != nil {
 		return nil, err
@@ -207,7 +230,7 @@ func (s *SessionStorage) create(r *http.Request, ttl time.Duration, user string,
 		s.mu.Unlock()
 		return nil, errLoginRevoked
 	}
-	created := session{expires: expires, user: user}
+	created := session{expires: expires, user: user, groups: groups}
 	s.sessions[key] = created
 	s.mu.Unlock()
 	s.save(map[string]session{key: created}, nil)
@@ -226,17 +249,24 @@ func (s *SessionStorage) Verify(sessionToken string) error {
 // User returns who logged in with a valid session: the single sign-on email,
 // or empty for the password
 func (s *SessionStorage) User(sessionToken string) (string, error) {
+	user, _, err := s.Lookup(sessionToken)
+	return user, err
+}
+
+// Lookup returns who logged in with a valid session and, for single sign-on,
+// the groups the identity provider sent at login
+func (s *SessionStorage) Lookup(sessionToken string) (string, []string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	val, ok := s.sessions[sessionKey(sessionToken)]
 	if !ok {
 		// Never put the token in the error: it is logged
-		return "", errors.New("session doesn't exist")
+		return "", nil, errors.New("session doesn't exist")
 	}
 	if val.expires.Before(time.Now()) {
-		return "", errors.New("session expired")
+		return "", nil, errors.New("session expired")
 	}
-	return val.user, nil
+	return val.user, val.groups, nil
 }
 
 // Delete removes session id from storage
@@ -324,6 +354,47 @@ func (s *SessionStorage) Users() []string {
 		}
 	}
 	return users
+}
+
+// GroupMembers returns, by lowercased group name, how many people with a
+// valid single sign-on session are in each group
+func (s *SessionStorage) GroupMembers() map[string]int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	now := time.Now()
+	people := map[string]map[string]bool{}
+	for _, val := range s.sessions {
+		if val.user == "" || val.expires.Before(now) {
+			continue
+		}
+		for _, group := range val.groups {
+			group = strings.ToLower(group)
+			if people[group] == nil {
+				people[group] = map[string]bool{}
+			}
+			people[group][strings.ToLower(val.user)] = true
+		}
+	}
+	counts := make(map[string]int, len(people))
+	for group, members := range people {
+		counts[group] = len(members)
+	}
+	return counts
+}
+
+// CountSSOPeople counts the people with a current single sign-on session
+// whose groups match
+func (s *SessionStorage) CountSSOPeople(match func(groups []string) bool) int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	now := time.Now()
+	people := map[string]bool{}
+	for _, val := range s.sessions {
+		if val.user != "" && !val.expires.Before(now) && match(val.groups) {
+			people[strings.ToLower(val.user)] = true
+		}
+	}
+	return len(people)
 }
 
 // Periodically cleanup expired sessions

@@ -1,0 +1,66 @@
+# wakeci
+
+wakeci is a CI server: jobs are YAML files, and each run of a job is a build
+with a numeric ID. This page tells agents and scripts how to use its API.
+
+## Authenticate
+
+Send an API key: `Authorization: Bearer wk_...`. A key has scopes (read,
+run, write) on all jobs or on some jobs, and only sees those jobs.
+`GET /api/whoami` says what the key may do and which server answers.
+
+401 means the key is missing, wrong or expired. 403 means the key may not
+do that, or not on that job. 404 means no such route or build. 429 means
+too many requests: wait `Retry-After` seconds.
+
+## Use MCP if you can
+
+`POST /mcp` serves the API as MCP tools (Streamable HTTP, stateless) with
+the same key: whoami, list_jobs, find_builds, build_summary, read_log,
+read_artifact, run_job, abort_build.
+
+## Why did a build fail?
+
+`GET /api/build/<id>/summary` returns the status, the tasks, the artifacts,
+the summary the job wrote (jobSummary) and the last 100 lines (tail=N) of
+each task that failed, timed out or was aborted. For more of a log:
+`GET /api/build/<id>/log/<task>?grep=FAILED` or `?tail=500`.
+
+A build page URL such as `https://<host>/build/123` has the build ID 123;
+its API is `/api/build/123`. Build IDs belong to one server: `whoami` gives
+the range of IDs a server has. Ask the server in the URL.
+
+## Wait for a build
+
+`GET /api/build/<id>?wait=300` (or `/summary?wait=300`) answers as soon as
+the build ends, or after 300 seconds; repeat until its status is finished,
+failed, aborted or timed out. Don't poll in a loop.
+
+## Find builds
+
+`GET /api/feed` returns builds newest first: `job=<name>` and
+`status=failed` match exactly, `q=` searches words, `limit=` up to 200.
+To follow new builds, keep the newest ID you have and ask for
+`?after=<id>&limit=200`; page back with `before=<oldest id>`. Send the
+`ETag` back as `If-None-Match` to get 304 when nothing changed.
+
+## Logs and artifacts
+
+`GET /api/build/<id>` lists each task's log URL (`tasks[].log`, absent if
+the task wrote none) and each artifact's URL (`build_artifacts[].url`). Use
+these URLs instead of building paths. Files support `Range`, for example
+`Range: bytes=-65536` for the end of a log.
+
+## Run and abort
+
+`POST /api/job/<name>/run` with the job's parameters as form fields returns
+the new build ID (run scope). Parameters can't reference secrets or
+contain quotes or line breaks. `POST /api/build/<id>/abort` aborts it.
+
+## Everything else
+
+Every route, with its scope, parameters, answers and types, is in
+`/llms-full.txt` (also `/docs/api.md`), as Markdown. The same as OpenAPI
+2.0 is at `/docs/swagger.json`, and `/docs/mcp.json` lists the MCP tools
+with the scope each needs. None of them need a key. People read the docs
+at `/docs/api/`.

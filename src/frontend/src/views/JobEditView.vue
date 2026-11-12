@@ -9,7 +9,7 @@
             :extensions="extensions"
         />
     </div>
-    <nav>
+    <nav v-if="canAny('write')">
         <div class="max"></div>
         <button
             data-cy="save-button"
@@ -30,6 +30,7 @@
 <script>
 import { yaml } from "@codemirror/lang-yaml";
 import { oneDark } from "@codemirror/theme-one-dark";
+import { EditorView } from "@codemirror/view";
 import axios from "axios";
 import { Codemirror } from "vue-codemirror";
 import vuex from "vuex";
@@ -53,8 +54,12 @@ export default {
     },
     computed: {
         ...vuex.mapState(["theme"]),
+        ...vuex.mapGetters(["canAny"]),
         extensions() {
             const exts = [yaml()];
+            if (!this.canAny("write")) {
+                exts.push(EditorView.editable.of(false));
+            }
             if (this.theme === "dark") {
                 exts.push(oneDark);
             }
@@ -62,7 +67,7 @@ export default {
         },
     },
     mounted() {
-        this.$store.commit("SET_CURRENT_PAGE", `Edit ${this.name}`);
+        this.$store.commit("SET_CURRENT_PAGE", `${this.canAny("write") ? "Edit" : "View"} ${this.name}`);
         this.fetch();
     },
     methods: {

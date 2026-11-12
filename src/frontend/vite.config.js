@@ -52,6 +52,18 @@ export default defineConfig({
                 target: "http://localhost:8081/",
                 changeOrigin: true,
             },
+            "/llms.txt": {
+                target: "http://localhost:8081/",
+                changeOrigin: true,
+            },
+            "/llms-full.txt": {
+                target: "http://localhost:8081/",
+                changeOrigin: true,
+            },
+            "/mcp": {
+                target: "http://localhost:8081/",
+                changeOrigin: true,
+            },
             // No changeOrigin here: the backend only upgrades a WebSocket when
             // the Origin header matches the request Host (checkWebSocketOrigin),
             // so both must stay the vite server.

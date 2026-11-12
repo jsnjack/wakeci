@@ -271,3 +271,25 @@ tasks:
     await expect(page.locator("body")).not.toContainText("Skipping the task");
     await expect(page.locator("body")).toContainText("WAKE_BUILD_ID=");
 });
+
+test("should show the summary a job writes when the build ends", async ({ page, wake }) => {
+    const jobName = await wake.createJob(`desc: summary
+tasks:
+  - name: Test
+    run: sleep 3
+  - name: Write the summary
+    run: |
+      echo "### Failed tests" >> "$WAKE_SUMMARY"
+      echo "- test_login <b>" >> "$WAKE_SUMMARY"
+`);
+    const id = await wake.runJob(jobName);
+    await wake.waitForBuild(id, "running");
+    // The page is open while the build runs, so the summary has to come
+    // from the reload when the build ends
+    await wake.livePage(`/build/${id}`);
+    await expect(page.locator("header h6")).toContainText(`#${id} - running`);
+    await expect(page.getByTestId("build-summary")).toHaveCount(0);
+    // Shown as text, so markup in it stays text
+    await expect(page.getByTestId("build-summary")).toContainText("### Failed tests\n- test_login <b>", { timeout: 15000 });
+    await wake.waitForBuild(id);
+});

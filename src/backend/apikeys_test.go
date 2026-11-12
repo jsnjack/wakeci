@@ -38,7 +38,10 @@ func newAPIKeyTestEnv(t *testing.T) http.Handler {
 	GlobalSessionStorage = &SessionStorage{sessions: make(map[string]session)}
 	oldPasswordLimiter := globalAuthAttemptLimiter
 	globalAuthAttemptLimiter = newAuthAttemptLimiter(authMaxFailures, authFailureWindow, authBlockDuration)
+	oldUses := apiKeyUses
+	apiKeyUses = newAPIKeyUsage()
 	t.Cleanup(func() {
+		apiKeyUses = oldUses
 		GlobalCron = oldCron
 		apiKeyAttemptLimiter = oldLimiter
 		GlobalSessionStorage = oldSessions
@@ -168,7 +171,7 @@ func TestAPIKeyRoutes(t *testing.T) {
 		{"GET", "/api/job/nightly", nil, http.StatusForbidden, "doesn't cover that job"},
 		{"GET", "/api/build/1", nil, http.StatusOK, `"name":"deploy"`},
 		{"GET", "/api/build/2", nil, http.StatusForbidden, "doesn't cover that job"},
-		{"GET", "/api/build/99", nil, http.StatusNotFound, "build 99 not found"},
+		{"GET", "/api/build/99", nil, http.StatusNotFound, "build 99 not found on this server, which holds builds 1 to 2"},
 		{"GET", "/api/build/x", nil, http.StatusBadRequest, "invalid build ID"},
 		{"GET", "/storage/build/1/task_1.log", nil, http.StatusOK, "log of deploy"},
 		{"HEAD", "/storage/build/1/task_1.log", nil, http.StatusOK, ""},
@@ -177,9 +180,9 @@ func TestAPIKeyRoutes(t *testing.T) {
 		{"GET", "/storage/build/1/../2/task_1.log", nil, http.StatusForbidden, "doesn't cover that job"},
 		{"GET", "/storage/build/1/%2e%2e/2/task_1.log", nil, http.StatusForbidden, "doesn't cover that job"},
 		{"GET", "/storage/build/1/%2E%2E%2F2/task_1.log", nil, http.StatusForbidden, "doesn't cover that job"},
-		{"GET", "/storage/build/", nil, http.StatusForbidden, "only read the files of a build"},
-		{"GET", "/storage/build/..", nil, http.StatusForbidden, "only read the files of a build"},
-		{"GET", "/storage/build/01/task_1.log", nil, http.StatusForbidden, "only read the files of a build"},
+		{"GET", "/storage/build/", nil, http.StatusForbidden, "only the files of a build can be read here"},
+		{"GET", "/storage/build/..", nil, http.StatusForbidden, "only the files of a build can be read here"},
+		{"GET", "/storage/build/01/task_1.log", nil, http.StatusForbidden, "only the files of a build can be read here"},
 		{"POST", "/api/job/nightly/run", nil, http.StatusForbidden, "doesn't cover that job"},
 		{"POST", "/api/job/deploy/run", url.Values{"TARGET": {"{{ secrets.TOKEN }}"}}, http.StatusBadRequest, "references a secret"},
 		{"POST", "/api/job/deploy/run?TARGET=x%7B%7Bsecrets.TOKEN%7D%7D", nil, http.StatusBadRequest, "references a secret"},
@@ -206,7 +209,12 @@ func TestAPIKeyRoutes(t *testing.T) {
 		{"GET", "/ws", nil, http.StatusForbidden, "can't be used here"},
 		{"GET", "/auth/_isLoggedIn", nil, http.StatusForbidden, "can't be used here"},
 		{"GET", "/", nil, http.StatusForbidden, "can't be used here"},
-		{"DELETE", "/api/feed", nil, http.StatusForbidden, "can't be used here"},
+		{"DELETE", "/api/feed", nil, http.StatusMethodNotAllowed, "DELETE isn't allowed on /api/feed"},
+		{"GET", "/api/feed/", nil, http.StatusNotFound, "No API route /api/feed/; the routes are listed in /llms-full.txt"},
+		{"GET", "/docs/swagger.json", nil, http.StatusOK, "wakeci API documentation"},
+		{"GET", "/docs/api/", nil, http.StatusOK, "@scalar/api-reference"},
+		{"GET", "/api/job/deploy/", nil, http.StatusNotFound, "No API route /api/job/deploy/"},
+		{"GET", "/api/build/1/artifacts", nil, http.StatusNotFound, "No API route /api/build/1/artifacts"},
 		{"GET", "/storage/other", nil, http.StatusForbidden, "can't be used here"},
 	}
 	for _, tt := range tests {
@@ -325,20 +333,17 @@ func TestAPIKeyRunMarksBuild(t *testing.T) {
 	if rec := keyRequest(router, "POST", "/api/job/deploy/run", token, url.Values{"TARGET": {"production"}}); rec.Code != http.StatusOK {
 		t.Fatalf("run with a key: status = %d; body %q", rec.Code, rec.Body.String())
 	}
-	main := chi.NewRouter()
-	main.Post("/api/job/{name}/run", HandleRunJob)
-	rec := httptest.NewRecorder()
-	main.ServeHTTP(rec, httptest.NewRequest("POST", "/api/job/deploy/run", nil))
+	rec := apiCall("POST", "/api/job/deploy/run", nil, nil, func(r *http.Request) { r.SetBasicAuth("", "admin") })
 	if rec.Code != http.StatusOK {
-		t.Fatalf("run without a key: status = %d; body %q", rec.Code, rec.Body.String())
+		t.Fatalf("run with the admin password: status = %d; body %q", rec.Code, rec.Body.String())
 	}
 
 	if len(GlobalQueue.queued) != 2 {
 		t.Fatalf("queued %d builds, want 2", len(GlobalQueue.queued))
 	}
-	if !GlobalQueue.queued[0].startedWithAPIKey || GlobalQueue.queued[1].startedWithAPIKey {
-		t.Errorf("startedWithAPIKey = %t, %t; want true for the key's build only",
-			GlobalQueue.queued[0].startedWithAPIKey, GlobalQueue.queued[1].startedWithAPIKey)
+	if !GlobalQueue.queued[0].untrustedParams || GlobalQueue.queued[1].untrustedParams {
+		t.Errorf("untrustedParams = %t, %t; want true for the key's build only",
+			GlobalQueue.queued[0].untrustedParams, GlobalQueue.queued[1].untrustedParams)
 	}
 	if got := GlobalQueue.queued[0].Params[0]["TARGET"]; got != "production" {
 		t.Errorf("TARGET = %q, want production", got)
@@ -645,50 +650,6 @@ func TestAPIKeyFromForm(t *testing.T) {
 	}
 }
 
-func TestAPIKeyHasScope(t *testing.T) {
-	selected := &APIKey{Scopes: []string{ScopeRead, ScopeWrite}, Jobs: []string{"deploy"}}
-	if !selected.HasScope(ScopeRead) || selected.HasScope(ScopeRun) {
-		t.Error("read/run scopes wrong")
-	}
-	if selected.HasScope(ScopeWrite) {
-		t.Error("write counted on a key that doesn't cover all jobs")
-	}
-	all := &APIKey{Scopes: []string{ScopeWrite}, AllJobs: true}
-	if !all.HasScope(ScopeWrite) {
-		t.Error("write not counted on a key that covers all jobs")
-	}
-}
-
-func TestMatchJobPattern(t *testing.T) {
-	tests := []struct {
-		pattern, name string
-		want          bool
-	}{
-		{"deploy", "deploy", true},
-		{"deploy", "deploy2", false},
-		{"*", "anything", true},
-		{"test_*", "test_api", true},
-		{"test_*", "test_", true},
-		{"test_*", "api_test_x", false},
-		{"*_prod", "web_prod", true},
-		{"*_prod", "web_prod_old", false},
-		{"a*b*b", "abb", true},
-		{"a*b*b", "ab", false},
-		{"a*b*c", "axxbyyc", true},
-		{"a*b*c", "axxcyyb", false},
-		{"a*b*c", "axxc", false},
-		{"v?c", "vxc", false},
-		{"v?c", "v?c", true},
-		{"[ab]", "a", false},
-		{"[ab]", "[ab]", true},
-	}
-	for _, tt := range tests {
-		if got := matchJobPattern(tt.pattern, tt.name); got != tt.want {
-			t.Errorf("matchJobPattern(%q, %q) = %t, want %t", tt.pattern, tt.name, got, tt.want)
-		}
-	}
-}
-
 func TestParseAPIKeyToken(t *testing.T) {
 	newAPIKeyTestEnv(t)
 	token := createTestKey(t, url.Values{"name": {"x"}, "scope": {"read"}, "allJobs": {"true"}})
@@ -723,11 +684,48 @@ func apiRouter() http.Handler {
 	return router
 }
 
+// testFullGroup is a group with access to everything. Single sign-on users
+// of tests are in it unless a test names their groups.
+const testFullGroup = "everyone"
+
+// addTestGroup lets the members of a single sign-on group do what grant
+// allows
+func addTestGroup(t *testing.T, name string, grant Grant) {
+	t.Helper()
+	if grant.Jobs == nil {
+		grant.Jobs = []string{}
+	}
+	if grant.Patterns == nil {
+		grant.Patterns = []string{}
+	}
+	err := DB.Update(func(tx *bolt.Tx) error {
+		return putSSOGroup(tx.Bucket(SSOGroupsBucket), &SSOGroup{Name: name, Grant: grant, UpdatedAt: time.Now()})
+	})
+	if err != nil {
+		t.Fatalf("add group %s: %v", name, err)
+	}
+}
+
 // loginAs returns a session cookie for user: a single sign-on email, or
 // adminUser for the admin password
 func loginAs(t *testing.T, user string) *http.Cookie {
 	t.Helper()
-	cookie, err := GlobalSessionStorage.New(httptest.NewRequest("POST", "/auth/login", nil), time.Hour, user)
+	if user == adminUser {
+		cookie, err := GlobalSessionStorage.New(httptest.NewRequest("POST", "/auth/login", nil), time.Hour, user)
+		if err != nil {
+			t.Fatalf("new session: %v", err)
+		}
+		return cookie
+	}
+	addTestGroup(t, testFullGroup, Grant{Scopes: []string{ScopeRead, ScopeRun, ScopeWrite}, AllJobs: true})
+	return loginInGroups(t, user, testFullGroup)
+}
+
+// loginInGroups returns a session cookie for a single sign-on user who is in
+// groups
+func loginInGroups(t *testing.T, user string, groups ...string) *http.Cookie {
+	t.Helper()
+	cookie, err := GlobalSessionStorage.NewSSO(httptest.NewRequest("POST", "/auth/sso/acs", nil), time.Hour, user, groups, time.Now())
 	if err != nil {
 		t.Fatalf("new session: %v", err)
 	}
@@ -821,8 +819,8 @@ func TestHandleAPIKeys(t *testing.T) {
 	}
 
 	// Without a valid session nothing is shown or changed
-	if rec := apiCall("GET", "/api/keys/", nil, nil, nil); rec.Code != http.StatusForbidden {
-		t.Errorf("list without a session: status = %d, want 403", rec.Code)
+	if rec := apiCall("GET", "/api/keys/", nil, nil, nil); rec.Code != http.StatusUnauthorized {
+		t.Errorf("list without a session: status = %d, want 401", rec.Code)
 	}
 	// Basic auth with the admin password is the admin too
 	rec := apiCall("GET", "/api/keys/", nil, nil, func(r *http.Request) { r.SetBasicAuth("", "admin") })
@@ -909,8 +907,8 @@ func TestRevokePersonEndsSessions(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &revoked); err != nil || revoked != (RevokedData{Keys: 1, Sessions: 1}) {
 		t.Fatalf("revoke alice: status = %d, body %q; want 1 key and 1 session", rec.Code, rec.Body.String())
 	}
-	if rec := apiCall("POST", "/api/keys/", aliceCookie, form, nil); rec.Code != http.StatusForbidden {
-		t.Errorf("alice creating a key after the revoke: status = %d, want 403", rec.Code)
+	if rec := apiCall("POST", "/api/keys/", aliceCookie, form, nil); rec.Code != http.StatusUnauthorized {
+		t.Errorf("alice creating a key after the revoke: status = %d, want 401", rec.Code)
 	}
 	if rec := apiCall("GET", "/api/keys/", bobCookie, nil, nil); rec.Code != http.StatusOK {
 		t.Errorf("bob after alice's revoke: status = %d, want 200", rec.Code)
@@ -933,8 +931,8 @@ func TestWrongBasicAuthWithSSOCookie(t *testing.T) {
 		{"DELETE", "/api/keys/" + victim.Key.ID, nil},
 		{"POST", "/api/settings", url.Values{"password": {"taken"}, "concurrentBuilds": {"2"}, "buildHistorySize": {"200"}}},
 	} {
-		if rec := apiCall(call.method, call.target, aliceCookie, call.form, wrongPassword); rec.Code != http.StatusForbidden {
-			t.Errorf("%s %s with a wrong password: status = %d, want 403", call.method, call.target, rec.Code)
+		if rec := apiCall(call.method, call.target, aliceCookie, call.form, wrongPassword); rec.Code != http.StatusUnauthorized {
+			t.Errorf("%s %s with a wrong password: status = %d, want 401", call.method, call.target, rec.Code)
 		}
 	}
 	if _, err := verifyAPIKey(victim.Token, time.Now()); err != nil {
@@ -966,8 +964,8 @@ func TestRevokePersonWithoutKeys(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &revoked); err != nil || revoked != (RevokedData{Keys: 0, Sessions: 1}) {
 		t.Fatalf("revoke carol: status = %d, body %q; want 0 keys and 1 session", rec.Code, rec.Body.String())
 	}
-	if rec := apiCall("GET", "/api/keys/", carol, nil, nil); rec.Code != http.StatusForbidden {
-		t.Errorf("carol after the revoke: status = %d, want 403", rec.Code)
+	if rec := apiCall("GET", "/api/keys/", carol, nil, nil); rec.Code != http.StatusUnauthorized {
+		t.Errorf("carol after the revoke: status = %d, want 401", rec.Code)
 	}
 }
 
@@ -1016,5 +1014,21 @@ func TestAPIKeyLimiterBlockExpires(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	if rec := keyRequest(router, "GET", "/api/jobs/", "wk_bad", nil); rec.Code != http.StatusUnauthorized {
 		t.Errorf("bad key after the block expired: status = %d, want 401", rec.Code)
+	}
+}
+
+// The admin's key list says who is signed in, so the page can show people
+// without keys; an SSO user's list names nobody
+func TestAPIKeysListSignedIn(t *testing.T) {
+	newAPIKeyTestEnv(t)
+	loginAs(t, "Alice@example.com")
+	loginAs(t, "alice@example.com")
+	loginAs(t, "bob@example.com")
+	admin := listKeysAs(t, adminUser)
+	if !slices.Equal(admin.SignedIn, []string{"alice@example.com", "bob@example.com"}) {
+		t.Errorf("signedIn = %q, want alice and bob once each", admin.SignedIn)
+	}
+	if user := listKeysAs(t, "bob@example.com"); user.SignedIn != nil || user.People != nil {
+		t.Errorf("an SSO user's list = %+v, want no people", user)
 	}
 }

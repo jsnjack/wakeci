@@ -55,10 +55,13 @@ func TestAuthenticationRateLimit(t *testing.T) {
 		name    string
 		handler http.Handler
 		request func() *http.Request
+		// wantRefused is the answer to a wrong password before the limit
+		wantRefused int
 	}{
 		{
-			name:    "form login",
-			handler: http.HandlerFunc(HandleLogIn),
+			name:        "form login",
+			wantRefused: http.StatusForbidden,
+			handler:     http.HandlerFunc(HandleLogIn),
 			request: func() *http.Request {
 				form := url.Values{"password": {"wrong"}}
 				req := httptest.NewRequest(http.MethodPost, "/auth/login", strings.NewReader(form.Encode()))
@@ -67,7 +70,8 @@ func TestAuthenticationRateLimit(t *testing.T) {
 			},
 		},
 		{
-			name: "basic auth",
+			name:        "basic auth",
+			wantRefused: http.StatusUnauthorized,
 			handler: AuthMi(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusNoContent)
 			})),
@@ -82,7 +86,7 @@ func TestAuthenticationRateLimit(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			newAuthTestEnv(t)
-			for attempt, wantStatus := range []int{http.StatusForbidden, http.StatusTooManyRequests} {
+			for attempt, wantStatus := range []int{tt.wantRefused, http.StatusTooManyRequests} {
 				req := tt.request()
 				req.RemoteAddr = "192.0.2.10:1234"
 				response := httptest.NewRecorder()
@@ -139,5 +143,43 @@ func TestHandleLogOutClearsCookieWithSessionAttributes(t *testing.T) {
 	}
 	if err := GlobalSessionStorage.Verify("session-token"); err == nil {
 		t.Error("session remains valid after logout")
+	}
+}
+
+// Missing or wrong credentials get 401, and a browser is never asked for a
+// password by a challenge on the page's own requests; a valid login that
+// isn't allowed in gets 403
+func TestAuthMiRefusals(t *testing.T) {
+	newAPIKeyTestEnv(t)
+	addTestGroup(t, "Nothing", Grant{Scopes: []string{ScopeWrite}, Jobs: []string{"deploy"}})
+	ended := loginAs(t, "alice@example.com")
+	GlobalSessionStorage.DeleteUser("alice@example.com")
+	nothing := loginInGroups(t, "bob@example.com", "Nothing")
+
+	tests := []struct {
+		name          string
+		prepare       func(*http.Request)
+		wantStatus    int
+		wantChallenge string
+		wantBody      string
+	}{
+		{"no credentials", nil, http.StatusUnauthorized, `Bearer realm="wakeci"`, "Not logged in"},
+		{"wrong password", func(r *http.Request) { r.SetBasicAuth("", "wrong") }, http.StatusUnauthorized, `Basic realm="wakeci", charset="UTF-8"`, "Wrong password"},
+		{"ended session", func(r *http.Request) { r.AddCookie(ended) }, http.StatusUnauthorized, `Bearer realm="wakeci"`, "The session ended"},
+		{"groups that allow nothing", func(r *http.Request) { r.AddCookie(nothing) }, http.StatusForbidden, "", "None of your groups has access"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := apiCall("GET", "/api/jobs/", nil, nil, tt.prepare)
+			if rec.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d; body %q", rec.Code, tt.wantStatus, rec.Body.String())
+			}
+			if got := rec.Header().Get("WWW-Authenticate"); got != tt.wantChallenge {
+				t.Errorf("WWW-Authenticate = %q, want %q", got, tt.wantChallenge)
+			}
+			if !strings.Contains(rec.Body.String(), tt.wantBody) {
+				t.Errorf("body = %q, want it to contain %q", rec.Body.String(), tt.wantBody)
+			}
+		})
 	}
 }

@@ -19,6 +19,9 @@ type Hub struct {
 
 	// Keys of sessions that ended, whose clients must be closed.
 	endedSessions chan []string
+
+	// Closes the clients with limited access, after the access changed.
+	accessChanged chan struct{}
 }
 
 func newHub() *Hub {
@@ -28,6 +31,7 @@ func newHub() *Hub {
 		register:      make(chan *Client),
 		unregister:    make(chan *Client),
 		endedSessions: make(chan []string),
+		accessChanged: make(chan struct{}),
 		clients:       make(map[*Client]bool),
 	}
 }
@@ -41,6 +45,14 @@ func (h *Hub) run() {
 			// client registered after that is caught here.
 			if client.session != "" && GlobalSessionStorage.Verify(client.session) != nil {
 				client.Logger.Info("closing ws connection: its session ended")
+				close(client.send)
+				continue
+			}
+			// Groups may have changed after AuthMi read them, and
+			// CloseRestricted only reaches registered clients; the page
+			// connects again with the new access
+			if client.access != nil && !client.access.Full && client.access.version != ssoAccessVersion.Load() {
+				client.Logger.Info("closing ws connection: its access changed")
 				close(client.send)
 				continue
 			}
@@ -64,6 +76,15 @@ func (h *Hub) run() {
 					close(client.send)
 				}
 			}
+		case <-h.accessChanged:
+			// The page connects again at once, with the new access
+			for client := range h.clients {
+				if client.access == nil || !client.access.Full {
+					client.Logger.Info("closing ws connection: its access changed")
+					delete(h.clients, client)
+					close(client.send)
+				}
+			}
 		case message := <-h.broadcast:
 			msgB, err := json.Marshal(message)
 			if err != nil {
@@ -71,7 +92,7 @@ func (h *Hub) run() {
 			} else {
 				for client := range h.clients {
 					ok, _ := client.IsSubscribed(message.Type)
-					if ok {
+					if ok && client.mayReceive(message) {
 						select {
 						case client.send <- msgB:
 						default:
@@ -84,6 +105,13 @@ func (h *Hub) run() {
 			}
 		}
 	}
+}
+
+// CloseRestricted closes the connections opened with limited access, e.g.
+// after a group's permissions changed, so they are opened again with the new
+// access
+func (h *Hub) CloseRestricted() {
+	h.accessChanged <- struct{}{}
 }
 
 // CloseSessions closes the connections opened with the sessions, by

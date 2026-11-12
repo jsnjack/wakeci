@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	bolt "go.etcd.io/bbolt"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // DB schema
@@ -39,6 +40,10 @@ var QueueBucket = []byte("queue")
 // SessionsBucket contains the active sessions by sessionKey, see
 // storedSession, so a restart doesn't sign everyone out
 var SessionsBucket = []byte("sessions")
+
+// SSOGroupsBucket holds the single sign-on groups that may log in and what
+// their members may do, by the lowercased group name
+var SSOGroupsBucket = []byte("ssogroups")
 
 // ByteToInt convert byte to int via string
 func ByteToInt(b []byte) (int, error) {
@@ -148,5 +153,39 @@ func CompactDB() (err error) {
 		return fmt.Errorf("install compacted database: %w", err)
 	}
 
+	return nil
+}
+
+// bootstrapDB creates the buckets and the default settings that are
+// missing: the password admin, 2 concurrent builds and 200 builds kept. Each
+// default is written only if its setting is missing, so settings imported
+// into a new database (--import-settings) keep their values.
+func bootstrapDB(tx *bolt.Tx) error {
+	gb, err := tx.CreateBucketIfNotExists(GlobalBucket)
+	if err != nil {
+		return err
+	}
+	if gb.Get([]byte("password")) == nil {
+		L.Info("creating default password")
+		passwordH, err := bcrypt.GenerateFromPassword([]byte("admin"), bcrypt.DefaultCost)
+		if err != nil {
+			return err
+		}
+		if err := gb.Put([]byte("password"), passwordH); err != nil {
+			return err
+		}
+	}
+	for name, value := range map[string]int{"concurrentBuilds": 2, "buildHistorySize": 200} {
+		if gb.Get([]byte(name)) == nil {
+			if err := gb.Put([]byte(name), IntToByte(value)); err != nil {
+				return err
+			}
+		}
+	}
+	for _, bucket := range [][]byte{JobsBucket, HistoryBucket, APIKeysBucket, QueueBucket, SessionsBucket, SSOGroupsBucket} {
+		if _, err := tx.CreateBucketIfNotExists(bucket); err != nil {
+			return err
+		}
+	}
 	return nil
 }

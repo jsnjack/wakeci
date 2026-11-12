@@ -156,3 +156,14 @@ export function matchJobPattern(pattern, name) {
     }
     return rest.endsWith(parts[parts.length - 1]);
 }
+
+// grantHasScope mirrors Grant.HasScope in the backend: write only counts on
+// a grant that covers all jobs
+export function grantHasScope(grant, scope) {
+    return grant.scopes.includes(scope) && (scope !== "write" || grant.allJobs);
+}
+
+// grantAllows mirrors Grant.HasScope and Grant.CoversJob in the backend
+export function grantAllows(grant, scope, job) {
+    return grantHasScope(grant, scope) && (grant.allJobs || grant.jobs.includes(job) || grant.patterns.some((pattern) => matchJobPattern(pattern, job)));
+}

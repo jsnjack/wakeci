@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"golang.org/x/crypto/acme/autocert"
-	"golang.org/x/crypto/bcrypt"
 
 	"github.com/CAFxX/httpcompression"
 	"github.com/go-chi/chi/v5"
@@ -92,6 +91,7 @@ func initApp() func() {
 	flag.StringVar(&configFlag, "config", "Wakefile.yaml", "Configuration file location")
 	flag.StringVar(&configFlag, "c", "Wakefile.yaml", "Configuration file location (shorthand)")
 	compactDBFlag := flag.Bool("compactdb", false, "Reclaim space in the database which is no longer used")
+	importSettingsFlag := flag.String("import-settings", "", "Import a settings file, as the settings page downloads it, into the database of a stopped server, then exit")
 	versionFlag := false
 	flag.BoolVar(&versionFlag, "version", false, "Print the version and exit.")
 	flag.BoolVar(&versionFlag, "V", false, "Print the version and exit (shorthand).")
@@ -124,6 +124,20 @@ func initApp() func() {
 	}
 	initAuditLogger(os.Stderr, auditServerName(Config.Hostname))
 
+	if *importSettingsFlag != "" {
+		applied, err := importSettingsFile(*importSettingsFlag)
+		if err != nil {
+			L.Error("import settings", "file", *importSettingsFlag, "err", err)
+			auditScheduled("settings.import", "failed", "via", "--import-settings", "file", *importSettingsFlag)
+			cleanup()
+			os.Exit(1)
+		}
+		L.Info("settings imported", "file", *importSettingsFlag, "applied", applied)
+		auditScheduled("settings.import", "ok", append([]any{"via", "--import-settings", "file", *importSettingsFlag}, auditListAttrs("applied", applied)...)...)
+		cleanup()
+		os.Exit(0)
+	}
+
 	if *compactDBFlag {
 		err = CompactDB()
 		if err != nil {
@@ -140,8 +154,24 @@ func initApp() func() {
 
 // @title wakeci API documentation
 // @version 1.0
+// @description Authenticate with an API key (Authorization: Bearer wk_...), or with the admin password as Basic auth with an empty user name.
+// @description A key may only use the routes that name the scope it needs ("API key scope"), and only on its jobs.
+// @description Missing or wrong credentials get 401, a request the key or user may not make gets 403, an unknown route or build 404.
+// @description An API key that sends more requests than the settings allow (by default 10 a second, 120 at once), or a client with too many failed logins, gets 429 with Retry-After.
 
-// @BasePath /api
+// @BasePath /
+
+// swag takes no description for Basic auth; a @description here would replace
+// the API's own description above
+// @securityDefinitions.basic PasswordAuth
+
+// @securityDefinitions.apikey APIKey
+// @in header
+// @name Authorization
+// @description An API key, sent as "Bearer wk_..."
+
+// @security APIKey
+// @security PasswordAuth
 func main() {
 	cleanup := initApp()
 	tasksLeft := run(cleanup)
@@ -216,65 +246,17 @@ func run(cleanup func()) (tasksLeft bool) {
 		fatal("open db", err)
 	}
 	defer func() {
+		// The API key uses touchAPIKey hasn't saved yet
+		if err := flushAPIKeyUses(); err != nil {
+			L.Error("save api key uses", "err", err)
+		}
 		if err := DB.Close(); err != nil {
 			L.Error("close db", "err", err)
 		}
 	}()
 
 	// Bootstrap DB
-	err = DB.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists(JobsBucket)
-		if err != nil {
-			return err
-		}
-
-		gb, err := tx.CreateBucketIfNotExists(GlobalBucket)
-		if err != nil {
-			return err
-		}
-		password := gb.Get([]byte("password"))
-		if password == nil {
-			L.Info("creating default password")
-			passwordH, err := bcrypt.GenerateFromPassword([]byte("admin"), bcrypt.DefaultCost)
-			if err != nil {
-				return err
-			}
-			err = gb.Put([]byte("password"), passwordH)
-			if err != nil {
-				return err
-			}
-			err = gb.Put([]byte("concurrentBuilds"), IntToByte(2))
-			if err != nil {
-				return err
-			}
-			err = gb.Put([]byte("buildHistorySize"), IntToByte(200))
-			if err != nil {
-				return err
-			}
-		}
-
-		_, err = tx.CreateBucketIfNotExists(HistoryBucket)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.CreateBucketIfNotExists(APIKeysBucket)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.CreateBucketIfNotExists(QueueBucket)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.CreateBucketIfNotExists(SessionsBucket)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
+	err = DB.Update(bootstrapDB)
 
 	if err != nil {
 		fatal("bootstrap db", err)
@@ -288,22 +270,31 @@ func run(cleanup func()) (tasksLeft bool) {
 	defer GlobalSessionStorage.saveUnsaved()
 
 	if Config.SSO.Enabled() {
-		GlobalSSOAuth, err = NewSSOAuth(Config.SSO)
+		GlobalSSOAuth, err = NewSSOAuth(Config.SSO, ssoAdmits)
 		if err != nil {
 			fatal("set up sso", err)
 		}
-		L.Info("sso enabled", "groups", Config.SSO.allowedGroups)
+		L.Info("sso enabled")
+		if closed, err := ssoSignInClosed(); err != nil {
+			fatal("read the sso groups", err)
+		} else if closed {
+			L.Warn("sso: no group may sign in; add groups with the admin password in Settings, SSO groups")
+		}
 	}
 
 	GlobalQueue, err = CreateQueue()
 	if err != nil {
 		fatal("create queue", err)
 	}
+	if err := loadAPIKeyLimits(); err != nil {
+		fatal("load api key limits", err)
+	}
 
 	// Builds broadcast their updates, also the restored ones
 	WSHub = newHub()
 	go WSHub.run()
 	GlobalSessionStorage.OnEnd = WSHub.CloseSessions
+	onSSOAccessChange = WSHub.CloseRestricted
 
 	// Runs after the cron jobs ended, so builds they queued are saved with
 	// their on_pending tasks done. A further signal ends the wait
@@ -371,19 +362,11 @@ func run(cleanup func()) (tasksLeft bool) {
 	router.Route("/api", apiRoutes)
 
 	storage := HandleWakespaceResource(http.FileServer(http.Dir(Config.WorkDir + "wakespace")))
-	router.Route("/storage", func(router chi.Router) {
-		// Storage server
-		router.Use(StorageSecurityMi)
-		router.Use(AuthMi)
-		router.Method("GET", "/build/*", storage)
-		router.Method("HEAD", "/build/*", storage)
-	})
+	router.Route("/storage", storageRoutes(storage))
 
-	router.Route("/docs", func(router chi.Router) {
-		router.Use(StorageSecurityMi)
-		router.Get("/api/", HandleAPIDocsView)
-		router.Method("GET", "/swagger.json", http.FileServer(http.FS(APIDocs)))
-	})
+	router.Route("/docs", docsRoutes)
+	router.Get("/llms.txt", HandleAgentGuide)
+	router.Get("/llms-full.txt", HandleAPIMarkdown)
 
 	vuefs := http.FileServer(http.FS(Assets))
 	router.Method("GET", "/*", HandleVueResources(vuefs))
@@ -393,7 +376,7 @@ func run(cleanup func()) (tasksLeft bool) {
 		fatal("create compression adapter", err)
 	}
 
-	handler := compress(routeAPIKeys(newAPIKeyRouter(storage), router))
+	handler := withCompression(compress, routeAPIKeys(newAPIKeyRouter(storage), router))
 	server := &http.Server{
 		Addr:    ":" + Config.Port,
 		Handler: handler,
@@ -459,6 +442,8 @@ func run(cleanup func()) (tasksLeft bool) {
 		L.Warn("Listening on :" + Config.Port)
 	}
 
+	// Requests that wait for a build would hold up the shutdown
+	server.RegisterOnShutdown(buildWaitsEnd.stop)
 	// A scheduled build would start queued ones too
 	GlobalCron.Start()
 	GlobalQueue.Take()
@@ -471,48 +456,104 @@ func run(cleanup func()) (tasksLeft bool) {
 	return tasksLeft
 }
 
+// docsRoutes registers the API documentation. It is public, and also
+// served to requests with an API key, so agents can read it with their key.
+func docsRoutes(router chi.Router) {
+	router.Use(StorageSecurityMi)
+	router.Get("/api/", HandleAPIDocsView)
+	router.Get("/api.md", HandleAPIMarkdown)
+	router.Method("GET", "/swagger.json", http.FileServer(http.FS(APIDocs)))
+	router.Get("/mcp.json", HandleMCPDocs)
+}
+
+// storageRoutes registers the /storage routes, which serve the files of
+// builds with storage, for logged-in users and the admin password
+// @Summary      Download a file of a build
+// @Description  GET /api/build/{id} gives the URL of each task's log (status_update.tasks[].log, absent for a task that wrote none) and of each artifact (status_update.build_artifacts[].url). They are task_<id>.log and artifacts/<filename>, so a job that collects artifacts/** has paths such as artifacts/artifacts/report.json. Supports HEAD and Range, e.g. Range: bytes=-65536 for the end of a log. API key scope: read
+// @Tags         build
+// @Produce      plain
+// @Param        id       path    integer   true   "Build ID"
+// @Param        path     path    string    true   "File in the build, may contain /"
+// @Param        Range    header  string    false  "Byte range, e.g. bytes=-65536"
+// @Success      200      {file}     file
+// @Success      206      {file}     file
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      404      {string}   string
+// @Failure      429      {string}   string
+// @Router       /storage/build/{id}/{path} [get]
+func storageRoutes(storage http.Handler) func(chi.Router) {
+	return func(router chi.Router) {
+		router.Use(StorageSecurityMi)
+		router.Use(AuthMi)
+		router.With(requireAccess(ScopeRead, jobFromStorage)).Method("GET", "/build/*", storage)
+		router.With(requireAccess(ScopeRead, jobFromStorage)).Method("HEAD", "/build/*", storage)
+	}
+}
+
 // apiRoutes registers the /api routes for logged-in users and the admin
-// password. API keys use newAPIKeyRouter instead.
+// password. API keys use newAPIKeyRouter instead. Every route says what it
+// needs: a single sign-on user only gets what their groups allow, while the
+// admin password passes every check.
 func apiRoutes(router chi.Router) {
 	// Before AuthMi, so refused changes are audited too
 	router.Use(AuditMi)
 	router.Use(AuthMi)
-	router.Get("/feed", HandleFeedView)
+	router.With(requireAccess(ScopeRead, nil)).Get("/feed", HandleFeedView)
 
 	router.Route("/jobs", func(router chi.Router) {
-		router.Get("/", HandleJobsView)
-		router.Post("/create", HandleJobsCreate)
+		router.With(requireAccess(ScopeRead, nil)).Get("/", HandleJobsView)
+		router.With(requireAccess(ScopeWrite, nil)).Post("/create", HandleJobsCreate)
 	})
 
 	router.Route("/job", func(router chi.Router) {
-		router.Post("/{name}/run", HandleRunJob)
-		router.Delete("/{name}", HandleDeleteJob)
-		router.Post("/{name}", HandleJobPost)
-		router.Get("/{name}", HandleJobGet)
-		router.Post("/{name}/set_active", HandleJobSetActive)
+		router.With(requireAccess(ScopeRun, jobFromName), rejectUnsafeParams).Post("/{name}/run", HandleRunJob)
+		router.With(requireAccess(ScopeWrite, jobFromName)).Delete("/{name}", HandleDeleteJob)
+		router.With(requireAccess(ScopeWrite, jobFromName)).Post("/{name}", HandleJobPost)
+		router.With(requireAccess(ScopeRead, jobFromName)).Get("/{name}", HandleJobGet)
+		router.With(requireAccess(ScopeWrite, jobFromName)).Post("/{name}/set_active", HandleJobSetActive)
 	})
 
 	router.Route("/build", func(router chi.Router) {
-		router.Get("/{id}", HandleGetBuild)
-		router.Post("/{id}/abort", HandleAbortBuild)
-		router.Post("/{id}/flush", HandleFlushTaskLogs)
-		router.Post("/{id}/start", HandleStartBuild)
+		router.With(requireAccess(ScopeRead, jobFromBuild)).Get("/{id}", HandleGetBuild)
+		router.With(requireAccess(ScopeRead, jobFromBuild)).Get("/{id}/summary", HandleBuildSummary)
+		router.With(requireAccess(ScopeRead, jobFromBuild)).Get("/{id}/log/{task}", HandleTaskLog)
+		router.With(requireAccess(ScopeRun, jobFromBuild)).Post("/{id}/abort", HandleAbortBuild)
+		router.With(requireAccess(ScopeRun, jobFromBuild)).Post("/{id}/flush", HandleFlushTaskLogs)
+		router.With(requireAccess(ScopeRun, jobFromBuild)).Post("/{id}/start", HandleStartBuild)
 	})
 
-	router.Get("/settings", HandleSettingsGet)
-	router.Post("/settings", HandleSettingsPost)
+	// Write can run any command on the server, so it may change the
+	// server's settings too
+	router.With(requireAccess(ScopeWrite, nil)).Get("/settings", HandleSettingsGet)
+	router.With(requireAccess(ScopeWrite, nil)).Post("/settings", HandleSettingsPost)
+	router.With(requireAdmin).Get("/settings/export", HandleSettingsExport)
+	router.With(requireAdmin).Post("/settings/import", HandleSettingsImport)
 
+	// Every logged-in user: the queue banner shows the server's state
 	router.Get("/queue/", HandleQueueGet)
+	router.Get("/whoami", HandleWhoAmI)
 
 	router.Route("/update", func(router chi.Router) {
-		router.Get("/", HandleUpdateGet)
-		router.Post("/", HandleUpdatePost)
+		router.With(requireAccess(ScopeWrite, nil)).Get("/", HandleUpdateGet)
+		router.With(requireAccess(ScopeWrite, nil)).Post("/", HandleUpdatePost)
 	})
 
+	// Every logged-in user manages their own keys; the handlers check the
+	// rest
 	router.Route("/keys", func(router chi.Router) {
 		router.Get("/", HandleAPIKeysList)
 		router.Post("/", HandleAPIKeyCreate)
 		router.Delete("/", HandleAPIKeysRevokeBy)
 		router.Delete("/{id}", HandleAPIKeyRevoke)
 	})
+
+	router.Route("/groups", func(router chi.Router) {
+		router.With(requireAdmin).Get("/", HandleSSOGroupsList)
+		router.With(requireAdmin).Post("/", HandleSSOGroupCreate)
+		router.With(requireAdmin).Post("/{name}", HandleSSOGroupUpdate)
+		router.With(requireAdmin).Delete("/{name}", HandleSSOGroupDelete)
+	})
+	router.With(requireAdmin).Post("/nogroup", HandleSSONoGroupSet)
+	router.With(requireAdmin).Delete("/nogroup", HandleSSONoGroupDelete)
 }

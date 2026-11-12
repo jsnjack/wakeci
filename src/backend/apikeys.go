@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"net/http"
 	"net/url"
 	"path"
@@ -69,20 +70,30 @@ const apiKeyContextKey contextKey = "apiKey"
 
 // APIKey is what wakeci keeps about an API key, apart from its secret
 type APIKey struct {
-	ID     string   `json:"id"`
-	Name   string   `json:"name"`
-	Scopes []string `json:"scopes"`
-	// AllJobs covers every job, including jobs added later. Otherwise the key
-	// covers Jobs by exact name and the jobs that Patterns match.
-	AllJobs  bool     `json:"allJobs"`
-	Jobs     []string `json:"jobs"`
-	Patterns []string `json:"patterns"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	// Grant is what the key may do; its fields sit next to the others in JSON
+	Grant
 	// CreatedBy is the single sign-on email of whoever created the key, empty
 	// if they used the password. It lets offboarding revoke a person's keys.
-	CreatedBy  string     `json:"createdBy"`
-	CreatedAt  time.Time  `json:"createdAt"`
-	ExpiresAt  *time.Time `json:"expiresAt,omitempty"`
-	LastUsedAt *time.Time `json:"lastUsedAt,omitempty"`
+	CreatedBy string `json:"createdBy"`
+	// CreatorGroups are the creator's single sign-on groups as of their last
+	// login; the key can't do more than these groups allow, as its creator
+	// couldn't. Null for a key made with the admin password or before wakeci
+	// recorded them, which no group limits. Groups that match none in the
+	// settings, [] included, allow what "People in no group" allows, which is
+	// nothing while it is off. Stored with the key, so null and [] must stay
+	// apart.
+	CreatorGroups []string   `json:"creatorGroups" extensions:"x-nullable"`
+	CreatedAt     time.Time  `json:"createdAt"`
+	ExpiresAt     *time.Time `json:"expiresAt,omitempty"`
+	LastUsedAt    *time.Time `json:"lastUsedAt,omitempty"`
+	// Uses counts the requests made with the key that got past its checks;
+	// an MCP tool call counts once
+	Uses int64 `json:"uses"`
+	// UsesByDay are the requests of each of the last 30 days that had any,
+	// oldest first, in the server's time zone
+	UsesByDay []DayUses `json:"usesByDay"`
 }
 
 // storedAPIKey is an API key as stored in APIKeysBucket. Only a hash of the
@@ -98,45 +109,8 @@ type NewAPIKeyData struct {
 	Token string  `json:"token"`
 }
 
-// HasScope reports whether the key grants scope. Write lets a key run any
-// command on the server, so it only counts on a key that covers all jobs.
-func (k *APIKey) HasScope(scope string) bool {
-	return slices.Contains(k.Scopes, scope) && (scope != ScopeWrite || k.AllJobs)
-}
-
-// CoversJob reports whether the key can be used on the job name
-func (k *APIKey) CoversJob(name string) bool {
-	return k.AllJobs || slices.Contains(k.Jobs, name) ||
-		slices.ContainsFunc(k.Patterns, func(pattern string) bool {
-			return matchJobPattern(pattern, name)
-		})
-}
-
 func (k *APIKey) expired(now time.Time) bool {
 	return k.ExpiresAt != nil && !now.Before(*k.ExpiresAt)
-}
-
-// matchJobPattern reports whether name matches pattern, in which * matches
-// any run of characters and every other character only itself
-func matchJobPattern(pattern, name string) bool {
-	parts := strings.Split(pattern, "*")
-	if len(parts) == 1 {
-		return pattern == name
-	}
-	rest, ok := strings.CutPrefix(name, parts[0])
-	if !ok {
-		return false
-	}
-	// Taking each middle part at its first match leaves the most room for
-	// the ones after it
-	for _, part := range parts[1 : len(parts)-1] {
-		i := strings.Index(rest, part)
-		if i < 0 {
-			return false
-		}
-		rest = rest[i+len(part):]
-	}
-	return strings.HasSuffix(rest, parts[len(parts)-1])
 }
 
 // apiKeyFromContext returns the API key a request was authorized with, or nil
@@ -213,14 +187,17 @@ func verifyAPIKey(token string, now time.Time) (*APIKey, error) {
 // touchAPIKey records that the key was used, unless that was recorded less
 // than apiKeyTouchInterval ago
 func touchAPIKey(key *APIKey, now time.Time) error {
+	apiKeyUses.add(key.ID, now)
 	if key.LastUsedAt != nil && now.Sub(*key.LastUsedAt) < apiKeyTouchInterval {
 		return nil
 	}
-	return DB.Update(func(tx *bolt.Tx) error {
+	var taken keyUse
+	err := DB.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(APIKeysBucket)
 		data := b.Get([]byte(key.ID))
 		// Revoked since it was checked: writing it would bring it back
 		if data == nil {
+			apiKeyUses.take(key.ID)
 			return nil
 		}
 		var stored storedAPIKey
@@ -231,13 +208,55 @@ func touchAPIKey(key *APIKey, now time.Time) error {
 		if stored.LastUsedAt != nil && now.Sub(*stored.LastUsedAt) < apiKeyTouchInterval {
 			return nil
 		}
-		stored.LastUsedAt = &now
+		taken = apiKeyUses.take(key.ID)
+		taken.addTo(&stored.APIKey)
 		updated, err := json.Marshal(stored)
 		if err != nil {
 			return err
 		}
 		return b.Put([]byte(key.ID), updated)
 	})
+	if err != nil {
+		apiKeyUses.putBack(key.ID, taken)
+	}
+	return err
+}
+
+// flushAPIKeyUses saves the uses of every key that touchAPIKey hasn't saved
+// yet, e.g. before wakeci stops
+func flushAPIKeyUses() error {
+	uses := apiKeyUses.takeAll()
+	if len(uses) == 0 {
+		return nil
+	}
+	err := DB.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(APIKeysBucket)
+		for id, use := range uses {
+			data := b.Get([]byte(id))
+			if data == nil {
+				continue
+			}
+			var stored storedAPIKey
+			if err := json.Unmarshal(data, &stored); err != nil {
+				return err
+			}
+			use.addTo(&stored.APIKey)
+			updated, err := json.Marshal(stored)
+			if err != nil {
+				return err
+			}
+			if err := b.Put([]byte(id), updated); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		for id, use := range uses {
+			apiKeyUses.putBack(id, use)
+		}
+	}
+	return err
 }
 
 // apiKeyFromForm validates a request to create a key and returns the key,
@@ -245,9 +264,8 @@ func touchAPIKey(key *APIKey, now time.Time) error {
 func apiKeyFromForm(form url.Values, now time.Time) (*APIKey, error) {
 	key := &APIKey{
 		Name:      strings.TrimSpace(form.Get("name")),
-		Jobs:      []string{},
-		Patterns:  []string{},
 		CreatedAt: now,
+		UsesByDay: []DayUses{},
 	}
 	if key.Name == "" {
 		return nil, fmt.Errorf("give the key a name")
@@ -255,43 +273,11 @@ func apiKeyFromForm(form url.Values, now time.Time) (*APIKey, error) {
 	if utf8.RuneCountInString(key.Name) > maxAPIKeyNameLength {
 		return nil, fmt.Errorf("the name is longer than %d characters", maxAPIKeyNameLength)
 	}
-
-	for _, scope := range form["scope"] {
-		if !slices.Contains(apiKeyScopes, scope) {
-			return nil, fmt.Errorf("unknown scope %q", scope)
-		}
+	grant, err := grantFromForm(form)
+	if err != nil {
+		return nil, err
 	}
-	for _, scope := range apiKeyScopes {
-		if slices.Contains(form["scope"], scope) {
-			key.Scopes = append(key.Scopes, scope)
-		}
-	}
-	if len(key.Scopes) == 0 {
-		return nil, fmt.Errorf("select at least one scope")
-	}
-
-	switch form.Get("allJobs") {
-	case "true":
-		key.AllJobs = true
-	case "false", "":
-	default:
-		return nil, fmt.Errorf("allJobs must be true or false")
-	}
-	if !key.AllJobs {
-		var err error
-		if key.Jobs, err = uniqueJobNames(form["job"]); err != nil {
-			return nil, err
-		}
-		if key.Patterns, err = uniqueJobNames(form["pattern"]); err != nil {
-			return nil, err
-		}
-		if len(key.Jobs) == 0 && len(key.Patterns) == 0 {
-			return nil, fmt.Errorf("select a job or enter a pattern")
-		}
-		if slices.Contains(key.Scopes, ScopeWrite) {
-			return nil, fmt.Errorf("write can run any command on the server, so it needs access to all jobs")
-		}
-	}
+	key.Grant = grant
 
 	days, err := strconv.Atoi(form.Get("expiresInDays"))
 	if err != nil || days < 0 || days > maxAPIKeyExpiryDays {
@@ -304,18 +290,45 @@ func apiKeyFromForm(form url.Values, now time.Time) (*APIKey, error) {
 	return key, nil
 }
 
-// uniqueJobNames checks job names or patterns and drops repeats
-func uniqueJobNames(values []string) ([]string, error) {
-	names := []string{}
-	for _, value := range values {
-		if !isValidJobName(value) {
-			return nil, fmt.Errorf("invalid job name or pattern %q", value)
+// refreshKeyCreatorGroups records groups as the creator groups of the keys
+// email created, so that the keys follow the groups the person is in now.
+// No groups is recorded as [], which allows nothing; null would mean no
+// limit.
+func refreshKeyCreatorGroups(email string, groups []string) error {
+	apiKeyOwnersMu.Lock()
+	defer apiKeyOwnersMu.Unlock()
+	return DB.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(APIKeysBucket)
+		updates := map[string][]byte{}
+		err := b.ForEach(func(k, v []byte) error {
+			var stored storedAPIKey
+			if err := json.Unmarshal(v, &stored); err != nil {
+				return fmt.Errorf("decode api key: %w", err)
+			}
+			// slices.Equal takes null for [], but a key without creator
+			// groups has no limit
+			if !strings.EqualFold(stored.CreatedBy, email) || (stored.CreatorGroups != nil && slices.Equal(stored.CreatorGroups, groups)) {
+				return nil
+			}
+			stored.CreatorGroups = append([]string{}, groups...)
+			data, err := json.Marshal(stored)
+			if err != nil {
+				return fmt.Errorf("encode api key: %w", err)
+			}
+			updates[string(k)] = data
+			return nil
+		})
+		if err != nil {
+			return err
 		}
-		if !slices.Contains(names, value) {
-			names = append(names, value)
+		// Not inside ForEach: Bolt doesn't allow changing a bucket it iterates
+		for k, data := range updates {
+			if err := b.Put([]byte(k), data); err != nil {
+				return err
+			}
 		}
-	}
-	return names, nil
+		return nil
+	})
 }
 
 // saveNewAPIKey stores key under a new ID and returns its token
@@ -388,6 +401,11 @@ type APIKeysData struct {
 	// People, for the admin, are everyone with a key or a single sign-on
 	// session: whose access can be revoked
 	People []string `json:"people,omitempty"`
+	// SignedIn, for the admin, are the people with a single sign-on session,
+	// lowercased
+	SignedIn []string `json:"signedIn,omitempty"`
+	// Today is the server's date, the last day of usesByDay
+	Today string `json:"today"`
 }
 
 // HandleAPIKeysList returns the API keys the requester may see, newest
@@ -397,9 +415,11 @@ type APIKeysData struct {
 // @Tags         keys
 // @Produce      json
 // @Success      200      {object}   APIKeysData
+// @Failure      401      {string}   string
 // @Failure      403      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}   string
-// @Router       /keys/ [get]
+// @Router       /api/keys/ [get]
 func HandleAPIKeysList(w http.ResponseWriter, r *http.Request) {
 	logger := requestLogger(r)
 	user, err := requestUser(r)
@@ -409,6 +429,7 @@ func HandleAPIKeysList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	keys := []*APIKey{}
+	now := time.Now()
 	err = DB.View(func(tx *bolt.Tx) error {
 		return tx.Bucket(APIKeysBucket).ForEach(func(_, data []byte) error {
 			var stored storedAPIKey
@@ -416,6 +437,9 @@ func HandleAPIKeysList(w http.ResponseWriter, r *http.Request) {
 				return err
 			}
 			if user == "" || strings.EqualFold(stored.CreatedBy, user) {
+				// With the uses not saved yet, so the numbers are exact
+				apiKeyUses.peek(stored.ID).addTo(&stored.APIKey)
+				pruneUsage(&stored.APIKey, now)
 				keys = append(keys, &stored.APIKey)
 			}
 			return nil
@@ -429,9 +453,17 @@ func HandleAPIKeysList(w http.ResponseWriter, r *http.Request) {
 	slices.SortFunc(keys, func(a, b *APIKey) int {
 		return b.CreatedAt.Compare(a.CreatedAt)
 	})
-	data := APIKeysData{Admin: user == "", Keys: keys}
+	data := APIKeysData{Admin: user == "", Keys: keys, Today: usageDay(now)}
 	if data.Admin {
-		data.People = keyPeople(keys, GlobalSessionStorage.Users())
+		users := GlobalSessionStorage.Users()
+		data.People = keyPeople(keys, users)
+		data.SignedIn = []string{}
+		for _, person := range users {
+			if person = strings.ToLower(person); !slices.Contains(data.SignedIn, person) {
+				data.SignedIn = append(data.SignedIn, person)
+			}
+		}
+		slices.Sort(data.SignedIn)
 	}
 	writeJSON(w, logger, data)
 }
@@ -470,8 +502,11 @@ func keyPeople(keys []*APIKey, signedIn []string) []string {
 // @Param        expiresInDays  formData  integer   true   "Days until the key expires, 0 for never"
 // @Success      200      {object}   NewAPIKeyData
 // @Failure      400      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}   string
-// @Router       /keys/ [post]
+// @Router       /api/keys/ [post]
 func HandleAPIKeyCreate(w http.ResponseWriter, r *http.Request) {
 	logger := requestLogger(r)
 	if err := r.ParseForm(); err != nil {
@@ -491,6 +526,19 @@ func HandleAPIKeyCreate(w http.ResponseWriter, r *http.Request) {
 		writePlainText(w, logger, http.StatusForbidden, "Forbidden")
 		return
 	}
+	if key.CreatedBy != "" {
+		access := accessFromContext(r.Context())
+		if access == nil {
+			writePlainText(w, logger, http.StatusForbidden, "Forbidden")
+			return
+		}
+		if err := access.checkWithin(&key.Grant); err != nil {
+			writePlainText(w, logger, http.StatusForbidden, "The key can't do more than you: "+err.Error())
+			return
+		}
+		// Never nil, which would leave the key unlimited by groups
+		key.CreatorGroups = append([]string{}, access.groups...)
+	}
 	token, err := saveNewAPIKey(key)
 	if err != nil {
 		logger.Error("save api key", "err", err)
@@ -509,13 +557,15 @@ func HandleAPIKeyCreate(w http.ResponseWriter, r *http.Request) {
 // @Summary      Revoke all API keys of a person and sign them out
 // @Description  Only with the admin password; not available with an API key
 // @Tags         keys
-// @Produce      plain
+// @Produce      json
 // @Param        createdBy  query      string   true   "Single sign-on email the keys were created with"
 // @Success      200        {object}   RevokedData
 // @Failure      400        {string}   string
+// @Failure      401      {string}   string
 // @Failure      403        {string}   string
+// @Failure      429      {string}   string
 // @Failure      500        {string}   string
-// @Router       /keys/ [delete]
+// @Router       /api/keys/ [delete]
 func HandleAPIKeysRevokeBy(w http.ResponseWriter, r *http.Request) {
 	logger := requestLogger(r)
 	if user, err := requestUser(r); err != nil || user != "" {
@@ -578,9 +628,12 @@ func HandleAPIKeysRevokeBy(w http.ResponseWriter, r *http.Request) {
 // @Produce      plain
 // @Param        id       path       string   true   "ID of the key"
 // @Success      200      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
 // @Failure      404      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}   string
-// @Router       /keys/{id} [delete]
+// @Router       /api/keys/{id} [delete]
 func HandleAPIKeyRevoke(w http.ResponseWriter, r *http.Request) {
 	logger := requestLogger(r)
 	user, err := requestUser(r)
@@ -657,13 +710,18 @@ func routeAPIKeys(keyRouter, router http.Handler) http.Handler {
 
 // newAPIKeyRouter routes requests that carry an API key. Only the routes
 // registered here accept keys, each with the scope it needs and the job it
-// acts on; anything else gets 403. So a route added to the main router stays
-// closed to keys until it is added here too.
+// acts on; any other route gets 403. So a route added to the main router
+// stays closed to keys until it is added here too.
 func newAPIKeyRouter(storage http.Handler) http.Handler {
 	router := chi.NewRouter()
+	// Only to tell an /api route that keys can't use from one that doesn't
+	// exist; it never serves a request
+	passwordRoutes := chi.NewRouter()
+	passwordRoutes.Route("/api", apiRoutes)
+	reject := rejectAPIKeyRoute(passwordRoutes, router)
 	// Set before the routes, so the sub-routers get them too
-	router.NotFound(rejectAPIKeyRoute)
-	router.MethodNotAllowed(rejectAPIKeyRoute)
+	router.NotFound(reject)
+	router.MethodNotAllowed(reject)
 	router.Use(LogMi)
 	router.Use(SecurityMi)
 	router.Use(CORSMi)
@@ -673,41 +731,100 @@ func newAPIKeyRouter(storage http.Handler) http.Handler {
 
 	router.Route("/api", func(router chi.Router) {
 		// Lists are filtered to the key's jobs by their handlers
-		router.With(requireAPIKey(ScopeRead, nil)).Get("/feed", HandleFeedView)
+		router.With(requireAccess(ScopeRead, nil)).Get("/feed", HandleFeedView)
+		// Every key: what it may do
+		router.Get("/whoami", HandleWhoAmI)
 
 		router.Route("/jobs", func(router chi.Router) {
-			router.With(requireAPIKey(ScopeRead, nil)).Get("/", HandleJobsView)
-			router.With(requireAPIKey(ScopeWrite, nil)).Post("/create", HandleJobsCreate)
+			router.With(requireAccess(ScopeRead, nil)).Get("/", HandleJobsView)
+			router.With(requireAccess(ScopeWrite, nil)).Post("/create", HandleJobsCreate)
 		})
 
 		router.Route("/job", func(router chi.Router) {
-			router.With(requireAPIKey(ScopeRun, jobFromName), rejectUnsafeParams).Post("/{name}/run", HandleRunJob)
-			router.With(requireAPIKey(ScopeWrite, jobFromName)).Delete("/{name}", HandleDeleteJob)
-			router.With(requireAPIKey(ScopeWrite, jobFromName)).Post("/{name}", HandleJobPost)
-			router.With(requireAPIKey(ScopeRead, jobFromName)).Get("/{name}", HandleJobGet)
-			router.With(requireAPIKey(ScopeWrite, jobFromName)).Post("/{name}/set_active", HandleJobSetActive)
+			router.With(requireAccess(ScopeRun, jobFromName), rejectUnsafeParams).Post("/{name}/run", HandleRunJob)
+			router.With(requireAccess(ScopeWrite, jobFromName)).Delete("/{name}", HandleDeleteJob)
+			router.With(requireAccess(ScopeWrite, jobFromName)).Post("/{name}", HandleJobPost)
+			router.With(requireAccess(ScopeRead, jobFromName)).Get("/{name}", HandleJobGet)
+			router.With(requireAccess(ScopeWrite, jobFromName)).Post("/{name}/set_active", HandleJobSetActive)
 		})
 
 		router.Route("/build", func(router chi.Router) {
-			router.With(requireAPIKey(ScopeRead, jobFromBuild)).Get("/{id}", HandleGetBuild)
-			router.With(requireAPIKey(ScopeRun, jobFromBuild)).Post("/{id}/abort", HandleAbortBuild)
-			router.With(requireAPIKey(ScopeRun, jobFromBuild)).Post("/{id}/flush", HandleFlushTaskLogs)
-			router.With(requireAPIKey(ScopeRun, jobFromBuild)).Post("/{id}/start", HandleStartBuild)
+			router.With(requireAccess(ScopeRead, jobFromBuild)).Get("/{id}", HandleGetBuild)
+			router.With(requireAccess(ScopeRead, jobFromBuild)).Get("/{id}/summary", HandleBuildSummary)
+			router.With(requireAccess(ScopeRead, jobFromBuild)).Get("/{id}/log/{task}", HandleTaskLog)
+			router.With(requireAccess(ScopeRun, jobFromBuild)).Post("/{id}/abort", HandleAbortBuild)
+			router.With(requireAccess(ScopeRun, jobFromBuild)).Post("/{id}/flush", HandleFlushTaskLogs)
+			router.With(requireAccess(ScopeRun, jobFromBuild)).Post("/{id}/start", HandleStartBuild)
 		})
 	})
 
 	router.Route("/storage", func(router chi.Router) {
 		router.Use(StorageSecurityMi)
-		router.With(requireAPIKey(ScopeRead, jobFromStorage)).Method("GET", "/build/*", storage)
-		router.With(requireAPIKey(ScopeRead, jobFromStorage)).Method("HEAD", "/build/*", storage)
+		router.With(requireAccess(ScopeRead, jobFromStorage)).Method("GET", "/build/*", storage)
+		router.With(requireAccess(ScopeRead, jobFromStorage)).Method("HEAD", "/build/*", storage)
 	})
+
+	router.Route("/docs", docsRoutes)
+	router.Get("/llms.txt", HandleAgentGuide)
+	router.Get("/llms-full.txt", HandleAPIMarkdown)
+
+	// The API as MCP tools for agents; each tool calls the routes above with
+	// the request's key
+	router.Post("/mcp", newMCPHandler(router).ServeHTTP)
 	return router
 }
 
-func rejectAPIKeyRoute(w http.ResponseWriter, r *http.Request) {
-	logger := requestLogger(r)
-	logger.Warn("api key used on a route that doesn't accept keys", "method", r.Method, "path", r.URL.Path)
-	writePlainText(w, logger, http.StatusForbidden, "API keys can't be used here")
+// rejectAPIKeyRoute answers a key's request that the key router has no route
+// for. Under /api, a path that doesn't exist gets 404 and one that exists
+// only with other methods gets 405, so that a client can tell a mistyped URL
+// from a route closed to keys. Everything else gets 403.
+func rejectAPIKeyRoute(passwordRoutes, keyRoutes chi.Routes) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		logger := requestLogger(r)
+		routePath := r.URL.Path
+		if r.URL.RawPath != "" {
+			routePath = r.URL.RawPath
+		}
+		if !strings.HasPrefix(routePath, "/api/") || hasRoute(passwordRoutes, r.Method, routePath) {
+			logger.Warn("api key used on a route that doesn't accept keys", "method", r.Method, "path", r.URL.Path)
+			writePlainText(w, logger, http.StatusForbidden, "API keys can't be used here"+pageAPIHint(r.URL.Path))
+			return
+		}
+		var allowed []string
+		for _, method := range routeMethods {
+			if hasRoute(keyRoutes, method, routePath) || hasRoute(passwordRoutes, method, routePath) {
+				allowed = append(allowed, method)
+			}
+		}
+		if len(allowed) > 0 {
+			w.Header().Set("Allow", strings.Join(allowed, ", "))
+			writePlainText(w, logger, http.StatusMethodNotAllowed, r.Method+" isn't allowed on "+r.URL.Path)
+			return
+		}
+		writePlainText(w, logger, http.StatusNotFound, "No API route "+r.URL.Path+"; the routes are listed in /llms-full.txt")
+	}
+}
+
+// pageAPIHint points from a web page, such as the build page a GitHub
+// status links to, to the API route an agent wants instead
+func pageAPIHint(urlPath string) string {
+	parts := strings.Split(strings.Trim(urlPath, "/"), "/")
+	if len(parts) == 2 && parts[0] == "build" {
+		if id, err := strconv.Atoi(parts[1]); err == nil && id > 0 {
+			return fmt.Sprintf("; this is the web page of build %d, its API is /api/build/%d and /api/build/%d/summary", id, id, id)
+		}
+	}
+	if len(parts) == 2 && parts[0] == "job" && parts[1] != "" {
+		return "; this is the web page of a job, its API is /api/job/" + parts[1]
+	}
+	return "; see /llms.txt"
+}
+
+// routeMethods are the methods the API's routes use
+var routeMethods = []string{http.MethodGet, http.MethodHead, http.MethodPost, http.MethodDelete}
+
+func hasRoute(routes chi.Routes, method, routePath string) bool {
+	return routes.Find(chi.NewRouteContext(), method, routePath) != ""
 }
 
 // APIKeyAuthMi checks the API key a request carries and adds it to the context
@@ -737,49 +854,56 @@ func APIKeyAuthMi(next http.Handler) http.Handler {
 		}
 		logger = logger.With("apiKey", key.ID)
 		setRequestUser(r, "apikey", key.CreatedBy, key.ID)
-		if err := touchAPIKey(key, now); err != nil {
-			logger.Error("record api key use", "err", err)
+		// An MCP tool's call of a route was counted and limited as the
+		// request to /mcp; its key is still checked
+		if r.Context().Value(mcpCallKey{}) == nil {
+			if wait, started := apiKeyRequestLimiter.take(key.ID, now); wait > 0 {
+				burst, rate := apiKeyRequestLimiter.limits()
+				if started {
+					logger.Warn("api key sends too many requests", "burst", burst, "perSecond", rate)
+				}
+				seconds := max(1, int(math.Ceil(wait.Seconds())))
+				w.Header().Set("Retry-After", strconv.Itoa(seconds))
+				writePlainText(w, logger, http.StatusTooManyRequests,
+					fmt.Sprintf("This API key sent more than %d requests a second; try again in %d s", rate, seconds))
+				return
+			}
+			if err := touchAPIKey(key, now); err != nil {
+				logger.Error("record api key use", "err", err)
+			}
+		}
+		access, err := apiKeyAccess(key)
+		if err != nil {
+			logger.Error("find api key access", "err", err)
+			writePlainText(w, logger, http.StatusInternalServerError, "Can't read the access of this API key")
+			return
 		}
 		ctx := context.WithValue(r.Context(), HL, logger)
 		ctx = context.WithValue(ctx, apiKeyContextKey, key)
+		ctx = context.WithValue(ctx, accessContextKey{}, access)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// apiKeyAccess is what a request with key may do: what the key grants and,
+// for a key made by a single sign-on user, also what the creator's groups
+// allow now. Keys made with the admin password, and keys made before wakeci
+// recorded the creator's groups, are limited by their grant only.
+func apiKeyAccess(key *APIKey) (*Access, error) {
+	access := &Access{Grants: []Grant{key.Grant}, subject: "This API key"}
+	if key.CreatedBy != "" && key.CreatorGroups != nil {
+		within, err := ssoGroupsAccess(key.CreatorGroups)
+		if err != nil {
+			return nil, err
+		}
+		access.Within = within
+	}
+	return access, nil
 }
 
 // jobResolver returns the job a request acts on, or the response status and
 // error when it can't
 type jobResolver func(r *http.Request) (string, int, error)
-
-// requireAPIKey lets a request through if its API key has scope and, when
-// jobOf is set, covers the job the request acts on
-func requireAPIKey(scope string, jobOf jobResolver) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			logger := requestLogger(r)
-			key := apiKeyFromContext(r.Context())
-			if key == nil || !key.HasScope(scope) {
-				logger.Warn("api key lacks scope", "scope", scope)
-				writePlainText(w, logger, http.StatusForbidden, "This API key doesn't have the "+scope+" scope")
-				return
-			}
-			if jobOf != nil {
-				job, status, err := jobOf(r)
-				if err != nil {
-					logger.Warn("find job for api key", "err", err)
-					writePlainText(w, logger, status, err.Error())
-					return
-				}
-				if !key.CoversJob(job) {
-					logger.Warn("api key doesn't cover job", "job", job)
-					// The job of a build is only known to keys that cover it
-					writePlainText(w, logger, http.StatusForbidden, "This API key doesn't cover that job")
-					return
-				}
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
-}
 
 func jobFromName(r *http.Request) (string, int, error) {
 	name, err := jobNameParam(r)
@@ -790,10 +914,9 @@ func jobFromName(r *http.Request) (string, int, error) {
 }
 
 func jobFromBuild(r *http.Request) (string, int, error) {
-	idp := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idp)
+	id, err := buildIDParam(r)
 	if err != nil {
-		return "", http.StatusBadRequest, fmt.Errorf("invalid build ID %q", idp)
+		return "", http.StatusBadRequest, err
 	}
 	return buildJob(id)
 }
@@ -806,56 +929,68 @@ func jobFromStorage(r *http.Request) (string, int, error) {
 	first, _, _ := strings.Cut(strings.TrimPrefix(cleaned, "/"), "/")
 	id, err := strconv.Atoi(first)
 	if err != nil || strconv.Itoa(id) != first {
-		return "", http.StatusForbidden, fmt.Errorf("API keys can only read the files of a build")
+		return "", http.StatusForbidden, fmt.Errorf("only the files of a build can be read here")
 	}
 	return buildJob(id)
 }
 
 // buildJob returns the name of the job that build id belongs to
 func buildJob(id int) (string, int, error) {
-	var build BuildUpdateData
-	err := DB.View(func(tx *bolt.Tx) error {
-		data := tx.Bucket(HistoryBucket).Get(Itob(id))
-		if data == nil {
-			return errBuildNotFound
-		}
-		return json.Unmarshal(data, &build)
-	})
+	build, err := readBuildStatus(id)
 	switch {
 	case errors.Is(err, errBuildNotFound):
-		return "", http.StatusNotFound, fmt.Errorf("build %d not found", id)
+		return "", http.StatusNotFound, err
 	case err != nil:
-		return "", http.StatusInternalServerError, fmt.Errorf("read build %d: %w", id, err)
+		return "", http.StatusInternalServerError, err
 	}
 	return build.Name, 0, nil
 }
 
+// paramsUntrusted reports whether the run parameters of a request come from
+// someone who may not edit jobs: an API key, or a single sign-on user whose
+// groups don't give write. Whoever may edit jobs could make a job do
+// anything, so the admin password and write keep their parameters as they
+// are. A request without access, which no route lets through, counts as
+// untrusted.
+func paramsUntrusted(r *http.Request) bool {
+	if apiKeyFromContext(r.Context()) != nil {
+		return true
+	}
+	access := accessFromContext(r.Context())
+	return access == nil || (!access.Full && !access.HasScope(ScopeWrite))
+}
+
 // rejectUnsafeParams refuses run parameters that reference a secret or hold
-// a quote, line break or NUL. Run parameters go through injectSecrets, so
-// without the first a run key could send any secret wherever the job sends
-// that parameter. The others would let it add variables, e.g. BASH_ENV, when
-// a job writes the parameter into build.env: godotenv starts a new variable
-// after a quoted value on the same line (TARGET="a" BASH_ENV=...), and
-// without quotes it reads the rest of the line as one value. The backtick is
-// a quote to some dotenv parsers.
+// a quote, line break or NUL, from those paramsUntrusted names. Run
+// parameters go through injectSecrets, so without the first someone who may
+// only run a job could send any secret wherever the job sends that
+// parameter. The others would let them add variables, e.g. BASH_ENV, when a
+// job writes the parameter into build.env, and so run commands: godotenv
+// starts a new variable after a quoted value on the same line
+// (TARGET="a" BASH_ENV=...), and without quotes it reads the rest of the
+// line as one value. The backtick is a quote to some dotenv parsers.
 func rejectUnsafeParams(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := requestLogger(r)
+		if !paramsUntrusted(r) {
+			next.ServeHTTP(w, r)
+			return
+		}
 		if err := r.ParseForm(); err != nil {
 			writePlainText(w, logger, http.StatusBadRequest, err.Error())
 			return
 		}
 		for name, values := range r.Form {
 			if slices.ContainsFunc(values, secretsRegex.MatchString) {
-				logger.Warn("api key run parameter references a secret", "param", name)
+				logger.Warn("untrusted run parameter references a secret", "param", name)
 				writePlainText(w, logger, http.StatusBadRequest,
-					"Parameter "+name+" references a secret, which isn't allowed with an API key")
+					"Parameter "+name+" references a secret, which only those who may edit jobs may send")
 				return
 			}
 			if slices.ContainsFunc(values, func(v string) bool { return strings.ContainsAny(v, "\"'`\r\n\x00") }) {
-				logger.Warn("api key run parameter has a quote, line break or NUL", "param", name)
+				logger.Warn("untrusted run parameter has a quote, line break or NUL", "param", name)
 				writePlainText(w, logger, http.StatusBadRequest,
-					"Parameter "+name+" has a quote, line break or NUL, which isn't allowed with an API key")
+					"Parameter "+name+" has a quote, line break or NUL, which only those who may edit jobs may send")
 				return
 			}
 		}

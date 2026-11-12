@@ -133,6 +133,18 @@ func TestQueuedBuildIsRestoredAfterRestart(t *testing.T) {
 	build.BroadcastUpdate()
 	build.pendingTasksWG.Wait()
 
+	// The record keeps the mark under both names, so wakeci 2.41 keeps it
+	// too after a rollback
+	if err := DB.View(func(tx *bolt.Tx) error {
+		record := string(tx.Bucket(QueueBucket).Get(Itob(build.ID)))
+		if !strings.Contains(record, `"untrustedParams":true`) || !strings.Contains(record, `"startedWithAPIKey":true`) {
+			t.Errorf("queue record %s, want the mark under both names", record)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
 	restarted := &Queue{concurrentBuilds: 1}
 	GlobalQueue = restarted
 	if err := RestoreQueue(restarted); err != nil {
@@ -142,9 +154,9 @@ func TestQueuedBuildIsRestoredAfterRestart(t *testing.T) {
 		t.Fatalf("queued = %d, want the build queued again", status.Queued)
 	}
 	restored := restarted.queued[0]
-	if restored.ID != build.ID || !restored.startedWithAPIKey || restored.Params[0]["TARGET"] != "custom" {
-		t.Errorf("restored build %d, startedWithAPIKey %v, params %v; want build %d started with a key and TARGET=custom",
-			restored.ID, restored.startedWithAPIKey, restored.Params, build.ID)
+	if restored.ID != build.ID || !restored.untrustedParams || restored.Params[0]["TARGET"] != "custom" {
+		t.Errorf("restored build %d, untrustedParams %v, params %v; want build %d started with a key and TARGET=custom",
+			restored.ID, restored.untrustedParams, restored.Params, build.ID)
 	}
 	if status := restored.Job.Tasks[0].Status; status != StatusFinished {
 		t.Errorf("on_pending task status = %q, want %q kept from before the restart", status, StatusFinished)
@@ -960,5 +972,27 @@ func TestRestoreBuild(t *testing.T) {
 	}
 	if _, err := restoreBuild(6, []byte(`{"params":[]}`)); err == nil {
 		t.Error("restoreBuild without a job: want an error")
+	}
+}
+
+// A build an API key queued under wakeci 2.41 or older, which saved the
+// mark as startedWithAPIKey, stays untrusted when a newer wakeci restores
+// it, so its build.env values still skip injectSecrets
+func TestQueuedBuildOfAnOlderVersionKeepsItsMark(t *testing.T) {
+	newTestBuildEnv(t)
+	job := `{"name":"restore","tasks":[{"id":0,"name":"t","run":"true","kind":"main"}]}`
+	for record, want := range map[string]bool{
+		`{"job":` + job + `,"params":[{"TARGET":"x"}],"startedWithAPIKey":true,"tasks":[]}`:  true,
+		`{"job":` + job + `,"params":[{"TARGET":"x"}],"startedWithAPIKey":false,"tasks":[]}`: false,
+		`{"job":` + job + `,"params":[{"TARGET":"x"}],"untrustedParams":true,"tasks":[]}`:    true,
+		`{"job":` + job + `,"params":[{"TARGET":"x"}],"tasks":[]}`:                           false,
+	} {
+		build, err := restoreBuild(7, []byte(record))
+		if err != nil {
+			t.Fatalf("restoreBuild(%s): %v", record, err)
+		}
+		if build.untrustedParams != want {
+			t.Errorf("restoreBuild(%s).untrustedParams = %t, want %t", record, build.untrustedParams, want)
+		}
 	}
 }

@@ -39,6 +39,10 @@ type WakeConfig struct {
 	DrainTimeout string `yaml:"draintimeout"`
 	// drainTimeout is DrainTimeout parsed
 	drainTimeout time.Duration
+	// path is the configuration file, absolute, and fileFound whether it
+	// existed, for the settings page
+	path      string
+	fileFound bool
 }
 
 // defaultDrainTimeout is used when draintimeout is not set
@@ -49,17 +53,14 @@ const defaultDrainTimeout = 30 * time.Minute
 type SSOConfig struct {
 	// IDPMetadata is the path to the identity provider's SAML metadata file
 	IDPMetadata string `yaml:"idpmetadata"`
-	// Groups is a comma-separated list of the groups allowed to log in, as
-	// the identity provider names them in the groups attribute
-	Groups string `yaml:"groups"`
+	// The groups that may sign in are managed in the settings. A groups key
+	// left by wakeci 2.41 or older, which required it, is ignored.
 	// ACSURL is where the identity provider posts the SAML response.
 	// Defaults to https://<hostname>/auth/sso/acs
 	ACSURL string `yaml:"acsurl"`
 	// EntityID identifies wakeci to the identity provider. Defaults to the
 	// scheme and host of ACSURL
 	EntityID string `yaml:"entityid"`
-	// allowedGroups is Groups split into names
-	allowedGroups []string
 }
 
 // Enabled reports whether single sign-on is configured.
@@ -71,18 +72,10 @@ func (s *SSOConfig) Enabled() bool {
 func (s *SSOConfig) resolve(hostname string) error {
 	if !s.Enabled() {
 		// Catches a misspelled idpmetadata key, which YAML parsing ignores
-		if s.Groups != "" || s.ACSURL != "" || s.EntityID != "" {
+		if s.ACSURL != "" || s.EntityID != "" {
 			return fmt.Errorf("sso.idpmetadata is required when other sso settings are set")
 		}
 		return nil
-	}
-	for _, group := range strings.Split(s.Groups, ",") {
-		if group = strings.TrimSpace(group); group != "" {
-			s.allowedGroups = append(s.allowedGroups, group)
-		}
-	}
-	if len(s.allowedGroups) == 0 {
-		return fmt.Errorf("sso.groups is required when sso.idpmetadata is set")
 	}
 	if s.ACSURL == "" {
 		if hostname == "" {
@@ -113,8 +106,13 @@ func (s *SSOConfig) resolve(hostname string) error {
 func CreateWakeConfig(path string) (*WakeConfig, error) {
 	config := WakeConfig{}
 
+	config.path = path
+	if abs, err := filepath.Abs(path); err == nil {
+		config.path = abs
+	}
 	// Verify that config file exists
 	if _, err := os.Stat(path); err == nil {
+		config.fileFound = true
 		L.Info("using configuration file", "path", path)
 		data, err := os.ReadFile(path)
 		if err != nil {
@@ -202,7 +200,6 @@ func CreateWakeConfig(path string) (*WakeConfig, error) {
 		"secretsfile", config.SecretsFile,
 		"timezone", config.Timezone,
 		"sso.idpmetadata", config.SSO.IDPMetadata,
-		"sso.groups", config.SSO.allowedGroups,
 		"sso.acsurl", config.SSO.ACSURL,
 		"sso.entityid", config.SSO.EntityID,
 	)

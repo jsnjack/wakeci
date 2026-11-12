@@ -9,6 +9,14 @@ const state = {
     },
     auth: {
         isLoggedIn: false,
+        // The single sign-on email, empty for the admin password
+        user: "",
+        // The admin password may do everything
+        admin: false,
+        // What the user's single sign-on groups allow, see Grant in the
+        // backend. The API checks every request; the pages only hide what
+        // the user can't use.
+        grants: [],
     },
     notifyOnBuildStatusUpdate: [],
     // Whether queued builds start, see QueueStatusData in the backend

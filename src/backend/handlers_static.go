@@ -67,6 +67,11 @@ func HandleWakespaceResource(h http.Handler) http.Handler {
 		r2.URL = new(url.URL)
 		*r2.URL = *r.URL
 		r2.URL.Path = wakespacePath(r)
+		// The job summary isn't redacted on disk: the API serves it redacted
+		if clean := path.Clean("/" + r2.URL.Path); strings.Count(clean, "/") == 2 && strings.HasSuffix(clean, "/"+jobSummaryFile) {
+			http.NotFound(w, r)
+			return
+		}
 		logger.Debug("storage rewrite", "from", r.URL.Path, "to", r2.URL.Path)
 		h.ServeHTTP(w, r2)
 	})

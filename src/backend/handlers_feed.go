@@ -5,112 +5,184 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math"
 	"net/http"
+	"net/url"
+	"slices"
 	"strconv"
+	"strings"
 
 	bolt "go.etcd.io/bbolt"
 )
 
-// HandleFeedView returns items in current feed - executed and queued jobs
-// @Summary      Return information about the latest builds
-// @Description  Returns information about 15 latest builds
-// @Tags         feed
-// @Produce      json
-// @Param        offset   query      integer   false  "Skip `offset` latest builds"
-// @Param        q        query      string    false  "Returns only builds which ID, name, params or status contains any of the space-separated words. Requires presence of the prefixed with `+` words. Requires absence of the prefixed with `-` words. Phrases can be wrapped in single or double quotes"
-// @Param        filter   query      string    false  "Deprecated: the old name of `q`, read only when `q` is absent"
-// @Success      200      {array}    BuildUpdateData
-// @Failure      400      {string}   string
-// @Failure      500      {string}   string
-// @Router       /feed/ [get]
-func HandleFeedView(w http.ResponseWriter, r *http.Request) {
-	logger, ok := r.Context().Value(HL).(*slog.Logger)
-	if !ok {
-		logger = L
+// Feed sizes
+const (
+	defaultFeedLimit = 15
+	maxFeedLimit     = 200
+)
+
+// feedStatuses are the statuses the feed's status parameter takes
+var feedStatuses = []string{StatusPending, StatusRunning, StatusFinished, StatusFailed, StatusAborted, StatusTimedOut}
+
+// feedRequest is what a feed request asks for
+type feedRequest struct {
+	// offset skips that many matching builds
+	offset int
+	limit  int
+	// before and after bound the build IDs; 0 when not set
+	before, after int
+	// jobs and statuses, if set, are the only ones shown, by exact value
+	jobs, statuses []string
+	filter         *FilterRequest
+}
+
+func positiveParam(query url.Values, name string, min, max, fallback int) (int, error) {
+	value := query.Get(name)
+	if value == "" {
+		return fallback, nil
 	}
-
-	const pageSize = 15
-
-	offsetS := r.URL.Query().Get("offset")
-
-	// Default value to simplify REST API usage
-	if offsetS == "" {
-		offsetS = "0"
+	n, err := strconv.Atoi(value)
+	if err != nil || n < min || n > max {
+		return 0, fmt.Errorf("invalid %s: %q, want %d to %d", name, value, min, max)
 	}
+	return n, nil
+}
 
-	offset, err := strconv.Atoi(offsetS)
-	if err != nil {
-		errMsg := fmt.Sprintf("Invalid offset: %q", offsetS)
-		logger.Warn("invalid offset", "offset", offsetS)
-		w.WriteHeader(http.StatusBadRequest)
-		w.Header().Set("Content-Type", "text/plain")
-		writeBody(logger, w, []byte(errMsg))
-		return
+// feedRequestFrom reads a feed request from its query parameters
+func feedRequestFrom(query url.Values) (*feedRequest, error) {
+	f := &feedRequest{jobs: query["job"], statuses: query["status"]}
+	var err error
+	if f.offset, err = positiveParam(query, "offset", 0, math.MaxInt32, 0); err != nil {
+		return nil, err
 	}
-
-	if offset < 0 {
-		offset = 1
+	if f.limit, err = positiveParam(query, "limit", 1, maxFeedLimit, defaultFeedLimit); err != nil {
+		return nil, err
 	}
-
+	if f.before, err = positiveParam(query, "before", 1, math.MaxInt32, 0); err != nil {
+		return nil, err
+	}
+	if f.after, err = positiveParam(query, "after", 1, math.MaxInt32, 0); err != nil {
+		return nil, err
+	}
+	for _, status := range f.statuses {
+		if !slices.Contains(feedStatuses, status) {
+			return nil, fmt.Errorf("invalid status %q, want one of %s", status, strings.Join(feedStatuses, ", "))
+		}
+	}
 	// q is the search; filter, its old name, still works for clients that
 	// send it, unless q is there
-	query := r.URL.Query()
 	search := query.Get("q")
 	if !query.Has("q") {
 		search = query.Get("filter")
 	}
-	filter := CreateFilterRequest(search)
-	// An API key only sees the builds of its jobs
-	apiKey := apiKeyFromContext(r.Context())
-	filtered := filter != nil || apiKey != nil
+	f.filter = CreateFilterRequest(search)
+	return f, nil
+}
 
-	var payload []*BuildUpdateData
+// matches reports whether the feed shows msg to a request with access
+func (f *feedRequest) matches(msg *BuildUpdateData, access *Access) bool {
+	return access.Reads(msg.Name) &&
+		(len(f.jobs) == 0 || slices.Contains(f.jobs, msg.Name)) &&
+		(len(f.statuses) == 0 || slices.Contains(f.statuses, string(msg.Status))) &&
+		(f.filter == nil || matchesFilter(msg.ToFilterMatchString(), f.filter))
+}
+
+// seekAtOrBefore moves c to the newest build whose ID is id or lower
+func seekAtOrBefore(c *bolt.Cursor, id int) ([]byte, []byte) {
+	// Below the first build, e.g. an offset past the end; Itob would turn a
+	// negative id into a huge key, after the last build
+	if id < 1 {
+		return nil, nil
+	}
+	key, value := c.Seek(Itob(id))
+	if key == nil {
+		return c.Last()
+	}
+	if int(binary.BigEndian.Uint64(key)) > id {
+		return c.Prev()
+	}
+	return key, value
+}
+
+// HandleFeedView returns builds, newest first
+// @Summary      Return builds, newest first
+// @Description  API key scope: read; a key or a single sign-on user only sees the builds of their jobs. To read the feed incrementally, keep the newest ID you have and ask for after=<it>; page through more with before=<the oldest ID you got>. An unchanged page answers If-None-Match with 304.
+// @Tags         feed
+// @Produce      json
+// @Param        limit    query      integer   false  "How many builds, 1 to 200; 15 if not set"
+// @Param        before   query      integer   false  "Only builds with a lower ID"
+// @Param        after    query      integer   false  "Only builds with a higher ID"
+// @Param        job      query      []string  false  "Only builds of these jobs, by exact name" collectionFormat(multi)
+// @Param        status   query      []string  false  "Only builds with these statuses: pending, running, finished, failed, aborted, timed out" collectionFormat(multi)
+// @Param        offset   query      integer   false  "Deprecated: skip that many matching builds; page with before=<the oldest ID you got> instead"
+// @Param        q        query      string    false  "Space-separated words matched as substrings of id:<id> name:<job> status:<status> and the params, so +name:test_unit also matches test_unit_js. Builds must contain the words prefixed with +, must not contain those prefixed with -, and must contain one of the others. Phrases can be wrapped in single or double quotes"
+// @Param        filter   query      string    false  "Deprecated: the old name of `q`, read only when `q` is absent"
+// @Success      200      {array}    BuildUpdateData
+// @Success      304      {string}   string
+// @Failure      400      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      429      {string}   string
+// @Failure      500      {string}   string
+// @Router       /api/feed [get]
+func HandleFeedView(w http.ResponseWriter, r *http.Request) {
+	logger := requestLogger(r)
+	f, err := feedRequestFrom(r.URL.Query())
+	if err != nil {
+		logger.Warn("invalid feed request", "err", err)
+		writePlainText(w, logger, http.StatusBadRequest, err.Error())
+		return
+	}
+	// An API key or a single sign-on user only sees the builds of their jobs
+	access := accessFromContext(r.Context())
+	// Without anything that hides builds, offset can skip IDs instead of
+	// reading each build
+	narrowed := f.filter != nil || len(f.jobs) > 0 || len(f.statuses) > 0 || (access != nil && !access.Full)
+
+	payload := []*BuildUpdateData{}
 	// Builds the history still has as pending or running but the queue no
 	// longer knows, e.g. after a restart. They are marked aborted in a
 	// separate write, so the scan never holds the database's write lock.
 	var stale []int
 	err = DB.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(HistoryBucket))
-		c := b.Cursor()
-		count := 0
-		// Check what is the last one
+		c := tx.Bucket(HistoryBucket).Cursor()
 		lastK, _ := c.Last()
 		if lastK == nil {
 			return nil
 		}
-		// Find starting point
-		fromB := make([]byte, 8)
-		if !filtered {
-			binary.BigEndian.PutUint64(fromB, binary.BigEndian.Uint64(lastK)-uint64(offset))
-		} else {
-			// If interval is specified, always iterate from the beginning to take
-			// into account offset later
-			fromB = lastK
+		start := int(binary.BigEndian.Uint64(lastK))
+		if f.before > 0 {
+			start = min(start, f.before-1)
 		}
-		for key, v := c.Seek(fromB); key != nil; key, v = c.Prev() {
+		skip := f.offset
+		if !narrowed {
+			start -= skip
+			skip = 0
+		}
+		for key, v := seekAtOrBefore(c, start); key != nil; key, v = c.Prev() {
+			if f.after > 0 && int(binary.BigEndian.Uint64(key)) <= f.after {
+				break
+			}
 			var msg BuildUpdateData
-			err := json.Unmarshal(v, &msg)
-			if err != nil {
+			if err := json.Unmarshal(v, &msg); err != nil {
 				logger.Error("unmarshal build history entry", "err", err)
-			} else {
-				if isStaleBuild(&msg) {
-					msg.Status = StatusAborted
-					stale = append(stale, msg.ID)
-				}
-				if filtered {
-					if (apiKey != nil && !apiKey.CoversJob(msg.Name)) ||
-						(filter != nil && !matchesFilter(msg.ToFilterMatchString(), filter)) {
-						continue
-					}
-					count++
-					if count <= offset {
-						continue
-					}
-				}
-				payload = append(payload, &msg)
-				if len(payload) >= pageSize {
-					break
-				}
+				continue
+			}
+			if isStaleBuild(&msg) {
+				msg.Status = StatusAborted
+				stale = append(stale, msg.ID)
+			}
+			if !f.matches(&msg, access) {
+				continue
+			}
+			if skip > 0 {
+				skip--
+				continue
+			}
+			addArtifactURLs(&msg)
+			payload = append(payload, &msg)
+			if len(payload) >= f.limit {
+				break
 			}
 		}
 		return nil
@@ -120,21 +192,10 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		logger.Error("build feed query", "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Header().Set("Content-Type", "text/plain")
-		writeBody(logger, w, []byte(err.Error()))
+		writePlainText(w, logger, http.StatusInternalServerError, err.Error())
 		return
 	}
-	payloadB, err := json.Marshal(payload)
-	if err != nil {
-		logger.Error("marshal feed payload", "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Header().Set("Content-Type", "text/plain")
-		writeBody(logger, w, []byte(err.Error()))
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	writeBody(logger, w, payloadB)
+	writeCachedJSON(w, r, logger, payload)
 }
 
 // isStaleBuild reports whether the history has a build as pending or running

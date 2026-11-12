@@ -33,9 +33,14 @@ const stopPollInterval = 200 * time.Millisecond
 // queuedBuild is what a queued build needs to be queued again after a
 // restart, stored in QueueBucket
 type queuedBuild struct {
-	Job               *Job                `json:"job"`
-	Params            []map[string]string `json:"params"`
-	StartedWithAPIKey bool                `json:"startedWithAPIKey"`
+	Job             *Job                `json:"job"`
+	Params          []map[string]string `json:"params"`
+	UntrustedParams bool                `json:"untrustedParams"`
+	// StartedWithAPIKey is the mark under its name in wakeci 2.41 and older,
+	// set there for builds API keys started. It is read, so a build queued
+	// before an upgrade stays untrusted, and written too, so a rollback
+	// keeps the mark
+	StartedWithAPIKey bool `json:"startedWithAPIKey,omitempty"`
 	// Tasks holds when the on_pending tasks ran, which Job doesn't keep.
 	// They don't run again
 	Tasks []*TaskStatus `json:"tasks"`
@@ -91,14 +96,14 @@ func restoreBuild(id int, record []byte) (*Build, error) {
 		return nil, fmt.Errorf("queued build has no job")
 	}
 	build := &Build{
-		ID:                id,
-		Job:               saved.Job,
-		Status:            StatusPending,
-		abort:             newAbortScope(),
-		flushChannel:      make(chan bool),
-		Params:            saved.Params,
-		ETA:               GetJobETA(saved.Job.Name),
-		startedWithAPIKey: saved.StartedWithAPIKey,
+		ID:              id,
+		Job:             saved.Job,
+		Status:          StatusPending,
+		abort:           newAbortScope(),
+		flushChannel:    make(chan bool),
+		Params:          saved.Params,
+		ETA:             GetJobETA(saved.Job.Name),
+		untrustedParams: saved.UntrustedParams || saved.StartedWithAPIKey,
 	}
 	build.Logger = L.With("build", id)
 	ran := map[int]*TaskStatus{}

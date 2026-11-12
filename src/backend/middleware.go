@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"path"
 	"strings"
 	"time"
@@ -28,11 +29,19 @@ const HL HandlerLogger = "logger"
 type statusRecorder struct {
 	http.ResponseWriter
 	status int
+	// bytes is the size of the body written
+	bytes int
 }
 
 func (rec *statusRecorder) WriteHeader(status int) {
 	rec.status = status
 	rec.ResponseWriter.WriteHeader(status)
+}
+
+func (rec *statusRecorder) Write(data []byte) (int, error) {
+	n, err := rec.ResponseWriter.Write(data)
+	rec.bytes += n
+	return n, err
 }
 
 func (rec *statusRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
@@ -68,17 +77,55 @@ func LogMi(next http.Handler) http.Handler {
 
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		defer func() {
-			attrs := []any{"method", r.Method, "path", r.URL.Path, "status", rec.status, "took", time.Since(startTime)}
+			attrs := []any{"logID", info.logID, "host", info.ip, "method", r.Method, "path", r.URL.Path}
+			// Only reads: a run takes its parameters from the query too, and a
+			// job's parameter may share a name with a logged one
+			if r.Method == http.MethodGet || r.Method == http.MethodHead {
+				if query := loggedQuery(r.URL.Query()); query != "" {
+					attrs = append(attrs, "query", query)
+				}
+			}
+			attrs = append(attrs, "status", rec.status, "bytes", rec.bytes, "took", time.Since(startTime))
 			attrs = append(attrs, info.who()...)
 			if info.forwardedFor != "" {
 				attrs = append(attrs, "forwardedFor", info.forwardedFor)
 			}
-			handlerLogger.Warn("request completed", attrs...)
+			if ua := r.UserAgent(); ua != "" {
+				attrs = append(attrs, "ua", cutLogValue(ua))
+			}
+			requestLog.Info("request completed", attrs...)
 		}()
 
 		// Call actual handler
 		next.ServeHTTP(rec, r)
 	})
+}
+
+// loggedQueryParams are the query parameters the request line shows for a
+// read (GET or HEAD): those that say what a client reads. Others can carry
+// run parameters, and so secrets.
+var loggedQueryParams = []string{"q", "filter", "offset", "limit", "before", "after", "job", "status", "tail", "wait"}
+
+// loggedQuery returns the query parameters of loggedQueryParams that are set
+func loggedQuery(query url.Values) string {
+	shown := url.Values{}
+	for _, name := range loggedQueryParams {
+		if values, ok := query[name]; ok {
+			shown[name] = values
+		}
+	}
+	return cutLogValue(shown.Encode())
+}
+
+// maxLogValue is the most of a client's value a log line shows, so a client
+// can't make huge lines
+const maxLogValue = 256
+
+func cutLogValue(value string) string {
+	if len(value) <= maxLogValue {
+		return value
+	}
+	return strings.ToValidUTF8(value[:maxLogValue], "") + "..."
 }
 
 // CORSMi adds CORS headers
@@ -191,14 +238,12 @@ func AuthMi(next http.Handler) http.Handler {
 				if blocked {
 					return
 				}
-				w.Header().Set("Content-Type", "text/plain")
-				w.WriteHeader(http.StatusForbidden)
-				writeBody(logger, w, []byte("Forbidden"))
+				refuseCredentials(w, r, logger, "Wrong password")
 				return
 			}
 			globalAuthAttemptLimiter.success(authClient(r))
 			setRequestUser(r, "basic", "", "")
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(w, withAccess(r, fullAccess))
 			return
 		}
 
@@ -206,22 +251,46 @@ func AuthMi(next http.Handler) http.Handler {
 		sessionToken, err := r.Cookie("session")
 		if err != nil {
 			logger.Warn("missing session cookie", "err", err)
-			w.WriteHeader(http.StatusForbidden)
-			w.Header().Set("Content-Type", "text/plain")
-			writeBody(logger, w, []byte("Forbidden"))
+			refuseCredentials(w, r, logger, "Not logged in: send an API key as a Bearer token, or the password with Basic auth")
 			return
 		}
-		user, err := GlobalSessionStorage.User(sessionToken.Value)
+		user, groups, err := GlobalSessionStorage.Lookup(sessionToken.Value)
 		if err != nil {
 			logger.Warn("session verification failed", "err", err)
-			w.WriteHeader(http.StatusForbidden)
-			w.Header().Set("Content-Type", "text/plain")
-			writeBody(logger, w, []byte("Forbidden"))
+			refuseCredentials(w, r, logger, "The session ended; log in again")
 			return
 		}
 		setRequestUser(r, sessionAuth(user), user, "")
-		next.ServeHTTP(w, r)
+		access := fullAccess
+		if user != "" {
+			// From the groups as they are now, so a change applies at once
+			access, err = ssoGroupsAccess(groups)
+			if err != nil {
+				logger.Error("find the access of sso groups", "err", err)
+				writePlainText(w, logger, http.StatusInternalServerError, "Can't read the permissions of your groups")
+				return
+			}
+			if access.Empty() {
+				logger.Warn("sso user's groups have no access", "user", user)
+				writePlainText(w, logger, http.StatusForbidden, "None of your groups has access")
+				return
+			}
+		}
+		next.ServeHTTP(w, withAccess(r, access))
 	})
+}
+
+// refuseCredentials answers a request whose credentials are missing or wrong
+// with 401, so that a client can tell it from a refusal of what it asked for
+// (403). Only a request that sent Basic auth gets a Basic challenge: one on
+// a page's own requests would make the browser ask for a password itself.
+func refuseCredentials(w http.ResponseWriter, r *http.Request, logger *slog.Logger, text string) {
+	if _, _, ok := r.BasicAuth(); ok {
+		w.Header().Set("WWW-Authenticate", `Basic realm="wakeci", charset="UTF-8"`)
+	} else {
+		w.Header().Set("WWW-Authenticate", `Bearer realm="wakeci"`)
+	}
+	writePlainText(w, logger, http.StatusUnauthorized, text)
 }
 
 // requestUser returns who made a request: the single sign-on email, or empty
@@ -237,4 +306,20 @@ func requestUser(r *http.Request) (string, error) {
 		return "", err
 	}
 	return GlobalSessionStorage.User(cookie.Value)
+}
+
+// withCompression compresses answers for clients that accept it, except the
+// answers to range requests: the compression adapter drops the Range header
+// so that it can compress the whole file, so a client that asked for the end
+// of a log, and accepts gzip as browsers and most HTTP libraries do, got all
+// of it
+func withCompression(compress func(http.Handler) http.Handler, next http.Handler) http.Handler {
+	compressed := compress(next)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Range") != "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		compressed.ServeHTTP(w, r)
+	})
 }

@@ -12,7 +12,11 @@ wakeci is an automation tool which helps to execute repetitive tasks
 -   easy to install - just download a binary file from Releases
 -   automatic Let's Encrypt SSL certificates
 -   parameterized builds, artifacts, intervals and timeouts - see job configuration example below
--   API keys limited to reading, running or editing jobs, and to the jobs you pick
+-   single sign-on (SAML, e.g. Google Workspace) next to the password, with read, run and write permissions per group
+-   API keys limited to reading, running or editing jobs, and to the jobs you pick, with their use per day
+-   an MCP server, a guide and a Markdown API reference for AI agents
+-   an audit log of who signed in and who changed what
+-   updates itself from the settings page, waiting for running builds
 -   no plugins, no extensive configuration - focus on your project instead!
 
 ### Job configuration example
@@ -62,10 +66,19 @@ on_finished:
 ```
 Usage of ./bin/wakeci:
   -V	Print the version and exit (shorthand).
+  -c string
+    	Configuration file location (shorthand) (default "Wakefile.yaml")
   -compactdb
     	Reclaim space in the database which is no longer used
   -config string
     	Configuration file location (default "Wakefile.yaml")
+  -d	Debug-level logging on stderr (shorthand).
+  -debug
+    	Debug-level logging on stderr.
+  -import-settings string
+    	Import a settings file, as the settings page downloads it, into the database of a stopped server, then exit
+  -trace
+    	Trace-level logs to /tmp/wakeci.log (truncated each run).
   -version
     	Print the version and exit.
 ```
@@ -93,8 +106,7 @@ timezone: Europe/Amsterdam
 sso:
   # Metadata file downloaded from the identity provider. Keep it outside jobdir
   idpmetadata: ./GoogleIDPMetadata.xml
-  # Comma-separated groups allowed to log in, as named in the "groups" attribute
-  groups: Developers, Ops
+  # The groups that may sign in are added in the settings, not here
   # Where the identity provider posts the response.
   # Defaults to https://<hostname>/auth/sso/acs
   acsurl: ""
@@ -104,6 +116,56 @@ sso:
 # (default 30m). See "Restarts and updates" below.
 draintimeout: 30m
 ```
+
+Wakefile.yaml holds what wakeci needs to start; a change needs a restart.
+What you change while it runs is on the settings page instead (see
+Settings), and nothing is in both.
+
+#### Settings
+
+The settings page (the gear icon) holds what you change while wakeci runs:
+the password, how many builds run at once and how many are kept, the API key
+limits, and, with the admin password, the single sign-on groups. A change
+applies at once and is in the audit log.
+
+The Server card at the bottom shows what Wakefile.yaml set, read-only: the
+file's path, port, hostname, directories, the secrets file with how many
+secrets it holds (never their values), time zone, drain timeout and single
+sign-on. It warns 30 days before the identity provider's certificate
+expires.
+
+With the admin password, "Settings file" downloads the settings as YAML, for
+a backup, review in git or another server. The password and API keys are
+never in it:
+
+```yaml
+concurrentBuilds: 2
+buildHistorySize: 200
+apiKeyRate: 10
+apiKeyBurst: 120
+ssoGroups:
+- name: Developers
+  scopes: [read, run, write]
+  allJobs: true
+- name: Service Team
+  scopes: [read]
+  jobs: [deploy]
+  patterns: [test_*]
+ssoNoGroup: null
+```
+
+Import a file on the same card, or on a stopped server, also before its
+first start:
+
+```bash
+wakeci --config Wakefile.yaml --import-settings settings.yaml
+```
+
+An import sets what the file has and leaves the rest: a file with only
+`ssoGroups` changes only the groups, and they replace all groups
+(`ssoGroups: []` removes them all; an empty `ssoGroups:` is refused);
+`ssoNoGroup: null` turns off "People in no group". The whole file is checked
+first, so a file with a mistake changes nothing.
 
 #### Restarts and updates
 
@@ -157,18 +219,55 @@ console (Apps, Web and mobile apps, Add app, Add custom SAML app):
    ID `https://<hostname>`, Name ID format `EMAIL`, Name ID
    `Basic Information > Primary email`.
 3. Attribute mapping: under "Group membership", pick the groups and set the app
-   attribute to `groups`. List the same group names in `sso.groups`.
+   attribute to `groups`. Add the same group names in wakeci's settings.
 4. User access: turn the app on for those groups.
 
 Only accounts of your own Workspace can sign in to a custom SAML app, and of
-those only members of a group in `sso.groups` can log in; a rejected login
-logs the groups wakeci received. Opening wakeci from the Google apps menu
+those only members of a group listed in wakeci's settings can log in, unless
+you allow people in no group (below); a rejected login logs the groups
+wakeci received. With the admin password, the
+settings page lists the groups and what their members may do: read, run or
+write, on all jobs or on selected jobs and name patterns, as for API keys.
+Someone in several groups gets the permissions of all of them, and a change
+applies to their next request. Until the admin adds a group, nobody can
+sign in with SSO, and wakeci says so in a warning at startup. Opening wakeci from the Google apps menu
 starts a normal login. SSO sessions last 12 hours, password sessions 5 days.
 API calls use an API key (see below) or Basic auth with the password.
 
+"People in no group", at the end of the groups, is off by default. When you
+allow it, anyone the identity provider lets in whose groups match none in
+the settings, or who has no groups, signs in with the permissions you give
+it. Members of a listed group get only their groups' permissions. It can
+give `write`, but then everyone your Google app lets in can run commands on
+the server.
+
 Serve wakeci over HTTPS, or on localhost: Google posts the response from
 another site, which browsers only allow with a `Secure` login cookie. When
-Google renews its certificate, download the metadata again and restart wakeci.
+Google renews its certificate, download the metadata again and restart
+wakeci; the Server card in the settings warns 30 days before it expires.
+
+#### Agents (MCP)
+
+Agents such as Claude Code, Codex or Copilot can use wakeci through MCP at
+`https://<hostname>/mcp`, with an API key. The tools find builds, summarize
+why one failed, read logs and text artifacts, wait for a build, and run or
+abort jobs, within the key's scopes and jobs:
+
+```bash
+claude mcp add --transport http wakeci https://<hostname>/mcp \
+  --header "Authorization: Bearer wk_..."
+```
+
+The Help page's MCP tab gives this command for Claude Code, Codex, Copilot
+CLI and VS Code (with an install link), filled in with a key you paste
+there, and lists the tools with their inputs and scopes. A tool call counts
+as one request of the key.
+
+`/llms.txt` is a one-page guide to the API for agents that don't use MCP:
+how to authenticate, find out why a build failed, wait for builds, follow
+the feed and read logs. `/llms-full.txt` (also `/docs/api.md`) is every
+route as Markdown, built from the API spec, for agents that can't run the
+docs page's JavaScript. Neither needs a key.
 
 #### API keys
 
@@ -191,11 +290,41 @@ and the ones whose names match a pattern such as `test_*`. `write` always
 covers all jobs: jobs run commands on the server, so a key that can edit one
 can reach everything wakeci can. The job list and the feed only show the key's
 jobs. Keys never open the settings, key management, login or the websocket.
-Run parameters sent with a key can't reference a secret (`{{ secrets.NAME }}`)
-or contain quotes or line breaks, and in builds a key starts, `build.env`
-values aren't turned into secrets. A `run` key still chooses the job's parameters, so treat
-them as untrusted input: quote them, and don't let one pick where a job sends
-a secret, such as the URL a token is posted to.
+Run parameters sent with a key, or by someone who signs in with SSO and
+may not edit jobs (`write`), can't reference a secret (`{{ secrets.NAME }}`)
+or contain quotes or line breaks, and in the builds they start, `build.env`
+values aren't turned into secrets. Whoever may run a job still chooses its
+parameters, so treat them as untrusted input: quote them, and don't let one
+pick where a job sends a secret, such as the URL a token is posted to.
+
+A request with a missing, wrong or expired key, password or session gets
+401; a request for something the key or the user may not do gets 403. A
+key may send bursts of 120 requests and 10 a second after that, unless you
+change it in the settings; beyond it it gets 429 with `Retry-After`. The
+API keys page shows when each key was last used, how many requests it
+made, and its requests per day over the last 30 days, so you can see
+whether anything still uses a key before you revoke it.
+
+The feed (`GET /api/feed`) returns 15 builds, newest first, or up to 200
+with `limit`. A script that keeps up with new builds remembers the newest
+build ID it has and asks for `?after=<id>&limit=200`; `before=<id>` pages
+back from the oldest ID it got. `job` and `status` keep only builds of those
+jobs or with those statuses, by exact value, and `q` searches. An unchanged
+page answers `If-None-Match` with 304. `offset` and `filter` still work but
+are deprecated: page with `before` and search with `q`
+([docs/deprecations.md](docs/deprecations.md)). A build (`GET /api/build/<id>`)
+names its tasks and gives the URL and size of each task's log, and the URL
+of each artifact. `GET /api/build/<id>/summary` answers "why did it fail"
+in one request: the status, the tasks, the artifacts and the last 100 lines
+(`tail`) of each task that failed, timed out or was aborted.
+`GET /api/build/<id>/log/<task>` returns a task's log, its last lines
+(`tail=200`) or the lines that contain a text (`grep=FAILED`, with line
+numbers). Both build routes take `wait=<seconds>` (at most 300): the request
+answers as soon as the build ends, so a script that waits for a build
+needs one request every 5 minutes instead of polling. `GET /api/whoami`
+tells a key or a login what it may do, and which server answers, with the
+range of build IDs it holds. Files of a build, such as task logs and
+artifacts, answer a byte range: `Range: bytes=-65536` gets the end of a log.
 
 The key is shown once, when it is created; wakeci only stores a hash of it.
 Revoking a key stops it at once. Keys don't depend on the password, and
@@ -205,20 +334,23 @@ Each key records who created it. Logged in with the admin password, the API
 keys page shows every key and who made it, and can revoke all keys of a
 person, which also signs them out. People who sign in with SSO only see and
 revoke the keys they created, and only the admin password can change the
-password. Everything else is open to them, including editing jobs, which
-runs commands on the server, so only give SSO access to people you trust.
+password or the groups. A key made by someone who signs in with SSO can't do
+more than their groups allow at the time of each request, so a key on all
+jobs means all jobs their groups allow. Only give `write` to groups you
+trust: editing a job runs commands on the server.
 
 wakeci can't tell on its own that a Google account is gone, so when someone
 leaves:
 
 1. Suspend or delete their Google account, so they can't sign in again.
-2. On the API keys page, logged in with the admin password, pick them under
-   "Created by" (it lists everyone with a key or signed in) and click
+2. On the API keys page, logged in with the admin password, find their
+   section (keys are grouped by who made them, people signed in without keys
+   are listed too, and a search appears when there are many) and click
    "Revoke access". That signs them out, closes their live updates and
    revokes their keys.
 3. If they knew the admin password, change it. That ends every other session
    logged in with the password; sessions survive restarts, so a restart
-   doesn't. Then revoke all keys created with the admin password, since those
+   doesn't. Then revoke the keys under "Made with the admin password", since those
    keys cannot be attributed to a person and survive password changes and
    restarts.
 
@@ -256,7 +388,10 @@ time=2026-11-05T11:05:10Z level=INFO msg=audit server=ci.example.com event=login
 | `logout` | |
 | `build.run`, `build.abort`, `build.start`, `build.flush` | with `job` and `build` (an abort, start or flush only names the job for a request that signed in); a run lists the job parameters it set in `params` (names only) and how many other names it sent in `ignoredParams`, and a scheduled one has `trigger=interval` and no user |
 | `job.create`, `job.edit`, `job.delete`, `job.set_active` | with `job`, and `active` (`true`, `false` or `invalid`) for `job.set_active`; a create that failed after writing the job file has `fileCreated=true`, since the file can still be added as a job |
-| `settings.change` | the new numbers (`invalid` for anything else), and `passwordChange=true` if the password was sent; a changed password has `endedSessions`, the other password sessions it signed out |
+| `settings.change` | the new numbers (`invalid` for anything else), including `apiKeyRate` and `apiKeyBurst` when sent, and `passwordChange=true` if the password was sent; a changed password has `endedSessions`, the other password sessions it signed out |
+| `settings.import` | which settings the file set, in `applied`; from the command line also `via=--import-settings` and the `file` |
+| `group.create`, `group.change`, `group.delete` | the `group` and, except for a delete, its scopes, `allJobs`, and otherwise its `jobs` and `patterns` |
+| `group.nogroup.set`, `group.nogroup.delete` | "People in no group" allowed or changed, with its scopes and jobs as for a group, or turned off |
 | `server.update` | the running version in `from`, and the release it installs in `to` |
 | `key.create`, `key.revoke`, `access.revoke` | the key, its scopes, `allJobs`, and otherwise its `jobs` and `patterns` as JSON lists; revoking someone's access names the `person` and how many `sessions` and `keys` it ended. Sessions end first, so a revoke that failed may still have `sessions` |
 
@@ -280,7 +415,10 @@ server's disk, not through wakeci, aren't attributed to anyone.
 
 ### API documentation
 
-See full description [here](https://github.com/jsnjack/wakeci/blob/master/API.md)
+The Help page's REST API tab, also at `/docs/api/`, documents every route
+with its parameters, answers and API key scope, and can try requests. The
+same is at `/llms-full.txt` as Markdown and at `/docs/swagger.json` as
+OpenAPI 2.0; none of them needs a key.
 
 ### Development
 

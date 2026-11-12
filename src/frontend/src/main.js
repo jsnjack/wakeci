@@ -18,7 +18,7 @@ app.use(Notifications);
 app.mount("#app");
 
 // Global axios handler to show error messages and redirect to the login page
-// in case of error is 403
+// when the session ended
 axios.interceptors.response.use(
     function (response) {
         return response;
@@ -31,9 +31,21 @@ axios.interceptors.response.use(
                 text: escapeHtml((error.response && error.response.data) || error),
                 type: "error",
             });
-            if (error.response?.status === 403) {
+            if (error.response?.status === 401) {
+                // The session ended
                 store.commit("LOG_OUT");
                 router.push("/login");
+            } else if (error.response?.status === 403) {
+                // The user's groups don't allow the request, or no longer
+                // allow anything. The permissions may have changed, so they
+                // are read again.
+                axios.get("/auth/_isLoggedIn").then(
+                    (response) => store.commit("LOG_IN", response.data),
+                    () => {
+                        store.commit("LOG_OUT");
+                        router.push("/login");
+                    },
+                );
             }
         }
         return Promise.reject(error);

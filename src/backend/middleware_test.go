@@ -1,10 +1,16 @@
 package main
 
 import (
+	"compress/gzip"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/CAFxX/httpcompression"
 )
 
 func TestCORSMiSetsHeadersBeforeResponseIsWritten(t *testing.T) {
@@ -130,5 +136,47 @@ func TestStorageSecurityMiPinsLogContentType(t *testing.T) {
 
 	if ct := rec.Header().Get("content-type"); ct != "text/plain" {
 		t.Errorf("expected content-type text/plain for a .log file, got %q", ct)
+	}
+}
+
+// A range request gets its range even from a client that accepts gzip, as
+// browsers and most HTTP libraries do; the compression adapter used to drop
+// the Range header and send the whole file
+func TestRangeRequestsSkipCompression(t *testing.T) {
+	dir := t.TempDir()
+	content := strings.Repeat("a line of a long task log\n", 200) + "the end\n"
+	if err := os.WriteFile(filepath.Join(dir, "task_0.log"), []byte(content), 0600); err != nil {
+		t.Fatal(err)
+	}
+	compress, err := httpcompression.DefaultAdapter()
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := withCompression(compress, http.FileServer(http.Dir(dir)))
+
+	req := httptest.NewRequest("GET", "/task_0.log", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	req.Header.Set("Range", "bytes=-8")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusPartialContent || rec.Body.String() != "the end\n" {
+		t.Errorf("range: got %d %q, want 206 %q", rec.Code, rec.Body.String(), "the end\n")
+	}
+
+	// Without a range the file is still compressed
+	req = httptest.NewRequest("GET", "/task_0.log", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Header().Get("Content-Encoding") != "gzip" {
+		t.Fatalf("whole file: Content-Encoding %q, want gzip", rec.Header().Get("Content-Encoding"))
+	}
+	reader, err := gzip.NewReader(rec.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := io.ReadAll(reader)
+	if err != nil || string(body) != content {
+		t.Errorf("whole file: got %d bytes (%v), want %d", len(body), err, len(content))
 	}
 }

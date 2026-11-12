@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -159,14 +160,14 @@ func TestNewSSORefusesLoginsFromBeforeRevoke(t *testing.T) {
 	storage.DeleteUser("alice@example.com")
 
 	for _, issuedAt := range []time.Time{before, time.Now(), time.Now().Add(revokedLoginLeeway / 2)} {
-		if _, err := storage.NewSSO(req, time.Hour, "Alice@Example.com", issuedAt); !errors.Is(err, errLoginRevoked) {
+		if _, err := storage.NewSSO(req, time.Hour, "Alice@Example.com", []string{"devs"}, issuedAt); !errors.Is(err, errLoginRevoked) {
 			t.Errorf("login issued %v: err = %v, want errLoginRevoked", issuedAt, err)
 		}
 	}
-	if _, err := storage.NewSSO(req, time.Hour, "alice@example.com", time.Now().Add(2*revokedLoginLeeway)); err != nil {
+	if _, err := storage.NewSSO(req, time.Hour, "alice@example.com", []string{"devs"}, time.Now().Add(2*revokedLoginLeeway)); err != nil {
 		t.Errorf("login issued after the revoke: %v", err)
 	}
-	if _, err := storage.NewSSO(req, time.Hour, "bob@example.com", before); err != nil {
+	if _, err := storage.NewSSO(req, time.Hour, "bob@example.com", []string{"devs"}, before); err != nil {
 		t.Errorf("someone else's login: %v", err)
 	}
 }
@@ -183,7 +184,7 @@ func TestNewSSORacingRevoke(t *testing.T) {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			if _, err := storage.NewSSO(req, time.Hour, "alice@example.com", issuedAt); err != nil && !errors.Is(err, errLoginRevoked) {
+			if _, err := storage.NewSSO(req, time.Hour, "alice@example.com", []string{"devs"}, issuedAt); err != nil && !errors.Is(err, errLoginRevoked) {
 				t.Errorf("NewSSO: %v", err)
 			}
 		}()
@@ -227,8 +228,16 @@ func TestSessionsSurviveRestart(t *testing.T) {
 		t.Fatalf("CreateSessionStorage: %v", err)
 	}
 	req := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
+	// The password's session, or a single sign-on one; wakeci only makes
+	// these two
 	newSession := func(user string, ttl time.Duration) string {
-		cookie, err := storage.New(req, ttl, user)
+		var cookie *http.Cookie
+		var err error
+		if user == "" {
+			cookie, err = storage.New(req, ttl, user)
+		} else {
+			cookie, err = storage.NewSSO(req, ttl, user, []string{"Developers"}, time.Now())
+		}
 		if err != nil {
 			t.Fatalf("New() error = %v", err)
 		}
@@ -244,6 +253,16 @@ func TestSessionsSurviveRestart(t *testing.T) {
 	}
 	storage.DeleteUser("bob@example.com")
 	time.Sleep(5 * time.Millisecond)
+	// Saved by a wakeci that didn't keep the groups of a session
+	withoutGroups, err := json.Marshal(storedSession{Expires: time.Now().Add(time.Hour), User: "dave@example.com"})
+	if err != nil {
+		t.Fatalf("encode session: %v", err)
+	}
+	if err := db.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket(SessionsBucket).Put([]byte(sessionKey("old-sso-token")), withoutGroups)
+	}); err != nil {
+		t.Fatalf("save session without groups: %v", err)
+	}
 
 	restarted, err := CreateSessionStorage(time.Hour, db)
 	if err != nil {
@@ -260,6 +279,7 @@ func TestSessionsSurviveRestart(t *testing.T) {
 		{"logged out", loggedOut, "", true},
 		{"revoked", revoked, "", true},
 		{"expired", expired, "", true},
+		{"single sign-on session saved without groups", "old-sso-token", "", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -268,6 +288,10 @@ func TestSessionsSurviveRestart(t *testing.T) {
 				t.Errorf("User() = %q, %v; want %q, error %v", user, err, tt.wantUser, tt.wantErr)
 			}
 		})
+	}
+
+	if _, groups, err := restarted.Lookup(alice); err != nil || !slices.Equal(groups, []string{"Developers"}) {
+		t.Errorf("Lookup(alice) groups = %q, %v; want [Developers]", groups, err)
 	}
 
 	// Only the two live sessions stay saved, and not by their token
@@ -310,6 +334,9 @@ func TestDeletePasswordSessions(t *testing.T) {
 			user = "alice@example.com"
 		}
 		cookie, err := storage.New(req, time.Hour, user)
+		if user != "" {
+			cookie, err = storage.NewSSO(req, time.Hour, user, []string{"Developers"}, time.Now())
+		}
 		if err != nil {
 			t.Fatalf("New() error = %v", err)
 		}
@@ -429,5 +456,35 @@ func TestFailedSessionDeletionIsRetried(t *testing.T) {
 				t.Errorf("the other session: %v, want it kept", err)
 			}
 		})
+	}
+}
+
+// Someone "People in no group" let in may have no groups at all; their
+// session survives a restart like any other, while a single sign-on session
+// saved before sessions kept groups still ends (TestSessionsSurviveRestart)
+func TestSessionWithoutGroupsSurvivesRestart(t *testing.T) {
+	Config = &WakeConfig{}
+	db := openSessionsDB(t)
+	storage, err := CreateSessionStorage(time.Hour, db)
+	if err != nil {
+		t.Fatalf("CreateSessionStorage: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/auth/sso/acs", nil)
+	var tokens []string
+	for _, groups := range [][]string{nil, {}} {
+		cookie, err := storage.NewSSO(req, time.Hour, "erin@example.com", groups, time.Now())
+		if err != nil {
+			t.Fatalf("NewSSO: %v", err)
+		}
+		tokens = append(tokens, cookie.Value)
+	}
+	restarted, err := CreateSessionStorage(time.Hour, db)
+	if err != nil {
+		t.Fatalf("CreateSessionStorage after restart: %v", err)
+	}
+	for i, token := range tokens {
+		if user, groups, err := restarted.Lookup(token); err != nil || user != "erin@example.com" || len(groups) != 0 {
+			t.Errorf("session %d after restart = %q %q, %v; want erin@example.com without groups", i, user, groups, err)
+		}
 	}
 }

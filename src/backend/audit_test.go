@@ -149,8 +149,10 @@ func TestAuditedRoutes(t *testing.T) {
 			t.Errorf("%s isn't in auditedRoutes", route)
 		}
 	}
+	// Only for keys, and audited through the API requests its tools make
+	keyOnly := []string{"POST /mcp"}
 	for _, route := range mutatingRoutes(t, newAPIKeyRouter(http.NotFoundHandler())) {
-		if !slices.Contains(main, route) {
+		if !slices.Contains(main, route) && !slices.Contains(keyOnly, route) {
 			t.Errorf("%s is only on the API key router", route)
 		}
 	}
@@ -196,7 +198,7 @@ func TestAuditActions(t *testing.T) {
 		},
 		{
 			name: "run without logging in", method: "POST", target: "/api/job/deploy/run",
-			want: map[string]string{"event": "build.run", "outcome": "failed", "status": "403", "auth": "", "user": "", "job": "deploy"},
+			want: map[string]string{"event": "build.run", "outcome": "failed", "status": "401", "auth": "", "user": "", "job": "deploy"},
 		},
 		{
 			name: "edit", user: alice, method: "POST", target: "/api/job/nightly", form: jobForm,
@@ -216,7 +218,7 @@ func TestAuditActions(t *testing.T) {
 			// The run checks the raw log for this password too
 			name: "disable with a password in the wrong field", user: alice, method: "POST", target: "/api/job/nightly/set_active",
 			form: url.Values{"active": {"new-secret-password"}},
-			want: map[string]string{"event": "job.set_active", "outcome": "failed", "status": "500", "active": "invalid"},
+			want: map[string]string{"event": "job.set_active", "outcome": "failed", "status": "400", "active": "invalid"},
 		},
 		{
 			name: "create", user: alice, method: "POST", target: "/api/jobs/create",
@@ -247,7 +249,7 @@ func TestAuditActions(t *testing.T) {
 			// Finding the job reads the history, which only a signed-in
 			// request may make the server do
 			name: "abort without logging in", method: "POST", target: "/api/build/1/abort",
-			want: map[string]string{"event": "build.abort", "outcome": "failed", "status": "403", "build": "1", "job": ""},
+			want: map[string]string{"event": "build.abort", "outcome": "failed", "status": "401", "build": "1", "job": ""},
 		},
 		{
 			name: "start", user: alice, method: "POST", target: "/api/build/2/start",
@@ -314,7 +316,7 @@ func TestAuditActions(t *testing.T) {
 		},
 		{
 			name: "revoke access without logging in", method: "DELETE", target: "/api/keys/?createdBy=bob%40example.com",
-			want: map[string]string{"event": "access.revoke", "outcome": "failed", "status": "403", "person": "bob@example.com"},
+			want: map[string]string{"event": "access.revoke", "outcome": "failed", "status": "401", "person": "bob@example.com"},
 		},
 		{
 			// A router mounted at /keys serves /keys as /keys/
@@ -538,7 +540,7 @@ func TestAuditUpdate(t *testing.T) {
 		return onlyAuditEvent(t, events())
 	}
 	checkAuditEvent(t, update(nil, "2.0.0"), map[string]string{
-		"event": "server.update", "outcome": "failed", "status": "403", "from": "1.0.0", "to": "", "auth": "",
+		"event": "server.update", "outcome": "failed", "status": "401", "from": "1.0.0", "to": "", "auth": "",
 	})
 	checkAuditEvent(t, update(cookie, "1.5.0"), map[string]string{
 		"event": "server.update", "outcome": "failed", "status": "409", "from": "1.0.0", "to": "", "auth": "password",
@@ -648,7 +650,7 @@ func TestAuditAPIKey(t *testing.T) {
 		},
 		{
 			name: "a route that doesn't exist", method: "DELETE", target: "/api/nothing", token: readToken,
-			want: map[string]string{"event": "request", "outcome": "failed", "status": "403", "method": "DELETE", "path": "/api/nothing"},
+			want: map[string]string{"event": "request", "outcome": "failed", "status": "404", "method": "DELETE", "path": "/api/nothing"},
 		},
 	}
 	for _, tt := range tests {
@@ -787,7 +789,7 @@ func TestAuditBasicAuthFailure(t *testing.T) {
 		t.Fatalf("got %d audit events, want login.basic and build.run: %v", len(got), got)
 	}
 	checkAuditEvent(t, got[0], map[string]string{"event": "login.basic", "outcome": "failed", "auth": ""})
-	checkAuditEvent(t, got[1], map[string]string{"event": "build.run", "outcome": "failed", "status": "403", "auth": ""})
+	checkAuditEvent(t, got[1], map[string]string{"event": "build.run", "outcome": "failed", "status": "401", "auth": ""})
 }
 
 func TestAuditLogout(t *testing.T) {
@@ -835,9 +837,9 @@ func TestAuditScheduledBuild(t *testing.T) {
 func TestRequestLineSaysWho(t *testing.T) {
 	newAuditTestEnv(t)
 	buf := &syncBuffer{}
-	oldL := L
-	L = slog.New(slog.NewJSONHandler(buf, &slog.HandlerOptions{Level: slog.LevelWarn}))
-	t.Cleanup(func() { L = oldL })
+	oldLog := requestLog
+	requestLog = slog.New(slog.NewJSONHandler(buf, nil))
+	t.Cleanup(func() { requestLog = oldLog })
 
 	router := chi.NewRouter()
 	router.Use(LogMi)
@@ -875,7 +877,7 @@ func TestRequestLineSaysWho(t *testing.T) {
 	// A session token never reaches the logs
 	invalid := &http.Cookie{Name: "session", Value: "not-a-real-session-token"}
 	line = request(invalid)
-	if line["auth"] != nil || line["status"] != float64(http.StatusForbidden) {
+	if line["auth"] != nil || line["status"] != float64(http.StatusUnauthorized) {
 		t.Errorf("request line = %v", line)
 	}
 	if strings.Contains(buf.String(), invalid.Value) {

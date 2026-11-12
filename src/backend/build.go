@@ -83,9 +83,10 @@ type Build struct {
 	ETA            int           // seconds
 	timer          *time.Timer   // A timer for Job.Timeout
 	mutex          deadlock.Mutex
-	// startedWithAPIKey means the params came from an API key, so values the
-	// job writes into build.env may be built from them
-	startedWithAPIKey bool
+	// untrustedParams means the params came from someone who may not edit
+	// jobs (an API key, or a single sign-on user without write), so values
+	// the job writes into build.env may be built from them
+	untrustedParams bool
 	// failedTask is the main task that stopped the build, exposed to the
 	// on_failed, on_aborted and finally tasks
 	failedTask *Task
@@ -343,7 +344,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 			// A job may write a param into build.env, and godotenv expands
 			// variables, so a key could turn a param that isn't a secret
 			// reference into one here
-			if !b.startedWithAPIKey {
+			if !b.untrustedParams {
 				value = injectSecrets(value)
 			}
 			taskCmd.Env = append(taskCmd.Env, fmt.Sprintf("%s=%s", key, value))
@@ -612,6 +613,7 @@ func (b *Build) generateDefaultEnvVariables() []string {
 		fmt.Sprintf("WAKE_JOB_NAME=%s", b.Job.Name),
 		fmt.Sprintf("WAKE_JOB_PARAMS=%s", params.Encode()),
 		fmt.Sprintf("WAKE_CONFIG_DIR=%s", Config.JobDir),
+		fmt.Sprintf("WAKE_SUMMARY=%s", b.GetWakespaceDir()+jobSummaryFile),
 	}
 	if Config.Port == "443" {
 		evs = append(evs, fmt.Sprintf("WAKE_URL=https://%s/", Config.Hostname))
@@ -744,6 +746,7 @@ func (b *Build) BroadcastUpdate() {
 	msg := MsgBroadcast{
 		Type: "build:update:" + strconv.Itoa(bID),
 		Data: json.RawMessage(data),
+		Job:  b.Job.Name,
 	}
 	WSHub.broadcast <- &msg
 
@@ -761,6 +764,7 @@ func (b *Build) BroadcastUpdate() {
 	if err != nil {
 		b.Logger.Error("save build history", "err", err)
 	}
+	buildChanges.notify(bID)
 }
 
 // records returns the build's history entry (BuildUpdateData) and, while it
@@ -786,9 +790,11 @@ func (b *Build) records() (data, queued []byte, err error) {
 		return data, nil, err
 	}
 	queued, err = json.Marshal(queuedBuild{
-		Job:               b.Job,
-		Params:            b.Params,
-		StartedWithAPIKey: b.startedWithAPIKey,
+		Job:             b.Job,
+		Params:          b.Params,
+		UntrustedParams: b.untrustedParams,
+		// So a rollback to wakeci 2.41, which reads only this name, keeps it
+		StartedWithAPIKey: b.untrustedParams,
 		Tasks:             b.GetTasksStatus(),
 	})
 	return data, queued, err
@@ -831,6 +837,7 @@ func (b *Build) ProcessLogEntry(line string, buffer *bufio.Writer, taskID int, s
 			TaskID: taskID,
 			Data:   pline,
 		},
+		Job: b.Job.Name,
 	}
 	WSHub.broadcast <- &msg
 }
@@ -841,15 +848,26 @@ func (b *Build) GetWorkspaceDir() string {
 	return Config.WorkDir + "workspace/" + strconv.Itoa(b.ID) + "/"
 }
 
+// wakespaceDir is where build id keeps its task logs, artifacts, plan and
+// summary, ending in a slash. Every path into it starts here.
+func wakespaceDir(id int) string {
+	return Config.WorkDir + "wakespace/" + strconv.Itoa(id) + "/"
+}
+
+// taskLogName is the file of a task's log in its build's wakespace
+func taskLogName(taskID int) string {
+	return fmt.Sprintf("task_%d.log", taskID)
+}
+
 // GetWakespaceDir returns path to the data dir - there all build+wake related data is
 // stored
 func (b *Build) GetWakespaceDir() string {
-	return Config.WorkDir + "wakespace/" + strconv.Itoa(b.ID) + "/"
+	return wakespaceDir(b.ID)
 }
 
 // taskLogPath returns the path to the output log of the task
 func (b *Build) taskLogPath(taskID int) string {
-	return b.GetWakespaceDir() + fmt.Sprintf("task_%d.log", taskID)
+	return wakespaceDir(b.ID) + taskLogName(taskID)
 }
 
 // GetArtifactsDir returns location of artifacts folder
@@ -968,7 +986,7 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 }
 
 // CreateBuild creates Build instance and all necessary files and folders in wakespace
-func CreateBuild(job *Job, jobPath string, startedWithAPIKey bool) (*Build, error) {
+func CreateBuild(job *Job, jobPath string, untrustedParams bool) (*Build, error) {
 	var counti int
 	err := DB.Update(func(tx *bolt.Tx) error {
 		var err error
@@ -997,7 +1015,7 @@ func CreateBuild(job *Job, jobPath string, startedWithAPIKey bool) (*Build, erro
 		Params:       job.DefaultParams,
 		ETA:          GetJobETA(job.Name),
 		// Set before SetBuildStatus below starts the pending tasks
-		startedWithAPIKey: startedWithAPIKey,
+		untrustedParams: untrustedParams,
 	}
 	build.Logger = L.With("build", build.ID)
 
@@ -1045,6 +1063,8 @@ func CreateBuild(job *Job, jobPath string, startedWithAPIKey bool) (*Build, erro
 type ArtifactInfo struct {
 	Filename string `json:"filename"`
 	Size     int64  `json:"size"`
+	// URL is where to download it, filled in by the API, not stored
+	URL string `json:"url,omitempty"`
 }
 
 // Used to expand env variables in commands

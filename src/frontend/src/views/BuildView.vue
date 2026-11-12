@@ -46,6 +46,7 @@
                 </div>
             </button>
             <a
+                v-if="can('run', job.name)"
                 class="button circle transparent"
                 :disabled="isDone ? true : null"
                 :href="getAbortURL"
@@ -56,7 +57,7 @@
                 <div class="tooltip bottom">Abort</div>
             </a>
             <StartBuildNowButton
-                v-if="statusUpdate.id"
+                v-if="statusUpdate.id && can('run', job.name)"
                 :status="statusUpdate.status"
                 :build-i-d="statusUpdate.id"
             />
@@ -66,11 +67,22 @@
                 :build-id="statusUpdate.id"
             />
             <RunJobButton
+                v-if="can('run', job.name)"
                 :params="statusUpdate.params"
                 :job-name="job.name"
                 :icon="'replay'"
             />
         </div>
+    </article>
+
+    <!-- Plain text: a summary can hold text from logs or pull requests -->
+    <article
+        v-if="summary"
+        class="border"
+        data-cy="build-summary"
+    >
+        <h6 class="small">Summary</h6>
+        <pre class="summary">{{ summary }}</pre>
     </article>
 
     <article
@@ -167,6 +179,8 @@ export default {
         return {
             name: "",
             job: {},
+            // What the job wrote to $WAKE_SUMMARY
+            summary: "",
             statusUpdate: {
                 tasks: [],
                 id: NaN,
@@ -180,6 +194,7 @@ export default {
     },
     computed: {
         ...vuex.mapState(["ws"]),
+        ...vuex.mapGetters(["can"]),
         getMainTasks() {
             return this.statusUpdate.tasks.filter((item) => {
                 return item.kind === "main";
@@ -267,6 +282,7 @@ export default {
                 .then((response) => {
                     this.statusUpdate = response.data.status_update;
                     this.job = response.data.job;
+                    this.summary = response.data.summary || "";
                     this.updateTitle();
                 })
                 .catch(() => {
@@ -285,8 +301,13 @@ export default {
                 .catch(() => {});
         },
         applyBuildUpdate(ev) {
+            const wasDone = this.isDone;
             this.statusUpdate = Object.assign({}, this.statusUpdate, ev);
             this.updateTitle();
+            // The last tasks usually write the summary, which updates don't carry
+            if (!wasDone && this.isDone) {
+                this.fetch();
+            }
         },
         updateTitle() {
             const statusIcon = this.getStatusIcon(this.statusUpdate.status);
@@ -365,4 +386,10 @@ export default {
 };
 </script>
 
-<style scoped></style>
+<style scoped>
+.summary {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    margin: 0;
+}
+</style>

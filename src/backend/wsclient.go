@@ -70,6 +70,10 @@ type Client struct {
 	// for Basic auth. The hub closes the connection when the session ends.
 	session string
 
+	// access is what the connection was opened with; the hub only sends it
+	// messages about jobs it may read
+	access *Access
+
 	mu deadlock.Mutex
 }
 
@@ -274,6 +278,7 @@ func HandleWS(w http.ResponseWriter, r *http.Request) {
 		SubscribedTo: []string{},
 		Logger:       L.With("logID", logID, "host", host),
 		session:      requestSession(r),
+		access:       accessFromContext(r.Context()),
 	}
 	client.hub.register <- client
 
@@ -281,6 +286,18 @@ func HandleWS(w http.ResponseWriter, r *http.Request) {
 	// new goroutines.
 	go client.writePump()
 	go client.readPump()
+}
+
+// mayReceive reports whether the client may get message: messages about the
+// server go to everyone, messages about a job to those who may read it
+func (c *Client) mayReceive(message *MsgBroadcast) bool {
+	switch {
+	case c.access == nil:
+		return false
+	case c.access.Full, message.Type == MsgTypeQueueStatus:
+		return true
+	}
+	return message.Job != "" && c.access.Allows(ScopeRead, message.Job)
 }
 
 // requestSession returns the session a request is made with: the session

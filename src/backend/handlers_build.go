@@ -1,26 +1,72 @@
 package main
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"errors"
-	"log/slog"
+	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	bolt "go.etcd.io/bbolt"
 	"gopkg.in/yaml.v2"
 )
 
-var errBuildNotFound = errors.New("build not found")
+var errBuildNotFound = errors.New("not found")
+
+// buildIDParam reads the build ID from the URL
+func buildIDParam(r *http.Request) (int, error) {
+	idp := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(idp)
+	if err != nil {
+		return 0, fmt.Errorf("invalid build ID %q", idp)
+	}
+	return id, nil
+}
+
+// readBuildStatus reads a build's entry in the history
+func readBuildStatus(id int) (*BuildUpdateData, error) {
+	var build BuildUpdateData
+	err := DB.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket(HistoryBucket)
+		data := b.Get(Itob(id))
+		if data == nil {
+			return buildNotFound(b.Cursor(), id)
+		}
+		if err := json.Unmarshal(data, &build); err != nil {
+			return fmt.Errorf("read build %d: %w", id, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &build, nil
+}
+
+// buildNotFound names the builds this server holds, because clients mix up
+// the build IDs of different wakeci servers
+func buildNotFound(c *bolt.Cursor, id int) error {
+	first, _ := c.First()
+	last, _ := c.Last()
+	if first == nil {
+		return fmt.Errorf("build %d %w on this server, which has no builds", id, errBuildNotFound)
+	}
+	return fmt.Errorf("build %d %w on this server, which holds builds %d to %d",
+		id, errBuildNotFound, binary.BigEndian.Uint64(first), binary.BigEndian.Uint64(last))
+}
 
 // getBuildConfig returns job instance of already executed build
 func getBuildConfig(buildID int) (*Job, error) {
 	// Collect tasks info by reconstructing job object
-	buildConfigDir := Config.WorkDir + "wakespace/" + strconv.Itoa(buildID)
-	newConfigFilename := buildConfigDir + "/build_plan" + Config.jobsExt
-	oldConfigFilename := buildConfigDir + "/build" + Config.jobsExt
+	buildConfigDir := wakespaceDir(buildID)
+	newConfigFilename := buildConfigDir + "build_plan" + Config.jobsExt
+	oldConfigFilename := buildConfigDir + "build" + Config.jobsExt
 
 	job := &Job{}
 
@@ -56,103 +102,163 @@ func getBuildConfig(buildID int) (*Job, error) {
 
 // HandleGetBuild Returns information required to bootstrap build page
 // @Summary      Return status of the build
-// @Description  Contains information about the job and the latest build status
+// @Description  Contains the job and the build's status. Each task in status_update.tasks has its name, and the URL (log) and size (logSize) of its log if it wrote one; each artifact in status_update.build_artifacts has its download url. API key scope: read
 // @Tags         build
 // @Produce      json
 // @Param        id       path    integer   true  "Build ID"
+// @Param        wait     query   integer   false "Wait up to that many seconds, at most 300, for the build to end; it answers as soon as it does"
 // @Success      200      {object}   GetBuildPayload
-// @Failure      500      {string}   http.StatusInternalServerError
-// @Failure      404      {string}   http.StatusNotFound
-// @Router       /build/{id} [get]
+// @Failure      400      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      404      {string}   string
+// @Failure      429      {string}   string
+// @Failure      500      {string}   string
+// @Router       /api/build/{id} [get]
 func HandleGetBuild(w http.ResponseWriter, r *http.Request) {
-	logger, ok := r.Context().Value(HL).(*slog.Logger)
-	if !ok {
-		logger = L
-	}
-
-	idp := chi.URLParam(r, "id")
-	buildID, err := strconv.Atoi(idp)
+	logger := requestLogger(r)
+	buildID, err := buildIDParam(r)
 	if err != nil {
-		logger.Error("parse build id", "id", idp, "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Header().Set("Content-Type", "text/plain")
-		writeBody(logger, w, []byte(err.Error()))
+		writePlainText(w, logger, http.StatusBadRequest, err.Error())
+		return
+	}
+	wait, err := positiveParam(r.URL.Query(), "wait", 0, maxBuildWait, 0)
+	if err != nil {
+		writePlainText(w, logger, http.StatusBadRequest, err.Error())
+		return
+	}
+	buildStatusData, err := waitForBuild(r, buildID, wait)
+	if errors.Is(err, errBuildNotFound) {
+		writePlainText(w, logger, http.StatusNotFound, err.Error())
+		return
+	}
+	if err != nil {
+		logger.Error("get build status", "build", buildID, "err", err)
+		writePlainText(w, logger, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	job, err := getBuildConfig(buildID)
 	if err != nil {
 		logger.Error("get build config", "build", buildID, "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Header().Set("Content-Type", "text/plain")
-		writeBody(logger, w, []byte(err.Error()))
+		writePlainText(w, logger, http.StatusInternalServerError, err.Error())
 		return
+	}
+	addTaskLogs(buildStatusData, job)
+	addArtifactURLs(buildStatusData)
+	summary, err := readJobSummary(buildID)
+	if err != nil {
+		logger.Error("read job summary", "build", buildID, "err", err)
 	}
 
-	// Get build statusupdate
-	var buildStatusData BuildUpdateData
-	err = DB.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(HistoryBucket))
-		ud := b.Get(Itob(buildID))
-		if ud == nil {
-			return errBuildNotFound
-		}
-		return json.Unmarshal(ud, &buildStatusData)
-	})
-	if err != nil {
-		logger.Error("get build status", "build", buildID, "err", err)
-		if errors.Is(err, errBuildNotFound) {
-			w.WriteHeader(http.StatusNotFound)
-		} else {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Header().Set("Content-Type", "text/plain")
-			writeBody(logger, w, []byte(err.Error()))
-		}
-		return
-	}
 	payload := GetBuildPayload{
 		Job:          job,
-		StatusUpdate: &buildStatusData,
+		StatusUpdate: buildStatusData,
+		Summary:      summary,
 	}
 
-	payloadB, err := json.Marshal(payload)
-	if err != nil {
-		logger.Error("marshal build payload", "build", buildID, "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Header().Set("Content-Type", "text/plain")
-		writeBody(logger, w, []byte(err.Error()))
-		return
+	writeCachedJSON(w, r, logger, payload)
+}
+
+// addTaskLogs names the build's tasks and says where their logs are and how
+// big, so clients neither join the task lists by index nor ask for logs of
+// tasks that never ran
+func addTaskLogs(build *BuildUpdateData, job *Job) {
+	names := make(map[int]string, len(job.Tasks))
+	for _, task := range job.Tasks {
+		names[task.ID] = task.Name
 	}
-	w.Header().Set("Content-Type", "application/json")
-	writeBody(logger, w, payloadB)
+	dir := wakespaceDir(build.ID)
+	for _, task := range build.Tasks {
+		task.Name = names[task.ID]
+		file := taskLogName(task.ID)
+		if info, err := os.Stat(dir + file); err == nil {
+			task.Log = storageURL(build.ID, file)
+			task.LogSize = info.Size()
+		}
+	}
+}
+
+// addArtifactURLs says where the build's artifacts can be downloaded: under
+// artifacts/ in its storage, with the path the job collected them from
+func addArtifactURLs(build *BuildUpdateData) {
+	for _, artifact := range build.BuildArtifacts {
+		artifact.URL = storageURL(build.ID, "artifacts/"+artifact.Filename)
+	}
+}
+
+// storageURL is the URL of file, a path in a build's storage
+func storageURL(id int, file string) string {
+	parts := strings.Split(file, "/")
+	for i, part := range parts {
+		parts[i] = url.PathEscape(part)
+	}
+	return "/storage/build/" + strconv.Itoa(id) + "/" + strings.Join(parts, "/")
 }
 
 type GetBuildPayload struct {
 	Job          *Job             `json:"job"`
 	StatusUpdate *BuildUpdateData `json:"status_update"`
+	// Summary is what the job wrote to $WAKE_SUMMARY, empty if nothing
+	Summary string `json:"summary"`
+}
+
+// jobSummaryFile is where a build's tasks write its summary, in its
+// wakespace; tasks get the path as WAKE_SUMMARY
+const jobSummaryFile = "summary.md"
+
+// maxJobSummary caps the summary a job wrote, which pages and agents read
+// whole
+const maxJobSummary = 64 * 1024
+
+// readJobSummary returns what the build's tasks wrote to $WAKE_SUMMARY, at
+// most maxJobSummary bytes, or "" if they wrote nothing
+func readJobSummary(buildID int) (string, error) {
+	f, err := os.Open(wakespaceDir(buildID) + jobSummaryFile)
+	if errors.Is(err, os.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("open job summary: %w", err)
+	}
+	defer closeLog(f, jobSummaryFile)
+	// Whoever may read the build sees it, so secret values are redacted as
+	// in task logs. Read as much more as the longest secret, so a secret that
+	// crosses the cut is redacted before the cut
+	longest := 0
+	for _, value := range secretRedactionValues() {
+		longest = max(longest, len(value))
+	}
+	data, err := io.ReadAll(io.LimitReader(f, int64(maxJobSummary+longest+1)))
+	if err != nil {
+		return "", fmt.Errorf("read job summary: %w", err)
+	}
+	text := redactSecrets(string(data))
+	if len(data) > maxJobSummary {
+		return strings.ToValidUTF8(text[:min(len(text), maxJobSummary)], "") + "\n... (cut at 64 KB)", nil
+	}
+	return strings.ToValidUTF8(text, ""), nil
 }
 
 // HandleAbortBuild aborts build
 // @Summary      Abort the build
+// @Description  API key scope: run
 // @Tags         build
 // @Produce      plain
 // @Param        id       path    integer   true  "Build ID"
 // @Success      200      {string}   string
-// @Failure      500      {string}   http.StatusInternalServerError
-// @Failure      404      {string}   http.StatusNotFound
-// @Router       /build/{id}/abort [post]
+// @Failure      400      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      404      {string}   string
+// @Failure      429      {string}   string
+// @Failure      500      {string}   string
+// @Router       /api/build/{id}/abort [post]
 func HandleAbortBuild(w http.ResponseWriter, r *http.Request) {
-	logger, ok := r.Context().Value(HL).(*slog.Logger)
-	if !ok {
-		logger = L
-	}
-	buildID := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(buildID)
+	logger := requestLogger(r)
+	id, err := buildIDParam(r)
 	if err != nil {
-		logger.Error("parse build id", "id", buildID, "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Header().Set("Content-Type", "text/plain")
-		writeBody(logger, w, []byte(err.Error()))
+		writePlainText(w, logger, http.StatusBadRequest, err.Error())
 		return
 	}
 	err = GlobalQueue.Abort(id, StatusAborted)
@@ -165,26 +271,24 @@ func HandleAbortBuild(w http.ResponseWriter, r *http.Request) {
 
 // HandleFlushTaskLogs signals to flush logs
 // @Summary      Signal the build to flush its log buffer
+// @Description  API key scope: run
 // @Tags         build
 // @Produce      plain
 // @Param        id       path    integer   true  "Build ID"
 // @Success      200      {string}   string
-// @Failure      500      {string}   http.StatusInternalServerError
-// @Failure      404      {string}   http.StatusNotFound
-// @Router       /build/{id}/flush [post]
+// @Failure      400      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      404      {string}   string
+// @Failure      429      {string}   string
+// @Failure      500      {string}   string
+// @Router       /api/build/{id}/flush [post]
 func HandleFlushTaskLogs(w http.ResponseWriter, r *http.Request) {
-	logger, ok := r.Context().Value(HL).(*slog.Logger)
-	if !ok {
-		logger = L
-	}
+	logger := requestLogger(r)
 
-	buildID := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(buildID)
+	id, err := buildIDParam(r)
 	if err != nil {
-		logger.Error("parse build id", "id", buildID, "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Header().Set("Content-Type", "text/plain")
-		writeBody(logger, w, []byte(err.Error()))
+		writePlainText(w, logger, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -198,27 +302,24 @@ func HandleFlushTaskLogs(w http.ResponseWriter, r *http.Request) {
 
 // HandleStartBuild takes the build from the queue and starts to run it immediately
 // @Summary      Takes the build from the queue and starts to run it immediately, ignorring the number of allowed concurrent builds and concurrency parameter
-// @Description  Not while wakeci is stopping (409)
+// @Description  Not while wakeci is stopping (409). API key scope: run
 // @Tags         build
 // @Produce      plain
 // @Param        id       path    integer   true  "Build ID"
 // @Success      200      {string}   string
-// @Failure      500      {string}   http.StatusInternalServerError
-// @Failure      404      {string}   http.StatusNotFound
+// @Failure      400      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      404      {string}   string
 // @Failure      409      {string}   string
-// @Router       /build/{id}/start [post]
+// @Failure      429      {string}   string
+// @Failure      500      {string}   string
+// @Router       /api/build/{id}/start [post]
 func HandleStartBuild(w http.ResponseWriter, r *http.Request) {
-	logger, ok := r.Context().Value(HL).(*slog.Logger)
-	if !ok {
-		logger = L
-	}
-	buildID := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(buildID)
+	logger := requestLogger(r)
+	id, err := buildIDParam(r)
 	if err != nil {
-		logger.Error("parse build id", "id", buildID, "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Header().Set("Content-Type", "text/plain")
-		writeBody(logger, w, []byte(err.Error()))
+		writePlainText(w, logger, http.StatusBadRequest, err.Error())
 		return
 	}
 	err = GlobalQueue.TakeNow(id)
