@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -92,5 +93,35 @@ func TestHandleJobsCreateStillAcceptsNormalNames(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(jobDir, "my-normal-job.yaml")); err != nil {
 		t.Errorf("expected job file to be created: %v", err)
+	}
+}
+
+// The job list is [] without jobs, and a job without parameters has
+// defaultParams [], so clients don't have to handle null
+func TestJobListHasNoNulls(t *testing.T) {
+	newAPIKeyTestEnv(t)
+	for _, name := range []string{"deploy", "nightly", "test_api"} {
+		if rec := adminRequest("DELETE", "/api/job/"+name, nil); rec.Code != http.StatusOK {
+			t.Fatalf("delete %s: %d", name, rec.Code)
+		}
+	}
+	rec := adminRequest("GET", "/api/jobs/", nil)
+	if body := strings.TrimSpace(rec.Body.String()); body != "[]" {
+		t.Errorf("no jobs: got %q, want []", body)
+	}
+
+	path := Config.JobDir + "plain" + Config.jobsExt
+	if err := os.WriteFile(path, []byte("desc: plain\ntasks: []\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := RegisterJob(path); err != nil {
+		t.Fatal(err)
+	}
+	var jobs []map[string]any
+	if err := json.Unmarshal(adminRequest("GET", "/api/jobs/", nil).Body.Bytes(), &jobs); err != nil {
+		t.Fatal(err)
+	}
+	if len(jobs) != 1 || jobs[0]["defaultParams"] == nil {
+		t.Errorf("a job without parameters: got %v, want defaultParams []", jobs)
 	}
 }

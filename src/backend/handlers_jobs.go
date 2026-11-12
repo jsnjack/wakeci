@@ -25,7 +25,8 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request) {
 	}
 
 	access := accessFromContext(r.Context())
-	var data []*JobsListData
+	// [], not null, when there are no jobs
+	data := []*JobsListData{}
 	err := DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(JobsBucket))
 		c := b.Cursor()
@@ -42,6 +43,9 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request) {
 				err := json.Unmarshal(params, &job.DefaultParams)
 				if err != nil {
 					return err
+				}
+				if job.DefaultParams == nil {
+					job.DefaultParams = []map[string]string{}
 				}
 				desc := jb.Get([]byte("desc"))
 				job.Desc = string(desc)

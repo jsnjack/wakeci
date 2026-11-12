@@ -97,7 +97,6 @@ type Task struct {
 	Env          map[string]string `yaml:"env" json:"env"`
 	Status       ItemStatus        `json:"status"`
 	Kind         string            `json:"kind"`
-	Logs         interface{}       `json:"logs"` // used as a container for frontend
 	IncludePath  string            `yaml:"include" json:"include"`
 	Block        []*Task           `yaml:"block" json:"block"`
 	IgnoreErrors bool              `yaml:"ignore_errors" json:"ignore_errors"`
