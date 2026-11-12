@@ -389,6 +389,9 @@ AGENTS.universal.md for the general contract.
 - Swagger `@Router` paths start with `/api` or `/storage` (basePath is `/`)
   and must be routes as written, slash included; `TestAPISpecMatchesTheRoutes`
   checks the generated spec. Name the API key scope in `@Description`.
+- Every MCP tool sets `Meta: mcp.Meta{"scope": ...}`: `/docs/mcp.json` and
+  the Help page's MCP tab are built from the tools (`TestMCPDocs`), and
+  every route must be in the spec (`TestEveryRouteIsDocumented`).
 - A new route that changes something needs an entry in `auditedRoutes`
   (`TestAuditedRoutes` fails without one). Audit attrs carry names and IDs,
   never passwords, tokens, secrets or run parameter values, nor names a

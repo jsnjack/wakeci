@@ -494,6 +494,7 @@ func docsRoutes(router chi.Router) {
 	router.Use(StorageSecurityMi)
 	router.Get("/api/", HandleAPIDocsView)
 	router.Method("GET", "/swagger.json", http.FileServer(http.FS(APIDocs)))
+	router.Get("/mcp.json", HandleMCPDocs)
 }
 
 // storageRoutes registers the /storage routes, which serve the files of

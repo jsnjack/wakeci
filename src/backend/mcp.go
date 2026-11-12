@@ -173,7 +173,7 @@ func newMCPServer(c *mcpCaller) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{Name: "wakeci", Version: Version}, &mcp.ServerOptions{Instructions: mcpInstructions})
 	readOnly := &mcp.ToolAnnotations{ReadOnlyHint: true}
 
-	mcp.AddTool(server, &mcp.Tool{Name: "whoami", Annotations: readOnly,
+	mcp.AddTool(server, &mcp.Tool{Name: "whoami", Meta: mcp.Meta{"scope": "any"}, Annotations: readOnly,
 		Description: "What this API key may do, and which server answers: its hostname, version and the range of build IDs it has."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, _ mcpNoInput) (*mcp.CallToolResult, WhoAmIData, error) {
 			var data WhoAmIData
@@ -181,7 +181,7 @@ func newMCPServer(c *mcpCaller) *mcp.Server {
 			return nil, data, err
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "list_jobs", Annotations: readOnly,
+	mcp.AddTool(server, &mcp.Tool{Name: "list_jobs", Meta: mcp.Meta{"scope": "read"}, Annotations: readOnly,
 		Description: "The jobs this key may read, with their descriptions and default parameters."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in mcpListJobsInput) (*mcp.CallToolResult, mcpJobs, error) {
 			var jobs []*JobsListData
@@ -197,7 +197,7 @@ func newMCPServer(c *mcpCaller) *mcp.Server {
 			return nil, out, nil
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "find_builds", Annotations: readOnly,
+	mcp.AddTool(server, &mcp.Tool{Name: "find_builds", Meta: mcp.Meta{"scope": "read"}, Annotations: readOnly,
 		Description: "Builds, newest first, by job, status or search words."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in mcpFindBuildsInput) (*mcp.CallToolResult, mcpBuilds, error) {
 			query := url.Values{}
@@ -224,7 +224,7 @@ func newMCPServer(c *mcpCaller) *mcp.Server {
 			return nil, out, nil
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "build_summary", Annotations: readOnly,
+	mcp.AddTool(server, &mcp.Tool{Name: "build_summary", Meta: mcp.Meta{"scope": "read"}, Annotations: readOnly,
 		Description: "A build's status, tasks, artifacts, the summary the job wrote, and the end of the log of each task that failed, timed out or was aborted. With wait, it first waits for a running build to end."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in mcpBuildSummaryInput) (*mcp.CallToolResult, BuildSummary, error) {
 			query := url.Values{}
@@ -239,7 +239,7 @@ func newMCPServer(c *mcpCaller) *mcp.Server {
 			return nil, summary, err
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "read_log", Annotations: readOnly,
+	mcp.AddTool(server, &mcp.Tool{Name: "read_log", Meta: mcp.Meta{"scope": "read"}, Annotations: readOnly,
 		Description: "Part of a task's log: its last lines, or the lines that contain a text."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in mcpReadLogInput) (*mcp.CallToolResult, any, error) {
 			query := url.Values{}
@@ -260,7 +260,7 @@ func newMCPServer(c *mcpCaller) *mcp.Server {
 			return textResult(string(data)), nil, nil
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "read_artifact", Annotations: readOnly,
+	mcp.AddTool(server, &mcp.Tool{Name: "read_artifact", Meta: mcp.Meta{"scope": "read"}, Annotations: readOnly,
 		Description: "A text artifact of a build, such as a JSON report, up to 256 KB."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in mcpReadArtifactInput) (*mcp.CallToolResult, any, error) {
 			target := storageURL(in.Build, "artifacts/"+strings.TrimPrefix(in.Path, "/"))
@@ -278,7 +278,7 @@ func newMCPServer(c *mcpCaller) *mcp.Server {
 			return textResult(text), nil, nil
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "run_job", Annotations: &mcp.ToolAnnotations{DestructiveHint: ptr(false)},
+	mcp.AddTool(server, &mcp.Tool{Name: "run_job", Meta: mcp.Meta{"scope": "run"}, Annotations: &mcp.ToolAnnotations{DestructiveHint: ptr(false)},
 		Description: "Start a build of a job. Needs the run scope. Parameters can't reference secrets or contain quotes or line breaks."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in mcpRunJobInput) (*mcp.CallToolResult, mcpStartedBuild, error) {
 			form := url.Values{}
@@ -296,7 +296,7 @@ func newMCPServer(c *mcpCaller) *mcp.Server {
 			return nil, mcpStartedBuild{ID: id, Page: "/build/" + strconv.Itoa(id)}, nil
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "abort_build", Annotations: &mcp.ToolAnnotations{DestructiveHint: ptr(true)},
+	mcp.AddTool(server, &mcp.Tool{Name: "abort_build", Meta: mcp.Meta{"scope": "run"}, Annotations: &mcp.ToolAnnotations{DestructiveHint: ptr(true)},
 		Description: "Abort a pending or running build. Needs the run scope."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in mcpBuildInput) (*mcp.CallToolResult, any, error) {
 			if _, err := c.call(ctx, http.MethodPost, "/api/build/"+strconv.Itoa(in.ID)+"/abort", nil); err != nil {
