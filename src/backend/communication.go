@@ -46,11 +46,24 @@ type JobsListData struct {
 
 // TaskStatus contains basic info about a task, used for status updates
 type TaskStatus struct {
-	ID        int           `json:"id"`
-	Status    ItemStatus    `json:"status"`
-	StartedAt time.Time     `json:"startedAt"`
-	Duration  time.Duration `json:"duration" swaggertype:"integer"` // nanoseconds
-	Kind      string        `json:"kind"`
+	// ID is the task's position in the build's tasks, which start with the
+	// on_pending and on_running tasks, so the first main task's ID may not
+	// be 0
+	ID int `json:"id"`
+	// Status is pending until the task runs, then running, and at the end
+	// finished, failed, skipped (its when or if condition was false),
+	// aborted or timed out. Tasks that never run, such as the on_failed
+	// tasks of a build that finished, stay pending.
+	Status ItemStatus `json:"status"`
+	// StartedAt is 0001-01-01T00:00:00.000000Z until the task starts
+	StartedAt time.Time `json:"startedAt"`
+	// Duration is in nanoseconds, 0 until the task ends
+	Duration time.Duration `json:"duration" swaggertype:"integer"`
+	// Kind is main for the job's tasks, or pending, running, failed,
+	// aborted, finished or finally for those of on_pending, on_running,
+	// on_failed, on_aborted, on_finished and finally. A build that timed out
+	// runs its on_aborted tasks.
+	Kind string `json:"kind"`
 	// Name, Log and LogSize are only filled in by GET /api/build/{id}. Log
 	// is the URL of the task's log, empty if the task wrote none.
 	Name    string `json:"name,omitempty"`
@@ -82,16 +95,32 @@ func (x TaskStatus) MarshalJSON() ([]byte, error) {
 
 // BuildUpdateData is viewable on the feed page
 type BuildUpdateData struct {
-	ID             int                 `json:"id"`
-	Name           string              `json:"name"`
-	Status         ItemStatus          `json:"status"`
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+	// Status is pending while the build is queued, then running, and at
+	// the end finished, failed, aborted or timed out. It turns final before
+	// the build's on_* and finally tasks run and its artifacts are
+	// collected; the build has ended once they are done, when duration is
+	// set and a wait answers.
+	Status ItemStatus `json:"status"`
+	// Tasks are all the build's tasks in the order they would run:
+	// on_pending, on_running, the main tasks, on_failed, on_aborted,
+	// on_finished and finally. Only those the build's status calls for run.
 	Tasks          []*TaskStatus       `json:"tasks"`
 	Params         []map[string]string `json:"params"`
 	Artifacts      []string            `json:"artifacts"` // Deprecated: file names only; use build_artifacts
 	BuildArtifacts []*ArtifactInfo     `json:"build_artifacts"`
-	StartedAt      time.Time           `json:"startedAt"`
-	Duration       time.Duration       `json:"duration" swaggertype:"integer"` // nanoseconds
-	ETA            int                 `json:"eta"`
+	// StartedAt is when the build started running, after its on_pending
+	// tasks; 0001-01-01T00:00:00.000000Z if it never did
+	StartedAt time.Time `json:"startedAt"`
+	// Duration is in nanoseconds, from startedAt until the build's last
+	// task ended. It is 0 until then, for a build that never started, and
+	// for one that was running when wakeci was killed.
+	Duration time.Duration `json:"duration" swaggertype:"integer"`
+	// ETA is how long the build is expected to take, in nanoseconds: the
+	// average duration of the job's last 5 finished builds when this build
+	// was created; 0 until the job has 5
+	ETA int `json:"eta"`
 }
 
 // When StartedAt field is serialized to JSON, it has fixed second's precision

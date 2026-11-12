@@ -47,7 +47,9 @@ func RecordBuildDuration(jobName string, duration int) error {
 	return err
 }
 
-// GetJobETA returns ETA for job to complete, s
+// GetJobETA returns how long a build of the job is expected to take, in
+// nanoseconds: the average of its last DurationWindowLength finished builds,
+// 0 until it has that many
 func GetJobETA(jobName string) int {
 	var eta int
 	err := DB.View(func(tx *bolt.Tx) error {

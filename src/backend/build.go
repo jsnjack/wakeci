@@ -80,7 +80,7 @@ type Build struct {
 	BuildArtifacts []*ArtifactInfo
 	StartedAt      time.Time
 	Duration       time.Duration // ns
-	ETA            int           // seconds
+	ETA            int           // ns, see BuildUpdateData.ETA
 	timer          *time.Timer   // A timer for Job.Timeout
 	mutex          deadlock.Mutex
 	// untrustedParams means the params came from someone who may not edit

@@ -86,20 +86,24 @@ func (j *Job) verifyInterval() error {
 }
 
 // Task is a command to execute
-// .Kind - Possible values: `KindMain` for main tasks; one of `StatusRunning` (and etc) for tasks that are executed when
-// the job status has changed
 type Task struct {
-	ID           int               `json:"id"`
-	Name         string            `yaml:"name" json:"name"`
-	Command      string            `yaml:"run" json:"run"`
-	When         string            `yaml:"when" json:"when"`
-	If           string            `yaml:"if" json:"if"`
-	Env          map[string]string `yaml:"env" json:"env"`
-	Status       ItemStatus        `json:"status"`
-	Kind         string            `json:"kind"`
-	IncludePath  string            `yaml:"include" json:"include"`
-	Block        []*Task           `yaml:"block" json:"block"`
-	IgnoreErrors bool              `yaml:"ignore_errors" json:"ignore_errors"`
+	// ID is the task's position in the job's tasks, which start with the
+	// on_pending and on_running tasks, so the first main task's ID may not
+	// be 0
+	ID      int               `json:"id"`
+	Name    string            `yaml:"name" json:"name"`
+	Command string            `yaml:"run" json:"run"`
+	When    string            `yaml:"when" json:"when"`
+	If      string            `yaml:"if" json:"if"`
+	Env     map[string]string `yaml:"env" json:"env"`
+	Status  ItemStatus        `json:"status"`
+	// Kind is main for the job's tasks, or pending, running, failed,
+	// aborted, finished or finally for those of on_pending, on_running,
+	// on_failed, on_aborted, on_finished and finally
+	Kind         string  `json:"kind"`
+	IncludePath  string  `yaml:"include" json:"include"`
+	Block        []*Task `yaml:"block" json:"block"`
+	IgnoreErrors bool    `yaml:"ignore_errors" json:"ignore_errors"`
 	startedAt    time.Time
 	duration     time.Duration
 }

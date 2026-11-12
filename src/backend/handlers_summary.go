@@ -36,13 +36,17 @@ var failedTaskStatuses = []ItemStatus{StatusFailed, StatusTimedOut, StatusAborte
 // status, its tasks and artifacts, and the end of the logs of the tasks that
 // went wrong
 type BuildSummary struct {
-	ID     int        `json:"id"`
-	Job    string     `json:"job"`
+	ID  int    `json:"id"`
+	Job string `json:"job"`
+	// Status is that of BuildUpdateData: it turns final before the build's
+	// on_* and finally tasks run
 	Status ItemStatus `json:"status"`
 	// Page is the build's page in the web interface
-	Page         string              `json:"page"`
-	StartedAt    time.Time           `json:"startedAt"`
-	Duration     time.Duration       `json:"duration" swaggertype:"integer"` // nanoseconds
+	Page string `json:"page"`
+	// StartedAt is that of BuildUpdateData
+	StartedAt time.Time `json:"startedAt"`
+	// Duration is in nanoseconds, 0 until the build has ended
+	Duration     time.Duration       `json:"duration" swaggertype:"integer"`
 	DurationText string              `json:"durationText"`
 	Params       []map[string]string `json:"params"`
 	// JobSummary is what the job wrote to $WAKE_SUMMARY, empty if nothing
@@ -56,9 +60,11 @@ type BuildSummary struct {
 
 // FailedTask is a task that went wrong, with the end of its log
 type FailedTask struct {
-	ID     int        `json:"id"`
-	Name   string     `json:"name"`
-	Kind   string     `json:"kind"`
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+	// Kind is that of TaskStatus
+	Kind string `json:"kind"`
+	// Status is failed, timed out or aborted
 	Status ItemStatus `json:"status"`
 	Log    string     `json:"log"`
 	// Tail is the end of the log, at most the lines asked for
