@@ -181,6 +181,9 @@ export default {
             job: {},
             // What the job wrote to $WAKE_SUMMARY
             summary: "",
+            // How many times the page asked for the summary, so only the
+            // answer to the last request sets it
+            summaryRequests: 0,
             statusUpdate: {
                 tasks: [],
                 id: NaN,
@@ -245,11 +248,11 @@ export default {
     },
     watch: {
         "ws.connected": "onWSChange",
+        // Updates sent while disconnected
+        "ws.reconnects": "fetch",
         hideAllLogs: "onHideAllLogsChange",
     },
     mounted() {
-        // Updates sent while disconnected
-        "ws.reconnects": "fetch",
         this.$store.commit("SET_CURRENT_PAGE", `#${this.id}`);
         document.addEventListener("keyup", this.onKeyUp);
         this.fetch();
@@ -279,17 +282,31 @@ export default {
             });
         },
         fetch() {
+            const request = ++this.summaryRequests;
             axios
                 .get(`/api/build/${this.id}`)
                 .then((response) => {
                     this.statusUpdate = response.data.status_update;
                     this.job = response.data.job;
-                    this.summary = response.data.summary || "";
+                    if (request === this.summaryRequests) {
+                        this.summary = response.data.summary || "";
+                    }
                     this.updateTitle();
                 })
                 .catch(() => {
                     this.empty = true;
                 });
+        },
+        fetchSummary() {
+            const request = ++this.summaryRequests;
+            axios
+                .get(`/api/build/${this.id}`)
+                .then((response) => {
+                    if (request === this.summaryRequests) {
+                        this.summary = response.data.summary || "";
+                    }
+                })
+                .catch(() => {});
         },
         abort(event) {
             axios
@@ -303,12 +320,13 @@ export default {
                 .catch(() => {});
         },
         applyBuildUpdate(ev) {
-            const wasDone = this.isDone;
             this.statusUpdate = Object.assign({}, this.statusUpdate, ev);
             this.updateTitle();
-            // The last tasks usually write the summary, which updates don't carry
-            if (!wasDone && this.isDone) {
-                this.fetch();
+            // The last tasks usually write the summary, which updates don't
+            // carry. The status is final before the on_* and finally tasks
+            // run, so each of their updates reads it again.
+            if (this.isDone) {
+                this.fetchSummary();
             }
         },
         updateTitle() {
