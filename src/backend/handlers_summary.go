@@ -76,7 +76,10 @@ type FailedTask struct {
 // @Param        wait     query   integer   false  "Wait up to that many seconds, at most 300, for the build to end; it answers as soon as it does"
 // @Success      200      {object}   BuildSummary
 // @Failure      400      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
 // @Failure      404      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}   string
 // @Router       /api/build/{id}/summary [get]
 func HandleBuildSummary(w http.ResponseWriter, r *http.Request) {
@@ -170,7 +173,10 @@ func HandleBuildSummary(w http.ResponseWriter, r *http.Request) {
 // @Param        grep     query   string    false  "Only lines that contain this text, ignoring case"
 // @Success      200      {string}   string
 // @Failure      400      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
 // @Failure      404      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}   string
 // @Router       /api/build/{id}/log/{task} [get]
 func HandleTaskLog(w http.ResponseWriter, r *http.Request) {

@@ -230,7 +230,9 @@ func requireAdmin(next http.Handler) http.Handler {
 // @Tags         groups
 // @Produce      json
 // @Success      200      {object}   SSOGroupsData
+// @Failure      401      {string}   string
 // @Failure      403      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}   string
 // @Router       /api/groups/ [get]
 func HandleSSOGroupsList(w http.ResponseWriter, r *http.Request) {
@@ -251,7 +253,7 @@ func HandleSSOGroupsList(w http.ResponseWriter, r *http.Request) {
 
 // HandleSSOGroupCreate lets a single sign-on group log in
 // @Summary      Let a single sign-on group log in, with permissions
-// @Description  Only with the admin password
+// @Description  Only with the admin password. Not available with an API key
 // @Tags         groups
 // @Accept       x-www-form-urlencoded
 // @Produce      json
@@ -262,8 +264,10 @@ func HandleSSOGroupsList(w http.ResponseWriter, r *http.Request) {
 // @Param        pattern   formData   []string false   "Pattern of job names, * matches anything" collectionFormat(multi)
 // @Success      200       {object}   SSOGroup
 // @Failure      400       {string}   string
+// @Failure      401      {string}   string
 // @Failure      403       {string}   string
 // @Failure      409       {string}   string
+// @Failure      429      {string}   string
 // @Failure      500       {string}   string
 // @Router       /api/groups/ [post]
 func HandleSSOGroupCreate(w http.ResponseWriter, r *http.Request) {
@@ -307,7 +311,7 @@ func HandleSSOGroupCreate(w http.ResponseWriter, r *http.Request) {
 
 // HandleSSOGroupUpdate changes what a single sign-on group may do
 // @Summary      Change the permissions of a single sign-on group
-// @Description  Only with the admin password. Takes effect on the members' next request.
+// @Description  Only with the admin password. Takes effect on the members' next request. Not available with an API key
 // @Tags         groups
 // @Accept       x-www-form-urlencoded
 // @Produce      json
@@ -318,8 +322,10 @@ func HandleSSOGroupCreate(w http.ResponseWriter, r *http.Request) {
 // @Param        pattern   formData   []string false   "Pattern of job names, * matches anything" collectionFormat(multi)
 // @Success      200       {object}   SSOGroup
 // @Failure      400       {string}   string
+// @Failure      401      {string}   string
 // @Failure      403       {string}   string
 // @Failure      404       {string}   string
+// @Failure      429      {string}   string
 // @Failure      500       {string}   string
 // @Router       /api/groups/{name} [post]
 func HandleSSOGroupUpdate(w http.ResponseWriter, r *http.Request) {
@@ -369,13 +375,15 @@ func HandleSSOGroupUpdate(w http.ResponseWriter, r *http.Request) {
 
 // HandleSSOGroupDelete stops a single sign-on group from logging in
 // @Summary      Remove a single sign-on group
-// @Description  Only with the admin password. Its members lose its permissions on their next request.
+// @Description  Only with the admin password. Its members lose its permissions on their next request. Not available with an API key
 // @Tags         groups
 // @Produce      plain
 // @Param        name      path       string   true    "Group name"
 // @Success      200       {string}   string
+// @Failure      401      {string}   string
 // @Failure      403       {string}   string
 // @Failure      404       {string}   string
+// @Failure      429      {string}   string
 // @Failure      500       {string}   string
 // @Router       /api/groups/{name} [delete]
 func HandleSSOGroupDelete(w http.ResponseWriter, r *http.Request) {

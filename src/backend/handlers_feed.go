@@ -115,6 +115,9 @@ func seekAtOrBefore(c *bolt.Cursor, id int) ([]byte, []byte) {
 // @Success      200      {array}    BuildUpdateData
 // @Success      304      {string}   string
 // @Failure      400      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}   string
 // @Router       /api/feed [get]
 func HandleFeedView(w http.ResponseWriter, r *http.Request) {

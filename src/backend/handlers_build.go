@@ -109,7 +109,10 @@ func getBuildConfig(buildID int) (*Job, error) {
 // @Param        wait     query   integer   false "Wait up to that many seconds, at most 300, for the build to end; it answers as soon as it does"
 // @Success      200      {object}   GetBuildPayload
 // @Failure      400      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
 // @Failure      404      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}   string
 // @Router       /api/build/{id} [get]
 func HandleGetBuild(w http.ResponseWriter, r *http.Request) {
@@ -241,7 +244,10 @@ func readJobSummary(buildID int) (string, error) {
 // @Param        id       path    integer   true  "Build ID"
 // @Success      200      {string}   string
 // @Failure      400      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
 // @Failure      404      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}   string
 // @Router       /api/build/{id}/abort [post]
 func HandleAbortBuild(w http.ResponseWriter, r *http.Request) {
@@ -267,7 +273,10 @@ func HandleAbortBuild(w http.ResponseWriter, r *http.Request) {
 // @Param        id       path    integer   true  "Build ID"
 // @Success      200      {string}   string
 // @Failure      400      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
 // @Failure      404      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}   string
 // @Router       /api/build/{id}/flush [post]
 func HandleFlushTaskLogs(w http.ResponseWriter, r *http.Request) {
@@ -295,9 +304,12 @@ func HandleFlushTaskLogs(w http.ResponseWriter, r *http.Request) {
 // @Param        id       path    integer   true  "Build ID"
 // @Success      200      {string}   string
 // @Failure      400      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
 // @Failure      404      {string}   string
-// @Failure      500      {string}   string
 // @Failure      409      {string}   string
+// @Failure      429      {string}   string
+// @Failure      500      {string}   string
 // @Router       /api/build/{id}/start [post]
 func HandleStartBuild(w http.ResponseWriter, r *http.Request) {
 	logger := requestLogger(r)

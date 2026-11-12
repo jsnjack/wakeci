@@ -47,6 +47,8 @@ type ServerInfo struct {
 // @Produce      json
 // @Success      200      {object}   WhoAmIData
 // @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}   string
 // @Router       /api/whoami [get]
 func HandleWhoAmI(w http.ResponseWriter, r *http.Request) {

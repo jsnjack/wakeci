@@ -16,6 +16,9 @@ import (
 // @Tags         jobs
 // @Produce      json
 // @Success      200      {array}    JobsListData
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}   string
 // @Router       /api/jobs/ [get]
 func HandleJobsView(w http.ResponseWriter, r *http.Request) {
@@ -84,6 +87,10 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request) {
 // @Produce      plain
 // @Param        name     formData    string   true   "Name of the job (also the name of the file in which the job is stored)"
 // @Success      200      {string}    string
+// @Failure      400      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}    string
 // @Router       /api/jobs/create [post]
 func HandleJobsCreate(w http.ResponseWriter, r *http.Request) {

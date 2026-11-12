@@ -338,6 +338,9 @@ func closeBody(body io.Closer) {
 // @Tags         update
 // @Produce      json
 // @Success      200      {object}   UpdateData
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      429      {string}   string
 // @Router       /api/update/ [get]
 func HandleUpdateGet(w http.ResponseWriter, r *http.Request) {
 	logger := requestLogger(r)
@@ -372,7 +375,10 @@ func HandleUpdateGet(w http.ResponseWriter, r *http.Request) {
 // @Produce      plain
 // @Param        version  formData   string   true  "The version to install, which must be the latest release"
 // @Success      200      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
 // @Failure      409      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}   string
 // @Failure      502      {string}   string
 // @Router       /api/update/ [post]

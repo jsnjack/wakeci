@@ -143,6 +143,7 @@ func initApp() func() {
 // @description Authenticate with an API key (Authorization: Bearer wk_...), or with the admin password as Basic auth with an empty user name.
 // @description A key may only use the routes that name the scope it needs ("API key scope"), and only on its jobs.
 // @description Missing or wrong credentials get 401, a request the key or user may not make gets 403, an unknown route or build 404.
+// @description An API key that sends more than 10 requests a second (120 at once), or a client with too many failed logins, gets 429 with Retry-After.
 
 // @BasePath /
 
@@ -508,8 +509,10 @@ func docsRoutes(router chi.Router) {
 // @Param        Range    header  string    false  "Byte range, e.g. bytes=-65536"
 // @Success      200      {file}     file
 // @Success      206      {file}     file
+// @Failure      401      {string}   string
 // @Failure      403      {string}   string
 // @Failure      404      {string}   string
+// @Failure      429      {string}   string
 // @Router       /storage/build/{id}/{path} [get]
 func storageRoutes(storage http.Handler) func(chi.Router) {
 	return func(router chi.Router) {

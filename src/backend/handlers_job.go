@@ -55,6 +55,9 @@ func requireJobName(w http.ResponseWriter, r *http.Request, logger *slog.Logger)
 // @Param        name     path       string   true   "Name of the job"
 // @Success      200      {integer}  integer
 // @Failure      400      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      429      {string}   string
 // @Router       /api/job/{name}/run [post]
 func HandleRunJob(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
@@ -119,7 +122,11 @@ func usedParams(build *Build, params url.Values) ([]string, int) {
 // @Produce      json
 // @Param        name     path       string   true   "Name of the job"
 // @Success      200      {object}   JobData
+// @Failure      400      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
 // @Failure      404      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}   string
 // @Router       /api/job/{name} [get]
 func HandleJobGet(w http.ResponseWriter, r *http.Request) {
@@ -168,6 +175,9 @@ func HandleJobGet(w http.ResponseWriter, r *http.Request) {
 // @Param        fileContent     formData    string   true   "New content of the job"
 // @Success      200      {string}   string
 // @Failure      400      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      429      {string}   string
 // @Router       /api/job/{name} [post]
 func HandleJobPost(w http.ResponseWriter, r *http.Request) {
 	logger, ok := r.Context().Value(HL).(*slog.Logger)
@@ -227,6 +237,10 @@ func HandleJobPost(w http.ResponseWriter, r *http.Request) {
 // @Param        name     path    string   true   "Name of the job to delete"
 // @Success      200      {string}    string
 // @Failure      400      {string}    string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      404      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}    string
 // @Router       /api/job/{name} [delete]
 func HandleDeleteJob(w http.ResponseWriter, r *http.Request) {
@@ -271,6 +285,11 @@ func HandleDeleteJob(w http.ResponseWriter, r *http.Request) {
 // @Produce      plain
 // @Param        name     path    string   true   "Name of the job"
 // @Success      200      {string}    string
+// @Failure      400      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      404      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}    string
 // @Router       /api/job/{name}/set_active [post]
 func HandleJobSetActive(w http.ResponseWriter, r *http.Request) {

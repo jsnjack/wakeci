@@ -22,7 +22,9 @@ import (
 // @Param        buildHistorySize   formData      string   false  "Set max number of preserved builds"
 // @Success      200      {string}   string
 // @Failure      400      {string}   string
+// @Failure      401      {string}   string
 // @Failure      403      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}   string
 // @Router       /api/settings [post]
 func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
@@ -143,6 +145,9 @@ func parseCountSetting(r *http.Request, name string) (int, error) {
 // @Tags         settings
 // @Produce      json
 // @Success      200      {object}   SettingsData
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}   string
 // @Router       /api/settings [get]
 func HandleSettingsGet(w http.ResponseWriter, r *http.Request) {

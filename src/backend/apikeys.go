@@ -78,9 +78,11 @@ type APIKey struct {
 	// if they used the password. It lets offboarding revoke a person's keys.
 	CreatedBy string `json:"createdBy"`
 	// CreatorGroups are the creator's single sign-on groups as of their last
-	// login; the key can't do more than these groups allow. Nil for a key made
-	// with the password or before wakeci recorded them.
-	CreatorGroups []string   `json:"creatorGroups"`
+	// login; the key can't do more than these groups allow. Null for a key
+	// made with the admin password or before wakeci recorded them, which no
+	// group limits; empty when the creator had no groups, so the key can do
+	// nothing. Stored with the key, so null and [] must stay apart.
+	CreatorGroups []string   `json:"creatorGroups" extensions:"x-nullable"`
 	CreatedAt     time.Time  `json:"createdAt"`
 	ExpiresAt     *time.Time `json:"expiresAt,omitempty"`
 	LastUsedAt    *time.Time `json:"lastUsedAt,omitempty"`
@@ -353,7 +355,9 @@ type APIKeysData struct {
 // @Tags         keys
 // @Produce      json
 // @Success      200      {object}   APIKeysData
+// @Failure      401      {string}   string
 // @Failure      403      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}   string
 // @Router       /api/keys/ [get]
 func HandleAPIKeysList(w http.ResponseWriter, r *http.Request) {
@@ -434,6 +438,9 @@ func keyPeople(keys []*APIKey, signedIn []string) []string {
 // @Param        expiresInDays  formData  integer   true   "Days until the key expires, 0 for never"
 // @Success      200      {object}   NewAPIKeyData
 // @Failure      400      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}   string
 // @Router       /api/keys/ [post]
 func HandleAPIKeyCreate(w http.ResponseWriter, r *http.Request) {
@@ -486,11 +493,13 @@ func HandleAPIKeyCreate(w http.ResponseWriter, r *http.Request) {
 // @Summary      Revoke all API keys of a person and sign them out
 // @Description  Only with the admin password; not available with an API key
 // @Tags         keys
-// @Produce      plain
+// @Produce      json
 // @Param        createdBy  query      string   true   "Single sign-on email the keys were created with"
 // @Success      200        {object}   RevokedData
 // @Failure      400        {string}   string
+// @Failure      401      {string}   string
 // @Failure      403        {string}   string
+// @Failure      429      {string}   string
 // @Failure      500        {string}   string
 // @Router       /api/keys/ [delete]
 func HandleAPIKeysRevokeBy(w http.ResponseWriter, r *http.Request) {
@@ -555,7 +564,10 @@ func HandleAPIKeysRevokeBy(w http.ResponseWriter, r *http.Request) {
 // @Produce      plain
 // @Param        id       path       string   true   "ID of the key"
 // @Success      200      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
 // @Failure      404      {string}   string
+// @Failure      429      {string}   string
 // @Failure      500      {string}   string
 // @Router       /api/keys/{id} [delete]
 func HandleAPIKeyRevoke(w http.ResponseWriter, r *http.Request) {
