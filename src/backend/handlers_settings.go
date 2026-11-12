@@ -76,14 +76,17 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// The limits of API keys keep their values unless the request sets
-	// them: clients written before they were settings don't send them
-	burst, rate := apiKeyRequestLimiter.limits()
-	if rate, err = parseLimitSetting(r, "apiKeyRate", rate); err != nil {
+	// them: clients written before they were settings don't send them.
+	// Those not sent are 0 here and read when saving, under settingsMu, so
+	// an import meanwhile isn't undone.
+	rate, err := parseLimitSetting(r, "apiKeyRate", 0)
+	if err != nil {
 		logger.Warn("invalid setting", "err", err)
 		writePlainText(w, logger, http.StatusBadRequest, err.Error())
 		return
 	}
-	if burst, err = parseLimitSetting(r, "apiKeyBurst", burst); err != nil {
+	burst, err := parseLimitSetting(r, "apiKeyBurst", 0)
+	if err != nil {
 		logger.Warn("invalid setting", "err", err)
 		writePlainText(w, logger, http.StatusBadRequest, err.Error())
 		return
@@ -121,6 +124,13 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := saveConcurrency(tx, cbInt); err != nil {
 			return err
+		}
+		savedBurst, savedRate := apiKeyLimits(tx)
+		if rate == 0 {
+			rate = savedRate
+		}
+		if burst == 0 {
+			burst = savedBurst
 		}
 		if err := gb.Put([]byte("apiKeyRate"), IntToByte(rate)); err != nil {
 			return err

@@ -327,3 +327,34 @@ func TestSettingsAPIKeyLimits(t *testing.T) {
 		t.Errorf("after a restart: %d at once, %d a second; want 7 and 3", burst, rate)
 	}
 }
+
+// A save that doesn't send the API key limits keeps them as they are when
+// it saves, not as they were when it arrived: an import that changed them
+// meanwhile isn't undone
+func TestSettingsSaveKeepsLimitsChangedMeanwhile(t *testing.T) {
+	newSettingsTestEnv(t)
+	settingsMu.Lock()
+	done := make(chan int)
+	go func() {
+		done <- settingsRequest(t, HandleSettingsPost, "POST", "", url.Values{"concurrentBuilds": {"3"}, "buildHistorySize": {"200"}}).Code
+	}()
+	// The save waits for the lock, which an import holds
+	time.Sleep(100 * time.Millisecond)
+	if err := DB.Update(func(tx *bolt.Tx) error {
+		gb := tx.Bucket(GlobalBucket)
+		if err := gb.Put([]byte("apiKeyRate"), IntToByte(7)); err != nil {
+			return err
+		}
+		return gb.Put([]byte("apiKeyBurst"), IntToByte(77))
+	}); err != nil {
+		t.Fatal(err)
+	}
+	apiKeyRequestLimiter.setLimits(77, 7)
+	settingsMu.Unlock()
+	if code := <-done; code != http.StatusOK {
+		t.Fatalf("save: %d", code)
+	}
+	if burst, rate := apiKeyRequestLimiter.limits(); burst != 77 || rate != 7 {
+		t.Errorf("limits after the save = %d at once, %d a second; want the import's 77 and 7", burst, rate)
+	}
+}
