@@ -89,6 +89,11 @@ func (f *feedRequest) matches(msg *BuildUpdateData, access *Access) bool {
 
 // seekAtOrBefore moves c to the newest build whose ID is id or lower
 func seekAtOrBefore(c *bolt.Cursor, id int) ([]byte, []byte) {
+	// Below the first build, e.g. an offset past the end; Itob would turn a
+	// negative id into a huge key, after the last build
+	if id < 1 {
+		return nil, nil
+	}
 	key, value := c.Seek(Itob(id))
 	if key == nil {
 		return c.Last()

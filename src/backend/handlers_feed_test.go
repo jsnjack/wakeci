@@ -187,6 +187,12 @@ func TestFeedCursorAndFilters(t *testing.T) {
 		{"status=failed&before=30&limit=2", []int{25, 20}},
 		{"offset=2&limit=2", []int{38, 37}},
 		{"offset=1&job=deploy&limit=2", []int{37, 35}},
+		// Past the end: [], so a client that pages until an empty page stops
+		{"offset=40", []int{}},
+		{"offset=45", []int{}},
+		{"offset=38&before=3", []int{}},
+		{"offset=30&job=deploy", []int{}},
+		{"before=1", []int{}},
 		{"limit=200", nil},
 	}
 	for _, tt := range tests {
