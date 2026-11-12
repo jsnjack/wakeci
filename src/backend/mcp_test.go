@@ -67,6 +67,7 @@ func callTool(t *testing.T, session *mcp.ClientSession, name string, args map[st
 
 func TestMCPTools(t *testing.T) {
 	router := newAPIKeyTestEnv(t)
+	useQueue(t, &Queue{})
 	addFailedTestBuild(t)
 	token := createTestKey(t, url.Values{"name": {"agent"}, "scope": {"read"}, "job": {"deploy"}})
 	session := mcpSession(t, router, token)
@@ -80,7 +81,7 @@ func TestMCPTools(t *testing.T) {
 		names = append(names, tool.Name)
 	}
 	slices.Sort(names)
-	want := []string{"abort_build", "build_summary", "find_builds", "list_jobs", "read_artifact", "read_log", "run_job", "whoami"}
+	want := []string{"abort_build", "analytics", "build_summary", "find_builds", "job_insights", "list_jobs", "read_artifact", "read_log", "run_job", "whoami"}
 	if !slices.Equal(names, want) {
 		t.Errorf("tools = %q, want %q", names, want)
 	}
@@ -104,6 +105,10 @@ func TestMCPTools(t *testing.T) {
 		{"read_log", map[string]any{"build": 7, "task": 2}, true, "wrote no log"},
 		{"run_job", map[string]any{"name": "deploy"}, true, "doesn't have the run scope"},
 		{"abort_build", map[string]any{"id": 7}, true, "doesn't have the run scope"},
+		{"analytics", map[string]any{"days": 7}, false, `"days":7`},
+		{"analytics", map[string]any{"trigger": "robot"}, true, "trigger must be one of"},
+		{"job_insights", map[string]any{"job": "deploy"}, false, `"stoppedAt":[{"builds":1,"task":"Test"}]`},
+		{"job_insights", map[string]any{"job": "nightly"}, true, "doesn't cover that job"},
 	}
 	for _, tt := range tests {
 		args, _ := json.Marshal(tt.args)

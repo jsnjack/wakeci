@@ -18,7 +18,7 @@ test("should describe the MCP tools from the server", async ({ page, wake }) => 
     await expect(summary).toContainText("integer, required");
     await expect(summary.getByTestId("mcp-tool-scope")).toHaveText("read");
     await expect(page.getByTestId("mcp-tool-run_job").getByTestId("mcp-tool-scope")).toHaveText("run");
-    await expect(page.getByTestId("mcp-tools").locator("tbody tr")).toHaveCount(8);
+    await expect(page.getByTestId("mcp-tools").locator("tbody tr")).toHaveCount(10);
 });
 
 test("should show the REST API docs in the page, in the app's theme", async ({ page }) => {

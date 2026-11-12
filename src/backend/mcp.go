@@ -158,6 +158,17 @@ type mcpReadArtifactInput struct {
 	Path  string `json:"path" jsonschema:"the artifact's filename, as build_summary lists it"`
 }
 
+type mcpAnalyticsInput struct {
+	Days    int    `json:"days,omitempty" jsonschema:"how many days, the last one today, 1 to 365; 30 if not set"`
+	Job     string `json:"job,omitempty" jsonschema:"only builds of this job, by exact name"`
+	Trigger string `json:"trigger,omitempty" jsonschema:"only builds started by: interval, password, sso, apikey or unknown"`
+}
+
+type mcpJobInsightsInput struct {
+	Job    string `json:"job" jsonschema:"job name"`
+	Builds int    `json:"builds,omitempty" jsonschema:"how many of the job's last builds, 1 to 500; 40 if not set"`
+}
+
 type mcpRunJobInput struct {
 	Name   string            `json:"name" jsonschema:"job name"`
 	Params map[string]string `json:"params,omitempty" jsonschema:"the job's parameters to set, by name; the others keep their defaults"`
@@ -241,6 +252,36 @@ func newMCPServer(c *mcpCaller) *mcp.Server {
 			var summary BuildSummary
 			err := c.callJSON(ctx, "/api/build/"+strconv.Itoa(in.ID)+"/summary?"+query.Encode(), &summary)
 			return nil, summary, err
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "analytics", Meta: mcp.Meta{"scope": "read"}, Annotations: readOnly,
+		Description: "Builds over a range of days: by day and status, success rate, duration, queue wait, and each job's numbers with the jobs failing now. Use it for questions such as which jobs fail most or got slower."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in mcpAnalyticsInput) (*mcp.CallToolResult, AnalyticsData, error) {
+			query := url.Values{}
+			if in.Days > 0 {
+				query.Set("days", strconv.Itoa(in.Days))
+			}
+			if in.Job != "" {
+				query.Set("job", in.Job)
+			}
+			if in.Trigger != "" {
+				query.Set("trigger", in.Trigger)
+			}
+			var data AnalyticsData
+			err := c.callJSON(ctx, "/api/analytics/?"+query.Encode(), &data)
+			return nil, data, err
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "job_insights", Meta: mcp.Meta{"scope": "read"}, Annotations: readOnly,
+		Description: "A job's last builds in the history with their tasks: each task's runs, failures, durations and change, the task that stopped failed builds, flaky failures, the time to fix a failure, and the success rate of each parameter value."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in mcpJobInsightsInput) (*mcp.CallToolResult, JobInsights, error) {
+			query := url.Values{}
+			if in.Builds > 0 {
+				query.Set("builds", strconv.Itoa(in.Builds))
+			}
+			var data JobInsights
+			err := c.callJSON(ctx, "/api/job/"+url.PathEscape(in.Job)+"/insights?"+query.Encode(), &data)
+			return nil, data, err
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "read_log", Meta: mcp.Meta{"scope": "read"}, Annotations: readOnly,

@@ -732,6 +732,8 @@ func newAPIKeyRouter(storage http.Handler) http.Handler {
 	router.Route("/api", func(router chi.Router) {
 		// Lists are filtered to the key's jobs by their handlers
 		router.With(requireAccess(ScopeRead, nil)).Get("/feed", HandleFeedView)
+		// Counts only the key's jobs
+		router.With(requireAccess(ScopeRead, nil)).Get("/analytics/", HandleAnalytics)
 		// Every key: what it may do
 		router.Get("/whoami", HandleWhoAmI)
 
@@ -745,6 +747,7 @@ func newAPIKeyRouter(storage http.Handler) http.Handler {
 			router.With(requireAccess(ScopeWrite, jobFromName)).Delete("/{name}", HandleDeleteJob)
 			router.With(requireAccess(ScopeWrite, jobFromName)).Post("/{name}", HandleJobPost)
 			router.With(requireAccess(ScopeRead, jobFromName)).Get("/{name}", HandleJobGet)
+			router.With(requireAccess(ScopeRead, jobFromName)).Get("/{name}/insights", HandleJobInsights)
 			router.With(requireAccess(ScopeWrite, jobFromName)).Post("/{name}/set_active", HandleJobSetActive)
 		})
 

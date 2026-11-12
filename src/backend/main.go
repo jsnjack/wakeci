@@ -504,6 +504,8 @@ func apiRoutes(router chi.Router) {
 	router.Use(AuditMi)
 	router.Use(AuthMi)
 	router.With(requireAccess(ScopeRead, nil)).Get("/feed", HandleFeedView)
+	// Counts only the jobs the user may read
+	router.With(requireAccess(ScopeRead, nil)).Get("/analytics/", HandleAnalytics)
 
 	router.Route("/jobs", func(router chi.Router) {
 		router.With(requireAccess(ScopeRead, nil)).Get("/", HandleJobsView)
@@ -515,6 +517,7 @@ func apiRoutes(router chi.Router) {
 		router.With(requireAccess(ScopeWrite, jobFromName)).Delete("/{name}", HandleDeleteJob)
 		router.With(requireAccess(ScopeWrite, jobFromName)).Post("/{name}", HandleJobPost)
 		router.With(requireAccess(ScopeRead, jobFromName)).Get("/{name}", HandleJobGet)
+		router.With(requireAccess(ScopeRead, jobFromName)).Get("/{name}/insights", HandleJobInsights)
 		router.With(requireAccess(ScopeWrite, jobFromName)).Post("/{name}/set_active", HandleJobSetActive)
 	})
 
