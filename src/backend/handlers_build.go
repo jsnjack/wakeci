@@ -106,7 +106,7 @@ func getBuildConfig(buildID int) (*Job, error) {
 // @Tags         build
 // @Produce      json
 // @Param        id       path    integer   true  "Build ID"
-// @Param        wait     query   integer   false "Wait up to that many seconds, at most 300, for the build to end; it answers as soon as it does"
+// @Param        wait     query   integer   false "Wait up to that many seconds, at most 300, for the build to end, its on_* and finally tasks included; it answers as soon as it has"
 // @Success      200      {object}   GetBuildPayload
 // @Failure      400      {string}   string
 // @Failure      401      {string}   string

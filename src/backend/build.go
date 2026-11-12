@@ -647,6 +647,8 @@ func (b *Build) Cleanup() {
 		b.timer.Stop()
 	}
 	GlobalQueue.Remove(b.ID)
+	// Waiting requests take a build as ended once it left the queue
+	buildChanges.notify(b.ID)
 	GlobalQueue.Take()
 }
 

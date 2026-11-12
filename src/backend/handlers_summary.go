@@ -73,7 +73,7 @@ type FailedTask struct {
 // @Produce      json
 // @Param        id       path    integer   true   "Build ID"
 // @Param        tail     query   integer   false  "Lines from the end of each failed task's log, 0 to 10000; 100 if not set"
-// @Param        wait     query   integer   false  "Wait up to that many seconds, at most 300, for the build to end; it answers as soon as it does"
+// @Param        wait     query   integer   false  "Wait up to that many seconds, at most 300, for the build to end, its on_* and finally tasks included; it answers as soon as it has"
 // @Success      200      {object}   BuildSummary
 // @Failure      400      {string}   string
 // @Failure      401      {string}   string

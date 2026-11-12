@@ -136,3 +136,34 @@ func TestBuildSignalsWakeOnlyTheirBuild(t *testing.T) {
 		t.Errorf("signals left after every wait ended: %v", s.waiting)
 	}
 }
+
+// TestWaitForBuildHooks is a regression test: a build's status is final
+// before its on_finished and finally tasks run and its artifacts are
+// collected, and a wait answered then, with duration 0, no artifacts and
+// the hooks still running
+func TestWaitForBuildHooks(t *testing.T) {
+	build := abortTestBuild(t, &Job{Name: "wait-hooks", Artifacts: []string{"report.txt"}, Tasks: []*Task{
+		{ID: 0, Command: "echo ok > report.txt", Kind: KindMain},
+		{ID: 1, Command: "sleep 0.5", Kind: StatusFinished},
+		{ID: 2, Command: "sleep 0.5", Kind: "finally"},
+	}})
+	oldEnd := buildWaitsEnd
+	buildWaitsEnd = newStopSignal()
+	t.Cleanup(func() { buildWaitsEnd = oldEnd })
+
+	done := startBuild(build)
+	got, err := waitForBuild(httptest.NewRequest("GET", "/api/build/1", nil), build.ID, 10)
+	if err != nil {
+		t.Fatalf("waitForBuild: %v", err)
+	}
+	if got.Status != StatusFinished || got.Duration == 0 || len(got.BuildArtifacts) != 1 {
+		t.Errorf("wait answered %s with duration %v and %d artifacts, want finished with its duration and 1 artifact",
+			got.Status, got.Duration, len(got.BuildArtifacts))
+	}
+	for _, task := range got.Tasks {
+		if task.Status != StatusFinished {
+			t.Errorf("task %d (%s) is %q, want finished", task.ID, task.Kind, task.Status)
+		}
+	}
+	waitDone(t, done, 10*time.Second)
+}

@@ -445,6 +445,8 @@ AGENTS.universal.md for the general contract.
 - A build is saved before it leaves the queue (`BroadcastUpdate` before
   `Cleanup` in `SetBuildStatus`): a stop closes the DB once the queue is
   empty, so the reverse order loses the build's final state.
+- A build has ended once it left the queue, not when its status is final
+  (`buildLeftQueue`).
 - Create builds through `Queue.addNewBuild`, as `RunJob` does: a build's
   `on_pending` tasks start before it is queued, and `addNewBuild` holds
   `runMu` until then, so `stopTasks` at exit reaches them.
