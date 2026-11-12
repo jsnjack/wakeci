@@ -341,6 +341,9 @@ type APIKeysData struct {
 	// People, for the admin, are everyone with a key or a single sign-on
 	// session: whose access can be revoked
 	People []string `json:"people,omitempty"`
+	// SignedIn, for the admin, are the people with a single sign-on session,
+	// lowercased
+	SignedIn []string `json:"signedIn,omitempty"`
 }
 
 // HandleAPIKeysList returns the API keys the requester may see, newest
@@ -384,7 +387,15 @@ func HandleAPIKeysList(w http.ResponseWriter, r *http.Request) {
 	})
 	data := APIKeysData{Admin: user == "", Keys: keys}
 	if data.Admin {
-		data.People = keyPeople(keys, GlobalSessionStorage.Users())
+		users := GlobalSessionStorage.Users()
+		data.People = keyPeople(keys, users)
+		data.SignedIn = []string{}
+		for _, person := range users {
+			if person = strings.ToLower(person); !slices.Contains(data.SignedIn, person) {
+				data.SignedIn = append(data.SignedIn, person)
+			}
+		}
+		slices.Sort(data.SignedIn)
 	}
 	writeJSON(w, logger, data)
 }

@@ -129,10 +129,9 @@ test("should revoke a key", async ({ page, backend, playwright }) => {
         expect((await api.get("/api/jobs/")).status()).toBe(200);
 
         await page.goto("/keys");
-        const card = page.getByTestId(`key-${name}`);
+        // Made while logged in with the admin password, so listed under it
+        const card = page.getByTestId("key-group-admin-password").getByTestId(`key-${name}`);
         await expect(card).toContainText("Never expires");
-        // Logged in with the admin password: every key shows who made it
-        await expect(card.getByTestId("key-created-by-text")).toHaveText("by admin password");
         await card.getByTestId("revoke-key").click();
         await page.getByTestId("revoke-key-confirm").click();
         await expect(page.locator(".notification-content")).toContainText("Key revoked");
@@ -158,6 +157,7 @@ test("should let the admin password revoke the access of a person", async ({ pag
                     admin: true,
                     // carol is signed in but has no keys
                     people: ["alice@example.com", "bob@example.com", "carol@example.com"],
+                    signedIn: ["alice@example.com", "carol@example.com"],
                     keys: [
                         fakeKey("000000000001", "alice-ci", "alice@example.com"),
                         fakeKey("000000000002", "alice-bot", "alice@example.com"),
@@ -169,30 +169,51 @@ test("should let the admin password revoke the access of a person", async ({ pag
         },
     );
     await page.goto("/keys");
-    await expect(page.getByTestId("key-alice-ci")).toBeVisible();
-    await expect(page.getByTestId("revoke-person")).toHaveCount(0);
 
-    await page.getByTestId("key-created-by").selectOption("alice@example.com");
-    await expect(page.getByTestId("keys-list")).toContainText("alice-ci");
-    await expect(page.getByTestId("keys-list")).not.toContainText("bob-ci");
-    await expect(page.getByTestId("revoke-person")).toContainText("Revoke access of alice@example.com");
-    await page.getByTestId("revoke-person").click();
+    // Keys made with the admin password come first and are revoked one by one
+    const password = page.getByTestId("key-group-admin-password");
+    await expect(password).toContainText("Made with the admin password");
+    await expect(password.getByTestId("key-shared")).toBeVisible();
+    await expect(password.getByTestId("revoke-person")).toHaveCount(0);
+
+    const alice = page.getByTestId("key-group-alice@example.com");
+    await expect(alice.getByTestId("key-alice-ci")).toBeVisible();
+    await expect(alice.getByTestId("key-alice-bot")).toBeVisible();
+    await expect(alice).not.toContainText("bob-ci");
+    await expect(alice.getByTestId("key-group-status")).toHaveText("· signed in");
+    await expect(page.getByTestId("key-group-bob@example.com").getByTestId("key-group-status")).toHaveCount(0);
+    await alice.getByTestId("revoke-person").click();
+    await expect(page.locator("dialog.active")).toContainText("revokes their 2 keys");
     await page.getByTestId("revoke-person-confirm").click();
     await expect(page.locator(".notification-content").filter({ hasText: "Signed out alice@example.com and revoked 2 keys" })).toBeVisible();
 
     // Someone signed in without keys can still be signed out
-    await page.getByTestId("key-created-by").selectOption("carol@example.com");
-    await expect(page.getByTestId("keys-list")).toContainText("No API keys here");
-    await page.getByTestId("revoke-person").click();
+    const carol = page.getByTestId("key-group-carol@example.com");
+    await expect(carol.getByTestId("key-group-status")).toHaveText("· signed in, no keys");
+    await carol.getByTestId("revoke-person").click();
     await page.getByTestId("revoke-person-confirm").click();
     await expect(page.locator(".notification-content").filter({ hasText: "Signed out carol@example.com and revoked 0 keys" })).toBeVisible();
     expect(revoked).toEqual(["alice@example.com", "carol@example.com"]);
+});
 
-    // Keys made with the admin password can be listed, but are revoked one by one
-    await page.getByTestId("key-created-by").selectOption({ label: "Admin password" });
-    await expect(page.getByTestId("keys-list")).toContainText("shared");
-    await expect(page.getByTestId("keys-list")).not.toContainText("alice-ci");
-    await expect(page.getByTestId("revoke-person")).toHaveCount(0);
+test("should search the keys of many people", async ({ page }) => {
+    const people = ["ann@example.com", "ben@example.com", "cat@example.com", "dan@example.com", "zed@example.com"];
+    await page.route(
+        (url) => url.pathname === "/api/keys/",
+        (route) =>
+            route.fulfill({
+                json: { admin: true, people, signedIn: [], keys: people.map((person, i) => fakeKey(`00000000000${i}`, `${person.split("@")[0]}-ci`, person)) },
+            }),
+    );
+    await page.goto("/keys");
+    await page.getByTestId("key-search").fill("zed");
+    await expect(page.getByTestId("key-group-zed@example.com")).toBeVisible();
+    await expect(page.getByTestId("key-group-ann@example.com")).toHaveCount(0);
+    // Key names match too
+    await page.getByTestId("key-search").fill("ben-ci");
+    await expect(page.getByTestId("key-group-ben@example.com")).toBeVisible();
+    await page.getByTestId("key-search").fill("nobody");
+    await expect(page.getByTestId("keys-list")).toContainText('Nothing matches "nobody"');
 });
 
 test("should show an SSO user only their own keys", async ({ page }) => {
@@ -202,8 +223,10 @@ test("should show an SSO user only their own keys", async ({ page }) => {
     );
     await page.goto("/keys");
     await expect(page.getByTestId("keys-list")).toContainText("my-ci");
-    await expect(page.getByTestId("key-created-by")).toHaveCount(0);
-    await expect(page.getByTestId("key-created-by-text")).toHaveCount(0);
+    // No headings, no other people, nothing to revoke but their own keys
+    await expect(page.getByTestId("revoke-person")).toHaveCount(0);
+    await expect(page.getByTestId("key-group-status")).toHaveCount(0);
+    await expect(page.getByTestId("keys-list")).not.toContainText("alice@example.com");
 });
 
 test("should give a run-only key a working curl example", async ({ page, wake }) => {

@@ -1016,3 +1016,19 @@ func TestAPIKeyLimiterBlockExpires(t *testing.T) {
 		t.Errorf("bad key after the block expired: status = %d, want 401", rec.Code)
 	}
 }
+
+// The admin's key list says who is signed in, so the page can show people
+// without keys; an SSO user's list names nobody
+func TestAPIKeysListSignedIn(t *testing.T) {
+	newAPIKeyTestEnv(t)
+	loginAs(t, "Alice@example.com")
+	loginAs(t, "alice@example.com")
+	loginAs(t, "bob@example.com")
+	admin := listKeysAs(t, adminUser)
+	if !slices.Equal(admin.SignedIn, []string{"alice@example.com", "bob@example.com"}) {
+		t.Errorf("signedIn = %q, want alice and bob once each", admin.SignedIn)
+	}
+	if user := listKeysAs(t, "bob@example.com"); user.SignedIn != nil || user.People != nil {
+		t.Errorf("an SSO user's list = %+v, want no people", user)
+	}
+}

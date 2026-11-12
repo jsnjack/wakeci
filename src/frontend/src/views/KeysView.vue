@@ -24,17 +24,17 @@
     </dialog>
 
     <dialog
-        :class="{ active: revokingPerson }"
+        :class="{ active: revokingPerson !== null }"
         class="padding"
     >
-        <div>
-            Revoke access of <b>{{ createdBy }}</b
-            >? This signs them out and revokes their {{ shownKeys.length }} keys. Anything using the keys stops working at once.
+        <div v-if="revokingPerson">
+            Revoke access of <b>{{ revokingPerson.person }}</b
+            >? This signs them out and revokes their {{ revokingPerson.keys.length }} keys. Anything using the keys stops working at once.
         </div>
         <nav class="right-align">
             <button
                 class="border"
-                @click.prevent="revokingPerson = false"
+                @click.prevent="revokingPerson = null"
             >
                 Cancel
             </button>
@@ -48,37 +48,19 @@
     </dialog>
 
     <nav class="no-margin">
-        <!-- Only the admin password sees other people's keys -->
-        <template v-if="admin">
-            <div class="field label suffix border small no-margin">
-                <select
-                    id="key-created-by"
-                    v-model="createdBy"
-                    data-cy="key-created-by"
-                >
-                    <option value="">Everyone</option>
-                    <option
-                        v-for="person in people"
-                        :key="person"
-                        :value="person"
-                    >
-                        {{ person }}
-                    </option>
-                    <option :value="passwordFilter">Admin password</option>
-                </select>
-                <label for="key-created-by">Created by</label>
-                <i>arrow_drop_down</i>
-            </div>
-            <button
-                v-if="createdBy !== '' && createdBy !== passwordFilter"
-                class="border small-round"
-                data-cy="revoke-person"
-                @click.prevent="revokingPerson = true"
-            >
-                <i>person_remove</i>
-                <span>Revoke access of {{ createdBy }}</span>
-            </button>
-        </template>
+        <div
+            v-if="admin && people.length > 4"
+            class="field small prefix border round no-margin"
+        >
+            <i>search</i>
+            <input
+                v-model="search"
+                type="search"
+                aria-label="Search people and keys"
+                placeholder="Search people and keys"
+                data-cy="key-search"
+            />
+        </div>
         <div class="max"></div>
         <router-link
             to="/keys/new"
@@ -94,74 +76,101 @@
         class="article"
         data-cy="keys-list"
     >
-        <div
-            v-for="key in shownKeys"
-            :key="key.id"
-            class="row medium-padding round small-margin key"
-            :data-cy="'key-' + key.name"
+        <!-- The admin password sees every key, by who made it; anyone else sees their own -->
+        <section
+            v-for="section in sections"
+            :key="section.id"
+            :data-cy="'key-group-' + section.id"
         >
-            <div class="max">
-                <div class="row small-space">
-                    <b>{{ key.name }}</b>
-                    <span
-                        v-for="scope in key.scopes"
-                        :key="scope"
-                        class="chip small no-margin"
+            <nav
+                v-if="admin"
+                class="section-head"
+            >
+                <div class="max">
+                    <b>{{ section.title }}</b>
+                    <small
+                        v-if="section.signedIn"
+                        class="muted"
+                        data-cy="key-group-status"
                     >
-                        {{ scope }}
-                    </span>
+                        · {{ section.keys.length === 0 ? "signed in, no keys" : "signed in" }}
+                    </small>
                 </div>
-                <small class="muted">
-                    <template v-if="admin">
-                        <span data-cy="key-created-by-text">by {{ key.createdBy || "admin password" }}</span>
+                <button
+                    v-if="section.person"
+                    class="border small-round"
+                    data-cy="revoke-person"
+                    @click.prevent="revokingPerson = section"
+                >
+                    <i>person_remove</i>
+                    <span>Revoke access</span>
+                </button>
+            </nav>
+            <div
+                v-for="key in section.keys"
+                :key="key.id"
+                class="row medium-padding round small-margin key"
+                :data-cy="'key-' + key.name"
+            >
+                <div class="max details">
+                    <div class="row small-space chips">
+                        <b>{{ key.name }}</b>
+                        <span
+                            v-for="scope in key.scopes"
+                            :key="scope"
+                            class="chip small no-margin"
+                        >
+                            {{ scope }}
+                        </span>
+                    </div>
+                    <small class="muted">
+                        <span
+                            :title="jobsSummary(key)"
+                            data-cy="key-jobs"
+                        >
+                            {{ jobsSummary(key) }}
+                        </span>
                         ·
-                    </template>
-                    <span
-                        :title="jobsSummary(key)"
-                        data-cy="key-jobs"
-                    >
-                        {{ jobsSummary(key) }}
-                    </span>
-                    ·
-                    <span :title="formatDate(key.createdAt)">Created {{ ago(key.createdAt) }}</span>
-                    ·
-                    <span :title="formatDate(key.lastUsedAt)">
-                        {{ key.lastUsedAt ? "Used " + ago(key.lastUsedAt) : "Never used" }}
-                    </span>
-                    ·
-                    <span
-                        :title="formatDate(key.expiresAt)"
-                        data-cy="key-expiry"
-                    >
-                        {{ expiryText(key) }}
-                    </span>
-                </small>
+                        <span :title="formatDate(key.createdAt)">Created {{ ago(key.createdAt) }}</span>
+                        ·
+                        <span :title="formatDate(key.lastUsedAt)">
+                            {{ key.lastUsedAt ? "Used " + ago(key.lastUsedAt) : "Never used" }}
+                        </span>
+                        ·
+                        <span
+                            :title="formatDate(key.expiresAt)"
+                            data-cy="key-expiry"
+                        >
+                            {{ expiryText(key) }}
+                        </span>
+                    </small>
+                </div>
+                <span
+                    v-if="isExpired(key)"
+                    class="error-text"
+                >
+                    Expired
+                </span>
+                <button
+                    class="border small-round revoke"
+                    :aria-label="'Revoke ' + key.name"
+                    data-cy="revoke-key"
+                    @click.prevent="revoking = key"
+                >
+                    <i>key_off</i>
+                    <span class="m l">Revoke key</span>
+                </button>
             </div>
-            <span
-                v-if="isExpired(key)"
-                class="error-text"
-            >
-                Expired
-            </span>
-            <button
-                class="circle transparent"
-                :aria-label="'Revoke ' + key.name"
-                data-cy="revoke-key"
-                @click.prevent="revoking = key"
-            >
-                <i>delete</i>
-                <div class="tooltip bottom">Revoke</div>
-            </button>
-        </div>
+        </section>
 
         <div
-            v-if="shownKeys.length === 0 && fetchingDone"
+            v-if="sections.length === 0 && fetchingDone"
             class="medium-height middle-align center-align"
         >
             <div class="center-align">
                 <i class="extra">key</i>
-                <h5 v-if="createdBy === ''">No API keys yet</h5>
-                <h5 v-else>No API keys here</h5>
+                <h5 v-if="search.trim() === ''">No API keys yet</h5>
+                <h5 v-else>Nothing matches "{{ search.trim() }}"</h5>
                 <p>Keys let scripts and other tools call the wakeci API.</p>
             </div>
         </div>
@@ -189,23 +198,49 @@ export default {
             keys: [],
             // The admin password sees and revokes every key, an SSO user only their own
             admin: false,
-            createdBy: "",
-            // Filters the keys made with the admin password; no email looks like this
-            passwordFilter: ":password",
             fetchingDone: false,
             revoking: null,
-            revokingPerson: false,
+            // The section of the person whose access is being revoked
+            revokingPerson: null,
             // Everyone with a key or signed in with SSO, from the server
             people: [],
+            // Lowercased emails of the people signed in with SSO
+            signedIn: [],
+            // Narrows the admin's list by person or key name
+            search: "",
         };
     },
     computed: {
-        shownKeys() {
-            if (this.createdBy === "") {
-                return this.keys;
+        // The keys by who made them for the admin password: those made with
+        // the admin password, then each person, also people signed in
+        // without keys, so they can be signed out. Anyone else gets their own
+        // keys in one section without a heading.
+        sections() {
+            if (!this.admin) {
+                return this.keys.length > 0 ? [{ id: "mine", person: "", title: "", keys: this.keys }] : [];
             }
-            const createdBy = this.createdBy === this.passwordFilter ? "" : this.createdBy.toLowerCase();
-            return this.keys.filter((key) => key.createdBy.toLowerCase() === createdBy);
+            const sections = [];
+            const byPassword = this.keys.filter((key) => key.createdBy === "");
+            if (byPassword.length > 0) {
+                sections.push({ id: "admin-password", person: "", title: "Made with the admin password", keys: byPassword });
+            }
+            for (const person of this.people) {
+                const lower = person.toLowerCase();
+                sections.push({
+                    id: person,
+                    person,
+                    title: person,
+                    keys: this.keys.filter((key) => key.createdBy.toLowerCase() === lower),
+                    signedIn: this.signedIn.includes(lower),
+                });
+            }
+            const search = this.search.trim().toLowerCase();
+            if (search === "") {
+                return sections;
+            }
+            return sections.filter(
+                (section) => section.title.toLowerCase().includes(search) || section.keys.some((key) => key.name.toLowerCase().includes(search)),
+            );
         },
     },
     mounted() {
@@ -220,9 +255,7 @@ export default {
                     this.keys = response.data.keys || [];
                     this.admin = response.data.admin;
                     this.people = response.data.people || [];
-                    if (this.createdBy !== this.passwordFilter && !this.people.includes(this.createdBy)) {
-                        this.createdBy = "";
-                    }
+                    this.signedIn = response.data.signedIn || [];
                     this.fetchingDone = true;
                 })
                 .catch(() => {
@@ -244,8 +277,8 @@ export default {
                 .catch(() => {});
         },
         revokePerson() {
-            const person = this.createdBy;
-            this.revokingPerson = false;
+            const person = this.revokingPerson.person;
+            this.revokingPerson = null;
             axios
                 .delete("/api/keys/", { params: { createdBy: person } })
                 .then((response) => {
@@ -285,6 +318,21 @@ export default {
 <style scoped>
 .key {
     background-color: var(--surface-container);
+}
+.section-head {
+    margin: 1rem 0 0.25rem;
+}
+/* So long names and several scopes wrap instead of pushing the button off a
+   narrow screen */
+.details {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.chips {
+    flex-wrap: wrap;
+}
+.revoke {
+    flex: none;
 }
 .muted {
     opacity: 0.7;
