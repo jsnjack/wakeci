@@ -70,9 +70,11 @@ func TestEndedSessionClosesWebSocket(t *testing.T) {
 // A /ws request can pass AuthMi and only register after its session ended;
 // the hub checks the session again when it registers the client
 func TestHubRefusesClientOfEndedSession(t *testing.T) {
-	oldSessions := GlobalSessionStorage
-	t.Cleanup(func() { GlobalSessionStorage = oldSessions })
+	// Sessions read the config's port; another test may have left none
+	oldSessions, oldConfig := GlobalSessionStorage, Config
+	t.Cleanup(func() { GlobalSessionStorage, Config = oldSessions, oldConfig })
 	GlobalSessionStorage = &SessionStorage{sessions: make(map[string]session)}
+	Config = &WakeConfig{}
 	hub := newHub()
 	go hub.run()
 
