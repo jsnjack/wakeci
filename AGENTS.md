@@ -189,7 +189,6 @@ because `--trace` would make concurrent backends overwrite `/tmp/wakeci.log`.
 | `secretsfile` | *(empty)* | YAML map of secret values, injected via `injectSecrets` |
 | `timezone` | *(empty)* | Default timezone for cron `interval` schedules |
 | `sso.idpmetadata` | *(empty)* | Path to the identity provider's SAML metadata; setting it enables "Sign in with SSO" |
-| `sso.groups` | *(empty)* | Comma-separated groups added with every permission on the first start only; then the settings manage them |
 | `sso.acsurl` | `https://<hostname>/auth/sso/acs` | Where the identity provider posts the response; must be https (http only on localhost) with path `/auth/sso/acs`; required if `hostname` is empty |
 | `sso.entityid` | scheme and host of `sso.acsurl` | SP entity ID; must match the Entity ID registered at the identity provider (checked as the assertion audience) |
 | `draintimeout` | `30m` | How long a stopping wakeci waits for running builds before it aborts them; systemd's `TimeoutStopSec` must exceed it by 3 minutes |

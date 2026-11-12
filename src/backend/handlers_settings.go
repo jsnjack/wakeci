@@ -216,8 +216,6 @@ type ServerSSOData struct {
 	IDPMetadata string `json:"idpMetadata"`
 	ACSURL      string `json:"acsUrl"`
 	EntityID    string `json:"entityId"`
-	// SeedGroups are the groups of sso.groups, added once, on the first start
-	SeedGroups []string `json:"seedGroups"`
 	// Certificates sign the identity provider's responses, from its
 	// metadata; the metadata needs replacing before they expire
 	Certificates []IDPCertificate `json:"certificates"`
@@ -249,7 +247,6 @@ func serverConfigData() ServerConfigData {
 			IDPMetadata:  Config.SSO.IDPMetadata,
 			ACSURL:       Config.SSO.ACSURL,
 			EntityID:     Config.SSO.EntityID,
-			SeedGroups:   append([]string{}, Config.SSO.allowedGroups...),
 			Certificates: []IDPCertificate{},
 		}
 		if GlobalSSOAuth != nil {

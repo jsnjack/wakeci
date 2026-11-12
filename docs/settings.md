@@ -19,8 +19,10 @@ Each setting has one owner; nothing is mirrored between the two.
 A new setting goes to the file if wakeci can't start or bind without it,
 or if it must match something outside wakeci; otherwise to the page.
 
-`sso.groups` is the one exception, seeded once (see access.md); the
-settings file below is the way to keep groups in git.
+The single sign-on groups are on the page only, also those of a server
+that used to set them in `sso.groups` (wakeci 2.41 and older). wakeci
+ignores that key, so a Wakefile.yaml kept for a rollback can still have
+it. The settings file below is the way to keep groups in git.
 
 ## The Server panel
 
@@ -51,8 +53,7 @@ single sign-on.
 The whole file is checked first, with the rules of the page (a grant goes
 through `grantFromForm`), unknown keys refused, and saved in one
 transaction, so a file with a mistake changes nothing; errors name the
-setting, never a value. Importing groups also marks `sso.groups` as seeded,
-so its groups aren't added to the imported ones later.
+setting, never a value.
 
 There are two ways in:
 

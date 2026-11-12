@@ -21,7 +21,6 @@ test("should warn before the identity provider's certificate expires", async ({ 
             idpMetadata: "/etc/wakeci/idp.xml",
             acsUrl: "https://ci.example.com/auth/sso/acs",
             entityId: "https://ci.example.com",
-            seedGroups: ["Dev"],
             certificates: [{ subject: "CN=Google", notAfter: soon }],
         };
         await route.fulfill({ response, json });
@@ -29,7 +28,6 @@ test("should warn before the identity provider's certificate expires", async ({ 
     await page.goto("/settings");
     const card = page.getByTestId("server-card");
     await expect(card.getByTestId("server-entity")).toHaveText("https://ci.example.com");
-    await expect(card.getByTestId("server-seed")).toHaveText("Dev");
     await expect(card.getByTestId("server-cert-warning")).toContainText(/Expires in (9|10) days/);
 });
 

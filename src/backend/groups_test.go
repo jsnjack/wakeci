@@ -51,46 +51,42 @@ func readGroups(t *testing.T) []SSOGroup {
 	return groups
 }
 
-func groupNames(groups []SSOGroup) []string {
-	names := []string{}
-	for _, group := range groups {
-		names = append(names, group.Name)
-	}
-	return names
-}
-
-func TestSeedSSOGroups(t *testing.T) {
+func TestSSOSignInClosed(t *testing.T) {
 	newTestBuildEnv(t)
-
-	// Nothing to add doesn't count as the first start with groups
-	if err := seedSSOGroups(nil, time.Now()); err != nil {
-		t.Fatalf("seed nothing: %v", err)
-	}
-	if err := seedSSOGroups([]string{"Developers", " Ops "}, time.Now()); err != nil {
-		t.Fatalf("seed: %v", err)
-	}
-	groups := readGroups(t)
-	if !slices.Equal(groupNames(groups), []string{"Developers", "Ops"}) {
-		t.Fatalf("groups = %q, want Developers and Ops", groupNames(groups))
-	}
-	for _, group := range groups {
-		if !group.AllJobs || !slices.Equal(group.Scopes, []string{ScopeRead, ScopeRun, ScopeWrite}) {
-			t.Errorf("group %s = %+v, want every scope on all jobs", group.Name, group.Grant)
+	originalSSO := Config.SSO
+	t.Cleanup(func() { Config.SSO = originalSSO })
+	closed := func() bool {
+		t.Helper()
+		got, err := ssoSignInClosed()
+		if err != nil {
+			t.Fatalf("ssoSignInClosed: %v", err)
 		}
+		return got
 	}
 
-	// Later starts leave the groups to the settings: a deleted group stays
-	// deleted and a group added to the config file isn't added
+	Config.SSO = SSOConfig{}
+	if closed() {
+		t.Error("closed without single sign-on, want open: there is nothing to warn about")
+	}
+	// The first start after wakeci 2.41, whose groups were in Wakefile.yaml
+	Config.SSO = SSOConfig{IDPMetadata: "idp.xml"}
+	if !closed() {
+		t.Error("open with no groups, want closed")
+	}
+	addTestGroup(t, "Developers", Grant{Scopes: []string{ScopeRead}, AllJobs: true})
+	if closed() {
+		t.Error("closed with a group, want open")
+	}
 	if err := DB.Update(func(tx *bolt.Tx) error {
-		return tx.Bucket(SSOGroupsBucket).Delete(ssoGroupKey("Ops"))
+		if err := tx.Bucket(SSOGroupsBucket).Delete(ssoGroupKey("Developers")); err != nil {
+			return err
+		}
+		return tx.Bucket(GlobalBucket).Put(ssoNoGroupKey, []byte(`{"scopes":["read"],"allJobs":true}`))
 	}); err != nil {
-		t.Fatalf("delete group: %v", err)
+		t.Fatalf("replace the group with the rule: %v", err)
 	}
-	if err := seedSSOGroups([]string{"Developers", "Ops", "QA"}, time.Now()); err != nil {
-		t.Fatalf("seed again: %v", err)
-	}
-	if names := groupNames(readGroups(t)); !slices.Equal(names, []string{"Developers"}) {
-		t.Errorf("groups after a restart = %q, want only Developers", names)
+	if closed() {
+		t.Error("closed with the rule for people in no group, want open")
 	}
 }
 

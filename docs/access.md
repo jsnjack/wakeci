@@ -70,11 +70,12 @@ the editor, since everyone the identity provider lets in could then run
 commands. Turning it off works like removing a group: the next request of
 those it covered is refused, and their live connections close.
 
-`sso.groups` in Wakefile.yaml adds its groups with every scope on all jobs on
-the first start that lists any, and records that in `ssoGroupsSeeded` in the
-`global` bucket. After that the config is ignored, so a group the admin
-removed doesn't come back; wakeci logs a warning at startup while
-`sso.groups` is still set.
+Only the admin password adds groups, in the settings or with a settings
+file. wakeci 2.41 and older read the groups from `sso.groups` in
+Wakefile.yaml; wakeci now ignores that key, so after an upgrade nobody can
+sign in with single sign-on until the admin adds the groups. While single
+sign-on is set up with no groups and no rule for people in no group,
+wakeci logs a warning at startup (`ssoSignInClosed`).
 
 ## Where it is checked
 

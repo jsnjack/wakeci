@@ -3,7 +3,6 @@ package main
 import (
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -96,105 +95,85 @@ func TestCreateWakeConfigSSO(t *testing.T) {
 		content      string
 		wantErr      bool
 		wantEnabled  bool
-		wantGroups   []string
 		wantACSURL   string
 		wantEntityID string
 	}{
 		{name: "not configured", content: "port: \"8081\"\n"},
 		{
 			name:         "defaults from hostname",
-			content:      "hostname: ci.example.com\n" + sso + "  groups: Developers\n",
-			wantEnabled:  true,
-			wantGroups:   []string{"Developers"},
-			wantACSURL:   "https://ci.example.com/auth/sso/acs",
-			wantEntityID: "https://ci.example.com",
-		},
-		{
-			name:         "explicit ACS URL and entity ID",
-			content:      sso + "  groups: Developers\n  acsurl: http://localhost:8080/auth/sso/acs\n  entityid: wakeci\n",
-			wantEnabled:  true,
-			wantGroups:   []string{"Developers"},
-			wantACSURL:   "http://localhost:8080/auth/sso/acs",
-			wantEntityID: "wakeci",
-		},
-		{
-			name:         "entity ID from ACS URL",
-			content:      sso + "  groups: Developers\n  acsurl: http://localhost:8080/auth/sso/acs\n",
-			wantEnabled:  true,
-			wantGroups:   []string{"Developers"},
-			wantACSURL:   "http://localhost:8080/auth/sso/acs",
-			wantEntityID: "http://localhost:8080",
-		},
-		{
-			name:         "several groups",
-			content:      "hostname: ci.example.com\n" + sso + "  groups: Developers, Ops ,,QA,\n",
-			wantEnabled:  true,
-			wantGroups:   []string{"Developers", "Ops", "QA"},
-			wantACSURL:   "https://ci.example.com/auth/sso/acs",
-			wantEntityID: "https://ci.example.com",
-		},
-		{
-			// The groups are managed in the settings; sso.groups only adds
-			// the first ones
-			name:         "no groups",
 			content:      "hostname: ci.example.com\n" + sso,
 			wantEnabled:  true,
 			wantACSURL:   "https://ci.example.com/auth/sso/acs",
 			wantEntityID: "https://ci.example.com",
 		},
 		{
-			name:         "groups without names",
-			content:      "hostname: ci.example.com\n" + sso + "  groups: \" , \"\n",
+			name:         "explicit ACS URL and entity ID",
+			content:      sso + "  acsurl: http://localhost:8080/auth/sso/acs\n  entityid: wakeci\n",
+			wantEnabled:  true,
+			wantACSURL:   "http://localhost:8080/auth/sso/acs",
+			wantEntityID: "wakeci",
+		},
+		{
+			name:         "entity ID from ACS URL",
+			content:      sso + "  acsurl: http://localhost:8080/auth/sso/acs\n",
+			wantEnabled:  true,
+			wantACSURL:   "http://localhost:8080/auth/sso/acs",
+			wantEntityID: "http://localhost:8080",
+		},
+		{
+			// The groups are managed in the settings. wakeci 2.41 required
+			// sso.groups, so a file kept for a rollback still has it
+			name:         "groups left by wakeci 2.41",
+			content:      "hostname: ci.example.com\n" + sso + "  groups: Developers, Ops\n",
 			wantEnabled:  true,
 			wantACSURL:   "https://ci.example.com/auth/sso/acs",
 			wantEntityID: "https://ci.example.com",
 		},
 		{
 			name:    "no hostname or ACS URL",
-			content: sso + "  groups: Developers\n",
+			content: sso,
 			wantErr: true,
 		},
 		{
 			name:         "plain http on loopback IP",
-			content:      sso + "  groups: Developers\n  acsurl: http://127.0.0.1:8080/auth/sso/acs\n",
+			content:      sso + "  acsurl: http://127.0.0.1:8080/auth/sso/acs\n",
 			wantEnabled:  true,
-			wantGroups:   []string{"Developers"},
 			wantACSURL:   "http://127.0.0.1:8080/auth/sso/acs",
 			wantEntityID: "http://127.0.0.1:8080",
 		},
 		{
 			name:    "plain http on another host",
-			content: sso + "  groups: Developers\n  acsurl: http://ci.example.com/auth/sso/acs\n",
+			content: sso + "  acsurl: http://ci.example.com/auth/sso/acs\n",
 			wantErr: true,
 		},
 		{
 			name:    "ACS URL without scheme",
-			content: sso + "  groups: Developers\n  acsurl: ci.example.com/auth/sso/acs\n",
+			content: sso + "  acsurl: ci.example.com/auth/sso/acs\n",
 			wantErr: true,
 		},
 		{
 			name:    "ACS URL with another scheme",
-			content: sso + "  groups: Developers\n  acsurl: ftp://ci.example.com/auth/sso/acs\n",
+			content: sso + "  acsurl: ftp://ci.example.com/auth/sso/acs\n",
 			wantErr: true,
 		},
 		{
 			name:    "ACS URL without host",
-			content: sso + "  groups: Developers\n  acsurl: https:///auth/sso/acs\n",
+			content: sso + "  acsurl: https:///auth/sso/acs\n",
 			wantErr: true,
 		},
 		{
 			name:    "ACS URL with another path",
-			content: sso + "  groups: Developers\n  acsurl: https://ci.example.com/acs\n",
+			content: sso + "  acsurl: https://ci.example.com/acs\n",
 			wantErr: true,
 		},
 		{
 			name:    "ACS URL with query",
-			content: sso + "  groups: Developers\n  acsurl: https://ci.example.com/auth/sso/acs?x=1\n",
+			content: sso + "  acsurl: https://ci.example.com/auth/sso/acs?x=1\n",
 			wantErr: true,
 		},
 		{
 			name:    "misspelled idpmetadata",
-			content: "hostname: ci.example.com\nsso:\n  idpmetdata: idp.xml\n  groups: Developers\n",
+			content: "hostname: ci.example.com\nsso:\n  idpmetdata: idp.xml\n  entityid: wakeci\n",
 			wantErr: true,
 		},
 	}
@@ -216,9 +195,6 @@ func TestCreateWakeConfigSSO(t *testing.T) {
 			}
 			if got := config.SSO.Enabled(); got != tt.wantEnabled {
 				t.Errorf("Enabled() = %t, want %t", got, tt.wantEnabled)
-			}
-			if !slices.Equal(config.SSO.allowedGroups, tt.wantGroups) {
-				t.Errorf("allowedGroups = %q, want %q", config.SSO.allowedGroups, tt.wantGroups)
 			}
 			if config.SSO.ACSURL != tt.wantACSURL {
 				t.Errorf("ACSURL = %q, want %q", config.SSO.ACSURL, tt.wantACSURL)

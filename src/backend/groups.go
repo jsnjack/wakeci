@@ -55,10 +55,6 @@ var (
 // isn't in the groups bucket, so no group's name can stand for it.
 var ssoNoGroupKey = []byte("ssoNoGroup")
 
-// ssoGroupsSeededKey in GlobalBucket records that the groups of sso.groups
-// were added, so they aren't added again after the admin deleted them
-var ssoGroupsSeededKey = []byte("ssoGroupsSeeded")
-
 // onSSOAccessChange is called after a group changed, so that live
 // connections opened with the old access are closed
 var onSSOAccessChange func()
@@ -67,46 +63,20 @@ func ssoGroupKey(name string) []byte {
 	return []byte(strings.ToLower(strings.TrimSpace(name)))
 }
 
-// seedSSOGroups adds the groups of sso.groups with access to everything,
-// once: afterwards the groups are managed in the settings
-func seedSSOGroups(names []string, now time.Time) error {
-	if len(names) == 0 {
-		return nil
+// ssoSignInClosed reports whether single sign-on is set up but nobody can
+// sign in with it: no groups and no rule for people in no group, as on the
+// first start after wakeci 2.41, whose groups were in Wakefile.yaml
+func ssoSignInClosed() (bool, error) {
+	if !Config.SSO.Enabled() {
+		return false, nil
 	}
-	seeded := false
-	err := DB.Update(func(tx *bolt.Tx) error {
-		gb := tx.Bucket(GlobalBucket)
-		if gb.Get(ssoGroupsSeededKey) != nil {
-			return nil
-		}
-		b := tx.Bucket(SSOGroupsBucket)
-		for _, name := range names {
-			if b.Get(ssoGroupKey(name)) != nil {
-				continue
-			}
-			group := SSOGroup{
-				Name:      strings.TrimSpace(name),
-				Grant:     Grant{Scopes: slices.Clone(apiKeyScopes), AllJobs: true, Jobs: []string{}, Patterns: []string{}},
-				UpdatedAt: now,
-			}
-			if err := putSSOGroup(b, &group); err != nil {
-				return err
-			}
-		}
-		seeded = true
-		return gb.Put(ssoGroupsSeededKey, []byte("true"))
+	closed := false
+	err := DB.View(func(tx *bolt.Tx) error {
+		k, _ := tx.Bucket(SSOGroupsBucket).Cursor().First()
+		closed = k == nil && tx.Bucket(GlobalBucket).Get(ssoNoGroupKey) == nil
+		return nil
 	})
-	if err != nil {
-		return err
-	}
-	if seeded {
-		L.Info("added the groups of sso.groups with access to all jobs", "groups", names)
-		return nil
-	}
-	// The groups are in the database now; editing the config file has no
-	// effect, which would be surprising without this
-	L.Warn("sso.groups is only read once, on the first start; manage the groups in the settings")
-	return nil
+	return closed, err
 }
 
 func putSSOGroup(b *bolt.Bucket, group *SSOGroup) error {

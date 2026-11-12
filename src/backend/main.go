@@ -269,15 +269,17 @@ func run(cleanup func()) (tasksLeft bool) {
 	// Last before the database closes
 	defer GlobalSessionStorage.saveUnsaved()
 
-	if err := seedSSOGroups(Config.SSO.allowedGroups, time.Now()); err != nil {
-		fatal("add the groups of sso.groups", err)
-	}
 	if Config.SSO.Enabled() {
 		GlobalSSOAuth, err = NewSSOAuth(Config.SSO, ssoAdmits)
 		if err != nil {
 			fatal("set up sso", err)
 		}
 		L.Info("sso enabled")
+		if closed, err := ssoSignInClosed(); err != nil {
+			fatal("read the sso groups", err)
+		} else if closed {
+			L.Warn("sso: no group may sign in; add groups with the admin password in Settings, SSO groups")
+		}
 	}
 
 	GlobalQueue, err = CreateQueue()

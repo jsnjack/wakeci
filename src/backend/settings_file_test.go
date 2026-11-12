@@ -262,7 +262,7 @@ func TestImportSettingsFile(t *testing.T) {
 		gb := tx.Bucket(GlobalBucket)
 		concurrent, _ := ByteToInt(gb.Get([]byte("concurrentBuilds")))
 		history, _ := ByteToInt(gb.Get([]byte("buildHistorySize")))
-		if concurrent != 4 || history != 200 || gb.Get([]byte("password")) == nil || gb.Get(ssoGroupsSeededKey) == nil ||
+		if concurrent != 4 || history != 200 || gb.Get([]byte("password")) == nil ||
 			tx.Bucket(SSOGroupsBucket).Get(ssoGroupKey("dev")) == nil {
 			t.Errorf("after the first start: %d concurrent builds, %d kept, password %t", concurrent, history, gb.Get([]byte("password")) != nil)
 		}

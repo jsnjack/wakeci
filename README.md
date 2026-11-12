@@ -106,9 +106,7 @@ timezone: Europe/Amsterdam
 sso:
   # Metadata file downloaded from the identity provider. Keep it outside jobdir
   idpmetadata: ./GoogleIDPMetadata.xml
-  # Groups added with every permission on the first start, as named in the
-  # "groups" attribute. Afterwards groups are managed in the settings.
-  groups: Developers, Ops
+  # The groups that may sign in are added in the settings, not here
   # Where the identity provider posts the response.
   # Defaults to https://<hostname>/auth/sso/acs
   acsurl: ""
@@ -231,8 +229,8 @@ wakeci received. With the admin password, the
 settings page lists the groups and what their members may do: read, run or
 write, on all jobs or on selected jobs and name patterns, as for API keys.
 Someone in several groups gets the permissions of all of them, and a change
-applies to their next request. The groups in `sso.groups` are added once,
-on the first start, with every permission. Opening wakeci from the Google apps menu
+applies to their next request. Until the admin adds a group, nobody can
+sign in with SSO, and wakeci says so in a warning at startup. Opening wakeci from the Google apps menu
 starts a normal login. SSO sessions last 12 hours, password sessions 5 days.
 API calls use an API key (see below) or Basic auth with the password.
 

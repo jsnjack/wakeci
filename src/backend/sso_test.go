@@ -108,8 +108,8 @@ func newSSOTestEnv(t *testing.T) {
 	originalConfig := Config
 	newTestBuildEnv(t)
 	Config.Port = "8081"
-	if err := seedSSOGroups(testSSOGroups, time.Now()); err != nil {
-		t.Fatalf("seed groups: %v", err)
+	for _, name := range testSSOGroups {
+		addTestGroup(t, name, Grant{Scopes: slices.Clone(apiKeyScopes), AllJobs: true})
 	}
 	path := filepath.Join(t.TempDir(), "idp.xml")
 	if err := os.WriteFile(path, []byte(newTestMetadata(t).xml()), 0600); err != nil {

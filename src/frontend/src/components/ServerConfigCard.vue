@@ -128,7 +128,6 @@ export default {
                 { id: "idp", label: "Identity provider metadata", value: sso.idpMetadata },
                 { id: "acs", label: "ACS URL", value: sso.acsUrl },
                 { id: "entity", label: "Entity ID", value: sso.entityId },
-                { id: "seed", label: "Groups of the first start", value: sso.seedGroups.join(", "), empty: "None" },
             ];
         },
     },

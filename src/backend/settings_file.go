@@ -272,10 +272,6 @@ func applySettings(parsed *parsedSettings, now time.Time) ([]string, error) {
 					return err
 				}
 			}
-			// sso.groups mustn't add its groups to the imported ones later
-			if err := gb.Put(ssoGroupsSeededKey, []byte("true")); err != nil {
-				return err
-			}
 			applied = append(applied, "ssoGroups")
 		}
 		if parsed.hasNoGroup {
