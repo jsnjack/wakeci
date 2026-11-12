@@ -172,3 +172,26 @@ test("should take q over an old filter parameter", async ({ page }) => {
     await expect(page.getByTestId("filter")).toHaveValue("env:new");
     await expect(page).toHaveURL(/\/\?q=env:new$/);
 });
+
+test("should load older builds with before", async ({ page, wake }) => {
+    const name = await wake.createJob(`
+desc: Paging
+tasks:
+  - name: Nothing
+    run: "true"
+`);
+    // One more than the first page, which has 15
+    const ids = [];
+    for (let i = 0; i < 16; i++) {
+        ids.push(await wake.runJob(name));
+    }
+    await wake.showFeed(name);
+    const builds = page.getByTestId("feed-container").locator("[data-cy-build]");
+    await expect(builds).toHaveCount(15);
+    const more = page.waitForRequest((request) => new URL(request.url()).pathname === "/api/feed" && request.url().includes("before="));
+    await page.getByTestId("more").click();
+    expect(new URL((await more).url()).searchParams.get("before")).toBe(String(ids[1]));
+    await expect(builds).toHaveCount(16);
+    await expect(page.locator(`[data-cy-build="${ids[0]}"]`)).toBeVisible();
+    await expect(page.getByTestId("more")).toBeHidden();
+});

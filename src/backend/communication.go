@@ -87,7 +87,7 @@ type BuildUpdateData struct {
 	Status         ItemStatus          `json:"status"`
 	Tasks          []*TaskStatus       `json:"tasks"`
 	Params         []map[string]string `json:"params"`
-	Artifacts      []string            `json:"artifacts"` // Deprecate in favor of BuildArtifacts
+	Artifacts      []string            `json:"artifacts"` // Deprecated: file names only; use build_artifacts
 	BuildArtifacts []*ArtifactInfo     `json:"build_artifacts"`
 	StartedAt      time.Time           `json:"startedAt"`
 	Duration       time.Duration       `json:"duration"`

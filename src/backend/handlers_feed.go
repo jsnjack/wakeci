@@ -109,7 +109,7 @@ func seekAtOrBefore(c *bolt.Cursor, id int) ([]byte, []byte) {
 // @Param        after    query      integer   false  "Only builds with a higher ID"
 // @Param        job      query      []string  false  "Only builds of these jobs, by exact name" collectionFormat(multi)
 // @Param        status   query      []string  false  "Only builds with these statuses: pending, running, finished, failed, aborted, timed out" collectionFormat(multi)
-// @Param        offset   query      integer   false  "Skip that many matching builds; before is faster for paging"
+// @Param        offset   query      integer   false  "Deprecated: skip that many matching builds; page with before=<the oldest ID you got> instead"
 // @Param        q        query      string    false  "Space-separated words matched as substrings of id:<id> name:<job> status:<status> and the params, so +name:test_unit also matches test_unit_js. Builds must contain the words prefixed with +, must not contain those prefixed with -, and must contain one of the others. Phrases can be wrapped in single or double quotes"
 // @Param        filter   query      string    false  "Deprecated: the old name of `q`, read only when `q` is absent"
 // @Success      200      {array}    BuildUpdateData
