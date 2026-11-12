@@ -706,6 +706,7 @@ func newAPIKeyRouter(storage http.Handler) http.Handler {
 
 	router.Route("/docs", docsRoutes)
 	router.Get("/llms.txt", HandleAgentGuide)
+	router.Get("/llms-full.txt", HandleAPIMarkdown)
 
 	// The API as MCP tools for agents; each tool calls the routes above with
 	// the request's key
@@ -740,7 +741,7 @@ func rejectAPIKeyRoute(passwordRoutes, keyRoutes chi.Routes) http.HandlerFunc {
 			writePlainText(w, logger, http.StatusMethodNotAllowed, r.Method+" isn't allowed on "+r.URL.Path)
 			return
 		}
-		writePlainText(w, logger, http.StatusNotFound, "No API route "+r.URL.Path+"; the routes are listed in /docs/swagger.json")
+		writePlainText(w, logger, http.StatusNotFound, "No API route "+r.URL.Path+"; the routes are listed in /llms-full.txt")
 	}
 }
 

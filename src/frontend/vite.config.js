@@ -56,6 +56,10 @@ export default defineConfig({
                 target: "http://localhost:8081/",
                 changeOrigin: true,
             },
+            "/llms-full.txt": {
+                target: "http://localhost:8081/",
+                changeOrigin: true,
+            },
             "/mcp": {
                 target: "http://localhost:8081/",
                 changeOrigin: true,

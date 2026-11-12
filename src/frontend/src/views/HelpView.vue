@@ -56,7 +56,15 @@
         >
             <p class="no-margin">
                 Every route of the API, with its parameters, answers and examples. "Test Request" runs as you; scripts send an API key as
-                <code>Authorization: Bearer wk_...</code>, or the admin password.
+                <code>Authorization: Bearer wk_...</code>, or the admin password. Agents can read the same as Markdown at
+                <a
+                    class="link"
+                    href="/llms-full.txt"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-cy="api-markdown-link"
+                    >/llms-full.txt</a
+                >.
             </p>
             <iframe
                 src="/docs/api/"

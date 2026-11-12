@@ -403,6 +403,7 @@ func run(cleanup func()) (tasksLeft bool) {
 
 	router.Route("/docs", docsRoutes)
 	router.Get("/llms.txt", HandleAgentGuide)
+	router.Get("/llms-full.txt", HandleAPIMarkdown)
 
 	vuefs := http.FileServer(http.FS(Assets))
 	router.Method("GET", "/*", HandleVueResources(vuefs))
@@ -497,6 +498,7 @@ func run(cleanup func()) (tasksLeft bool) {
 func docsRoutes(router chi.Router) {
 	router.Use(StorageSecurityMi)
 	router.Get("/api/", HandleAPIDocsView)
+	router.Get("/api.md", HandleAPIMarkdown)
 	router.Method("GET", "/swagger.json", http.FileServer(http.FS(APIDocs)))
 	router.Get("/mcp.json", HandleMCPDocs)
 }

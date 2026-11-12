@@ -76,3 +76,16 @@ test("should give each MCP client its connect command with the key", async ({ pa
     await page.getByTestId("mcp-key").fill("");
     await expect(command).toContainText("Bearer wk_...");
 });
+
+test("should serve the REST API as Markdown without credentials", async ({ backend, playwright }) => {
+    const anonymous = await playwright.request.newContext({ baseURL: backend.url, storageState: { cookies: [], origins: [] } });
+    const full = await anonymous.get("/llms-full.txt");
+    expect(full.status()).toBe(200);
+    expect(full.headers()["content-type"]).toContain("text/markdown");
+    const text = await full.text();
+    expect(text).toContain("### GET /api/feed");
+    expect(text).toContain("### POST /api/job/{name}/run");
+    expect(await (await anonymous.get("/docs/api.md")).text()).toBe(text);
+    expect(await (await anonymous.get("/llms.txt")).text()).toContain("/llms-full.txt");
+    await anonymous.dispose();
+});

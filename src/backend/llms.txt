@@ -59,6 +59,8 @@ contain quotes or line breaks. `POST /api/build/<id>/abort` aborts it.
 
 ## Everything else
 
-The OpenAPI (Swagger 2.0) spec of every route is at `/docs/swagger.json`,
-and `/docs/mcp.json` lists the MCP tools with the scope each needs; both
-need no key. People read the same spec at `/docs/api/`.
+Every route, with its scope, parameters, answers and types, is in
+`/llms-full.txt` (also `/docs/api.md`), as Markdown. The same as OpenAPI
+2.0 is at `/docs/swagger.json`, and `/docs/mcp.json` lists the MCP tools
+with the scope each needs. None of them need a key. People read the docs
+at `/docs/api/`.

@@ -109,8 +109,11 @@ var (
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>wakeci - API</title>
+	<meta name="description" content="The wakeci REST API. Without JavaScript, read it as Markdown at /llms-full.txt (also /docs/api.md), or as OpenAPI 2.0 at /docs/swagger.json.">
+	<link rel="alternate" type="text/markdown" href="/llms-full.txt">
 </head>
 <body>
+	<p hidden>This page draws the REST API docs with JavaScript. Agents and scripts can read them as Markdown at <a href="/llms-full.txt">/llms-full.txt</a> (also <a href="/docs/api.md">/docs/api.md</a>), or as OpenAPI 2.0 at <a href="/docs/swagger.json">/docs/swagger.json</a>.</p>
 	<div id="app"></div>
 	<script src="` + scalarScript + `" integrity="` + scalarScriptIntegrity + `" crossorigin="anonymous"></script>
 	<script>` + apiDocsScript + `</script>
