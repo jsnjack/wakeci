@@ -53,8 +53,10 @@ type specSchema struct {
 	Items                *specSchema            `json:"items"`
 	AdditionalProperties *specSchema            `json:"additionalProperties"`
 	Properties           map[string]*specSchema `json:"properties"`
-	Description          string                 `json:"description"`
-	Nullable             bool                   `json:"x-nullable"`
+	// AllOf holds the type of a field that has a description of its own
+	AllOf       []*specSchema `json:"allOf"`
+	Description string        `json:"description"`
+	Nullable    bool          `json:"x-nullable"`
 }
 
 // commonStatuses are the answers every route can give, which the
@@ -248,6 +250,11 @@ func inlineSimpleTypes(spec *openAPISpec) {
 	inline = func(schema *specSchema) {
 		if schema == nil {
 			return
+		}
+		// swag writes a described field's type as allOf with one schema
+		if len(schema.AllOf) == 1 && schema.Ref == "" && schema.Type == "" {
+			one := schema.AllOf[0]
+			schema.Ref, schema.Type, schema.Items, schema.AllOf = one.Ref, one.Type, one.Items, nil
 		}
 		name := strings.TrimPrefix(schema.Ref, "#/definitions/")
 		if definition := spec.Definitions[name]; schema.Ref != "" && definition != nil && len(definition.Properties) == 0 && definition.Type != "object" {

@@ -188,6 +188,9 @@ func TestAPIMarkdown(t *testing.T) {
 			t.Errorf("type %s has no section", name[1])
 		}
 	}
+	if strings.Contains(text, "`any`") {
+		t.Error("the reference names a type it couldn't read as any")
+	}
 	if len(markdown)*3 > len(specJSON) {
 		t.Errorf("the reference has %d bytes, want less than a third of the spec's %d", len(markdown), len(specJSON))
 	}

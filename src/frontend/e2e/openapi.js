@@ -4,11 +4,17 @@
 // resolve follows $ref and returns the schema with the definition's name
 function resolve(spec, schema) {
     let name = "";
-    while (schema && schema.$ref) {
-        name = schema.$ref.replace("#/definitions/", "");
-        schema = spec.definitions[name];
+    for (;;) {
+        // swag writes a described field's type as allOf with one schema
+        if (schema && schema.allOf && schema.allOf.length === 1) {
+            schema = schema.allOf[0];
+        } else if (schema && schema.$ref) {
+            name = schema.$ref.replace("#/definitions/", "");
+            schema = spec.definitions[name];
+        } else {
+            return { schema, name };
+        }
     }
-    return { schema, name };
 }
 
 // validate reports in problems where value differs from schema, and records
@@ -16,6 +22,10 @@ function resolve(spec, schema) {
 export function validate(spec, schemaOrRef, value, where, problems, seen) {
     const { schema, name } = resolve(spec, schemaOrRef);
     if (!schema || Object.keys(schema).length === 0) {
+        return;
+    }
+    if (schema.allOf) {
+        problems.push(`${where}: the spec's allOf with ${schema.allOf.length} schemas isn't checked`);
         return;
     }
     const type = schema.type || (schema.properties ? "object" : "");
