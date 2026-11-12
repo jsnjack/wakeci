@@ -136,6 +136,8 @@ type SettingsData struct {
 	// sending, and APIKeyBurst how many at once
 	APIKeyRate  int `json:"apiKeyRate"`
 	APIKeyBurst int `json:"apiKeyBurst"`
+	// Server is what Wakefile.yaml set, which the page shows read-only
+	Server ServerConfigData `json:"server"`
 	// Admin is true for the admin password, which alone may change it
 	Admin bool `json:"admin"`
 }

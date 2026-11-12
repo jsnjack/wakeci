@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 
 	bolt "go.etcd.io/bbolt"
 	"golang.org/x/crypto/bcrypt"
@@ -180,6 +181,77 @@ func parseLimitSetting(r *http.Request, name string, current int) (int, error) {
 	return value, nil
 }
 
+// ServerConfigData is what Wakefile.yaml set, for the settings page. It
+// names the secrets file and counts its secrets, never shows their values
+type ServerConfigData struct {
+	ConfigFile string `json:"configFile"`
+	// ConfigFound is false when the file wasn't there and defaults apply
+	ConfigFound bool   `json:"configFound"`
+	Version     string `json:"version"`
+	Port        string `json:"port"`
+	Hostname    string `json:"hostname"`
+	WorkDir     string `json:"workDir"`
+	JobDir      string `json:"jobDir"`
+	SecretsFile string `json:"secretsFile"`
+	Secrets     int    `json:"secrets"`
+	// Timezone is for interval schedules; empty for the system's
+	Timezone     string `json:"timezone"`
+	DrainTimeout string `json:"drainTimeout"`
+	// SSO is null while single sign-on isn't set up
+	SSO *ServerSSOData `json:"sso" extensions:"x-nullable"`
+}
+
+// ServerSSOData is the single sign-on part of Wakefile.yaml
+type ServerSSOData struct {
+	IDPMetadata string `json:"idpMetadata"`
+	ACSURL      string `json:"acsUrl"`
+	EntityID    string `json:"entityId"`
+	// SeedGroups are the groups of sso.groups, added once, on the first start
+	SeedGroups []string `json:"seedGroups"`
+	// Certificates sign the identity provider's responses, from its
+	// metadata; the metadata needs replacing before they expire
+	Certificates []IDPCertificate `json:"certificates"`
+}
+
+// IDPCertificate is a signing certificate of the identity provider
+type IDPCertificate struct {
+	Subject  string    `json:"subject"`
+	NotAfter time.Time `json:"notAfter"`
+}
+
+// serverConfigData describes the configuration the server runs with
+func serverConfigData() ServerConfigData {
+	data := ServerConfigData{
+		ConfigFile:   Config.path,
+		ConfigFound:  Config.fileFound,
+		Version:      Version,
+		Port:         Config.Port,
+		Hostname:     Config.Hostname,
+		WorkDir:      Config.WorkDir,
+		JobDir:       Config.JobDir,
+		SecretsFile:  Config.SecretsFile,
+		Secrets:      len(Config.secrets),
+		Timezone:     Config.Timezone,
+		DrainTimeout: Config.drainTimeout.String(),
+	}
+	if Config.SSO.Enabled() {
+		sso := &ServerSSOData{
+			IDPMetadata:  Config.SSO.IDPMetadata,
+			ACSURL:       Config.SSO.ACSURL,
+			EntityID:     Config.SSO.EntityID,
+			SeedGroups:   append([]string{}, Config.SSO.allowedGroups...),
+			Certificates: []IDPCertificate{},
+		}
+		if GlobalSSOAuth != nil {
+			for _, cert := range GlobalSSOAuth.certs {
+				sso.Certificates = append(sso.Certificates, IDPCertificate{Subject: cert.Subject.String(), NotAfter: cert.NotAfter})
+			}
+		}
+		data.SSO = sso
+	}
+	return data
+}
+
 // HandleSettingsGet retrieves settings
 // @Summary      Retrieve application settings
 // @Description  Needs the write scope. Not available with an API key
@@ -217,6 +289,7 @@ func HandleSettingsGet(w http.ResponseWriter, r *http.Request) {
 		settings.APIKeyBurst, settings.APIKeyRate = apiKeyLimits(tx)
 		return nil
 	})
+	settings.Server = serverConfigData()
 
 	if err != nil {
 		logger.Error("get settings", "err", err)

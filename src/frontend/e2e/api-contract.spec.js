@@ -66,7 +66,7 @@ test("should answer every documented operation as the spec says", async ({ wake,
 
     // call sends a request for the documented operation opKey and checks the
     // answer against the spec
-    const call = async (who, opKey, target, { form, headers } = {}) => {
+    const call = async (who, opKey, target, { form, headers, body } = {}) => {
         const op = ops[opKey];
         if (!op) {
             problems.push(`${opKey} is called but isn't documented`);
@@ -77,6 +77,10 @@ test("should answer every documented operation as the spec says", async ({ wake,
         if (form) {
             options.data = formBody(form);
             options.headers["Content-Type"] = "application/x-www-form-urlencoded";
+        }
+        if (body !== undefined) {
+            options.data = body;
+            options.headers["Content-Type"] = "application/yaml";
         }
         const response = await contexts[who].fetch(target, options);
         const status = response.status();
@@ -143,6 +147,9 @@ test("should answer every documented operation as the spec says", async ({ wake,
             target: "/api/settings",
             form: { concurrentBuilds: String(settings.concurrentBuilds), buildHistorySize: String(settings.buildHistorySize) },
         }),
+        "GET /api/settings/export": async () => ({ target: "/api/settings/export" }),
+        // The server's own settings, so importing them changes nothing
+        "POST /api/settings/import": async () => ({ target: "/api/settings/import", body: await (await backend.api.get("/api/settings/export")).text() }),
         "GET /api/queue/": async () => ({ target: "/api/queue/" }),
         "GET /api/update/": async () => ({ target: "/api/update/" }),
         // Never a real version: it would install it
@@ -183,8 +190,8 @@ test("should answer every documented operation as the spec says", async ({ wake,
             problems.push(`${opKey} is in this test but isn't documented`);
             continue;
         }
-        const { target, form, ended, refused } = await make();
-        const response = await call("admin", opKey, target, { form });
+        const { target, form, body, ended, refused } = await make();
+        const response = await call("admin", opKey, target, { form, body });
         if (ended) {
             expectStatus(response, [404], `${opKey} on an ended build`);
         } else if (refused) {
@@ -222,10 +229,11 @@ test("should answer every documented operation as the spec says", async ({ wake,
         ["POST /api/groups/{name}", `/api/groups/Nosuch${uid}`, 404, { scope: "read", allJobs: "true" }],
         ["DELETE /api/groups/{name}", `/api/groups/Nosuch${uid}`, 404],
         ["POST /api/nogroup", "/api/nogroup", 400, { scope: "write", job: job }],
+        ["POST /api/settings/import", "/api/settings/import", 400, undefined, "concurrentBuilds: 0\n"],
         ["GET /storage/build/{id}/{path}", `/storage/build/${build}/nosuch.txt`, 404],
     ];
-    for (const [opKey, target, status, form] of errors) {
-        expectStatus(await call("admin", opKey, target, { form }), [status], `${opKey} ${target}`);
+    for (const [opKey, target, status, form, body] of errors) {
+        expectStatus(await call("admin", opKey, target, { form, body }), [status], `${opKey} ${target}`);
     }
 
     // 2. Without credentials, everything is refused with 401
@@ -233,8 +241,8 @@ test("should answer every documented operation as the spec says", async ({ wake,
         if (!ops[opKey]) {
             continue;
         }
-        const { target, form } = await make();
-        expectStatus(await call("none", opKey, target, { form }), [401], `${opKey} without credentials`);
+        const { target, form, body } = await make();
+        expectStatus(await call("none", opKey, target, { form, body }), [401], `${opKey} without credentials`);
     }
 
     // 3. API keys: the scope a route names lets a key in, any other scope
@@ -332,6 +340,13 @@ test("should answer every documented operation as the spec says", async ({ wake,
         "main.QueueStatusData.restartVersion": "a server restarting after an update",
         "main.UpdateData.error": "a failed check for a release",
         "main.UpdateData.problem": "a server that can't update itself",
+        "main.ServerSSOData.idpMetadata": "a server with single sign-on",
+        "main.ServerSSOData.acsUrl": "a server with single sign-on",
+        "main.ServerSSOData.entityId": "a server with single sign-on",
+        "main.ServerSSOData.seedGroups": "a server with single sign-on",
+        "main.ServerSSOData.certificates": "a server with single sign-on",
+        "main.IDPCertificate.subject": "a server with single sign-on",
+        "main.IDPCertificate.notAfter": "a server with single sign-on",
     };
     const unseen = documentedFields(spec).filter((field) => !seen.has(field) && !conditional[field]);
 

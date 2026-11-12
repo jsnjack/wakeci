@@ -39,6 +39,10 @@ type WakeConfig struct {
 	DrainTimeout string `yaml:"draintimeout"`
 	// drainTimeout is DrainTimeout parsed
 	drainTimeout time.Duration
+	// path is the configuration file, absolute, and fileFound whether it
+	// existed, for the settings page
+	path      string
+	fileFound bool
 }
 
 // defaultDrainTimeout is used when draintimeout is not set
@@ -112,8 +116,13 @@ func (s *SSOConfig) resolve(hostname string) error {
 func CreateWakeConfig(path string) (*WakeConfig, error) {
 	config := WakeConfig{}
 
+	config.path = path
+	if abs, err := filepath.Abs(path); err == nil {
+		config.path = abs
+	}
 	// Verify that config file exists
 	if _, err := os.Stat(path); err == nil {
+		config.fileFound = true
 		L.Info("using configuration file", "path", path)
 		data, err := os.ReadFile(path)
 		if err != nil {

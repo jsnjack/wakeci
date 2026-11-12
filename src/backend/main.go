@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"golang.org/x/crypto/acme/autocert"
-	"golang.org/x/crypto/bcrypt"
 
 	"github.com/CAFxX/httpcompression"
 	"github.com/go-chi/chi/v5"
@@ -92,6 +91,7 @@ func initApp() func() {
 	flag.StringVar(&configFlag, "config", "Wakefile.yaml", "Configuration file location")
 	flag.StringVar(&configFlag, "c", "Wakefile.yaml", "Configuration file location (shorthand)")
 	compactDBFlag := flag.Bool("compactdb", false, "Reclaim space in the database which is no longer used")
+	importSettingsFlag := flag.String("import-settings", "", "Import a settings file (Settings > Download settings) into the database of the stopped server, then exit")
 	versionFlag := false
 	flag.BoolVar(&versionFlag, "version", false, "Print the version and exit.")
 	flag.BoolVar(&versionFlag, "V", false, "Print the version and exit (shorthand).")
@@ -123,6 +123,20 @@ func initApp() func() {
 		os.Exit(1)
 	}
 	initAuditLogger(os.Stderr, auditServerName(Config.Hostname))
+
+	if *importSettingsFlag != "" {
+		applied, err := importSettingsFile(*importSettingsFlag)
+		if err != nil {
+			L.Error("import settings", "file", *importSettingsFlag, "err", err)
+			auditScheduled("settings.import", "failed", "via", "--import-settings", "file", *importSettingsFlag)
+			cleanup()
+			os.Exit(1)
+		}
+		L.Info("settings imported", "file", *importSettingsFlag, "applied", applied)
+		auditScheduled("settings.import", "ok", append([]any{"via", "--import-settings", "file", *importSettingsFlag}, auditListAttrs("applied", applied)...)...)
+		cleanup()
+		os.Exit(0)
+	}
 
 	if *compactDBFlag {
 		err = CompactDB()
@@ -242,64 +256,7 @@ func run(cleanup func()) (tasksLeft bool) {
 	}()
 
 	// Bootstrap DB
-	err = DB.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists(JobsBucket)
-		if err != nil {
-			return err
-		}
-
-		gb, err := tx.CreateBucketIfNotExists(GlobalBucket)
-		if err != nil {
-			return err
-		}
-		password := gb.Get([]byte("password"))
-		if password == nil {
-			L.Info("creating default password")
-			passwordH, err := bcrypt.GenerateFromPassword([]byte("admin"), bcrypt.DefaultCost)
-			if err != nil {
-				return err
-			}
-			err = gb.Put([]byte("password"), passwordH)
-			if err != nil {
-				return err
-			}
-			err = gb.Put([]byte("concurrentBuilds"), IntToByte(2))
-			if err != nil {
-				return err
-			}
-			err = gb.Put([]byte("buildHistorySize"), IntToByte(200))
-			if err != nil {
-				return err
-			}
-		}
-
-		_, err = tx.CreateBucketIfNotExists(HistoryBucket)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.CreateBucketIfNotExists(APIKeysBucket)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.CreateBucketIfNotExists(QueueBucket)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.CreateBucketIfNotExists(SessionsBucket)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.CreateBucketIfNotExists(SSOGroupsBucket)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
+	err = DB.Update(bootstrapDB)
 
 	if err != nil {
 		fatal("bootstrap db", err)
@@ -568,6 +525,8 @@ func apiRoutes(router chi.Router) {
 	// server's settings too
 	router.With(requireAccess(ScopeWrite, nil)).Get("/settings", HandleSettingsGet)
 	router.With(requireAccess(ScopeWrite, nil)).Post("/settings", HandleSettingsPost)
+	router.With(requireAdmin).Get("/settings/export", HandleSettingsExport)
+	router.With(requireAdmin).Post("/settings/import", HandleSettingsImport)
 
 	// Every logged-in user: the queue banner shows the server's state
 	router.Get("/queue/", HandleQueueGet)

@@ -143,18 +143,31 @@
         </form>
 
         <!-- Only the admin password sees or changes the groups -->
-        <SSOGroupsCard v-if="auth.admin" />
+        <SSOGroupsCard
+            v-if="auth.admin"
+            :key="groupsKey"
+        />
+        <SettingsFileCard
+            v-if="auth.admin"
+            @imported="reload"
+        />
+        <ServerConfigCard
+            v-if="server"
+            :server="server"
+        />
     </div>
 </template>
 
 <script>
 import SSOGroupsCard from "@/components/SSOGroupsCard.vue";
+import ServerConfigCard from "@/components/ServerConfigCard.vue";
+import SettingsFileCard from "@/components/SettingsFileCard.vue";
 import { escapeHtml } from "@/store/utils";
 import axios from "axios";
 import vuex from "vuex";
 
 export default {
-    components: { SSOGroupsCard },
+    components: { SSOGroupsCard, ServerConfigCard, SettingsFileCard },
     data: function () {
         return {
             password: "",
@@ -166,6 +179,10 @@ export default {
             update: null,
             installing: false,
             confirmingUpdate: false,
+            // What Wakefile.yaml set, shown read-only
+            server: null,
+            // Changing it reloads the groups after an import
+            groupsKey: 0,
         };
     },
     computed: {
@@ -240,6 +257,10 @@ export default {
                 })
                 .catch(() => {});
         },
+        reload() {
+            this.fetch();
+            this.groupsKey++;
+        },
         checkUpdate() {
             axios
                 .get("/api/update/")
@@ -287,6 +308,7 @@ export default {
                     if (response.data.apiKeyBurst) {
                         this.apiKeyBurst = response.data.apiKeyBurst;
                     }
+                    this.server = response.data.server || null;
                 })
                 .catch(() => {});
         },

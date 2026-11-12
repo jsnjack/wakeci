@@ -67,6 +67,7 @@ src/frontend/                Vue 3 + Vite SPA
 | [docs/restart.md](docs/restart.md) | Stopping, draining, restarting, restoring queued builds, saved sessions, self-update |
 | [docs/access.md](docs/access.md) | Single sign-on groups and their permissions, API key scopes, access checks on routes and live updates |
 | [docs/deprecations.md](docs/deprecations.md) | Old parameters and fields that still work, their users and their removal |
+| [docs/settings.md](docs/settings.md) | Wakefile.yaml or the settings page, the settings file, `--import-settings` |
 
 ---
 
@@ -188,7 +189,7 @@ because `--trace` would make concurrent backends overwrite `/tmp/wakeci.log`.
 | `secretsfile` | *(empty)* | YAML map of secret values, injected via `injectSecrets` |
 | `timezone` | *(empty)* | Default timezone for cron `interval` schedules |
 | `sso.idpmetadata` | *(empty)* | Path to the identity provider's SAML metadata; setting it enables "Sign in with SSO" |
-| `sso.groups` | *(empty)* | Comma-separated groups added with every permission on the first start; afterwards groups and their permissions are managed in the settings |
+| `sso.groups` | *(empty)* | Comma-separated groups added with every permission on the first start only; then the settings manage them |
 | `sso.acsurl` | `https://<hostname>/auth/sso/acs` | Where the identity provider posts the response; must be https (http only on localhost) with path `/auth/sso/acs`; required if `hostname` is empty |
 | `sso.entityid` | scheme and host of `sso.acsurl` | SP entity ID; must match the Entity ID registered at the identity provider (checked as the assertion audience) |
 | `draintimeout` | `30m` | How long a stopping wakeci waits for running builds before it aborts them; systemd's `TimeoutStopSec` must exceed it by 3 minutes |
@@ -355,9 +356,7 @@ AGENTS.universal.md for the general contract.
   started and holds no concurrency slot, but `Abort` still reaches its
   `on_aborted` and `finally` tasks.
 - **Stopping waits for builds; queued builds and sessions survive it.**
-  Why a restart waits instead of resuming builds, how queued builds and
-  sessions are saved, why there is no queue pause, and how self-update
-  checks and installs a release: [docs/restart.md](docs/restart.md).
+  Why, and how self-update installs a release: [docs/restart.md](docs/restart.md).
 - **fsnotify watcher and the port-80 redirect listener never crash the
   server.** Both run in the background after the server is already serving
   traffic; setup or runtime failures there are logged and the feature

@@ -37,6 +37,8 @@ var errSSOUnsolicited = errors.New("unsolicited SAML response")
 // Workspace, and lets in members of the groups that may log in only
 type SSOAuth struct {
 	sp *saml2.SAMLServiceProvider
+	// certs sign the identity provider's responses
+	certs []*x509.Certificate
 	// admits reports whether someone in these groups may log in
 	admits func(groups []string) bool
 	// stateKey signs the login state cookie
@@ -79,6 +81,7 @@ func NewSSOAuth(cfg SSOConfig, admits func(groups []string) bool) (*SSOAuth, err
 			// which should be reported as "not allowed", not as a broken response
 			AllowMissingAttributes: true,
 		},
+		certs:        idp.certs,
 		admits:       admits,
 		stateKey:     stateKey,
 		usedRequests: make(map[string]time.Time),
