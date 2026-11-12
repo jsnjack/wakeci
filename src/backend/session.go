@@ -49,7 +49,10 @@ type session struct {
 type storedSession struct {
 	Expires time.Time `json:"expires"`
 	User    string    `json:"user"`
-	Groups  []string  `json:"groups,omitempty"`
+	// Groups is [] for a single sign-on user in no group, whom "People in
+	// no group" let in, and missing in sessions saved before sessions kept
+	// the groups
+	Groups []string `json:"groups"`
 }
 
 // sessionKey identifies the session with token in SessionStorage and
@@ -103,7 +106,11 @@ func (s *SessionStorage) save(saved map[string]session, deleted []string) {
 	err := s.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(SessionsBucket)
 		for key, val := range saved {
-			data, err := json.Marshal(storedSession{Expires: val.expires, User: val.user, Groups: val.groups})
+			groups := val.groups
+			if val.user != "" && groups == nil {
+				groups = []string{}
+			}
+			data, err := json.Marshal(storedSession{Expires: val.expires, User: val.user, Groups: groups})
 			if err != nil {
 				return err
 			}
@@ -154,8 +161,9 @@ func (s *SessionStorage) load() error {
 				return nil
 			}
 			// Saved before sessions kept the groups: what it may do is
-			// unknown, so its user logs in again
-			if stored.User != "" && len(stored.Groups) == 0 {
+			// unknown, so its user logs in again. A session in no group
+			// has [] instead.
+			if stored.User != "" && stored.Groups == nil {
 				withoutGroups++
 				expired = append(expired, string(k))
 				return nil
