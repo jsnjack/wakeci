@@ -303,3 +303,19 @@ func requestUser(r *http.Request) (string, error) {
 	}
 	return GlobalSessionStorage.User(cookie.Value)
 }
+
+// withCompression compresses answers for clients that accept it, except the
+// answers to range requests: the compression adapter drops the Range header
+// so that it can compress the whole file, so a client that asked for the end
+// of a log, and accepts gzip as browsers and most HTTP libraries do, got all
+// of it
+func withCompression(compress func(http.Handler) http.Handler, next http.Handler) http.Handler {
+	compressed := compress(next)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Range") != "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		compressed.ServeHTTP(w, r)
+	})
+}

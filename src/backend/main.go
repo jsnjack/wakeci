@@ -408,7 +408,7 @@ func run(cleanup func()) (tasksLeft bool) {
 		fatal("create compression adapter", err)
 	}
 
-	handler := compress(routeAPIKeys(newAPIKeyRouter(storage), router))
+	handler := withCompression(compress, routeAPIKeys(newAPIKeyRouter(storage), router))
 	server := &http.Server{
 		Addr:    ":" + Config.Port,
 		Handler: handler,
