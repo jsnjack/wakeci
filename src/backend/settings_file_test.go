@@ -246,7 +246,11 @@ func TestImportSettingsFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
 	// The first start of the server
 	if err := db.Update(bootstrapDB); err != nil {
 		t.Fatal(err)

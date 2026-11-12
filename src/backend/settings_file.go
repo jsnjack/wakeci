@@ -14,6 +14,7 @@ import (
 	"time"
 
 	bolt "go.etcd.io/bbolt"
+	bolterrors "go.etcd.io/bbolt/errors"
 	"gopkg.in/yaml.v2"
 )
 
@@ -64,7 +65,7 @@ const maxSettingsFileSize = 1 << 20
 var importLockTimeout = 2 * time.Second
 
 func fileGrant(grant Grant) SettingsFileGrant {
-	return SettingsFileGrant{Scopes: grant.Scopes, AllJobs: grant.AllJobs, Jobs: grant.Jobs, Patterns: grant.Patterns}
+	return SettingsFileGrant(grant)
 }
 
 // grant checks a grant of the file with the rules of the settings page
@@ -306,7 +307,7 @@ func importSettingsFile(path string) ([]string, error) {
 	}
 	// A running wakeci holds the database's lock
 	db, err := bolt.Open(Config.WorkDir+"wakeci.db", 0644, &bolt.Options{Timeout: importLockTimeout})
-	if errors.Is(err, bolt.ErrTimeout) {
+	if errors.Is(err, bolterrors.ErrTimeout) {
 		return nil, errors.New("the database is in use: stop wakeci first")
 	}
 	if err != nil {
