@@ -21,14 +21,22 @@ func TestAPISpecMatchesTheRoutes(t *testing.T) {
 		t.Skip("docs/swagger.json is empty; make build generates it")
 	}
 	var spec struct {
-		BasePath string                    `json:"basePath"`
-		Paths    map[string]map[string]any `json:"paths"`
+		BasePath string `json:"basePath"`
+		Info     struct {
+			Description string `json:"description"`
+		} `json:"info"`
+		Paths map[string]map[string]any `json:"paths"`
 	}
 	if err := json.Unmarshal(data, &spec); err != nil {
 		t.Fatalf("decode spec: %v", err)
 	}
 	if spec.BasePath != "/" {
 		t.Fatalf("basePath = %q, want /", spec.BasePath)
+	}
+	// A @description after a security definition swag doesn't describe
+	// replaces this one
+	if !strings.HasPrefix(spec.Info.Description, "Authenticate with an API key") {
+		t.Errorf("the spec's description = %q, want how to authenticate", spec.Info.Description)
 	}
 
 	router := chi.NewRouter()

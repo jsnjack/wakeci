@@ -146,8 +146,9 @@ func initApp() func() {
 
 // @BasePath /
 
+// swag takes no description for Basic auth; a @description here would replace
+// the API's own description above
 // @securityDefinitions.basic PasswordAuth
-// @description The admin password, with an empty user name
 
 // @securityDefinitions.apikey APIKey
 // @in header
