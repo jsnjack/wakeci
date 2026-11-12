@@ -44,6 +44,10 @@ type queuedBuild struct {
 	// Tasks holds when the on_pending tasks ran, which Job doesn't keep.
 	// They don't run again
 	Tasks []*TaskStatus `json:"tasks"`
+	// QueuedAt and Trigger are the build's, for its stats; zero in records
+	// of older versions
+	QueuedAt time.Time    `json:"queuedAt,omitzero"`
+	Trigger  buildTrigger `json:"trigger,omitzero"`
 }
 
 // RestoreQueue queues the builds that were queued when wakeci stopped, in
@@ -104,6 +108,8 @@ func restoreBuild(id int, record []byte) (*Build, error) {
 		Params:          saved.Params,
 		ETA:             GetJobETA(saved.Job.Name),
 		untrustedParams: saved.UntrustedParams || saved.StartedWithAPIKey,
+		queuedAt:        saved.QueuedAt,
+		trigger:         saved.Trigger,
 	}
 	build.Logger = L.With("build", id)
 	ran := map[int]*TaskStatus{}

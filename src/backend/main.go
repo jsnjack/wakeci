@@ -334,6 +334,10 @@ func run(cleanup func()) (tasksLeft bool) {
 	if err != nil {
 		L.Error("mark interrupted builds", "err", err)
 	}
+	err = BackfillBuildStats()
+	if err != nil {
+		L.Error("record stats of earlier builds", "err", err)
+	}
 
 	CleanupOldBuilds(BuildCleanupPeriod)
 

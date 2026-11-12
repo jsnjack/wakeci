@@ -24,6 +24,9 @@ func (cl *Cleaner) Clean() {
 	cl.Logger.Debug("looking for builds to clean up")
 	started := time.Now()
 	err := DB.Update(func(tx *bolt.Tx) error {
+		if err := pruneBuildStats(tx, time.Now(), cl.Logger); err != nil {
+			return err
+		}
 		b := tx.Bucket([]byte(GlobalBucket))
 
 		preserve, err := ByteToInt(b.Get([]byte("buildHistorySize")))

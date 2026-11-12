@@ -41,6 +41,10 @@ var QueueBucket = []byte("queue")
 // storedSession, so a restart doesn't sign everyone out
 var SessionsBucket = []byte("sessions")
 
+// BuildStatsBucket holds a small record of each build by ID, kept after
+// cleanup deletes its history entry, see buildStats
+var BuildStatsBucket = []byte("buildstats")
+
 // SSOGroupsBucket holds the single sign-on groups that may log in and what
 // their members may do, by the lowercased group name
 var SSOGroupsBucket = []byte("ssogroups")
@@ -182,7 +186,7 @@ func bootstrapDB(tx *bolt.Tx) error {
 			}
 		}
 	}
-	for _, bucket := range [][]byte{JobsBucket, HistoryBucket, APIKeysBucket, QueueBucket, SessionsBucket, SSOGroupsBucket} {
+	for _, bucket := range [][]byte{JobsBucket, HistoryBucket, APIKeysBucket, QueueBucket, SessionsBucket, SSOGroupsBucket, BuildStatsBucket} {
 		if _, err := tx.CreateBucketIfNotExists(bucket); err != nil {
 			return err
 		}
