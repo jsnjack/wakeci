@@ -18,8 +18,8 @@ const (
 	defaultAPIKeyRate = 10
 	// maxAPIKeyLimit bounds both settings
 	maxAPIKeyLimit = 100000
-	// apiKeyBucketIdle is how long a key's bucket is kept unused; a full
-	// bucket is the same as none
+	// apiKeyBucketIdle is how long a key's bucket is kept unused once it
+	// would be full again; a full bucket is the same as none
 	apiKeyBucketIdle = 10 * time.Minute
 )
 
@@ -91,7 +91,10 @@ func (l *keyRequestLimiter) take(id string, now time.Time) (wait time.Duration, 
 	defer l.mu.Unlock()
 	if now.Sub(l.lastSweep) > apiKeyBucketIdle {
 		for key, bucket := range l.buckets {
-			if now.Sub(bucket.last) > apiKeyBucketIdle {
+			// A large burst at a low rate takes longer than the idle time to
+			// refill, and a new bucket starts full
+			idle := now.Sub(bucket.last)
+			if idle > apiKeyBucketIdle && bucket.tokens+idle.Seconds()*l.rate >= l.burst {
 				delete(l.buckets, key)
 			}
 		}
