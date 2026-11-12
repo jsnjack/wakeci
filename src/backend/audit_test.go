@@ -218,7 +218,7 @@ func TestAuditActions(t *testing.T) {
 			// The run checks the raw log for this password too
 			name: "disable with a password in the wrong field", user: alice, method: "POST", target: "/api/job/nightly/set_active",
 			form: url.Values{"active": {"new-secret-password"}},
-			want: map[string]string{"event": "job.set_active", "outcome": "failed", "status": "500", "active": "invalid"},
+			want: map[string]string{"event": "job.set_active", "outcome": "failed", "status": "400", "active": "invalid"},
 		},
 		{
 			name: "create", user: alice, method: "POST", target: "/api/jobs/create",

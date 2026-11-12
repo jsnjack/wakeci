@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -29,6 +31,9 @@ func jobNameParam(r *http.Request) (string, error) {
 	}
 	return name, nil
 }
+
+// errNoSuchJob is a job that the jobs bucket doesn't have
+var errNoSuchJob = errors.New("no such job")
 
 func requireJobName(w http.ResponseWriter, r *http.Request, logger *slog.Logger) (string, bool) {
 	name, err := jobNameParam(r)
@@ -129,11 +134,14 @@ func HandleJobGet(w http.ResponseWriter, r *http.Request) {
 
 	path := Config.JobDir + name + Config.jobsExt
 	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		logger.Warn("read missing job", "job", name)
+		writePlainText(w, logger, http.StatusNotFound, "No such job")
+		return
+	}
 	if err != nil {
 		logger.Error("read job file", "path", path, "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Header().Set("Content-Type", "text/plain")
-		writeBody(logger, w, []byte(err.Error()))
+		writePlainText(w, logger, http.StatusInternalServerError, err.Error())
 		return
 	}
 	jd := JobData{
@@ -247,13 +255,11 @@ func HandleDeleteJob(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if os.IsNotExist(err) {
 		logger.Warn("delete missing job", "job", name, "err", err)
-		w.WriteHeader(http.StatusNotFound)
+		writePlainText(w, logger, http.StatusNotFound, "No such job")
 		return
 	} else {
 		logger.Error("stat job file", "path", path, "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Header().Set("Content-Type", "text/plain")
-		writeBody(logger, w, []byte(err.Error()))
+		writePlainText(w, logger, http.StatusInternalServerError, err.Error())
 		return
 	}
 }
@@ -287,11 +293,8 @@ func HandleJobSetActive(w http.ResponseWriter, r *http.Request) {
 		// Not the value in the logs: it could be a secret typed into the
 		// wrong field
 		addAuditAttrs(r, "active", "invalid")
-		m := fmt.Sprintf("Invalid active flag for a job: %s\n", activeStatus)
 		logger.Warn("invalid active flag for a job", "job", name)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Header().Set("Content-Type", "text/plain")
-		writeBody(logger, w, []byte(m))
+		writePlainText(w, logger, http.StatusBadRequest, fmt.Sprintf("Invalid active flag for a job: %s, want true or false\n", activeStatus))
 		return
 	}
 
@@ -299,7 +302,7 @@ func HandleJobSetActive(w http.ResponseWriter, r *http.Request) {
 		b := tx.Bucket([]byte(JobsBucket))
 		jb := b.Bucket([]byte(name))
 		if jb == nil {
-			return fmt.Errorf("invalid job name: %s", name)
+			return errNoSuchJob
 		}
 		err := jb.Put([]byte("active"), []byte(activeStatus))
 		if err == nil {
@@ -307,11 +310,14 @@ func HandleJobSetActive(w http.ResponseWriter, r *http.Request) {
 		}
 		return err
 	})
+	if errors.Is(err, errNoSuchJob) {
+		logger.Warn("set active state of a missing job", "job", name)
+		writePlainText(w, logger, http.StatusNotFound, "No such job")
+		return
+	}
 	if err != nil {
 		logger.Error("set job active state", "job", name, "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Header().Set("Content-Type", "text/plain")
-		writeBody(logger, w, []byte(err.Error()))
+		writePlainText(w, logger, http.StatusInternalServerError, err.Error())
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
