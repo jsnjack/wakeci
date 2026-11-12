@@ -64,9 +64,9 @@ func buildNotFound(c *bolt.Cursor, id int) error {
 // getBuildConfig returns job instance of already executed build
 func getBuildConfig(buildID int) (*Job, error) {
 	// Collect tasks info by reconstructing job object
-	buildConfigDir := Config.WorkDir + "wakespace/" + strconv.Itoa(buildID)
-	newConfigFilename := buildConfigDir + "/build_plan" + Config.jobsExt
-	oldConfigFilename := buildConfigDir + "/build" + Config.jobsExt
+	buildConfigDir := wakespaceDir(buildID)
+	newConfigFilename := buildConfigDir + "build_plan" + Config.jobsExt
+	oldConfigFilename := buildConfigDir + "build" + Config.jobsExt
 
 	job := &Job{}
 
@@ -168,10 +168,10 @@ func addTaskLogs(build *BuildUpdateData, job *Job) {
 	for _, task := range job.Tasks {
 		names[task.ID] = task.Name
 	}
-	dir := Config.WorkDir + "wakespace/" + strconv.Itoa(build.ID) + "/"
+	dir := wakespaceDir(build.ID)
 	for _, task := range build.Tasks {
 		task.Name = names[task.ID]
-		file := fmt.Sprintf("task_%d.log", task.ID)
+		file := taskLogName(task.ID)
 		if info, err := os.Stat(dir + file); err == nil {
 			task.Log = storageURL(build.ID, file)
 			task.LogSize = info.Size()
@@ -214,7 +214,7 @@ const maxJobSummary = 64 * 1024
 // readJobSummary returns what the build's tasks wrote to $WAKE_SUMMARY, at
 // most maxJobSummary bytes, or "" if they wrote nothing
 func readJobSummary(buildID int) (string, error) {
-	f, err := os.Open(Config.WorkDir + "wakespace/" + strconv.Itoa(buildID) + "/" + jobSummaryFile)
+	f, err := os.Open(wakespaceDir(buildID) + jobSummaryFile)
 	if errors.Is(err, os.ErrNotExist) {
 		return "", nil
 	}

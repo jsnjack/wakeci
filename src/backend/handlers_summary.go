@@ -234,7 +234,7 @@ func HandleTaskLog(w http.ResponseWriter, r *http.Request) {
 }
 
 func taskLogFile(build, task int) string {
-	return Config.WorkDir + "wakespace/" + strconv.Itoa(build) + "/" + fmt.Sprintf("task_%d.log", task)
+	return wakespaceDir(build) + taskLogName(task)
 }
 
 // tailLines returns the last n lines of the file at path, reading it from

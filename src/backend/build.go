@@ -845,15 +845,26 @@ func (b *Build) GetWorkspaceDir() string {
 	return Config.WorkDir + "workspace/" + strconv.Itoa(b.ID) + "/"
 }
 
+// wakespaceDir is where build id keeps its task logs, artifacts, plan and
+// summary, ending in a slash. Every path into it starts here.
+func wakespaceDir(id int) string {
+	return Config.WorkDir + "wakespace/" + strconv.Itoa(id) + "/"
+}
+
+// taskLogName is the file of a task's log in its build's wakespace
+func taskLogName(taskID int) string {
+	return fmt.Sprintf("task_%d.log", taskID)
+}
+
 // GetWakespaceDir returns path to the data dir - there all build+wake related data is
 // stored
 func (b *Build) GetWakespaceDir() string {
-	return Config.WorkDir + "wakespace/" + strconv.Itoa(b.ID) + "/"
+	return wakespaceDir(b.ID)
 }
 
 // taskLogPath returns the path to the output log of the task
 func (b *Build) taskLogPath(taskID int) string {
-	return b.GetWakespaceDir() + fmt.Sprintf("task_%d.log", taskID)
+	return wakespaceDir(b.ID) + taskLogName(taskID)
 }
 
 // GetArtifactsDir returns location of artifacts folder
