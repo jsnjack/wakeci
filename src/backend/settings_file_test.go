@@ -305,3 +305,20 @@ func TestServerConfigData(t *testing.T) {
 		t.Errorf("settings = %s", rec.Body.String())
 	}
 }
+
+// An import error names the setting or the line, never a value: someone may
+// import the wrong file, such as the secrets file
+func TestSettingsFileErrorsHideValues(t *testing.T) {
+	newSettingsFileTestEnv(t)
+	for _, text := range []string{
+		"apiKeyRate: s3cret-value-1\n",
+		"ssoGroups: s3cret-value-1\n",
+		"ssoGroups:\n- name: Dev\n  scopes: s3cret-value-1\n",
+		"ssoNoGroup: s3cret-value-1\n",
+	} {
+		_, err := importText(t, text)
+		if err == nil || strings.Contains(err.Error(), "s3cret") || !strings.Contains(err.Error(), "line ") {
+			t.Errorf("import of %q: %v; want an error naming the line without the value", text, err)
+		}
+	}
+}

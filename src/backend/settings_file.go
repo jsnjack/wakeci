@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -132,6 +133,17 @@ func serverName() string {
 	return "this server"
 }
 
+// yamlValue is a value the YAML library quotes in its errors, such as
+// cannot unmarshal !!str `s3cret-...` into int
+var yamlValue = regexp.MustCompile("`[^`]*`")
+
+// hideYAMLValues keeps the line and what was wrong of a YAML error, not the
+// value: someone may import the wrong file, such as the secrets file, and
+// the error is logged
+func hideYAMLValues(err error) string {
+	return yamlValue.ReplaceAllString(err.Error(), "a value")
+}
+
 // parsedSettings is a checked settings file, with which parts it has
 type parsedSettings struct {
 	file      SettingsFile
@@ -147,13 +159,13 @@ type parsedSettings struct {
 func parseSettingsFile(data []byte) (*parsedSettings, error) {
 	parsed := &parsedSettings{}
 	if err := yaml.UnmarshalStrict(data, &parsed.file); err != nil {
-		return nil, fmt.Errorf("read the settings file: %w", err)
+		return nil, fmt.Errorf("read the settings file: %s", hideYAMLValues(err))
 	}
 	// Which settings the file names: ssoNoGroup: null turns the rule off,
 	// while a file without it leaves the rule
 	var keys map[string]any
 	if err := yaml.Unmarshal(data, &keys); err != nil {
-		return nil, fmt.Errorf("read the settings file: %w", err)
+		return nil, fmt.Errorf("read the settings file: %s", hideYAMLValues(err))
 	}
 	if len(keys) == 0 {
 		return nil, errors.New("the file has no settings")
