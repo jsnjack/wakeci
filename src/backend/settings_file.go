@@ -145,6 +145,15 @@ func hideYAMLValues(err error) string {
 	return yamlValue.ReplaceAllString(err.Error(), "a value")
 }
 
+// quotedValue is a value the checks of the settings page quote with %q,
+// such as unknown scope "x"
+var quotedValue = regexp.MustCompile(`"(?:[^"\\]|\\.)*"`)
+
+// hideQuotedValues keeps what a grant's check found wrong, not the value
+func hideQuotedValues(err error) string {
+	return quotedValue.ReplaceAllString(err.Error(), "a value")
+}
+
 // parsedSettings is a checked settings file, with which parts it has
 type parsedSettings struct {
 	file      SettingsFile
@@ -203,14 +212,14 @@ func parseSettingsFile(data []byte) (*parsedSettings, error) {
 		names = append(names, name)
 		grant, err := g.grant()
 		if err != nil {
-			return nil, fmt.Errorf("ssoGroups %s: %w", name, err)
+			return nil, fmt.Errorf("ssoGroups %s: %s", name, hideQuotedValues(err))
 		}
 		parsed.groups = append(parsed.groups, &SSOGroup{Name: name, Grant: grant})
 	}
 	if f.SSONoGroup != nil {
 		grant, err := f.SSONoGroup.grant()
 		if err != nil {
-			return nil, fmt.Errorf("ssoNoGroup: %w", err)
+			return nil, fmt.Errorf("ssoNoGroup: %s", hideQuotedValues(err))
 		}
 		parsed.noGroup = &grant
 	}

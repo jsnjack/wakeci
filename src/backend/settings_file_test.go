@@ -336,3 +336,19 @@ func TestSettingsFileEmptyGroupList(t *testing.T) {
 		t.Errorf("groups = %+v, %v; want none", groups, err)
 	}
 }
+
+// The errors of a group's or the rule's permissions name the group, never
+// the value that was wrong
+func TestSettingsFileGrantErrorsHideValues(t *testing.T) {
+	newSettingsFileTestEnv(t)
+	for _, tt := range []struct{ text, want string }{
+		{"ssoGroups:\n- name: Dev\n  scopes: [s3cret-value-1]\n  allJobs: true\n", "ssoGroups Dev: unknown scope"},
+		{"ssoGroups:\n- name: Dev\n  scopes: [read]\n  jobs: [s3cret/value-1]\n", "ssoGroups Dev: invalid job name or pattern"},
+		{"ssoNoGroup:\n  scopes: [read]\n  patterns: ['s3cret\\value-1']\n", "ssoNoGroup: invalid job name or pattern"},
+	} {
+		_, err := importText(t, tt.text)
+		if err == nil || strings.Contains(err.Error(), "s3cret") || !strings.Contains(err.Error(), tt.want) {
+			t.Errorf("import of %q: %v; want %q without the value", tt.text, err, tt.want)
+		}
+	}
+}
