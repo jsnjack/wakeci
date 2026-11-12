@@ -36,6 +36,10 @@ type queuedBuild struct {
 	Job             *Job                `json:"job"`
 	Params          []map[string]string `json:"params"`
 	UntrustedParams bool                `json:"untrustedParams"`
+	// StartedWithAPIKey is the mark in queue records of wakeci 2.41 and
+	// older, set for builds API keys started; read, never written, so a
+	// build queued before an upgrade stays untrusted
+	StartedWithAPIKey bool `json:"startedWithAPIKey,omitempty"`
 	// Tasks holds when the on_pending tasks ran, which Job doesn't keep.
 	// They don't run again
 	Tasks []*TaskStatus `json:"tasks"`
@@ -98,7 +102,7 @@ func restoreBuild(id int, record []byte) (*Build, error) {
 		flushChannel:    make(chan bool),
 		Params:          saved.Params,
 		ETA:             GetJobETA(saved.Job.Name),
-		untrustedParams: saved.UntrustedParams,
+		untrustedParams: saved.UntrustedParams || saved.StartedWithAPIKey,
 	}
 	build.Logger = L.With("build", id)
 	ran := map[int]*TaskStatus{}

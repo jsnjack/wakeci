@@ -962,3 +962,25 @@ func TestRestoreBuild(t *testing.T) {
 		t.Error("restoreBuild without a job: want an error")
 	}
 }
+
+// A build an API key queued under wakeci 2.41 or older, which saved the
+// mark as startedWithAPIKey, stays untrusted when a newer wakeci restores
+// it, so its build.env values still skip injectSecrets
+func TestQueuedBuildOfAnOlderVersionKeepsItsMark(t *testing.T) {
+	newTestBuildEnv(t)
+	job := `{"name":"restore","tasks":[{"id":0,"name":"t","run":"true","kind":"main"}]}`
+	for record, want := range map[string]bool{
+		`{"job":` + job + `,"params":[{"TARGET":"x"}],"startedWithAPIKey":true,"tasks":[]}`:  true,
+		`{"job":` + job + `,"params":[{"TARGET":"x"}],"startedWithAPIKey":false,"tasks":[]}`: false,
+		`{"job":` + job + `,"params":[{"TARGET":"x"}],"untrustedParams":true,"tasks":[]}`:    true,
+		`{"job":` + job + `,"params":[{"TARGET":"x"}],"tasks":[]}`:                           false,
+	} {
+		build, err := restoreBuild(7, []byte(record))
+		if err != nil {
+			t.Fatalf("restoreBuild(%s): %v", record, err)
+		}
+		if build.untrustedParams != want {
+			t.Errorf("restoreBuild(%s).untrustedParams = %t, want %t", record, build.untrustedParams, want)
+		}
+	}
+}
