@@ -143,7 +143,7 @@ func initApp() func() {
 // @description Authenticate with an API key (Authorization: Bearer wk_...), or with the admin password as Basic auth with an empty user name.
 // @description A key may only use the routes that name the scope it needs ("API key scope"), and only on its jobs.
 // @description Missing or wrong credentials get 401, a request the key or user may not make gets 403, an unknown route or build 404.
-// @description An API key that sends more than 10 requests a second (120 at once), or a client with too many failed logins, gets 429 with Retry-After.
+// @description An API key that sends more requests than the settings allow (by default 10 a second, 120 at once), or a client with too many failed logins, gets 429 with Retry-After.
 
 // @BasePath /
 
@@ -322,6 +322,9 @@ func run(cleanup func()) (tasksLeft bool) {
 	GlobalQueue, err = CreateQueue()
 	if err != nil {
 		fatal("create queue", err)
+	}
+	if err := loadAPIKeyLimits(); err != nil {
+		fatal("load api key limits", err)
 	}
 
 	// Builds broadcast their updates, also the restored ones

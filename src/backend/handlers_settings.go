@@ -20,6 +20,8 @@ import (
 // @Param        password           formData      string   false  "Set password; only with the admin password"
 // @Param        concurrentBuilds   formData      string   false  "Set max number of concurrent builds"
 // @Param        buildHistorySize   formData      string   false  "Set max number of preserved builds"
+// @Param        apiKeyRate         formData      string   false  "Requests a second each API key may keep sending, 1 to 100000; unchanged if not sent"
+// @Param        apiKeyBurst        formData      string   false  "Requests each API key may send at once, 1 to 100000; unchanged if not sent"
 // @Success      200      {string}   string
 // @Failure      400      {string}   string
 // @Failure      401      {string}   string
@@ -38,6 +40,11 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 	addAuditAttrs(r, "passwordChange", r.FormValue("password") != "",
 		"concurrentBuilds", auditNumber(r.FormValue("concurrentBuilds")),
 		"buildHistorySize", auditNumber(r.FormValue("buildHistorySize")))
+	for _, name := range []string{"apiKeyRate", "apiKeyBurst"} {
+		if r.FormValue(name) != "" {
+			addAuditAttrs(r, name, auditNumber(r.FormValue(name)))
+		}
+	}
 
 	// Everything is checked before anything changes, so a request either
 	// saves all its settings or none, and its audit outcome is true
@@ -63,6 +70,19 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 	}
 	bhsInt, err := parseCountSetting(r, "buildHistorySize")
 	if err != nil {
+		logger.Warn("invalid setting", "err", err)
+		writePlainText(w, logger, http.StatusBadRequest, err.Error())
+		return
+	}
+	// The limits of API keys keep their values unless the request sets
+	// them: clients written before they were settings don't send them
+	burst, rate := apiKeyRequestLimiter.limits()
+	if rate, err = parseLimitSetting(r, "apiKeyRate", rate); err != nil {
+		logger.Warn("invalid setting", "err", err)
+		writePlainText(w, logger, http.StatusBadRequest, err.Error())
+		return
+	}
+	if burst, err = parseLimitSetting(r, "apiKeyBurst", burst); err != nil {
 		logger.Warn("invalid setting", "err", err)
 		writePlainText(w, logger, http.StatusBadRequest, err.Error())
 		return
@@ -101,6 +121,12 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 		if err := saveConcurrency(tx, cbInt); err != nil {
 			return err
 		}
+		if err := gb.Put([]byte("apiKeyRate"), IntToByte(rate)); err != nil {
+			return err
+		}
+		if err := gb.Put([]byte("apiKeyBurst"), IntToByte(burst)); err != nil {
+			return err
+		}
 		return gb.Put([]byte("buildHistorySize"), IntToByte(bhsInt))
 	})
 	if err != nil {
@@ -111,6 +137,7 @@ func HandleSettingsPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	GlobalQueue.applyConcurrency(cbInt)
+	apiKeyRequestLimiter.setLimits(burst, rate)
 	if passwordH != nil {
 		// Sessions survive restarts, so whoever knew the old password would
 		// stay logged in
@@ -135,6 +162,20 @@ func parseCountSetting(r *http.Request, name string) (int, error) {
 	value, err := strconv.Atoi(r.FormValue(name))
 	if err != nil || value < minCountSetting {
 		return 0, fmt.Errorf("%s must be a whole number of at least %d", name, minCountSetting)
+	}
+	return value, nil
+}
+
+// parseLimitSetting reads the form value name, a whole number from 1 to
+// maxAPIKeyLimit, or returns current if the form doesn't have it. The error
+// never contains the value
+func parseLimitSetting(r *http.Request, name string, current int) (int, error) {
+	if r.FormValue(name) == "" {
+		return current, nil
+	}
+	value, err := strconv.Atoi(r.FormValue(name))
+	if err != nil || value < 1 || value > maxAPIKeyLimit {
+		return 0, fmt.Errorf("%s must be a whole number from 1 to %d", name, maxAPIKeyLimit)
 	}
 	return value, nil
 }
@@ -173,6 +214,7 @@ func HandleSettingsGet(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 		settings.BuildHistorySize = bhs
+		settings.APIKeyBurst, settings.APIKeyRate = apiKeyLimits(tx)
 		return nil
 	})
 

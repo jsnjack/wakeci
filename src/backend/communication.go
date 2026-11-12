@@ -132,6 +132,10 @@ type CommandLogData struct {
 type SettingsData struct {
 	ConcurrentBuilds int `json:"concurrentBuilds"`
 	BuildHistorySize int `json:"buildHistorySize"`
+	// APIKeyRate is how many requests a second each API key may keep
+	// sending, and APIKeyBurst how many at once
+	APIKeyRate  int `json:"apiKeyRate"`
+	APIKeyBurst int `json:"apiKeyBurst"`
 	// Admin is true for the admin password, which alone may change it
 	Admin bool `json:"admin"`
 }

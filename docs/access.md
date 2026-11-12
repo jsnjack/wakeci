@@ -71,11 +71,14 @@ on the page's own requests.
 
 The feed and the job list filter themselves with `Access.Reads`.
 
-Each API key may send a burst of 120 requests, refilled at 10 a second
+Each API key may send a burst of requests, refilled at a steady rate
 (`apiKeyRequestLimiter`, after the key is verified); beyond that it gets
-429 with `Retry-After`. That is far above what clients send, so it only
-slows down a loop that went wrong, and it is per key, so one key can't use
-up another's requests.
+429 with `Retry-After`. Both are settings (`apiKeyBurst`, `apiKeyRate`;
+120 at once and 10 a second unless changed), applied as soon as they are
+saved and when wakeci starts; a client that saves the settings without
+them keeps their values. The defaults are far above what clients send, so
+they only slow down a loop that went wrong, and the limit is per key, so
+one key can't use up another's requests.
 
 The access is computed from the groups as they are on every request, not
 kept in the session, so a change in the settings applies to the members'

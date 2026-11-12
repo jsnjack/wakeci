@@ -105,6 +105,32 @@
                 <span class="helper">Number of builds to preserve</span>
             </div>
 
+            <h6 class="small">API keys</h6>
+            <p class="small-text muted">Limits for each key on its own. A key over them gets 429 and waits as long as Retry-After says.</p>
+            <div class="field border small">
+                <input
+                    id="api-key-rate"
+                    v-model="apiKeyRate"
+                    type="number"
+                    min="1"
+                    max="100000"
+                    data-cy="api-key-rate"
+                />
+                <span class="helper">Requests a second each key may keep sending</span>
+            </div>
+
+            <div class="field border small">
+                <input
+                    id="api-key-burst"
+                    v-model="apiKeyBurst"
+                    type="number"
+                    min="1"
+                    max="100000"
+                    data-cy="api-key-burst"
+                />
+                <span class="helper">Requests each key may send at once</span>
+            </div>
+
             <nav class="no-space">
                 <div class="max"></div>
                 <button
@@ -135,6 +161,8 @@ export default {
             admin: false,
             concurrentBuilds: 2,
             buildHistorySize: 200,
+            apiKeyRate: 10,
+            apiKeyBurst: 120,
             update: null,
             installing: false,
             confirmingUpdate: false,
@@ -196,6 +224,8 @@ export default {
             data.append("password", this.password);
             data.append("concurrentBuilds", this.concurrentBuilds);
             data.append("buildHistorySize", this.buildHistorySize);
+            data.append("apiKeyRate", this.apiKeyRate);
+            data.append("apiKeyBurst", this.apiKeyBurst);
             axios
                 .post("/api/settings", data, {
                     headers: {
@@ -251,6 +281,12 @@ export default {
                     if (response.data.buildHistorySize) {
                         this.buildHistorySize = response.data.buildHistorySize;
                     }
+                    if (response.data.apiKeyRate) {
+                        this.apiKeyRate = response.data.apiKeyRate;
+                    }
+                    if (response.data.apiKeyBurst) {
+                        this.apiKeyBurst = response.data.apiKeyBurst;
+                    }
                 })
                 .catch(() => {});
         },
@@ -260,6 +296,9 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
+.muted {
+    opacity: 0.7;
+}
 .update-card {
     margin: 0 0 1.5rem;
 }

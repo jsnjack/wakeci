@@ -35,12 +35,14 @@ func newSettingsTestEnv(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("save settings: %v", err)
 	}
-	oldQueue, oldSessions := GlobalQueue, GlobalSessionStorage
+	oldQueue, oldSessions, oldLimiter := GlobalQueue, GlobalSessionStorage, apiKeyRequestLimiter
 	GlobalQueue = &Queue{}
 	GlobalSessionStorage = &SessionStorage{sessions: make(map[string]session)}
+	apiKeyRequestLimiter = newKeyRequestLimiter(defaultAPIKeyBurst, defaultAPIKeyRate)
 	t.Cleanup(func() {
 		GlobalQueue = oldQueue
 		GlobalSessionStorage = oldSessions
+		apiKeyRequestLimiter = oldLimiter
 	})
 }
 
@@ -132,6 +134,14 @@ func TestSettingsAllOrNothing(t *testing.T) {
 			invalid[fmt.Sprintf("%s %q", field, value)] = form
 		}
 	}
+	// The API key limits may be left out, but not set to nonsense
+	for _, field := range []string{"apiKeyRate", "apiKeyBurst"} {
+		for _, value := range []string{"x", "0", "-1", "100001"} {
+			form := url.Values{"password": {"changed"}, "concurrentBuilds": {"3"}, "buildHistorySize": {"100"}}
+			form.Set(field, value)
+			invalid[fmt.Sprintf("%s %q", field, value)] = form
+		}
+	}
 	for name, form := range invalid {
 		t.Run(name, func(t *testing.T) {
 			newSettingsTestEnv(t)
@@ -147,6 +157,9 @@ func TestSettingsAllOrNothing(t *testing.T) {
 			}
 			if got := setting("buildHistorySize"); got != 200 {
 				t.Errorf("buildHistorySize = %d, want 200", got)
+			}
+			if burst, rate := apiKeyRequestLimiter.limits(); burst != defaultAPIKeyBurst || rate != defaultAPIKeyRate {
+				t.Errorf("api key limits = %d at once, %d a second; want the defaults", burst, rate)
 			}
 		})
 	}
@@ -268,5 +281,49 @@ func TestPasswordChangeEndsLoginsInFlight(t *testing.T) {
 		if GlobalSessionStorage.Verify(cookie.Value) == nil {
 			t.Error("a session logged in with the old password survived the change")
 		}
+	}
+}
+
+// The API key limits are settings: saved, applied at once and when wakeci
+// starts, and kept when a client that doesn't know them saves the others
+func TestSettingsAPIKeyLimits(t *testing.T) {
+	newSettingsTestEnv(t)
+	limits := func() (int, int, SettingsData) {
+		var settings SettingsData
+		rec := settingsRequest(t, HandleSettingsGet, "GET", "", nil)
+		if err := json.Unmarshal(rec.Body.Bytes(), &settings); err != nil {
+			t.Fatalf("decode settings %s: %v", rec.Body.String(), err)
+		}
+		burst, rate := apiKeyRequestLimiter.limits()
+		return burst, rate, settings
+	}
+	// A database from before the limits were settings has the defaults
+	if burst, rate, settings := limits(); burst != 120 || rate != 10 || settings.APIKeyBurst != 120 || settings.APIKeyRate != 10 {
+		t.Errorf("defaults: limiter %d/%d, settings %+v; want 120 at once and 10 a second", burst, rate, settings)
+	}
+
+	form := url.Values{"concurrentBuilds": {"2"}, "buildHistorySize": {"200"}, "apiKeyRate": {"3"}, "apiKeyBurst": {"7"}}
+	if rec := settingsRequest(t, HandleSettingsPost, "POST", "", form); rec.Code != http.StatusOK {
+		t.Fatalf("save: %d %s", rec.Code, rec.Body.String())
+	}
+	if burst, rate, settings := limits(); burst != 7 || rate != 3 || settings.APIKeyBurst != 7 || settings.APIKeyRate != 3 {
+		t.Errorf("saved: limiter %d/%d, settings %+v; want 7 at once and 3 a second", burst, rate, settings)
+	}
+
+	form = url.Values{"concurrentBuilds": {"4"}, "buildHistorySize": {"200"}}
+	if rec := settingsRequest(t, HandleSettingsPost, "POST", "", form); rec.Code != http.StatusOK {
+		t.Fatalf("save without the limits: %d %s", rec.Code, rec.Body.String())
+	}
+	if burst, rate, settings := limits(); burst != 7 || rate != 3 || settings.APIKeyBurst != 7 || settings.APIKeyRate != 3 {
+		t.Errorf("saved without them: limiter %d/%d, settings %+v; want them kept", burst, rate, settings)
+	}
+
+	// A restart applies the saved limits
+	apiKeyRequestLimiter = newKeyRequestLimiter(defaultAPIKeyBurst, defaultAPIKeyRate)
+	if err := loadAPIKeyLimits(); err != nil {
+		t.Fatal(err)
+	}
+	if burst, rate := apiKeyRequestLimiter.limits(); burst != 7 || rate != 3 {
+		t.Errorf("after a restart: %d at once, %d a second; want 7 and 3", burst, rate)
 	}
 }

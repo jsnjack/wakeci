@@ -790,13 +790,14 @@ func APIKeyAuthMi(next http.Handler) http.Handler {
 		logger = logger.With("apiKey", key.ID)
 		setRequestUser(r, "apikey", key.CreatedBy, key.ID)
 		if wait, started := apiKeyRequestLimiter.take(key.ID, now); wait > 0 {
+			burst, rate := apiKeyRequestLimiter.limits()
 			if started {
-				logger.Warn("api key sends too many requests", "burst", apiKeyBurst, "perSecond", apiKeyRate)
+				logger.Warn("api key sends too many requests", "burst", burst, "perSecond", rate)
 			}
 			seconds := max(1, int(math.Ceil(wait.Seconds())))
 			w.Header().Set("Retry-After", strconv.Itoa(seconds))
 			writePlainText(w, logger, http.StatusTooManyRequests,
-				fmt.Sprintf("This API key sent more than %d requests a second; try again in %d s", apiKeyRate, seconds))
+				fmt.Sprintf("This API key sent more than %d requests a second; try again in %d s", rate, seconds))
 			return
 		}
 		if err := touchAPIKey(key, now); err != nil {
