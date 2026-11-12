@@ -124,7 +124,8 @@ finally:
 # "WAKE_URL" - URL of the service, e.g. https://myci.space/
 # "WAKE_SUMMARY" - path of a file for the build's summary. What tasks write
 #                  there, e.g. the tests that failed, is shown on the build
-#                  page as plain text and returned by the API, up to 64 KB:
+#                  page as plain text and returned by the API, up to 64 KB,
+#                  with secret values redacted as in the logs:
 #                  echo "Failed: test_login" >> "$WAKE_SUMMARY"
 #
 # Set only after a main task failed, timed out or was aborted, so they reach

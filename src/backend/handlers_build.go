@@ -222,14 +222,22 @@ func readJobSummary(buildID int) (string, error) {
 		return "", fmt.Errorf("open job summary: %w", err)
 	}
 	defer closeLog(f, jobSummaryFile)
-	data, err := io.ReadAll(io.LimitReader(f, maxJobSummary+1))
+	// Whoever may read the build sees it, so secret values are redacted as
+	// in task logs. Read as much more as the longest secret, so a secret that
+	// crosses the cut is redacted before the cut
+	longest := 0
+	for _, value := range secretRedactionValues() {
+		longest = max(longest, len(value))
+	}
+	data, err := io.ReadAll(io.LimitReader(f, int64(maxJobSummary+longest+1)))
 	if err != nil {
 		return "", fmt.Errorf("read job summary: %w", err)
 	}
+	text := redactSecrets(string(data))
 	if len(data) > maxJobSummary {
-		return strings.ToValidUTF8(string(data[:maxJobSummary]), "") + "\n... (cut at 64 KB)", nil
+		return strings.ToValidUTF8(text[:min(len(text), maxJobSummary)], "") + "\n... (cut at 64 KB)", nil
 	}
-	return strings.ToValidUTF8(string(data), ""), nil
+	return strings.ToValidUTF8(text, ""), nil
 }
 
 // HandleAbortBuild aborts build
