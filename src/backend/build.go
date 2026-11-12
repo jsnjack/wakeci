@@ -793,7 +793,9 @@ func (b *Build) records() (data, queued []byte, err error) {
 		Job:             b.Job,
 		Params:          b.Params,
 		UntrustedParams: b.untrustedParams,
-		Tasks:           b.GetTasksStatus(),
+		// So a rollback to wakeci 2.41, which reads only this name, keeps it
+		StartedWithAPIKey: b.untrustedParams,
+		Tasks:             b.GetTasksStatus(),
 	})
 	return data, queued, err
 }

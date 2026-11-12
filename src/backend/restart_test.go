@@ -133,6 +133,18 @@ func TestQueuedBuildIsRestoredAfterRestart(t *testing.T) {
 	build.BroadcastUpdate()
 	build.pendingTasksWG.Wait()
 
+	// The record keeps the mark under both names, so wakeci 2.41 keeps it
+	// too after a rollback
+	if err := DB.View(func(tx *bolt.Tx) error {
+		record := string(tx.Bucket(QueueBucket).Get(Itob(build.ID)))
+		if !strings.Contains(record, `"untrustedParams":true`) || !strings.Contains(record, `"startedWithAPIKey":true`) {
+			t.Errorf("queue record %s, want the mark under both names", record)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
 	restarted := &Queue{concurrentBuilds: 1}
 	GlobalQueue = restarted
 	if err := RestoreQueue(restarted); err != nil {
