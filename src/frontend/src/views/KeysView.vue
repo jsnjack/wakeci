@@ -133,16 +133,27 @@
                         ·
                         <span :title="formatDate(key.createdAt)">Created {{ ago(key.createdAt) }}</span>
                         ·
-                        <span :title="formatDate(key.lastUsedAt)">
-                            {{ key.lastUsedAt ? "Used " + ago(key.lastUsedAt) : "Never used" }}
-                        </span>
-                        ·
                         <span
                             :title="formatDate(key.expiresAt)"
                             data-cy="key-expiry"
                         >
                             {{ expiryText(key) }}
                         </span>
+                    </small>
+                    <small class="muted stats">
+                        <span
+                            :title="formatDate(key.lastUsedAt)"
+                            data-cy="key-last-used"
+                        >
+                            {{ key.lastUsedAt ? "Used " + ago(key.lastUsedAt) : "Never used" }}
+                        </span>
+                        ·
+                        <span data-cy="key-uses">{{ (key.uses || 0).toLocaleString() }} {{ key.uses === 1 ? "request" : "requests" }}</span>
+                        <KeyUsageChart
+                            v-if="today && key.uses > 0"
+                            :uses-by-day="key.usesByDay || []"
+                            :today="today"
+                        />
                     </small>
                 </div>
                 <span
@@ -184,6 +195,7 @@
 </template>
 
 <script>
+import KeyUsageChart from "@/components/KeyUsageChart.vue";
 import { escapeHtml } from "@/store/utils";
 import axios from "axios";
 import TimeAgo from "javascript-time-ago";
@@ -193,9 +205,12 @@ TimeAgo.addLocale(en);
 const timeAgo = new TimeAgo("en-US");
 
 export default {
+    components: { KeyUsageChart },
     data: function () {
         return {
             keys: [],
+            // The server's date, where the usage charts end
+            today: "",
             // The admin password sees and revokes every key, an SSO user only their own
             admin: false,
             fetchingDone: false,
@@ -253,6 +268,7 @@ export default {
                 .get("/api/keys/")
                 .then((response) => {
                     this.keys = response.data.keys || [];
+                    this.today = response.data.today || "";
                     this.admin = response.data.admin;
                     this.people = response.data.people || [];
                     this.signedIn = response.data.signedIn || [];
@@ -333,6 +349,13 @@ export default {
 }
 .revoke {
     flex: none;
+}
+.stats {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0 0.5rem;
+    margin-top: 0.25rem;
 }
 .muted {
     opacity: 0.7;

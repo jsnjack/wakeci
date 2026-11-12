@@ -232,6 +232,10 @@ func run(cleanup func()) (tasksLeft bool) {
 		fatal("open db", err)
 	}
 	defer func() {
+		// The API key uses touchAPIKey hasn't saved yet
+		if err := flushAPIKeyUses(); err != nil {
+			L.Error("save api key uses", "err", err)
+		}
 		if err := DB.Close(); err != nil {
 			L.Error("close db", "err", err)
 		}

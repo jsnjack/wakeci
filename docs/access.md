@@ -98,6 +98,16 @@ them keeps their values. The defaults are far above what clients send, so
 they only slow down a loop that went wrong, and the limit is per key, so
 one key can't use up another's requests.
 
+Each key counts the requests that pass these checks, in total and per day
+for the last 30 days (`Uses`, `UsesByDay`, the chart on the API keys page),
+so the admin can see whether something still uses a key before revoking
+it. The counts are kept in memory (`key_usage.go`) and saved with the
+key's last use, which `touchAPIKey` writes at most once a minute, and by
+`flushAPIKeyUses` when wakeci stops; the list adds what isn't saved yet, so
+it is exact, and a crash loses at most a minute of counts. An MCP tool's
+call of a route carries `mcpCallKey`, so it is checked but neither counted
+nor limited again: a tool call is one request.
+
 The access is computed from the groups as they are on every request, not
 kept in the session, so a change in the settings applies to the members'
 next request. A user whose groups now allow nothing gets 403 from `AuthMi`,

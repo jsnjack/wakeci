@@ -86,6 +86,12 @@ type APIKey struct {
 	CreatedAt     time.Time  `json:"createdAt"`
 	ExpiresAt     *time.Time `json:"expiresAt,omitempty"`
 	LastUsedAt    *time.Time `json:"lastUsedAt,omitempty"`
+	// Uses counts the requests made with the key that got past its checks;
+	// an MCP tool call counts once
+	Uses int64 `json:"uses"`
+	// UsesByDay are the requests of each of the last 30 days that had any,
+	// oldest first, in the server's time zone
+	UsesByDay []DayUses `json:"usesByDay"`
 }
 
 // storedAPIKey is an API key as stored in APIKeysBucket. Only a hash of the
@@ -179,14 +185,17 @@ func verifyAPIKey(token string, now time.Time) (*APIKey, error) {
 // touchAPIKey records that the key was used, unless that was recorded less
 // than apiKeyTouchInterval ago
 func touchAPIKey(key *APIKey, now time.Time) error {
+	apiKeyUses.add(key.ID, now)
 	if key.LastUsedAt != nil && now.Sub(*key.LastUsedAt) < apiKeyTouchInterval {
 		return nil
 	}
-	return DB.Update(func(tx *bolt.Tx) error {
+	var taken keyUse
+	err := DB.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(APIKeysBucket)
 		data := b.Get([]byte(key.ID))
 		// Revoked since it was checked: writing it would bring it back
 		if data == nil {
+			apiKeyUses.take(key.ID)
 			return nil
 		}
 		var stored storedAPIKey
@@ -197,13 +206,55 @@ func touchAPIKey(key *APIKey, now time.Time) error {
 		if stored.LastUsedAt != nil && now.Sub(*stored.LastUsedAt) < apiKeyTouchInterval {
 			return nil
 		}
-		stored.LastUsedAt = &now
+		taken = apiKeyUses.take(key.ID)
+		taken.addTo(&stored.APIKey)
 		updated, err := json.Marshal(stored)
 		if err != nil {
 			return err
 		}
 		return b.Put([]byte(key.ID), updated)
 	})
+	if err != nil {
+		apiKeyUses.putBack(key.ID, taken)
+	}
+	return err
+}
+
+// flushAPIKeyUses saves the uses of every key that touchAPIKey hasn't saved
+// yet, e.g. before wakeci stops
+func flushAPIKeyUses() error {
+	uses := apiKeyUses.takeAll()
+	if len(uses) == 0 {
+		return nil
+	}
+	err := DB.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(APIKeysBucket)
+		for id, use := range uses {
+			data := b.Get([]byte(id))
+			if data == nil {
+				continue
+			}
+			var stored storedAPIKey
+			if err := json.Unmarshal(data, &stored); err != nil {
+				return err
+			}
+			use.addTo(&stored.APIKey)
+			updated, err := json.Marshal(stored)
+			if err != nil {
+				return err
+			}
+			if err := b.Put([]byte(id), updated); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		for id, use := range uses {
+			apiKeyUses.putBack(id, use)
+		}
+	}
+	return err
 }
 
 // apiKeyFromForm validates a request to create a key and returns the key,
@@ -212,6 +263,7 @@ func apiKeyFromForm(form url.Values, now time.Time) (*APIKey, error) {
 	key := &APIKey{
 		Name:      strings.TrimSpace(form.Get("name")),
 		CreatedAt: now,
+		UsesByDay: []DayUses{},
 	}
 	if key.Name == "" {
 		return nil, fmt.Errorf("give the key a name")
@@ -350,6 +402,8 @@ type APIKeysData struct {
 	// SignedIn, for the admin, are the people with a single sign-on session,
 	// lowercased
 	SignedIn []string `json:"signedIn,omitempty"`
+	// Today is the server's date, the last day of usesByDay
+	Today string `json:"today"`
 }
 
 // HandleAPIKeysList returns the API keys the requester may see, newest
@@ -373,6 +427,7 @@ func HandleAPIKeysList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	keys := []*APIKey{}
+	now := time.Now()
 	err = DB.View(func(tx *bolt.Tx) error {
 		return tx.Bucket(APIKeysBucket).ForEach(func(_, data []byte) error {
 			var stored storedAPIKey
@@ -380,6 +435,9 @@ func HandleAPIKeysList(w http.ResponseWriter, r *http.Request) {
 				return err
 			}
 			if user == "" || strings.EqualFold(stored.CreatedBy, user) {
+				// With the uses not saved yet, so the numbers are exact
+				apiKeyUses.peek(stored.ID).addTo(&stored.APIKey)
+				pruneUsage(&stored.APIKey, now)
 				keys = append(keys, &stored.APIKey)
 			}
 			return nil
@@ -393,7 +451,7 @@ func HandleAPIKeysList(w http.ResponseWriter, r *http.Request) {
 	slices.SortFunc(keys, func(a, b *APIKey) int {
 		return b.CreatedAt.Compare(a.CreatedAt)
 	})
-	data := APIKeysData{Admin: user == "", Keys: keys}
+	data := APIKeysData{Admin: user == "", Keys: keys, Today: usageDay(now)}
 	if data.Admin {
 		users := GlobalSessionStorage.Users()
 		data.People = keyPeople(keys, users)
@@ -794,19 +852,23 @@ func APIKeyAuthMi(next http.Handler) http.Handler {
 		}
 		logger = logger.With("apiKey", key.ID)
 		setRequestUser(r, "apikey", key.CreatedBy, key.ID)
-		if wait, started := apiKeyRequestLimiter.take(key.ID, now); wait > 0 {
-			burst, rate := apiKeyRequestLimiter.limits()
-			if started {
-				logger.Warn("api key sends too many requests", "burst", burst, "perSecond", rate)
+		// An MCP tool's call of a route was counted and limited as the
+		// request to /mcp; its key is still checked
+		if r.Context().Value(mcpCallKey{}) == nil {
+			if wait, started := apiKeyRequestLimiter.take(key.ID, now); wait > 0 {
+				burst, rate := apiKeyRequestLimiter.limits()
+				if started {
+					logger.Warn("api key sends too many requests", "burst", burst, "perSecond", rate)
+				}
+				seconds := max(1, int(math.Ceil(wait.Seconds())))
+				w.Header().Set("Retry-After", strconv.Itoa(seconds))
+				writePlainText(w, logger, http.StatusTooManyRequests,
+					fmt.Sprintf("This API key sent more than %d requests a second; try again in %d s", rate, seconds))
+				return
 			}
-			seconds := max(1, int(math.Ceil(wait.Seconds())))
-			w.Header().Set("Retry-After", strconv.Itoa(seconds))
-			writePlainText(w, logger, http.StatusTooManyRequests,
-				fmt.Sprintf("This API key sent more than %d requests a second; try again in %d s", rate, seconds))
-			return
-		}
-		if err := touchAPIKey(key, now); err != nil {
-			logger.Error("record api key use", "err", err)
+			if err := touchAPIKey(key, now); err != nil {
+				logger.Error("record api key use", "err", err)
+			}
 		}
 		access, err := apiKeyAccess(key)
 		if err != nil {

@@ -38,7 +38,10 @@ func newAPIKeyTestEnv(t *testing.T) http.Handler {
 	GlobalSessionStorage = &SessionStorage{sessions: make(map[string]session)}
 	oldPasswordLimiter := globalAuthAttemptLimiter
 	globalAuthAttemptLimiter = newAuthAttemptLimiter(authMaxFailures, authFailureWindow, authBlockDuration)
+	oldUses := apiKeyUses
+	apiKeyUses = newAPIKeyUsage()
 	t.Cleanup(func() {
+		apiKeyUses = oldUses
 		GlobalCron = oldCron
 		apiKeyAttemptLimiter = oldLimiter
 		GlobalSessionStorage = oldSessions

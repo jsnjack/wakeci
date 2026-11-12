@@ -245,3 +245,27 @@ test("should give a run-only key a working curl example", async ({ page, wake })
     // bash -n only parses: it throws on a syntax error and runs nothing
     execFileSync("bash", ["-n", "-c", example]);
 });
+
+test("should show how much each key is used, per day", async ({ page, backend, playwright }) => {
+    const name = `stats-${randomUUID()}`;
+    const created = await backend.api.post("/api/keys/", { form: { name, scope: "read", allJobs: "true", expiresInDays: "1" } });
+    await expect(created).toBeOK();
+    const key = await playwright.request.newContext({
+        baseURL: backend.url,
+        storageState: { cookies: [], origins: [] },
+        extraHTTPHeaders: { Authorization: `Bearer ${(await created.json()).token}` },
+    });
+    await expect(await key.get("/api/whoami")).toBeOK();
+    await expect(await key.get("/api/jobs/")).toBeOK();
+    await key.dispose();
+
+    await page.goto("/keys");
+    const row = page.getByTestId(`key-${name}`);
+    await expect(row.getByTestId("key-uses")).toHaveText("2 requests");
+    await expect(row.getByTestId("key-last-used")).toContainText("Used");
+    await expect(row.getByTestId("key-usage-bar")).toHaveCount(30);
+    // Today is the last bar
+    await expect(row.getByTestId("key-usage-bar").last().locator("title")).toHaveText(/: 2 requests$/);
+    await expect(row.getByTestId("key-usage-total")).toHaveText("2 in 30 days");
+    await expect(row.getByTestId("key-usage").locator("svg")).toHaveAttribute("aria-label", /^2 requests in the last 30 days/);
+});

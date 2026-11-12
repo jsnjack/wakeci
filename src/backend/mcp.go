@@ -51,6 +51,10 @@ func (b *bufferedResponse) Header() http.Header            { return b.header }
 func (b *bufferedResponse) Write(data []byte) (int, error) { return b.body.Write(data) }
 func (b *bufferedResponse) WriteHeader(status int)         { b.status = status }
 
+// mcpCallKey marks the requests an MCP tool makes, which APIKeyAuthMi
+// doesn't count or limit again; only code in wakeci can set it
+type mcpCallKey struct{}
+
 // call sends a request to the API with the MCP request's key and client,
 // and returns the body of a successful response or the API's error
 func (c *mcpCaller) call(ctx context.Context, method, target string, form url.Values) ([]byte, error) {
@@ -61,7 +65,7 @@ func (c *mcpCaller) call(ctx context.Context, method, target string, form url.Va
 	// A fresh context that only follows ctx's cancellation: the MCP
 	// request's carries its chi route, log ID and audit record, which the
 	// API request must not share
-	inner, cancel := context.WithCancel(context.Background())
+	inner, cancel := context.WithCancel(context.WithValue(context.Background(), mcpCallKey{}, true))
 	defer cancel()
 	stop := context.AfterFunc(ctx, cancel)
 	defer stop()
