@@ -21,11 +21,27 @@ test("should describe the MCP tools from the server", async ({ page, wake }) => 
     await expect(page.getByTestId("mcp-tools").locator("tbody tr")).toHaveCount(8);
 });
 
-test("should show the REST API docs in the page", async ({ page }) => {
+test("should show the REST API docs in the page, in the app's theme", async ({ page }) => {
     await page.goto("/help");
     await page.getByTestId("help-tab-rest").click();
     await expect(page).toHaveURL(/\/help#rest$/);
-    await expect(page.frameLocator("[data-cy=api-docs-frame]").locator("body")).toContainText("wakeci API documentation");
+    const docs = page.frameLocator("[data-cy=api-docs-frame]").locator("body");
+    await expect(docs).toContainText("wakeci API documentation");
+    // The docs take the app's colours, and change with its theme
+    const theme = async () => ({
+        dark: await page.evaluate(() => document.body.classList.contains("dark")),
+        surface: await page.evaluate(() => getComputedStyle(document.body).getPropertyValue("--surface").trim()),
+        docs: await docs.evaluate((body) => getComputedStyle(body).getPropertyValue("--scalar-background-1").trim()),
+    });
+    const before = await theme();
+    expect(before.docs).toBe(before.surface);
+    await expect(docs).toHaveClass(before.dark ? /dark-mode/ : /light-mode/);
+    await page.locator("button:has(i:text-is('dark_mode'))").click();
+    await expect(docs).toHaveClass(before.dark ? /light-mode/ : /dark-mode/);
+    const after = await theme();
+    expect(after.dark).toBe(!before.dark);
+    expect(after.docs).toBe(after.surface);
+    expect(after.docs).not.toBe(before.docs);
 });
 
 test("should give each MCP client its connect command with the key", async ({ page, context, wake }) => {

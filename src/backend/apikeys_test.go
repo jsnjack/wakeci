@@ -209,7 +209,7 @@ func TestAPIKeyRoutes(t *testing.T) {
 		{"DELETE", "/api/feed", nil, http.StatusMethodNotAllowed, "DELETE isn't allowed on /api/feed"},
 		{"GET", "/api/feed/", nil, http.StatusNotFound, "No API route /api/feed/; the routes are listed in /docs/swagger.json"},
 		{"GET", "/docs/swagger.json", nil, http.StatusOK, "wakeci API documentation"},
-		{"GET", "/docs/api/", nil, http.StatusOK, "swagger-ui"},
+		{"GET", "/docs/api/", nil, http.StatusOK, "@scalar/api-reference"},
 		{"GET", "/api/job/deploy/", nil, http.StatusNotFound, "No API route /api/job/deploy/"},
 		{"GET", "/api/build/1/artifacts", nil, http.StatusNotFound, "No API route /api/build/1/artifacts"},
 		{"GET", "/storage/other", nil, http.StatusForbidden, "can't be used here"},

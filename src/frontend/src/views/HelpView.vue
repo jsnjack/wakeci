@@ -55,8 +55,8 @@
             class="page padding active"
         >
             <p class="no-margin">
-                Every route of the API, with its parameters and answers. Authenticate with an API key ("Authorize", then <code>Bearer wk_...</code>) or the
-                admin password.
+                Every route of the API, with its parameters, answers and examples. "Test Request" runs as you; scripts send an API key as
+                <code>Authorization: Bearer wk_...</code>, or the admin password.
             </p>
             <iframe
                 src="/docs/api/"

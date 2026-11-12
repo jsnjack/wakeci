@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -13,30 +15,127 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// HandleAPIDocsView renders swagger UI
-func HandleAPIDocsView(w http.ResponseWriter, r *http.Request) {
-	indexDoc := `
-<!DOCTYPE html>
+// apiDocsScript draws the REST API docs with Scalar. In the Help page's
+// frame they take the app's colours (BeerCSS tokens) and theme and follow
+// its toggle; opened on their own they follow the system's theme. Scalar's
+// AI agent, MCP generator, developer tools and telemetry talk to scalar.com,
+// so they are off (and the CSP would block them).
+const apiDocsScript = `
+const app = (() => {
+	try {
+		return window.parent !== window && window.parent.document.body ? window.parent : null;
+	} catch {
+		return null;
+	}
+})();
+// Scalar's colours and the app's tokens they come from
+const tokens = {
+	"--scalar-background-1": "--surface",
+	"--scalar-background-2": "--surface-container",
+	"--scalar-background-3": "--surface-container-highest",
+	"--scalar-background-accent": "--primary-container",
+	"--scalar-color-1": "--on-surface",
+	"--scalar-color-2": "--on-surface-variant",
+	"--scalar-color-3": "--outline",
+	"--scalar-color-accent": "--primary",
+	"--scalar-color-red": "--error",
+	"--scalar-border-color": "--outline-variant",
+	"--scalar-button-1": "--primary",
+	"--scalar-button-1-color": "--on-primary",
+	"--scalar-button-1-hover": "--primary",
+	"--scalar-sidebar-background-1": "--surface-container-low",
+	"--scalar-sidebar-color-1": "--on-surface",
+	"--scalar-sidebar-color-2": "--on-surface-variant",
+	"--scalar-sidebar-color-active": "--on-secondary-container",
+	"--scalar-sidebar-item-hover-background": "--surface-container-high",
+	"--scalar-sidebar-item-active-background": "--secondary-container",
+	"--scalar-sidebar-border-color": "--outline-variant",
+	"--scalar-sidebar-search-background": "--surface-container",
+	"--scalar-sidebar-search-border-color": "--outline-variant",
+	"--scalar-sidebar-search-color": "--on-surface-variant",
+};
+const placeholderCss = 'input[placeholder="QUxMIFlPVVIgQkFTRSBBUkUgQkVMT05HIFRPIFVT"]::placeholder { color: transparent; }';
+function configuration() {
+	const config = {
+		url: "/docs/swagger.json",
+		telemetry: false,
+		withDefaultFonts: false,
+		showDeveloperTools: "never",
+		// Scalar's placeholder for a token is a joke in base64, which looks
+		// like a real key
+		customCss: placeholderCss,
+		agent: { disabled: true },
+		mcp: { disabled: true },
+		documentDownloadType: "json",
+		authentication: { preferredSecurityScheme: "APIKey" },
+		defaultHttpClient: { targetKey: "shell", clientKey: "curl" },
+	};
+	if (!app) {
+		return config;
+	}
+	const style = app.getComputedStyle(app.document.body);
+	const colours = Object.entries(tokens)
+		.map(([scalar, token]) => scalar + ": " + style.getPropertyValue(token).trim() + ";")
+		.join(" ");
+	config.hideDarkModeToggle = true;
+	config.forceDarkModeState = app.document.body.classList.contains("dark") ? "dark" : "light";
+	config.customCss += " .light-mode, .dark-mode { " + colours + " --scalar-font: " + style.fontFamily + "; }";
+	return config;
+}
+const reference = Scalar.createApiReference("#app", configuration());
+if (app) {
+	// Scalar reads forceDarkModeState only when it starts, so a later
+	// change of theme sets its body classes here
+	new MutationObserver(() => {
+		const config = configuration();
+		reference.updateConfiguration(config);
+		document.body.classList.toggle("dark-mode", config.forceDarkModeState === "dark");
+		document.body.classList.toggle("light-mode", config.forceDarkModeState === "light");
+	}).observe(app.document.body, { attributes: true, attributeFilter: ["class", "style"] });
+}
+`
+
+// scalarScript is Scalar's standalone bundle; the hash is of the npm
+// package's file, which jsDelivr serves unchanged
+const (
+	scalarScript          = "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.76.2/dist/browser/standalone.js"
+	scalarScriptIntegrity = "sha384-mCh2A/B6vkfhiHyzwBZm7lbFmEK5fE/96Kbtk+RH1zei1P/XEt0I2MCiG6WfZdor"
+)
+
+var (
+	apiDocsPage = `<!DOCTYPE html>
 <html lang="en">
 <head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>wakeci - API</title>
-	<script src="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui-bundle.js"></script>
-	<link href="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui.css" rel="stylesheet">
 </head>
 <body>
-	<div id="swagger-container"><div>
-	<script>
-		const ui = SwaggerUIBundle({
-			url: "/docs/swagger.json",
-			dom_id: "#swagger-container",
-		})
-	</script>
+	<div id="app"></div>
+	<script src="` + scalarScript + `" integrity="` + scalarScriptIntegrity + `" crossorigin="anonymous"></script>
+	<script>` + apiDocsScript + `</script>
 </body>
 </html>
 `
-	w.Header().Set("content-security-policy", "default-src 'self'; script-src 'self' https://unpkg.com 'sha256-vRXqJZN28RidhIcwjq/UDO9cWHiPP1H4fdwi42L1TOM='; style-src 'self' https://unpkg.com; img-src 'self' data:; frame-ancestors 'self'")
-	w.Header().Set("content-type", "text/html")
-	writeBody(L, w, []byte(indexDoc))
+	// Scalar adds its styles as style elements, hence 'unsafe-inline' for
+	// styles; scripts are only the pinned bundle and the script above, and
+	// requests only go to wakeci
+	apiDocsCSP = "default-src 'self'; script-src " + scalarScript + " '" + scriptHash(apiDocsScript) +
+		"'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; " +
+		"frame-ancestors 'self'; base-uri 'none'; form-action 'self'"
+)
+
+// scriptHash returns the CSP source that allows an inline script
+func scriptHash(script string) string {
+	sum := sha256.Sum256([]byte(script))
+	return "sha256-" + base64.StdEncoding.EncodeToString(sum[:])
+}
+
+// HandleAPIDocsView shows the REST API docs, drawn from /docs/swagger.json
+func HandleAPIDocsView(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Security-Policy", apiDocsCSP)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	writeBody(L, w, []byte(apiDocsPage))
 }
 
 // MCPToolDoc describes an MCP tool for the help page
