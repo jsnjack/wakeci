@@ -45,6 +45,9 @@ password exports and imports, since the file has the groups.
 Importing sets what the file has and leaves the rest, so a file with only
 `ssoGroups` changes only the groups: `ssoGroups` replaces every group,
 `ssoNoGroup: null` turns the rule off, and a missing key changes nothing.
+`ssoGroups: []` removes every group, but an empty `ssoGroups:` (null) is
+refused, since a forgotten list would lock out everyone who signs in with
+single sign-on.
 The whole file is checked first, with the rules of the page (a grant goes
 through `grantFromForm`), unknown keys refused, and saved in one
 transaction, so a file with a mistake changes nothing; errors name the

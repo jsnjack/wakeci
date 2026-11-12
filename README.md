@@ -164,7 +164,8 @@ wakeci --config Wakefile.yaml --import-settings settings.yaml
 ```
 
 An import sets what the file has and leaves the rest: a file with only
-`ssoGroups` changes only the groups, and they replace all groups;
+`ssoGroups` changes only the groups, and they replace all groups
+(`ssoGroups: []` removes them all; an empty `ssoGroups:` is refused);
 `ssoNoGroup: null` turns off "People in no group". The whole file is checked
 first, so a file with a mistake changes nothing.
 

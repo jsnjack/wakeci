@@ -157,6 +157,9 @@ func TestSettingsFileRefusesMistakes(t *testing.T) {
 		{"a group twice", "ssoGroups:\n- name: Dev\n  scopes: [read]\n  allJobs: true\n- name: DEV\n  scopes: [run]\n  allJobs: true\n", "twice"},
 		{"a group without a name", "ssoGroups:\n- scopes: [read]\n  allJobs: true\n", "item 1"},
 		{"an unknown scope", "ssoNoGroup:\n  scopes: [admin]\n  allJobs: true\n", "ssoNoGroup"},
+		// A list left empty by mistake would lock out every group
+		{"groups left empty", "ssoGroups:\n", "ssoGroups: []"},
+		{"groups set to null", "ssoGroups: null\n", "ssoGroups: []"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := importText(t, tt.text)
@@ -320,5 +323,16 @@ func TestSettingsFileErrorsHideValues(t *testing.T) {
 		if err == nil || strings.Contains(err.Error(), "s3cret") || !strings.Contains(err.Error(), "line ") {
 			t.Errorf("import of %q: %v; want an error naming the line without the value", text, err)
 		}
+	}
+}
+
+// ssoGroups: [] removes every group: the way to say so on purpose
+func TestSettingsFileEmptyGroupList(t *testing.T) {
+	newSettingsFileTestEnv(t)
+	if _, err := importText(t, "ssoGroups: []\n"); err != nil {
+		t.Fatal(err)
+	}
+	if groups, err := listSSOGroups(); err != nil || len(groups) != 0 {
+		t.Errorf("groups = %+v, %v; want none", groups, err)
 	}
 }

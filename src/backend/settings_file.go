@@ -27,8 +27,9 @@ import (
 
 // SettingsFile is the settings file. Importing it sets what it has and
 // leaves what it doesn't: a file with only ssoGroups changes only the
-// groups. ssoGroups replaces every group, and ssoNoGroup: null turns the
-// rule for people in no group off.
+// groups. ssoGroups replaces every group (ssoGroups: [] removes them all;
+// an empty ssoGroups: is refused), and ssoNoGroup: null turns the rule for
+// people in no group off.
 type SettingsFile struct {
 	ConcurrentBuilds *int                `yaml:"concurrentBuilds"`
 	BuildHistorySize *int                `yaml:"buildHistorySize"`
@@ -170,8 +171,14 @@ func parseSettingsFile(data []byte) (*parsedSettings, error) {
 	if len(keys) == 0 {
 		return nil, errors.New("the file has no settings")
 	}
-	_, parsed.hasGroups = keys["ssoGroups"]
+	groups, hasGroups := keys["ssoGroups"]
+	parsed.hasGroups = hasGroups
 	_, parsed.hasNoGroup = keys["ssoNoGroup"]
+	// "ssoGroups:" with the list forgotten would remove every group and lock
+	// out everyone who signs in with single sign-on
+	if hasGroups && groups == nil {
+		return nil, errors.New("ssoGroups is empty; write ssoGroups: [] to remove every group")
+	}
 
 	f := parsed.file
 	for name, value := range map[string]*int{"concurrentBuilds": f.ConcurrentBuilds, "buildHistorySize": f.BuildHistorySize} {
