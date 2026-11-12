@@ -151,4 +151,5 @@ page shows the error and reads the permissions again.
 Group membership comes from the identity provider at login, so a person
 removed from a group in Google keeps it until their session ends (12 hours)
 or the admin revokes their access. There are no per-user permissions: a
-person gets what their groups allow.
+person gets what their groups allow, or, in none of them, what the rule for
+people in no group allows.

@@ -91,7 +91,7 @@ func initApp() func() {
 	flag.StringVar(&configFlag, "config", "Wakefile.yaml", "Configuration file location")
 	flag.StringVar(&configFlag, "c", "Wakefile.yaml", "Configuration file location (shorthand)")
 	compactDBFlag := flag.Bool("compactdb", false, "Reclaim space in the database which is no longer used")
-	importSettingsFlag := flag.String("import-settings", "", "Import a settings file (Settings > Download settings) into the database of the stopped server, then exit")
+	importSettingsFlag := flag.String("import-settings", "", "Import a settings file, as the settings page downloads it, into the database of a stopped server, then exit")
 	versionFlag := false
 	flag.BoolVar(&versionFlag, "version", false, "Print the version and exit.")
 	flag.BoolVar(&versionFlag, "V", false, "Print the version and exit (shorthand).")
