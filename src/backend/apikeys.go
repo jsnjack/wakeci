@@ -957,7 +957,7 @@ func paramsUntrusted(r *http.Request) bool {
 		return true
 	}
 	access := accessFromContext(r.Context())
-	return access == nil || !(access.Full || access.HasScope(ScopeWrite))
+	return access == nil || (!access.Full && !access.HasScope(ScopeWrite))
 }
 
 // rejectUnsafeParams refuses run parameters that reference a secret or hold
