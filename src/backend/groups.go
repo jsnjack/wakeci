@@ -29,6 +29,9 @@ type SSOGroup struct {
 // SSOGroupsData lists the single sign-on groups for the admin password
 type SSOGroupsData struct {
 	Groups []SSOGroupInfo `json:"groups"`
+	// NoGroup is what people in none of the groups may do, null if they
+	// can't sign in
+	NoGroup *SSOGroupInfo `json:"noGroup" extensions:"x-nullable"`
 	// SSOEnabled is false until sso.idpmetadata is set; groups wait for it
 	SSOEnabled bool `json:"ssoEnabled"`
 }
@@ -45,6 +48,11 @@ var (
 	errSSOGroupExists   = errors.New("a group with this name exists already")
 	errSSOGroupNotFound = errors.New("no such group")
 )
+
+// ssoNoGroupKey in GlobalBucket holds the rule for people in none of the
+// groups, as an SSOGroup without a name; without it they can't sign in. It
+// isn't in the groups bucket, so no group's name can stand for it.
+var ssoNoGroupKey = []byte("ssoNoGroup")
 
 // ssoGroupsSeededKey in GlobalBucket records that the groups of sso.groups
 // were added, so they aren't added again after the admin deleted them
@@ -131,7 +139,8 @@ func listSSOGroups() ([]SSOGroup, error) {
 }
 
 // ssoGroupsAccess is what a member of groups may do now: the union of the
-// grants of those groups that exist
+// grants of those groups that exist, or, if none does, the rule for people
+// in no group
 func ssoGroupsAccess(groups []string) (*Access, error) {
 	access := &Access{Grants: []Grant{}, subject: "Your account", groups: slices.Clone(groups)}
 	err := DB.View(func(tx *bolt.Tx) error {
@@ -147,6 +156,14 @@ func ssoGroupsAccess(groups []string) (*Access, error) {
 			}
 			access.Grants = append(access.Grants, group.Grant)
 		}
+		if len(access.Grants) > 0 {
+			return nil
+		}
+		rule, err := ssoNoGroupRule(tx)
+		if err != nil || rule == nil {
+			return err
+		}
+		access.Grants = append(access.Grants, rule.Grant)
 		return nil
 	})
 	if err != nil {
@@ -155,18 +172,35 @@ func ssoGroupsAccess(groups []string) (*Access, error) {
 	return access, nil
 }
 
-// knownSSOGroup reports whether name is one of the groups that may log in
-func knownSSOGroup(name string) bool {
-	known := false
+// ssoNoGroupRule returns the rule for people in none of the groups, nil if
+// they can't sign in
+func ssoNoGroupRule(tx *bolt.Tx) (*SSOGroup, error) {
+	data := tx.Bucket(GlobalBucket).Get(ssoNoGroupKey)
+	if data == nil {
+		return nil, nil
+	}
+	var rule SSOGroup
+	if err := json.Unmarshal(data, &rule); err != nil {
+		return nil, fmt.Errorf("decode the rule for people in no group: %w", err)
+	}
+	return &rule, nil
+}
+
+// ssoAdmits reports whether someone in groups may sign in: one of the
+// groups exists, or the rule lets people in no group in
+func ssoAdmits(groups []string) bool {
+	admits := false
 	err := DB.View(func(tx *bolt.Tx) error {
-		known = tx.Bucket(SSOGroupsBucket).Get(ssoGroupKey(name)) != nil
+		b := tx.Bucket(SSOGroupsBucket)
+		admits = tx.Bucket(GlobalBucket).Get(ssoNoGroupKey) != nil ||
+			slices.ContainsFunc(groups, func(name string) bool { return b.Get(ssoGroupKey(name)) != nil })
 		return nil
 	})
 	if err != nil {
-		L.Error("find sso group", "err", err)
+		L.Error("find sso groups", "err", err)
 		return false
 	}
-	return known
+	return admits
 }
 
 // ssoGroupName checks the name of a new group
@@ -197,10 +231,14 @@ func ssoGroupNameParam(r *http.Request) (string, error) {
 }
 
 func ssoGroupAuditAttrs(group *SSOGroup) []any {
-	attrs := []any{"group", group.Name, "scopes", strings.Join(group.Scopes, ","), "allJobs", group.AllJobs}
-	if !group.AllJobs {
-		attrs = append(attrs, auditListAttrs("jobs", group.Jobs)...)
-		attrs = append(attrs, auditListAttrs("patterns", group.Patterns)...)
+	return append([]any{"group", group.Name}, ssoGrantAuditAttrs(group.Grant)...)
+}
+
+func ssoGrantAuditAttrs(grant Grant) []any {
+	attrs := []any{"scopes", strings.Join(grant.Scopes, ","), "allJobs", grant.AllJobs}
+	if !grant.AllJobs {
+		attrs = append(attrs, auditListAttrs("jobs", grant.Jobs)...)
+		attrs = append(attrs, auditListAttrs("patterns", grant.Patterns)...)
 	}
 	return attrs
 }
@@ -243,10 +281,27 @@ func HandleSSOGroupsList(w http.ResponseWriter, r *http.Request) {
 		writePlainText(w, logger, http.StatusInternalServerError, err.Error())
 		return
 	}
+	var rule *SSOGroup
+	if err := DB.View(func(tx *bolt.Tx) error {
+		rule, err = ssoNoGroupRule(tx)
+		return err
+	}); err != nil {
+		logger.Error("read the rule for people in no group", "err", err)
+		writePlainText(w, logger, http.StatusInternalServerError, err.Error())
+		return
+	}
 	members := GlobalSessionStorage.GroupMembers()
 	data := SSOGroupsData{Groups: []SSOGroupInfo{}, SSOEnabled: Config.SSO.Enabled()}
+	known := map[string]bool{}
 	for _, group := range groups {
 		data.Groups = append(data.Groups, SSOGroupInfo{SSOGroup: group, SignedIn: members[strings.ToLower(group.Name)]})
+		known[strings.ToLower(group.Name)] = true
+	}
+	if rule != nil {
+		inNoGroup := GlobalSessionStorage.CountSSOPeople(func(groups []string) bool {
+			return !slices.ContainsFunc(groups, func(name string) bool { return known[strings.ToLower(name)] })
+		})
+		data.NoGroup = &SSOGroupInfo{SSOGroup: *rule, SignedIn: inNoGroup}
 	}
 	writeJSON(w, logger, data)
 }
@@ -410,6 +465,79 @@ func HandleSSOGroupDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Info("sso group removed", "group", name)
+	ssoAccessChanged()
+}
+
+// HandleSSONoGroupSet lets people in none of the groups sign in, with
+// permissions
+// @Summary      Let people in none of the single sign-on groups sign in, with permissions
+// @Description  Only with the admin password. Someone whose groups match none in the settings gets these permissions; a member of a group gets only the groups' permissions. Sets the rule or changes it, on the next request of those it covers. Not available with an API key
+// @Tags         groups
+// @Accept       x-www-form-urlencoded
+// @Produce      json
+// @Param        scope     formData   []string true    "read, run and/or write" collectionFormat(multi)
+// @Param        allJobs   formData   boolean  false   "Cover all jobs, including jobs added later; required for write"
+// @Param        job       formData   []string false   "Job they may use" collectionFormat(multi)
+// @Param        pattern   formData   []string false   "Pattern of job names, * matches anything" collectionFormat(multi)
+// @Success      200       {object}   SSOGroup
+// @Failure      400       {string}   string
+// @Failure      401       {string}   string
+// @Failure      403       {string}   string
+// @Failure      429       {string}   string
+// @Failure      500       {string}   string
+// @Router       /api/nogroup [post]
+func HandleSSONoGroupSet(w http.ResponseWriter, r *http.Request) {
+	logger := requestLogger(r)
+	if err := r.ParseForm(); err != nil {
+		writePlainText(w, logger, http.StatusBadRequest, err.Error())
+		return
+	}
+	grant, err := grantFromForm(r.Form)
+	if err != nil {
+		writePlainText(w, logger, http.StatusBadRequest, err.Error())
+		return
+	}
+	rule := &SSOGroup{Grant: grant, UpdatedAt: time.Now()}
+	err = DB.Update(func(tx *bolt.Tx) error {
+		data, err := json.Marshal(rule)
+		if err != nil {
+			return fmt.Errorf("encode the rule for people in no group: %w", err)
+		}
+		return tx.Bucket(GlobalBucket).Put(ssoNoGroupKey, data)
+	})
+	if err != nil {
+		logger.Error("save the rule for people in no group", "err", err)
+		writePlainText(w, logger, http.StatusInternalServerError, err.Error())
+		return
+	}
+	logger.Info("people in no group may sign in", "scopes", grant.Scopes)
+	addAuditAttrs(r, ssoGrantAuditAttrs(grant)...)
+	ssoAccessChanged()
+	writeJSON(w, logger, rule)
+}
+
+// HandleSSONoGroupDelete stops people in none of the groups from signing in
+// @Summary      Stop people in none of the single sign-on groups from signing in
+// @Description  Only with the admin password. Those it covered lose its permissions on their next request; nothing happens if they couldn't sign in. Not available with an API key
+// @Tags         groups
+// @Produce      plain
+// @Success      200       {string}   string
+// @Failure      401       {string}   string
+// @Failure      403       {string}   string
+// @Failure      429       {string}   string
+// @Failure      500       {string}   string
+// @Router       /api/nogroup [delete]
+func HandleSSONoGroupDelete(w http.ResponseWriter, r *http.Request) {
+	logger := requestLogger(r)
+	err := DB.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket(GlobalBucket).Delete(ssoNoGroupKey)
+	})
+	if err != nil {
+		logger.Error("delete the rule for people in no group", "err", err)
+		writePlainText(w, logger, http.StatusInternalServerError, err.Error())
+		return
+	}
+	logger.Info("people in no group can't sign in")
 	ssoAccessChanged()
 }
 

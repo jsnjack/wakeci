@@ -166,6 +166,8 @@ test("should answer every documented operation as the spec says", async ({ wake,
             await call("admin", "POST /api/groups/", "/api/groups/", { form: { name, scope: "read", allJobs: "true" } });
             return { target: `/api/groups/${encodeURIComponent(name)}` };
         },
+        "POST /api/nogroup": async () => ({ target: "/api/nogroup", form: { scope: "read", allJobs: "true" } }),
+        "DELETE /api/nogroup": async () => ({ target: "/api/nogroup" }),
         "GET /api/whoami": async () => ({ target: "/api/whoami" }),
         "GET /storage/build/{id}/{path}": async () => ({ target: `/storage/build/${build}/task_0.log` }),
     };
@@ -219,6 +221,7 @@ test("should answer every documented operation as the spec says", async ({ wake,
         ["POST /api/groups/", "/api/groups/", 400, { name: "No scope", allJobs: "true" }],
         ["POST /api/groups/{name}", `/api/groups/Nosuch${uid}`, 404, { scope: "read", allJobs: "true" }],
         ["DELETE /api/groups/{name}", `/api/groups/Nosuch${uid}`, 404],
+        ["POST /api/nogroup", "/api/nogroup", 400, { scope: "write", job: job }],
         ["GET /storage/build/{id}/{path}", `/storage/build/${build}/nosuch.txt`, 404],
     ];
     for (const [opKey, target, status, form] of errors) {
@@ -311,7 +314,12 @@ test("should answer every documented operation as the spec says", async ({ wake,
     await wake.waitForBuild(run, "failed");
 
     // Lists again, now that there are groups and the keys have been used
+    await backend.api.post("/api/nogroup", {
+        data: formBody({ scope: "read", allJobs: "true" }),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    });
     expectStatus(await call("admin", "GET /api/groups/", "/api/groups/"), [200], "GET /api/groups/ with groups");
+    await backend.api.delete("/api/nogroup");
     expectStatus(await call("admin", "GET /api/keys/", "/api/keys/"), [200], "GET /api/keys/ with used keys");
 
     // 5. Every documented field shows up in some answer, except those of

@@ -312,7 +312,7 @@ func run(cleanup func()) (tasksLeft bool) {
 		fatal("add the groups of sso.groups", err)
 	}
 	if Config.SSO.Enabled() {
-		GlobalSSOAuth, err = NewSSOAuth(Config.SSO, knownSSOGroup)
+		GlobalSSOAuth, err = NewSSOAuth(Config.SSO, ssoAdmits)
 		if err != nil {
 			fatal("set up sso", err)
 		}
@@ -589,4 +589,6 @@ func apiRoutes(router chi.Router) {
 		router.With(requireAdmin).Post("/{name}", HandleSSOGroupUpdate)
 		router.With(requireAdmin).Delete("/{name}", HandleSSOGroupDelete)
 	})
+	router.With(requireAdmin).Post("/nogroup", HandleSSONoGroupSet)
+	router.With(requireAdmin).Delete("/nogroup", HandleSSONoGroupDelete)
 }

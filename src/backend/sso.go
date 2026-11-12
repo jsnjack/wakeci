@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"slices"
 	"strings"
 	"time"
 
@@ -38,8 +37,8 @@ var errSSOUnsolicited = errors.New("unsolicited SAML response")
 // Workspace, and lets in members of the groups that may log in only
 type SSOAuth struct {
 	sp *saml2.SAMLServiceProvider
-	// groupKnown reports whether a group may log in
-	groupKnown func(group string) bool
+	// admits reports whether someone in these groups may log in
+	admits func(groups []string) bool
 	// stateKey signs the login state cookie
 	stateKey []byte
 	// usedRequests holds the IDs of login requests that already got their
@@ -53,9 +52,9 @@ type SSOAuth struct {
 var GlobalSSOAuth *SSOAuth
 
 // NewSSOAuth creates a single sign-on client from config, reading the
-// identity provider's metadata file. groupKnown reports whether the members
-// of a group may log in.
-func NewSSOAuth(cfg SSOConfig, groupKnown func(group string) bool) (*SSOAuth, error) {
+// identity provider's metadata file. admits reports whether someone in the
+// groups the identity provider sent may log in.
+func NewSSOAuth(cfg SSOConfig, admits func(groups []string) bool) (*SSOAuth, error) {
 	data, err := os.ReadFile(cfg.IDPMetadata)
 	if err != nil {
 		return nil, fmt.Errorf("read identity provider metadata: %w", err)
@@ -80,7 +79,7 @@ func NewSSOAuth(cfg SSOConfig, groupKnown func(group string) bool) (*SSOAuth, er
 			// which should be reported as "not allowed", not as a broken response
 			AllowMissingAttributes: true,
 		},
-		groupKnown:   groupKnown,
+		admits:       admits,
 		stateKey:     stateKey,
 		usedRequests: make(map[string]time.Time),
 	}, nil
@@ -194,7 +193,7 @@ func (s *SSOAuth) VerifyResponse(encodedResponse, requestID string) (*ssoLogin, 
 			groups = append(groups, group)
 		}
 	}
-	if !slices.ContainsFunc(groups, s.groupKnown) {
+	if !s.admits(groups) {
 		return nil, &ssoGroupError{email: info.NameID, groups: groups}
 	}
 	return &ssoLogin{email: info.NameID, groups: groups, issuedAt: info.Assertions[0].IssueInstant}, nil

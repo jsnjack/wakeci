@@ -99,7 +99,8 @@ src/frontend/                Vue 3 + Vite SPA
    `/auth/sso/acs`, which checks the signature against the metadata
    certificate, issuer, audience, recipient, validity window and
    `InResponseTo`, then requires one of the groups in the settings in the
-   `groups` attribute and creates the same kind of session cookie, which
+   `groups` attribute, or the settings' rule for people in no group
+   (`ssoAdmits`), and creates the same kind of session cookie, which
    keeps the groups it was sent. API clients use an API key or Basic auth
    with the password.
 6. **API keys**: `routeAPIKeys` sends every request with

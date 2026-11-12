@@ -28,6 +28,10 @@
             </output>
             <output v-else>As the identity provider names it, for example Service Team. Case doesn't matter.</output>
         </div>
+        <p v-else-if="noGroup">
+            What people in <b data-cy="group-title">none of the groups</b> may do when they sign in with single sign-on. Members of a group get only their
+            groups' permissions. A change applies to their next request.
+        </p>
         <p v-else>
             What members of <b data-cy="group-title">{{ name }}</b> may do. A change applies to their next request.
         </p>
@@ -37,6 +41,14 @@
             v-model="grant"
             cy-prefix="group"
         />
+
+        <p
+            v-if="noGroup && grant.scopes.includes('write')"
+            class="warning small-padding small-round"
+            data-cy="no-group-write-warning"
+        >
+            With write, anyone the identity provider lets in who is in none of the groups can change jobs, and so run commands on this server.
+        </p>
 
         <nav class="right-align">
             <router-link
@@ -50,7 +62,7 @@
                 data-cy="save-group"
                 :disabled="saving"
             >
-                {{ isNew ? "Add group" : "Save" }}
+                {{ isNew ? "Add group" : noGroup && !existed ? "Allow" : "Save" }}
             </button>
         </nav>
     </form>
@@ -70,6 +82,11 @@ export default {
             type: String,
             default: "",
         },
+        // The rule for people in none of the groups instead of a group
+        noGroup: {
+            type: Boolean,
+            default: false,
+        },
     },
     data: function () {
         return {
@@ -77,18 +94,35 @@ export default {
             grant: { scopes: ["read"], allJobs: false, jobs: [], patterns: [] },
             // A group being changed is shown once it is loaded, so the
             // picker starts from its permissions
-            ready: this.groupName === "",
+            ready: this.groupName === "" && !this.noGroup,
             nameError: "",
             saving: false,
+            // Whether the rule for people in no group was set already
+            existed: false,
         };
     },
     computed: {
         isNew() {
-            return this.groupName === "";
+            return this.groupName === "" && !this.noGroup;
         },
     },
     mounted() {
-        this.$store.commit("SET_CURRENT_PAGE", this.isNew ? "Add single sign-on group" : `Edit ${this.groupName}`);
+        this.$store.commit("SET_CURRENT_PAGE", this.isNew ? "Add single sign-on group" : this.noGroup ? "People in no group" : `Edit ${this.groupName}`);
+        if (this.noGroup) {
+            axios
+                .get("/api/groups/")
+                .then((response) => {
+                    const rule = response.data.noGroup;
+                    this.existed = Boolean(rule);
+                    // Read on all jobs is where most start
+                    this.grant = rule
+                        ? { scopes: rule.scopes, allJobs: rule.allJobs, jobs: rule.jobs, patterns: rule.patterns }
+                        : { scopes: ["read"], allJobs: true, jobs: [], patterns: [] };
+                    this.ready = true;
+                })
+                .catch(() => {});
+            return;
+        }
         if (this.isNew) {
             this.$nextTick(() => this.$refs.nameInput.focus());
             return;
@@ -131,13 +165,14 @@ export default {
             for (const pattern of this.grant.patterns) {
                 data.append("pattern", pattern);
             }
-            const url = this.isNew ? "/api/groups/" : `/api/groups/${encodeURIComponent(this.name)}`;
+            const url = this.noGroup ? "/api/nogroup" : this.isNew ? "/api/groups/" : `/api/groups/${encodeURIComponent(this.name)}`;
             // Until the response arrives, so a double click can't add it twice
             this.saving = true;
             axios
                 .post(url, data)
                 .then((response) => {
-                    this.$notify({ text: `${escapeHtml(response.data.name)} saved`, type: "primary" });
+                    const text = this.noGroup ? "People in no group can sign in" : `${escapeHtml(response.data.name)} saved`;
+                    this.$notify({ text, type: "primary" });
                     this.$router.push("/settings");
                 })
                 .catch(() => {})
@@ -148,3 +183,10 @@ export default {
     },
 };
 </script>
+
+<style scoped>
+.warning {
+    border-left: 3px solid var(--error);
+    background-color: var(--surface-container);
+}
+</style>

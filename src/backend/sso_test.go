@@ -119,7 +119,7 @@ func newSSOTestEnv(t *testing.T) {
 		IDPMetadata: path,
 		ACSURL:      testSSOACSURL,
 		EntityID:    testSSOEntityID,
-	}, knownSSOGroup)
+	}, ssoAdmits)
 	if err != nil {
 		t.Fatalf("NewSSOAuth: %v", err)
 	}
@@ -812,7 +812,7 @@ func TestNewSSOAuthMissingMetadata(t *testing.T) {
 		IDPMetadata: filepath.Join(t.TempDir(), "missing.xml"),
 		ACSURL:      testSSOACSURL,
 		EntityID:    testSSOEntityID,
-	}, knownSSOGroup)
+	}, ssoAdmits)
 	if err == nil {
 		t.Error("expected an error for a missing metadata file")
 	}

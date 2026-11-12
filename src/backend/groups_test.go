@@ -123,8 +123,8 @@ func TestSSOGroupsAccess(t *testing.T) {
 			}
 		})
 	}
-	if !knownSSOGroup("SERVICE TEAM") || knownSSOGroup("Strangers") {
-		t.Error("knownSSOGroup doesn't match the stored groups ignoring case")
+	if !ssoAdmits([]string{"Strangers", "SERVICE TEAM"}) || ssoAdmits([]string{"Strangers"}) || ssoAdmits(nil) {
+		t.Error("ssoAdmits doesn't match the stored groups ignoring case")
 	}
 }
 

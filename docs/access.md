@@ -20,7 +20,9 @@ What a request may do is an `Access`:
 - **A single sign-on user** may do what the grants of their groups allow,
   united: a scope on a job is allowed if any of their groups allows it.
   Their groups are those the identity provider sent at login that exist in
-  the settings, matched ignoring case.
+  the settings, matched ignoring case. Someone in none of them gets the
+  rule for people in no group, if the admin set one, and otherwise can't
+  sign in.
 - **An API key** may do what its own grant allows. A key made by a single
   sign-on user is also limited by what the creator's groups allow now
   (`Access.Within`), so it never does more than its creator. The key records
@@ -39,11 +41,25 @@ Groups live in the `ssogroups` bucket under their lowercased name, each with
 its grant. Only the admin password sees, adds, changes and removes them
 (`/api/groups/`, `requireAdmin`); for anyone else the Settings page has no
 groups section. A login is accepted when one of the groups the identity
-provider sends exists. The section lists the groups, with how many people
+provider sends exists, or when the rule for people in no group is set. The
+section lists the groups, with how many people
 with a current session are in each (`SessionStorage.GroupMembers`), and
 edits them with the same picker as new API keys (`AccessPicker.vue`). It
 shows before single sign-on is set up, with a note, so the groups can be
 ready when it is.
+
+The rule for people in no group is a grant of its own, stored as an
+`SSOGroup` without a name under `ssoNoGroup` in the `global` bucket, so no
+group's name can stand for it (`/api/nogroup`, `requireAdmin`; `noGroup` in
+`/api/groups/`, null while it is off). `ssoGroupsAccess` applies it only
+when none of a person's groups exists: a member of a group gets only the
+groups' permissions, even if the rule allows more, so a narrow group never
+loses to an outsider. It covers people the identity provider sends no
+groups for too, and their API keys (`CreatorGroups` that match no group).
+It is off until the admin allows it; it may give `write`, with a warning in
+the editor, since everyone the identity provider lets in could then run
+commands. Turning it off works like removing a group: the next request of
+those it covered is refused, and their live connections close.
 
 `sso.groups` in Wakefile.yaml adds its groups with every scope on all jobs on
 the first start that lists any, and records that in `ssoGroupsSeeded` in the

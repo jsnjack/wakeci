@@ -179,3 +179,42 @@ test("should go to the login page when the session ended", async ({ page }) => {
     await expect(page).toHaveURL(/\/login/);
     await expect(page.getByText("The session ended; log in again")).toBeVisible();
 });
+
+test("should let the admin allow people in no group, and warn about write", async ({ page, backend }) => {
+    await page.route("**/auth/methods", (route) => route.fulfill({ json: { sso: true } }));
+    try {
+        await page.goto("/settings");
+        const row = page.getByTestId("no-group");
+        await expect(row.getByTestId("no-group-off")).toContainText("Can't sign in");
+        await row.getByTestId("allow-no-group").click();
+        await expect(page).toHaveURL(/\/settings\/no-group$/);
+        await expect(page.getByTestId("group-title")).toHaveText("none of the groups");
+
+        // Read on all jobs to start with; write gets a warning
+        await expect(page.getByTestId("save-group")).toHaveText("Allow");
+        await page.getByTestId("scope-write").check({ force: true });
+        await expect(page.getByTestId("no-group-write-warning")).toBeVisible();
+        await page.getByTestId("scope-write").uncheck({ force: true });
+        await expect(page.getByTestId("no-group-write-warning")).toHaveCount(0);
+        await page.getByTestId("save-group").click();
+        await expect(page).toHaveURL(/\/settings$/);
+        await expect(row.getByTestId("no-group-scope-read")).toBeVisible();
+        await expect(row.getByTestId("no-group-jobs")).toHaveText("All jobs");
+        await expect(row.getByTestId("no-group-signed-in")).toHaveText("nobody signed in");
+
+        // Editing starts from the rule
+        await row.getByTestId("edit-no-group").click();
+        await expect(page.getByTestId("save-group")).toHaveText("Save");
+        await page.getByTestId("scope-run").check({ force: true });
+        await page.getByTestId("save-group").click();
+        await expect(row.getByTestId("no-group-scope-run")).toBeVisible();
+
+        await row.getByTestId("turn-off-no-group").click();
+        await page.getByTestId("turn-off-no-group-confirm").click();
+        await expect(row.getByTestId("no-group-off")).toBeVisible();
+        expect((await (await backend.api.get("/api/groups/")).json()).noGroup).toBeNull();
+    } finally {
+        // Other tests of this worker use the same wakeci
+        await backend.api.delete("/api/nogroup");
+    }
+});

@@ -64,6 +64,14 @@ const router = createRouter({
             beforeEnter: [requireAuth, requireAdmin],
         },
         {
+            // Not under /settings/groups/, where a group could have its name
+            path: "/settings/no-group",
+            name: "noGroupEdit",
+            component: () => import("./views/GroupEditView.vue"),
+            beforeEnter: [requireAuth, requireAdmin],
+            props: { noGroup: true },
+        },
+        {
             path: "/settings/groups/:name",
             name: "groupEdit",
             component: () => import("./views/GroupEditView.vue"),

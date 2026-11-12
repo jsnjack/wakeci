@@ -374,6 +374,21 @@ func (s *SessionStorage) GroupMembers() map[string]int {
 	return counts
 }
 
+// CountSSOPeople counts the people with a current single sign-on session
+// whose groups match
+func (s *SessionStorage) CountSSOPeople(match func(groups []string) bool) int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	now := time.Now()
+	people := map[string]bool{}
+	for _, val := range s.sessions {
+		if val.user != "" && !val.expires.Before(now) && match(val.groups) {
+			people[strings.ToLower(val.user)] = true
+		}
+	}
+	return len(people)
+}
+
 // Periodically cleanup expired sessions
 func (s *SessionStorage) deleteExpired() {
 	var ended []string
