@@ -42,7 +42,7 @@ type BuildSummary struct {
 	// Page is the build's page in the web interface
 	Page         string              `json:"page"`
 	StartedAt    time.Time           `json:"startedAt"`
-	Duration     time.Duration       `json:"duration"`
+	Duration     time.Duration       `json:"duration" swaggertype:"integer"` // nanoseconds
 	DurationText string              `json:"durationText"`
 	Params       []map[string]string `json:"params"`
 	// JobSummary is what the job wrote to $WAKE_SUMMARY, empty if nothing

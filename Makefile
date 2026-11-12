@@ -23,7 +23,7 @@ src/backend/wakeci: version src/backend/*.go
 	cp -r ../frontend/dist/ assets
 	mkdir -p docs
 	touch docs/swagger.json
-	go tool swag init --parseDependency --parseInternal --parseDepth 1 || exit 99
+	go tool swag init --parseInternal --parseDepth 1 || exit 99
 	CGO_ENABLED=0 go build -ldflags="-X main.Version=${VERSION}" -o ${BINARY}
 
 .ONESHELL:

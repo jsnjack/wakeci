@@ -49,7 +49,7 @@ type TaskStatus struct {
 	ID        int           `json:"id"`
 	Status    ItemStatus    `json:"status"`
 	StartedAt time.Time     `json:"startedAt"`
-	Duration  time.Duration `json:"duration"`
+	Duration  time.Duration `json:"duration" swaggertype:"integer"` // nanoseconds
 	Kind      string        `json:"kind"`
 	// Name, Log and LogSize are only filled in by GET /api/build/{id}. Log
 	// is the URL of the task's log, empty if the task wrote none.
@@ -90,7 +90,7 @@ type BuildUpdateData struct {
 	Artifacts      []string            `json:"artifacts"` // Deprecated: file names only; use build_artifacts
 	BuildArtifacts []*ArtifactInfo     `json:"build_artifacts"`
 	StartedAt      time.Time           `json:"startedAt"`
-	Duration       time.Duration       `json:"duration"`
+	Duration       time.Duration       `json:"duration" swaggertype:"integer"` // nanoseconds
 	ETA            int                 `json:"eta"`
 }
 
