@@ -348,6 +348,32 @@ func (s *SessionStorage) Users() []string {
 	return users
 }
 
+// GroupMembers returns, by lowercased group name, how many people with a
+// valid single sign-on session are in each group
+func (s *SessionStorage) GroupMembers() map[string]int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	now := time.Now()
+	people := map[string]map[string]bool{}
+	for _, val := range s.sessions {
+		if val.user == "" || val.expires.Before(now) {
+			continue
+		}
+		for _, group := range val.groups {
+			group = strings.ToLower(group)
+			if people[group] == nil {
+				people[group] = map[string]bool{}
+			}
+			people[group][strings.ToLower(val.user)] = true
+		}
+	}
+	counts := make(map[string]int, len(people))
+	for group, members := range people {
+		counts[group] = len(members)
+	}
+	return counts
+}
+
 // Periodically cleanup expired sessions
 func (s *SessionStorage) deleteExpired() {
 	var ended []string

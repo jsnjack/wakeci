@@ -574,7 +574,7 @@ func apiRoutes(router chi.Router) {
 	})
 
 	router.Route("/groups", func(router chi.Router) {
-		router.With(requireAccess(ScopeWrite, nil)).Get("/", HandleSSOGroupsList)
+		router.With(requireAdmin).Get("/", HandleSSOGroupsList)
 		router.With(requireAdmin).Post("/", HandleSSOGroupCreate)
 		router.With(requireAdmin).Post("/{name}", HandleSSOGroupUpdate)
 		router.With(requireAdmin).Delete("/{name}", HandleSSOGroupDelete)

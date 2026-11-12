@@ -176,13 +176,19 @@ func TestSSOGroupHandlers(t *testing.T) {
 		t.Errorf("groups = %+v, want Service Team with read and run on dep*", groups)
 	}
 
+	// Two people signed in with the group, one of them twice, and one with
+	// another group
+	loginInGroups(t, "sam@example.com", "service team")
+	loginInGroups(t, "sam@example.com", "Service Team")
+	loginInGroups(t, "kim@example.com", "Service Team", "Elsewhere")
+	loginInGroups(t, "lee@example.com", "Elsewhere")
 	rec := adminRequest("GET", "/api/groups/", nil)
 	var data SSOGroupsData
 	if err := json.Unmarshal(rec.Body.Bytes(), &data); err != nil {
 		t.Fatalf("decode %q: %v", rec.Body.String(), err)
 	}
-	if !data.CanEdit || !slices.Equal(groupNames(data.Groups), []string{"Service Team"}) {
-		t.Errorf("admin list = %+v, want Service Team, editable", data)
+	if len(data.Groups) != 1 || data.Groups[0].Name != "Service Team" || data.Groups[0].SignedIn != 2 || data.SSOEnabled {
+		t.Errorf("admin list = %+v, want Service Team with 2 signed in, single sign-on not set up", data)
 	}
 }
 
@@ -192,15 +198,6 @@ func TestSSOGroupHandlersOnlyForTheAdmin(t *testing.T) {
 	writer := loginAs(t, "alice@example.com")
 	reader := loginInGroups(t, "bob@example.com", "Readers")
 
-	rec := sessionRequest("GET", "/api/groups/", writer, nil)
-	var data SSOGroupsData
-	if err := json.Unmarshal(rec.Body.Bytes(), &data); err != nil {
-		t.Fatalf("decode %q: %v", rec.Body.String(), err)
-	}
-	if rec.Code != http.StatusOK || data.CanEdit || !slices.Contains(groupNames(data.Groups), "Readers") {
-		t.Errorf("list for a user with write = %d %+v, want the groups, read-only", rec.Code, data)
-	}
-
 	tests := []struct {
 		name   string
 		cookie *http.Cookie
@@ -209,6 +206,8 @@ func TestSSOGroupHandlersOnlyForTheAdmin(t *testing.T) {
 		form   url.Values
 	}{
 		{"list without write", reader, "GET", "/api/groups/", nil},
+		// Only the admin password sees the groups at all
+		{"list with write", writer, "GET", "/api/groups/", nil},
 		{"add with write", writer, "POST", "/api/groups/", url.Values{"name": {"Mine"}, "scope": {"read"}, "allJobs": {"true"}}},
 		{"change with write", writer, "POST", "/api/groups/Readers", url.Values{"scope": {"read", "run"}, "allJobs": {"true"}}},
 		{"remove with write", writer, "DELETE", "/api/groups/Readers", nil},

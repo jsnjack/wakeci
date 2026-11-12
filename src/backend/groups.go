@@ -26,11 +26,17 @@ type SSOGroup struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
-// SSOGroupsData lists the single sign-on groups
+// SSOGroupsData lists the single sign-on groups for the admin password
 type SSOGroupsData struct {
-	Groups []SSOGroup `json:"groups"`
-	// CanEdit is true for the admin password, which alone may change them
-	CanEdit bool `json:"canEdit"`
+	Groups []SSOGroupInfo `json:"groups"`
+	// SSOEnabled is false until sso.idpmetadata is set; groups wait for it
+	SSOEnabled bool `json:"ssoEnabled"`
+}
+
+// SSOGroupInfo is a group with how many of its members are signed in
+type SSOGroupInfo struct {
+	SSOGroup
+	SignedIn int `json:"signedIn"`
 }
 
 const maxSSOGroupNameLength = 200
@@ -220,7 +226,7 @@ func requireAdmin(next http.Handler) http.Handler {
 
 // HandleSSOGroupsList lists the single sign-on groups and what they may do
 // @Summary      List the single sign-on groups and their permissions
-// @Description  With the admin password, or for a user with the write scope (read-only)
+// @Description  Only with the admin password. signedIn counts the people with a current session in the group. Not available with an API key
 // @Tags         groups
 // @Produce      json
 // @Success      200      {object}   SSOGroupsData
@@ -235,8 +241,12 @@ func HandleSSOGroupsList(w http.ResponseWriter, r *http.Request) {
 		writePlainText(w, logger, http.StatusInternalServerError, err.Error())
 		return
 	}
-	access := accessFromContext(r.Context())
-	writeJSON(w, logger, SSOGroupsData{Groups: groups, CanEdit: access != nil && access.Full})
+	members := GlobalSessionStorage.GroupMembers()
+	data := SSOGroupsData{Groups: []SSOGroupInfo{}, SSOEnabled: Config.SSO.Enabled()}
+	for _, group := range groups {
+		data.Groups = append(data.Groups, SSOGroupInfo{SSOGroup: group, SignedIn: members[strings.ToLower(group.Name)]})
+	}
+	writeJSON(w, logger, data)
 }
 
 // HandleSSOGroupCreate lets a single sign-on group log in

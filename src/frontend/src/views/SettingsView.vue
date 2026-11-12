@@ -116,7 +116,8 @@
             </nav>
         </form>
 
-        <SSOGroupsCard />
+        <!-- Only the admin password sees or changes the groups -->
+        <SSOGroupsCard v-if="auth.admin" />
     </div>
 </template>
 
@@ -140,7 +141,7 @@ export default {
         };
     },
     computed: {
-        ...vuex.mapState(["queue"]),
+        ...vuex.mapState(["queue", "auth"]),
         currentVersion: function () {
             if (this.update) {
                 return this.update.current;

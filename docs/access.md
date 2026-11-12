@@ -34,11 +34,14 @@ What a request may do is an `Access`:
 ## Groups
 
 Groups live in the `ssogroups` bucket under their lowercased name, each with
-its grant. Only the admin password adds, changes and removes them
-(`/api/groups/`, `requireAdmin`); a user with `write` sees the list
-read-only. A login is accepted when one of the groups the identity provider
-sends exists. The settings page lists the groups and edits them with the
-same picker as new API keys (`AccessPicker.vue`).
+its grant. Only the admin password sees, adds, changes and removes them
+(`/api/groups/`, `requireAdmin`); for anyone else the Settings page has no
+groups section. A login is accepted when one of the groups the identity
+provider sends exists. The section lists the groups, with how many people
+with a current session are in each (`SessionStorage.GroupMembers`), and
+edits them with the same picker as new API keys (`AccessPicker.vue`). It
+shows before single sign-on is set up, with a note, so the groups can be
+ready when it is.
 
 `sso.groups` in Wakefile.yaml adds its groups with every scope on all jobs on
 the first start that lists any, and records that in `ssoGroupsSeeded` in the

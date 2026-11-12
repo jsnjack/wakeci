@@ -65,22 +65,40 @@ test("should refuse a group name that exists in another case", async ({ page, ba
     await expect(await backend.api.delete(`/api/groups/${encodeURIComponent(group)}`)).toBeOK();
 });
 
-test("should show the groups read-only to anyone but the admin password", async ({ page }) => {
-    await page.route("**/auth/methods", (route) => route.fulfill({ json: { sso: true } }));
+test("should hide the groups from anyone but the admin password", async ({ page }) => {
+    // Someone with write sees the settings, but not the groups
+    await asMember(page, [{ scopes: ["read", "run", "write"], allJobs: true, jobs: [], patterns: [] }]);
+    await page.goto("/settings");
+    await expect(page.locator("#concurrent-builds")).toBeVisible();
+    await expect(page.getByTestId("sso-groups")).toHaveCount(0);
+});
+
+test("should say that single sign-on isn't set up yet", async ({ page }) => {
+    // The test servers have no identity provider
+    await page.goto("/settings");
+    await expect(page.getByTestId("sso-not-set-up")).toContainText("Single sign-on isn't set up on this server");
+    await expect(page.getByTestId("add-group")).toBeVisible();
+});
+
+test("should show how many members of a group are signed in", async ({ page }) => {
     await page.route("**/api/groups/", (route) =>
         route.fulfill({
             json: {
-                canEdit: false,
-                groups: [{ name: "Ops", scopes: ["read", "run", "write"], allJobs: true, jobs: [], patterns: [], updatedAt: new Date().toISOString() }],
+                ssoEnabled: true,
+                groups: [{ name: "Ops", scopes: ["read"], allJobs: true, jobs: [], patterns: [], signedIn: 4, updatedAt: new Date().toISOString() }],
             },
         }),
     );
     await page.goto("/settings");
-    await expect(page.getByTestId("group-Ops").getByTestId("group-jobs")).toHaveText("All jobs");
-    await expect(page.getByTestId("add-group")).toHaveCount(0);
-    await expect(page.getByTestId("edit-group")).toHaveCount(0);
-    await expect(page.getByTestId("remove-group")).toHaveCount(0);
-    await expect(page.getByText("Only the admin password can change the groups")).toBeVisible();
+    await expect(page.getByTestId("sso-not-set-up")).toHaveCount(0);
+    await page.getByTestId("group-Ops").getByTestId("group-signed-in").click();
+    await expect(page).toHaveURL(/\/keys$/);
+});
+
+test("should show an empty list of groups", async ({ page }) => {
+    await page.route("**/api/groups/", (route) => route.fulfill({ json: { ssoEnabled: true, groups: [] } }));
+    await page.goto("/settings");
+    await expect(page.getByTestId("no-groups")).toContainText("Nobody can sign in with single sign-on until you add one");
 });
 
 test("should only offer a group member what their groups allow", async ({ page, wake }) => {
