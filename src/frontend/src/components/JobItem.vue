@@ -27,6 +27,16 @@
             :job-name="job.name"
         />
 
+        <!-- How the job's last builds went -->
+        <router-link
+            :to="{ name: 'jobInsights', params: { name: job.name } }"
+            class="button circle transparent"
+            data-cy="job-insights-button"
+        >
+            <i>insights</i>
+            <div class="tooltip bottom">Insights</div>
+        </router-link>
+
         <!-- Edit job, or only view it without write -->
         <router-link
             :to="{ name: 'jobEdit', params: { name: job.name } }"

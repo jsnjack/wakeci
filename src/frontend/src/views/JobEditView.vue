@@ -1,4 +1,21 @@
 <template>
+    <div class="tabs left-align">
+        <a
+            class="active"
+            data-cy="job-file-tab"
+        >
+            <i>description</i>
+            <span>{{ canAny("write") ? "Edit" : "View" }}</span>
+        </a>
+        <router-link
+            :to="{ name: 'jobInsights', params: { name } }"
+            data-cy="job-insights-tab"
+        >
+            <i>insights</i>
+            <span>Insights</span>
+        </router-link>
+    </div>
+    <div class="space"></div>
     <div>
         <Codemirror
             v-model="job.fileContent"
