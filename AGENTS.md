@@ -313,19 +313,20 @@ AGENTS.universal.md for the general contract.
   random bits, so there is nothing to guess; bcrypt would slow down every
   API call. Tokens are `wk_<id>_<secret>`: the ID is public (list, logs,
   revoke), and only the hash of the secret is stored.
-- **API keys can't send run parameters that reference a secret or hold a
-  quote, line break or NUL** (`rejectUnsafeParams`). Run parameters go
-  through `injectSecrets`, so a run key could otherwise send any secret
+- **Who may not edit jobs (keys, SSO users without write) can't send run
+  parameters that reference a secret or hold a quote, line break or NUL**
+  (`rejectUnsafeParams`, `paramsUntrusted`). Run parameters go
+  through `injectSecrets`, so they could otherwise send any secret
   wherever the job sends that parameter. A line break, or a quote on one
-  line, would let it add variables such as `BASH_ENV` to `build.env` through
+  line, would let them add variables such as `BASH_ENV` to `build.env` through
   the documented `echo "NAME=$VALUE"`: godotenv starts a new variable after
   a quoted value (`TARGET="a" BASH_ENV=...`). Without quotes it reads the
   rest of the line as one value, checked for godotenv v1.5.1. In
-  builds a key starts (`Build.startedWithAPIKey`, passed to `CreateBuild`
+  their builds (`Build.untrustedParams`, passed to `CreateBuild`
   because it starts the `on_pending` tasks), `build.env` values skip
   `injectSecrets`, because godotenv expands variables and a job can rewrite a
-  param, so a reference could be put together after the check. Parameters
-  from the UI, cron and the password are unchanged. This can't stop a job
+  param, so a reference could be put together after the check. Cron, the
+  password and write keep the old rules. This can't stop a job
   that sends a secret to a destination taken from a parameter; such a job
   trusts whoever can run it.
 - **Build artifacts run sandboxed on wakeci's own origin**

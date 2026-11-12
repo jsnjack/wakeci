@@ -36,6 +36,14 @@ What a request may do is an `Access`:
   null), are limited by their grant only, the latter until their creator
   logs in.
 
+Run parameters follow the same line: whoever may not edit jobs (an API key,
+or a single sign-on user whose groups don't give `write` on all jobs) can't
+send parameters that reference a secret or hold a quote, line break or NUL,
+and `build.env` isn't expanded in their builds (`paramsUntrusted`,
+`rejectUnsafeParams` on both routers' run route). Otherwise someone with
+only `run` could read any secret through a job's parameter, or run commands
+through `build.env`, which only `write` should allow.
+
 ## Groups
 
 Groups live in the `ssogroups` bucket under their lowercased name, each with

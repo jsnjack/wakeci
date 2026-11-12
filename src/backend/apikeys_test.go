@@ -333,12 +333,9 @@ func TestAPIKeyRunMarksBuild(t *testing.T) {
 	if rec := keyRequest(router, "POST", "/api/job/deploy/run", token, url.Values{"TARGET": {"production"}}); rec.Code != http.StatusOK {
 		t.Fatalf("run with a key: status = %d; body %q", rec.Code, rec.Body.String())
 	}
-	main := chi.NewRouter()
-	main.Post("/api/job/{name}/run", HandleRunJob)
-	rec := httptest.NewRecorder()
-	main.ServeHTTP(rec, httptest.NewRequest("POST", "/api/job/deploy/run", nil))
+	rec := apiCall("POST", "/api/job/deploy/run", nil, nil, func(r *http.Request) { r.SetBasicAuth("", "admin") })
 	if rec.Code != http.StatusOK {
-		t.Fatalf("run without a key: status = %d; body %q", rec.Code, rec.Body.String())
+		t.Fatalf("run with the admin password: status = %d; body %q", rec.Code, rec.Body.String())
 	}
 
 	if len(GlobalQueue.queued) != 2 {

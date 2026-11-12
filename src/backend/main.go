@@ -505,7 +505,7 @@ func apiRoutes(router chi.Router) {
 	})
 
 	router.Route("/job", func(router chi.Router) {
-		router.With(requireAccess(ScopeRun, jobFromName)).Post("/{name}/run", HandleRunJob)
+		router.With(requireAccess(ScopeRun, jobFromName), rejectUnsafeParams).Post("/{name}/run", HandleRunJob)
 		router.With(requireAccess(ScopeWrite, jobFromName)).Delete("/{name}", HandleDeleteJob)
 		router.With(requireAccess(ScopeWrite, jobFromName)).Post("/{name}", HandleJobPost)
 		router.With(requireAccess(ScopeRead, jobFromName)).Get("/{name}", HandleJobGet)

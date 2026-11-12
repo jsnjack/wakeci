@@ -946,32 +946,51 @@ func buildJob(id int) (string, int, error) {
 	return build.Name, 0, nil
 }
 
+// paramsUntrusted reports whether the run parameters of a request come from
+// someone who may not edit jobs: an API key, or a single sign-on user whose
+// groups don't give write. Whoever may edit jobs could make a job do
+// anything, so the admin password and write keep their parameters as they
+// are. A request without access, which no route lets through, counts as
+// untrusted.
+func paramsUntrusted(r *http.Request) bool {
+	if apiKeyFromContext(r.Context()) != nil {
+		return true
+	}
+	access := accessFromContext(r.Context())
+	return access == nil || !(access.Full || access.HasScope(ScopeWrite))
+}
+
 // rejectUnsafeParams refuses run parameters that reference a secret or hold
-// a quote, line break or NUL. Run parameters go through injectSecrets, so
-// without the first a run key could send any secret wherever the job sends
-// that parameter. The others would let it add variables, e.g. BASH_ENV, when
-// a job writes the parameter into build.env: godotenv starts a new variable
-// after a quoted value on the same line (TARGET="a" BASH_ENV=...), and
-// without quotes it reads the rest of the line as one value. The backtick is
-// a quote to some dotenv parsers.
+// a quote, line break or NUL, from those paramsUntrusted names. Run
+// parameters go through injectSecrets, so without the first someone who may
+// only run a job could send any secret wherever the job sends that
+// parameter. The others would let them add variables, e.g. BASH_ENV, when a
+// job writes the parameter into build.env, and so run commands: godotenv
+// starts a new variable after a quoted value on the same line
+// (TARGET="a" BASH_ENV=...), and without quotes it reads the rest of the
+// line as one value. The backtick is a quote to some dotenv parsers.
 func rejectUnsafeParams(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := requestLogger(r)
+		if !paramsUntrusted(r) {
+			next.ServeHTTP(w, r)
+			return
+		}
 		if err := r.ParseForm(); err != nil {
 			writePlainText(w, logger, http.StatusBadRequest, err.Error())
 			return
 		}
 		for name, values := range r.Form {
 			if slices.ContainsFunc(values, secretsRegex.MatchString) {
-				logger.Warn("api key run parameter references a secret", "param", name)
+				logger.Warn("untrusted run parameter references a secret", "param", name)
 				writePlainText(w, logger, http.StatusBadRequest,
-					"Parameter "+name+" references a secret, which isn't allowed with an API key")
+					"Parameter "+name+" references a secret, which only those who may edit jobs may send")
 				return
 			}
 			if slices.ContainsFunc(values, func(v string) bool { return strings.ContainsAny(v, "\"'`\r\n\x00") }) {
-				logger.Warn("api key run parameter has a quote, line break or NUL", "param", name)
+				logger.Warn("untrusted run parameter has a quote, line break or NUL", "param", name)
 				writePlainText(w, logger, http.StatusBadRequest,
-					"Parameter "+name+" has a quote, line break or NUL, which isn't allowed with an API key")
+					"Parameter "+name+" has a quote, line break or NUL, which only those who may edit jobs may send")
 				return
 			}
 		}

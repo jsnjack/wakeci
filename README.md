@@ -292,11 +292,12 @@ and the ones whose names match a pattern such as `test_*`. `write` always
 covers all jobs: jobs run commands on the server, so a key that can edit one
 can reach everything wakeci can. The job list and the feed only show the key's
 jobs. Keys never open the settings, key management, login or the websocket.
-Run parameters sent with a key can't reference a secret (`{{ secrets.NAME }}`)
-or contain quotes or line breaks, and in builds a key starts, `build.env`
-values aren't turned into secrets. A `run` key still chooses the job's parameters, so treat
-them as untrusted input: quote them, and don't let one pick where a job sends
-a secret, such as the URL a token is posted to.
+Run parameters sent with a key, or by someone who signs in with SSO and
+may not edit jobs (`write`), can't reference a secret (`{{ secrets.NAME }}`)
+or contain quotes or line breaks, and in the builds they start, `build.env`
+values aren't turned into secrets. Whoever may run a job still chooses its
+parameters, so treat them as untrusted input: quote them, and don't let one
+pick where a job sends a secret, such as the URL a token is posted to.
 
 A request with a missing, wrong or expired key, password or session gets
 401; a request for something the key or the user may not do gets 403. A

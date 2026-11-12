@@ -49,7 +49,7 @@ func requireJobName(w http.ResponseWriter, r *http.Request, logger *slog.Logger)
 
 // HandleRunJob adds job to queue
 // @Summary      Start a job
-// @Description  Creates a build of the job and adds it to the queue; returns the build ID. Send the job's parameters as form fields or query parameters with their names; others are ignored. API key scope: run. With a key, parameters can't reference a secret or contain quotes, line breaks or NUL.
+// @Description  Creates a build of the job and adds it to the queue; returns the build ID. Send the job's parameters as form fields or query parameters with their names; others are ignored. API key scope: run. An API key, and a single sign-on user who may not edit jobs (write), can't send parameters that reference a secret or contain quotes, line breaks or NUL.
 // @Tags         job
 // @Produce      plain
 // @Param        name     path       string   true   "Name of the job"
@@ -74,7 +74,7 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request) {
 		logger.Error("parse form", "err", err)
 	}
 
-	build, err := RunJob(name, r.Form, apiKeyFromContext(r.Context()) != nil)
+	build, err := RunJob(name, r.Form, paramsUntrusted(r))
 	if err != nil {
 		logger.Error("run job", "job", name, "err", err)
 		w.WriteHeader(http.StatusBadRequest)

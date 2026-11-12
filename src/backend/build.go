@@ -83,8 +83,9 @@ type Build struct {
 	ETA            int           // seconds
 	timer          *time.Timer   // A timer for Job.Timeout
 	mutex          deadlock.Mutex
-	// untrustedParams means the params came from an API key, so values the
-	// job writes into build.env may be built from them
+	// untrustedParams means the params came from someone who may not edit
+	// jobs (an API key, or a single sign-on user without write), so values
+	// the job writes into build.env may be built from them
 	untrustedParams bool
 	// failedTask is the main task that stopped the build, exposed to the
 	// on_failed, on_aborted and finally tasks
