@@ -54,21 +54,10 @@
             v-if="active === 'rest'"
             class="page padding active"
         >
-            <nav class="no-margin">
-                <p class="max">
-                    Every route of the API, with its parameters and answers. Authenticate with an API key ("Authorize", then <code>Bearer wk_...</code>) or the
-                    admin password.
-                </p>
-                <a
-                    class="button border small-round"
-                    href="/docs/api/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                >
-                    <i>open_in_new</i>
-                    <span>Open in a new window</span>
-                </a>
-            </nav>
+            <p class="no-margin">
+                Every route of the API, with its parameters and answers. Authenticate with an API key ("Authorize", then <code>Bearer wk_...</code>) or the
+                admin password.
+            </p>
             <iframe
                 src="/docs/api/"
                 title="REST API documentation"
@@ -88,12 +77,75 @@
                 </p>
 
                 <h6>Connect</h6>
-                <pre
-                    class="small-padding round"
-                    data-cy="mcp-connect"
-                    >{{ connectCommand }}</pre>
+                <div class="field label border">
+                    <input
+                        id="mcp-key"
+                        v-model="apiKey"
+                        type="password"
+                        placeholder=" "
+                        autocomplete="off"
+                        data-cy="mcp-key"
+                    />
+                    <label for="mcp-key">API key (optional)</label>
+                    <output>Fills in the commands below. It stays in this page and isn't saved.</output>
+                </div>
+                <nav
+                    class="wrap"
+                    role="tablist"
+                >
+                    <button
+                        v-for="option in clients"
+                        :key="option.id"
+                        :class="client === option.id ? 'fill' : 'border'"
+                        class="small-round"
+                        role="tab"
+                        :aria-selected="client === option.id"
+                        :data-cy="'mcp-client-' + option.id"
+                        @click.prevent="client = option.id"
+                    >
+                        {{ option.title }}
+                    </button>
+                </nav>
+                <p
+                    class="small-text"
+                    data-cy="mcp-client-note"
+                >
+                    {{ clientNote }}
+                </p>
+                <div class="row top-align">
+                    <pre
+                        class="max small-padding round"
+                        data-cy="mcp-connect"
+                        >{{ connectCommand }}</pre>
+                    <button
+                        class="circle"
+                        :aria-label="'Copy the command for ' + clientTitle"
+                        data-cy="mcp-copy"
+                        @click.prevent="copy"
+                    >
+                        <i>{{ copied ? "check" : "content_copy" }}</i>
+                        <div class="tooltip bottom">{{ copied ? "Copied" : "Copy" }}</div>
+                    </button>
+                </div>
+                <nav v-if="client === 'vscode'">
+                    <a
+                        class="button small-round"
+                        :href="vscodeInstallURL"
+                        data-cy="mcp-vscode-install"
+                    >
+                        <i>download</i>
+                        <span>Install in VS Code</span>
+                    </a>
+                </nav>
+                <p
+                    v-if="copyFailed"
+                    class="error-text"
+                    role="alert"
+                >
+                    Copying isn't available here; select the command and copy it.
+                </p>
                 <p class="small-text">
-                    Other clients: the URL <code>{{ endpoint }}</code> (Streamable HTTP) and the header <code>Authorization: Bearer wk_...</code>.
+                    Any other client: the URL <code>{{ endpoint }}</code> (Streamable HTTP) with the header <code>Authorization: Bearer wk_...</code>.
                 </p>
 
                 <h6>Tools</h6>
@@ -189,11 +241,61 @@ export default {
             tools: null,
             toolsError: "",
             endpoint: window.location.origin + "/mcp",
+            clients: [
+                { id: "claude", title: "Claude Code" },
+                { id: "codex", title: "Codex" },
+                { id: "copilot", title: "Copilot CLI" },
+                { id: "vscode", title: "VS Code" },
+            ],
+            client: "claude",
+            // Only fills in the commands; never sent or saved
+            apiKey: "",
+            copied: false,
+            copyFailed: false,
         };
     },
     computed: {
+        key() {
+            return this.apiKey.trim() || "wk_...";
+        },
+        clientTitle() {
+            return this.clients.find((c) => c.id === this.client).title;
+        },
+        // The server as VS Code and its "code --add-mcp" take it
+        vscodeServer() {
+            return { name: "wakeci", type: "http", url: this.endpoint, headers: { Authorization: `Bearer ${this.key}` } };
+        },
+        vscodeInstallURL() {
+            return "vscode:mcp/install?" + encodeURIComponent(JSON.stringify(this.vscodeServer));
+        },
         connectCommand() {
-            return `claude mcp add --transport http wakeci ${this.endpoint} \\\n  --header "Authorization: Bearer wk_..."`;
+            switch (this.client) {
+                case "codex":
+                    return `export WAKECI_API_KEY=${this.key}\ncodex mcp add wakeci --url ${this.endpoint} --bearer-token-env-var WAKECI_API_KEY`;
+                case "copilot":
+                    return `copilot mcp add --transport http wakeci ${this.endpoint} \\\n  --header "Authorization: Bearer ${this.key}"`;
+                case "vscode":
+                    return `code --add-mcp '${JSON.stringify(this.vscodeServer)}'`;
+                default:
+                    return `claude mcp add --transport http wakeci ${this.endpoint} \\\n  --header "Authorization: Bearer ${this.key}"`;
+            }
+        },
+        clientNote() {
+            switch (this.client) {
+                case "codex":
+                    return "Codex reads the key from WAKECI_API_KEY whenever it starts, so set it in your shell's profile too.";
+                case "copilot":
+                    return "Adds the server to ~/.copilot/mcp-config.json.";
+                case "vscode":
+                    return "Adds the server to your VS Code profile; Copilot Chat in agent mode can then use it.";
+                default:
+                    return "Adds the server to Claude Code for this project; add --scope user for all projects.";
+            }
+        },
+    },
+    watch: {
+        connectCommand() {
+            this.copied = false;
         },
     },
     mounted() {
@@ -211,6 +313,22 @@ export default {
             if (tab === "mcp" && this.tools === null && this.toolsError === "") {
                 this.fetchTools();
             }
+        },
+        copy() {
+            // The Clipboard API only exists on https and localhost
+            if (!navigator.clipboard || !window.isSecureContext) {
+                this.copyFailed = true;
+                return;
+            }
+            navigator.clipboard.writeText(this.connectCommand).then(
+                () => {
+                    this.copied = true;
+                    this.copyFailed = false;
+                },
+                () => {
+                    this.copyFailed = true;
+                },
+            );
         },
         fetchTools() {
             axios
@@ -234,8 +352,12 @@ export default {
     border-radius: 0.5rem;
     margin-top: 1rem;
 }
+/* BeerCSS styles pre as a quote: a coloured left border, which the round
+   corners bend, and the text font */
 pre {
     background-color: var(--surface-container);
+    border-inline-start: none;
+    font-family: monospace;
     white-space: pre-wrap;
     word-break: break-all;
 }
