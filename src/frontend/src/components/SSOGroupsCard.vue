@@ -79,6 +79,7 @@
                     </span>
                     ·
                     <router-link
+                        v-if="group.signedIn > 0"
                         to="/keys"
                         class="link"
                         title="People with a current session in this group; the API keys page signs them out"
@@ -86,6 +87,11 @@
                     >
                         {{ group.signedIn }} signed in
                     </router-link>
+                    <span
+                        v-else
+                        data-cy="group-signed-in"
+                        >nobody signed in</span
+                    >
                     ·
                     <span :title="new Date(group.updatedAt).toLocaleString()">Changed {{ ago(group.updatedAt) }}</span>
                 </small>
