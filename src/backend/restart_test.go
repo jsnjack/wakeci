@@ -142,9 +142,9 @@ func TestQueuedBuildIsRestoredAfterRestart(t *testing.T) {
 		t.Fatalf("queued = %d, want the build queued again", status.Queued)
 	}
 	restored := restarted.queued[0]
-	if restored.ID != build.ID || !restored.startedWithAPIKey || restored.Params[0]["TARGET"] != "custom" {
-		t.Errorf("restored build %d, startedWithAPIKey %v, params %v; want build %d started with a key and TARGET=custom",
-			restored.ID, restored.startedWithAPIKey, restored.Params, build.ID)
+	if restored.ID != build.ID || !restored.untrustedParams || restored.Params[0]["TARGET"] != "custom" {
+		t.Errorf("restored build %d, untrustedParams %v, params %v; want build %d started with a key and TARGET=custom",
+			restored.ID, restored.untrustedParams, restored.Params, build.ID)
 	}
 	if status := restored.Job.Tasks[0].Status; status != StatusFinished {
 		t.Errorf("on_pending task status = %q, want %q kept from before the restart", status, StatusFinished)

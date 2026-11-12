@@ -344,9 +344,9 @@ func TestAPIKeyRunMarksBuild(t *testing.T) {
 	if len(GlobalQueue.queued) != 2 {
 		t.Fatalf("queued %d builds, want 2", len(GlobalQueue.queued))
 	}
-	if !GlobalQueue.queued[0].startedWithAPIKey || GlobalQueue.queued[1].startedWithAPIKey {
-		t.Errorf("startedWithAPIKey = %t, %t; want true for the key's build only",
-			GlobalQueue.queued[0].startedWithAPIKey, GlobalQueue.queued[1].startedWithAPIKey)
+	if !GlobalQueue.queued[0].untrustedParams || GlobalQueue.queued[1].untrustedParams {
+		t.Errorf("untrustedParams = %t, %t; want true for the key's build only",
+			GlobalQueue.queued[0].untrustedParams, GlobalQueue.queued[1].untrustedParams)
 	}
 	if got := GlobalQueue.queued[0].Params[0]["TARGET"]; got != "production" {
 		t.Errorf("TARGET = %q, want production", got)

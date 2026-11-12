@@ -302,7 +302,7 @@ func RemoveJobFromCron(name string) {
 }
 
 // RunJob creates a new build and schedules it for execution
-func RunJob(name string, params url.Values, startedWithAPIKey bool) (*Build, error) {
+func RunJob(name string, params url.Values, untrustedParams bool) (*Build, error) {
 	// Check if job is enabled
 	err := DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(JobsBucket))
@@ -329,7 +329,7 @@ func RunJob(name string, params url.Values, startedWithAPIKey bool) (*Build, err
 		return nil, err
 	}
 	build, err := GlobalQueue.addNewBuild(func() (*Build, error) {
-		build, err := CreateBuild(job, jobFile, startedWithAPIKey)
+		build, err := CreateBuild(job, jobFile, untrustedParams)
 		if err != nil {
 			return nil, err
 		}
