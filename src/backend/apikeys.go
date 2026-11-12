@@ -78,10 +78,12 @@ type APIKey struct {
 	// if they used the password. It lets offboarding revoke a person's keys.
 	CreatedBy string `json:"createdBy"`
 	// CreatorGroups are the creator's single sign-on groups as of their last
-	// login; the key can't do more than these groups allow. Null for a key
-	// made with the admin password or before wakeci recorded them, which no
-	// group limits; empty when the creator had no groups, so the key can do
-	// nothing. Stored with the key, so null and [] must stay apart.
+	// login; the key can't do more than these groups allow, as its creator
+	// couldn't. Null for a key made with the admin password or before wakeci
+	// recorded them, which no group limits. Groups that match none in the
+	// settings, [] included, allow what "People in no group" allows, which is
+	// nothing while it is off. Stored with the key, so null and [] must stay
+	// apart.
 	CreatorGroups []string   `json:"creatorGroups" extensions:"x-nullable"`
 	CreatedAt     time.Time  `json:"createdAt"`
 	ExpiresAt     *time.Time `json:"expiresAt,omitempty"`

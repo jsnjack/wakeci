@@ -30,7 +30,8 @@ What a request may do is an `Access`:
   records them again, so a person who left a group in Google loses it on
   their keys at their next login. A login refused because none of the
   person's groups is allowed records them too (`[]` for none, never null),
-  so their keys can then do nothing. Keys made with the admin password, and
+  so their keys can then do only what the rule for people in no group
+  allows, which is nothing while it is off. Keys made with the admin password, and
   keys made before wakeci recorded the creator's groups (`CreatorGroups` is
   null), are limited by their grant only, the latter until their creator
   logs in.
