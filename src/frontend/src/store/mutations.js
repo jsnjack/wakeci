@@ -10,6 +10,9 @@ const mutations = {
             state.ws.obj.sendMessage(state.ws.buffer.shift());
         }
     },
+    WS_RECONNECTED(state) {
+        state.ws.reconnects += 1;
+    },
     WS_DISCONNECTED(state) {
         state.ws.failedAttempts += 1;
         state.ws.connected = false;

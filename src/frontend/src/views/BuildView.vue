@@ -248,6 +248,8 @@ export default {
         hideAllLogs: "onHideAllLogsChange",
     },
     mounted() {
+        // Updates sent while disconnected
+        "ws.reconnects": "fetch",
         this.$store.commit("SET_CURRENT_PAGE", `#${this.id}`);
         document.addEventListener("keyup", this.onKeyUp);
         this.fetch();

@@ -95,6 +95,8 @@ export default {
         return {
             // How many times the page asked for the queue status
             queueRequests: 0,
+            // How many WebSocket connections opened
+            connections: 0,
         };
     },
     computed: {
@@ -140,10 +142,29 @@ export default {
                 ws.addEventListener("open", () => {
                     this.$store.commit("WS_CONNECTED", ws);
                     this.watchQueueStatus();
+                    if (this.connections++ > 0) {
+                        this.reloadAccess();
+                        this.$store.commit("WS_RECONNECTED");
+                    }
                 });
             } else {
                 console.error("WS already connected");
             }
+        },
+        // The server closes the connections of a user whose permissions
+        // changed, so they are read again on every reconnection. Only an
+        // answer that the session ended logs out: a reconnection also
+        // follows a restart, when a request can fail on its own.
+        reloadAccess: function () {
+            axios.get("/auth/_isLoggedIn").then(
+                (response) => this.$store.commit("LOG_IN", response.data),
+                (error) => {
+                    if (error.response?.status === 401 || error.response?.status === 403) {
+                        this.$store.commit("LOG_OUT");
+                        this.$router.push("/login");
+                    }
+                },
+            );
         },
         // Fetched again on every connection, since a restart ends a stop.
         // After an update the server runs a new version, and the page

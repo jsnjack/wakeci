@@ -145,6 +145,10 @@ everyone; a message about a job that doesn't name it goes to the admin
 password only. After a group changes, `onSSOAccessChange` calls
 `Hub.CloseRestricted`, which closes every connection that wasn't opened with
 the admin password, and the page opens it again at once with the new access.
+On every reconnection `App.vue` reads `/auth/_isLoggedIn` again and counts
+`ws.reconnects`, which the feed, jobs and build pages watch to load their
+data again, so a member sees what a change allows without a reload (and
+what was sent while the connection was down).
 
 ## The pages
 

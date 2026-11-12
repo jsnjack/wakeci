@@ -127,6 +127,30 @@ test("should only offer a group member what their groups allow", async ({ page, 
     await expect(page.getByTestId("run-job-button")).toHaveCount(0);
 });
 
+test("should show a group member what a group change allows without a reload", async ({ page, wake }) => {
+    const job = await wake.createJob(jobContent("deploy"), `grownjob-${randomUUID()}`);
+    let socket;
+    await page.routeWebSocket(/\/ws$/, (ws) => {
+        ws.connectToServer();
+        socket = ws;
+    });
+    await asMember(page, readOnly(job));
+    // The page asks for the queue status once its connection is open
+    const connected = page.waitForResponse((response) => response.url().endsWith("/api/queue/"));
+    await page.goto("/jobs");
+    await connected;
+    await expect(page.getByTestId(job)).toBeVisible();
+    await expect(page.getByTestId(job).getByTestId("run-job-button")).toHaveCount(0);
+
+    // The admin lets the group run the job. The server closes the member's
+    // connection, and the page reads the permissions again when it reconnects
+    await asMember(page, [{ scopes: ["read", "run"], allJobs: false, jobs: [job], patterns: [] }]);
+    const reloadedJobs = page.waitForResponse((response) => response.url().endsWith("/api/jobs/"));
+    socket.close();
+    await expect(page.getByTestId(job).getByTestId("run-job-button")).toBeVisible();
+    await reloadedJobs;
+});
+
 test("should keep the run buttons for a group member who may run the job", async ({ page, wake }) => {
     const job = await wake.createJob(jobContent("deploy"), `runnerjob-${randomUUID()}`);
     await asMember(page, [{ scopes: ["read", "run"], allJobs: false, jobs: [], patterns: ["runnerjob-*"] }]);

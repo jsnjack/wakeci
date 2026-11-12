@@ -122,6 +122,8 @@ export default {
         },
     },
     watch: {
+        // Jobs the user may now read
+        "$store.state.ws.reconnects": "fetch",
         filter: function () {
             this.filterJobs();
         },

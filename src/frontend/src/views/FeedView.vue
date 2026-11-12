@@ -136,6 +136,12 @@ export default {
             this.fetch();
         },
         "ws.connected": "onWSChange",
+        // Builds of jobs the user may now read, and those sent while
+        // disconnected. Not fetchNow itself: it would take the count for
+        // `more` and load older builds instead.
+        "ws.reconnects"() {
+            this.fetchNow();
+        },
     },
     mounted() {
         this.$store.commit("SET_CURRENT_PAGE", "Feed");
