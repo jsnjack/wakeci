@@ -44,7 +44,12 @@ func TestWhoAmI(t *testing.T) {
 		len(key.Grants) != 1 || !slices.Equal(key.Grants[0].Scopes, []string{ScopeRead, ScopeRun}) || key.Server != server {
 		t.Errorf("key = %+v", key)
 	}
-	if secret := token[strings.LastIndex(token, "_")+1:]; strings.Contains(rec.Body.String(), secret) || strings.Contains(rec.Body.String(), "secretHash") {
+	// Not the text after the last _: secrets are base64url and may hold _
+	_, secret, ok := parseAPIKeyToken(token)
+	if !ok {
+		t.Fatalf("can't parse the test key")
+	}
+	if strings.Contains(rec.Body.String(), secret) || strings.Contains(rec.Body.String(), "secretHash") {
 		t.Error("whoami shows the key's secret")
 	}
 
