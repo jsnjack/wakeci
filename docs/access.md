@@ -26,7 +26,9 @@ What a request may do is an `Access`:
   (`Access.Within`), so it never does more than its creator. The key records
   the creator's groups (`CreatorGroups`), and every login of the creator
   records them again, so a person who left a group in Google loses it on
-  their keys at their next login. Keys made with the admin password, and
+  their keys at their next login. A login refused because none of the
+  person's groups is allowed records them too (`[]` for none, never null),
+  so their keys can then do nothing. Keys made with the admin password, and
   keys made before wakeci recorded the creator's groups (`CreatorGroups` is
   null), are limited by their grant only, the latter until their creator
   logs in.

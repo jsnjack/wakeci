@@ -237,7 +237,9 @@ func apiKeyFromForm(form url.Values, now time.Time) (*APIKey, error) {
 }
 
 // refreshKeyCreatorGroups records groups as the creator groups of the keys
-// email created, so that the keys follow the groups the person is in now
+// email created, so that the keys follow the groups the person is in now.
+// No groups is recorded as [], which allows nothing; null would mean no
+// limit.
 func refreshKeyCreatorGroups(email string, groups []string) error {
 	apiKeyOwnersMu.Lock()
 	defer apiKeyOwnersMu.Unlock()
@@ -249,7 +251,9 @@ func refreshKeyCreatorGroups(email string, groups []string) error {
 			if err := json.Unmarshal(v, &stored); err != nil {
 				return fmt.Errorf("decode api key: %w", err)
 			}
-			if !strings.EqualFold(stored.CreatedBy, email) || slices.Equal(stored.CreatorGroups, groups) {
+			// slices.Equal takes null for [], but a key without creator
+			// groups has no limit
+			if !strings.EqualFold(stored.CreatedBy, email) || (stored.CreatorGroups != nil && slices.Equal(stored.CreatorGroups, groups)) {
 				return nil
 			}
 			stored.CreatorGroups = append([]string{}, groups...)

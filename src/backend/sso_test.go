@@ -1018,3 +1018,60 @@ func TestSSOLoginWithGroupFromSettings(t *testing.T) {
 		t.Errorf("key creator groups = %+v, want the groups of the login", keys)
 	}
 }
+
+// A login refused because the person is in no allowed group still tells
+// wakeci their groups, signed by the identity provider: their keys follow
+// them and can do nothing, also a key from before wakeci recorded groups
+func TestSSORejectedLoginLimitsTheKeys(t *testing.T) {
+	for name, groups := range map[string][]string{"other groups": {"Sales"}, "no groups": nil} {
+		t.Run(name, func(t *testing.T) {
+			newSSOTestEnv(t)
+			addTestGroup(t, "Service Team", Grant{Scopes: []string{ScopeRead}, AllJobs: true})
+			for _, before := range [][]string{{"Service Team"}, nil} {
+				key, err := apiKeyFromForm(url.Values{"name": {"ci"}, "scope": {"read"}, "allJobs": {"true"}, "expiresInDays": {"30"}}, time.Now())
+				if err != nil {
+					t.Fatalf("apiKeyFromForm: %v", err)
+				}
+				key.CreatedBy = testSSOEmail
+				key.CreatorGroups = before
+				if _, err := saveNewAPIKey(key); err != nil {
+					t.Fatalf("save key: %v", err)
+				}
+			}
+
+			_, stateCookie := startSSOLogin(t, testLoginRedirect)
+			response := newTestSAMLResponse(openTestLoginState(t, stateCookie).RequestID)
+			response.groups = groups
+			req := httptest.NewRequest(http.MethodPost, SSOACSPath, strings.NewReader(url.Values{"SAMLResponse": {response.encode(t)}}.Encode()))
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			req.AddCookie(stateCookie)
+			rec := httptest.NewRecorder()
+			HandleSSOACS(rec, req)
+			if findCookie(rec.Result().Cookies(), "session") != nil {
+				t.Fatal("a person in no allowed group got a session")
+			}
+
+			if err := DB.View(func(tx *bolt.Tx) error {
+				return tx.Bucket(APIKeysBucket).ForEach(func(_, data []byte) error {
+					var stored storedAPIKey
+					if err := json.Unmarshal(data, &stored); err != nil {
+						return err
+					}
+					if stored.CreatorGroups == nil || !slices.Equal(stored.CreatorGroups, groups) {
+						t.Errorf("key %s: creator groups %q, want %q", stored.ID, stored.CreatorGroups, groups)
+					}
+					access, err := apiKeyAccess(&stored.APIKey)
+					if err != nil {
+						return err
+					}
+					if access.HasScope(ScopeRead) {
+						t.Errorf("key %s can still read", stored.ID)
+					}
+					return nil
+				})
+			}); err != nil {
+				t.Fatalf("read keys: %v", err)
+			}
+		})
+	}
+}

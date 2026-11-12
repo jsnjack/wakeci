@@ -335,6 +335,11 @@ func HandleSSOACS(w http.ResponseWriter, r *http.Request) {
 		return
 	case errors.As(err, &groupErr):
 		logger.Warn("sso login: rejected", "err", err)
+		// The identity provider signed that these are the person's groups
+		// now, and they allow nothing, so neither do the person's keys
+		if err := refreshKeyCreatorGroups(groupErr.email, groupErr.groups); err != nil {
+			logger.Error("record the groups of the person's api keys", "err", err)
+		}
 		audit(r, "login.sso", "rejected", append([]any{"user", groupErr.email, "reason", "in no allowed group"},
 			auditListAttrs("groups", groupErr.groups)...)...)
 		redirectToLoginError(w, r, loginErrorSSONotAllowed, redirect)
