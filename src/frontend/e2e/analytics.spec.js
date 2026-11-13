@@ -143,7 +143,8 @@ test("a long job name stays inside its picker on a phone", async ({ page, wake }
 
 test("the pickers find an option as you type and fill in the rest", async ({ page, wake }) => {
     const job = "tasks:\n  - name: hello\n    run: echo hello\n";
-    const id = randomUUID().slice(0, 8);
+    // An initial "a" completes "All jobs", changing its case before the substring search.
+    const id = `0${randomUUID().slice(0, 7)}`;
     const alpha = await wake.createJob(job, `pick-${id}-alpha-deploy`);
     const beta = await wake.createJob(job, `pick-${id}-beta-deploy`);
     await page.goto("/analytics");
