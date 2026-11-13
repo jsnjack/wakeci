@@ -191,7 +191,7 @@ func parseLimitSetting(r *http.Request, name string, current int) (int, error) {
 	return value, nil
 }
 
-// ServerConfigData is what Wakefile.yaml set, for the settings page. It
+// ServerConfigData is the runtime configuration returned by the settings API. It
 // names the secrets file and counts its secrets, never shows their values
 type ServerConfigData struct {
 	ConfigFile string `json:"configFile"`

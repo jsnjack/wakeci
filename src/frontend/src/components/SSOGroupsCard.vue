@@ -44,9 +44,9 @@
         </nav>
     </dialog>
 
-    <article
+    <section
         v-if="loaded"
-        class="border no-elevate padding"
+        class="no-margin"
         data-cy="sso-groups"
     >
         <nav class="no-margin">
@@ -237,7 +237,7 @@
                 <span>Allow</span>
             </router-link>
         </div>
-    </article>
+    </section>
 </template>
 
 <script>
@@ -315,9 +315,6 @@ export default {
 </script>
 
 <style scoped>
-article {
-    margin: 1.5rem 0 0;
-}
 .description {
     margin: 0.5rem 0;
 }

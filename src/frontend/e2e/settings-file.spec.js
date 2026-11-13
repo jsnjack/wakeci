@@ -3,32 +3,12 @@ import { test, expect } from "./fixtures.js";
 
 const form = (fields) => ({ data: new URLSearchParams(fields).toString(), headers: { "Content-Type": "application/x-www-form-urlencoded" } });
 
-test("should show what Wakefile.yaml set, read-only", async ({ page, backend }) => {
+test("should show editable settings without the server configuration", async ({ page }) => {
     await page.goto("/settings");
-    const card = page.getByTestId("server-card");
-    await expect(card.getByTestId("server-port")).toHaveText(new URL(backend.url).port);
-    await expect(card.getByTestId("server-config-file")).toContainText("Wakefile.yaml");
-    await expect(card.getByTestId("server-jobdir")).toContainText("/");
-    await expect(card.getByTestId("server-sso")).toContainText("Not set up");
-});
-
-test("should warn before the identity provider's certificate expires", async ({ page }) => {
-    const soon = new Date(Date.now() + 10 * 86400000).toISOString();
-    await page.route("**/api/settings", async (route) => {
-        const response = await route.fetch();
-        const json = await response.json();
-        json.server.sso = {
-            idpMetadata: "/etc/wakeci/idp.xml",
-            acsUrl: "https://ci.example.com/auth/sso/acs",
-            entityId: "https://ci.example.com",
-            certificates: [{ subject: "CN=Google", notAfter: soon }],
-        };
-        await route.fulfill({ response, json });
-    });
-    await page.goto("/settings");
-    const card = page.getByTestId("server-card");
-    await expect(card.getByTestId("server-entity")).toHaveText("https://ci.example.com");
-    await expect(card.getByTestId("server-cert-warning")).toContainText(/Expires in (9|10) days/);
+    await expect(page.getByLabel("Concurrent builds", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Builds to keep", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("server-card")).toHaveCount(0);
+    await expect(page.getByTestId("update-card")).toBeVisible();
 });
 
 test("should download the settings and import them back", async ({ page, backend }) => {

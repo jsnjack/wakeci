@@ -24,8 +24,8 @@
         </nav>
     </dialog>
 
-    <article
-        class="border no-elevate padding"
+    <section
+        class="no-margin"
         data-cy="settings-file"
     >
         <h6 class="small no-margin">Settings file</h6>
@@ -60,7 +60,7 @@
                 @change="choose"
             />
         </nav>
-    </article>
+    </section>
 </template>
 
 <script>
@@ -111,9 +111,6 @@ export default {
 </script>
 
 <style scoped>
-article {
-    margin: 1.5rem 0 0;
-}
 .description {
     margin: 0.5rem 0;
 }
