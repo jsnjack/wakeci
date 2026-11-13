@@ -124,7 +124,6 @@
                                 <th class="right-align">Skipped</th>
                                 <th class="right-align">Median</th>
                                 <th class="right-align">p95</th>
-                                <th>Share of build time</th>
                                 <th class="right-align">Last 10 runs</th>
                             </tr>
                         </thead>
@@ -151,10 +150,6 @@
                                 <td class="right-align">{{ task.skipped }}</td>
                                 <td class="right-align">{{ task.duration.count ? formatDuration(task.duration.p50) : "—" }}</td>
                                 <td class="right-align">{{ task.duration.count ? formatDuration(task.duration.p95) : "—" }}</td>
-                                <td class="nowrap">
-                                    <span class="share-bar"><span :style="{ width: percent(task.share) }"></span></span>
-                                    {{ percent(task.share) }}
-                                </td>
                                 <td
                                     class="right-align nowrap"
                                     :title="task.change === null ? 'Needs 15 finished runs' : 'Median of the last 10 finished runs against the runs before'"
@@ -475,24 +470,16 @@ export default {
     padding: 0.2rem 0;
     font-size: 0.9rem;
 }
-.bar,
-.share-bar {
+.bar {
     height: 0.6rem;
     border-radius: 0.2rem;
     background: var(--surface-container-highest);
     overflow: hidden;
 }
-.bar > span,
-.share-bar > span {
+.bar > span {
     display: block;
     height: 100%;
     background: var(--chart-1);
-}
-.share-bar {
-    display: inline-block;
-    width: 3.5rem;
-    vertical-align: middle;
-    margin-right: 0.4rem;
 }
 .table-scroll {
     overflow-x: auto;

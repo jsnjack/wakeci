@@ -90,9 +90,10 @@ asked for 1 to 500, leaving out builds still in the queue. Task names come
 from each build's plan (`getBuildConfig`), read after the transaction.
 
 - **Tasks** are the main tasks by name, in the order of the last build: runs,
-  failures, skips, duration of finished runs, share of the builds' time, and
-  the change of the median of the last 10 finished runs against the runs
-  before (needs 15).
+  failures, skips, duration of finished runs, share of the builds' time
+  (API only: the page leaves it out, as a share of summed durations was
+  hard to read), and the change of the median of the last 10 finished runs
+  against the runs before (needs 15).
 - **Flaky**: a failed or timed out build whose next build with the same
   parameters, aborted ones left out, finished.
 - **Time to fix**: from the start of the first build of a failing streak to
