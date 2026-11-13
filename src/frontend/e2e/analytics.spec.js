@@ -70,6 +70,29 @@ test("analytics count a job's builds and open its insights", async ({ page, wake
     await expect(page).toHaveURL(`/build/${failed}`);
 });
 
+test("analytics filter the jobs table by name", async ({ page, wake }) => {
+    const tag = randomUUID().slice(0, 8);
+    const deploy = await wake.createJob(`tasks:\n  - name: ok\n    run: "true"\n`, `deploy-${tag}`);
+    const tests = await wake.createJob(`tasks:\n  - name: ok\n    run: "true"\n`, `tests-${tag}`);
+    for (const name of [deploy, tests]) {
+        const id = await wake.runJob(name);
+        await wake.waitForBuild(id);
+        await waitForEnd(page, id);
+    }
+
+    await page.goto("/analytics");
+    const search = page.getByTestId("jobs-table-search");
+    await search.fill(tag);
+    await expect(page.getByTestId(`job-row-${deploy}`)).toBeVisible();
+    await expect(page.getByTestId(`job-row-${tests}`)).toBeVisible();
+    // Every word must match, in any case
+    await search.fill(`${tag} DEPLOY`);
+    await expect(page.getByTestId(`job-row-${deploy}`)).toBeVisible();
+    await expect(page.getByTestId(`job-row-${tests}`)).toBeHidden();
+    await search.fill(`${tag} nothing`);
+    await expect(page.getByTestId("jobs-table-none")).toHaveText(`No job matches "${tag} nothing"`);
+});
+
 test("time to fix distinguishes no failures, an ongoing failure and past recoveries", async ({ page, wake }) => {
     const marker = join(wake.dir, `alternate-${randomUUID()}`);
     const name = await wake.createJob(`tasks:

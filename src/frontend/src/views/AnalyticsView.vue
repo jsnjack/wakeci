@@ -204,7 +204,22 @@
                 class="border no-elevate padding"
                 data-cy="jobs-table"
             >
-                <h6 class="small no-margin">Jobs</h6>
+                <div class="card-head">
+                    <h6 class="small no-margin">Jobs</h6>
+                    <div
+                        v-if="data.jobs.length > 1"
+                        class="field small prefix border round no-margin"
+                    >
+                        <i>search</i>
+                        <input
+                            v-model="jobSearch"
+                            type="search"
+                            aria-label="Filter jobs"
+                            placeholder="Filter jobs"
+                            data-cy="jobs-table-search"
+                        />
+                    </div>
+                </div>
                 <div class="table-scroll">
                     <table class="small-text">
                         <thead>
@@ -227,7 +242,7 @@
                         </thead>
                         <tbody>
                             <tr
-                                v-for="row in sortedJobs"
+                                v-for="row in shownJobs"
                                 :key="row.name"
                                 :data-cy="`job-row-${row.name}`"
                             >
@@ -253,6 +268,15 @@
                                     {{ share(row.buildTime, totalBuildTime) }}
                                 </td>
                                 <td class="nowrap">{{ ago(lastStarted(row)) }}</td>
+                            </tr>
+                            <tr v-if="shownJobs.length === 0">
+                                <td
+                                    :colspan="columns.length"
+                                    class="muted"
+                                    data-cy="jobs-table-none"
+                                >
+                                    No job matches "{{ jobSearch.trim() }}"
+                                </td>
                             </tr>
                         </tbody>
                     </table>
@@ -314,6 +338,8 @@ export default {
             // The jobs table's order; null keeps the API's, least reliable first
             sortKey: null,
             sortAsc: true,
+            // Words the jobs table's names must all contain
+            jobSearch: "",
             subscription: "build:update:",
             columns: [
                 { key: "name", label: "Job", sort: true },
@@ -472,6 +498,11 @@ export default {
                 return typeof x === "string" ? x.localeCompare(y) : x - y;
             });
             return this.sortAsc ? sorted : sorted.reverse();
+        },
+        // The build time shares stay those of all jobs
+        shownJobs() {
+            const words = this.jobSearch.toLowerCase().split(/\s+/).filter(Boolean);
+            return this.sortedJobs.filter((job) => words.every((word) => job.name.toLowerCase().includes(word)));
         },
     },
     watch: {

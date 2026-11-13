@@ -77,10 +77,12 @@ last one today:
   is older than the range by more than `statsOrderSlack` (2 days), since a
   build may wait in the queue and backfilled records are ordered by start.
 
-The page keeps the range, job and trigger in the address. The duration chart
-shows one job: the one filtered to, the one picked in the chart, or the one
-with the most build time, since jobs of seconds and of hours make a median
-of all of them say little.
+The page keeps the range, job and trigger in the address. The jobs table's
+own filter only hides rows whose name lacks one of the typed words: it
+fetches nothing, isn't kept in the address, and the build time shares stay
+those of all jobs. The duration chart shows one job: the one filtered to,
+the one picked in the chart, or the one with the most build time, since
+jobs of seconds and of hours make a median of all of them say little.
 
 ## Job insights
 
