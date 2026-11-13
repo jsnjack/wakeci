@@ -122,6 +122,14 @@
                         >
                             {{ scope }}
                         </span>
+                        <!-- Logs, the audit log and build pages name a key by its ID -->
+                        <code
+                            class="muted key-id"
+                            title="Key ID, as logs name the key"
+                            data-cy="key-id"
+                        >
+                            {{ key.id }}
+                        </code>
                     </div>
                     <small class="muted">
                         <span
@@ -222,7 +230,7 @@ export default {
             people: [],
             // Lowercased emails of the people signed in with SSO
             signedIn: [],
-            // Narrows the admin's list by person or key name
+            // Narrows the admin's list by person, key name or key ID
             search: "",
         };
     },
@@ -255,7 +263,9 @@ export default {
                 return sections;
             }
             return sections.filter(
-                (section) => section.title.toLowerCase().includes(search) || section.keys.some((key) => key.name.toLowerCase().includes(search)),
+                (section) =>
+                    section.title.toLowerCase().includes(search) ||
+                    section.keys.some((key) => key.name.toLowerCase().includes(search) || key.id.includes(search)),
             );
         },
     },
@@ -360,5 +370,10 @@ export default {
 }
 .muted {
     opacity: 0.7;
+}
+/* One click selects the whole ID, to copy it */
+.key-id {
+    font-size: 0.85em;
+    user-select: all;
 }
 </style>

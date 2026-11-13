@@ -212,6 +212,10 @@ test("should search the keys of many people", async ({ page }) => {
     // Key names match too
     await page.getByTestId("key-search").fill("ben-ci");
     await expect(page.getByTestId("key-group-ben@example.com")).toBeVisible();
+    // And key IDs, which logs name keys by; each key shows its ID
+    await page.getByTestId("key-search").fill("000000000003");
+    await expect(page.getByTestId("key-group-dan@example.com").getByTestId("key-id")).toHaveText("000000000003");
+    await expect(page.getByTestId("key-group-ann@example.com")).toHaveCount(0);
     await page.getByTestId("key-search").fill("nobody");
     await expect(page.getByTestId("keys-list")).toContainText('Nothing matches "nobody"');
 });
