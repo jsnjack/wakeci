@@ -165,6 +165,40 @@ func TestBuildSummary(t *testing.T) {
 	}
 }
 
+func TestBuildSummarySendsEmptyParams(t *testing.T) {
+	newAPIKeyTestEnv(t)
+	addFailedTestBuild(t)
+	for _, tt := range []struct {
+		name   string
+		params string
+	}{
+		{"legacy null params", "null"},
+		{"empty params", "[]"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			data := []byte(`{"id":7,"name":"deploy","status":"finished","params":` + tt.params + `}`)
+			if err := DB.Update(func(tx *bolt.Tx) error {
+				return tx.Bucket(HistoryBucket).Put(Itob(7), data)
+			}); err != nil {
+				t.Fatalf("save build: %v", err)
+			}
+			rec := apiCall("GET", "/api/build/7/summary", nil, nil, func(r *http.Request) {
+				r.SetBasicAuth("", "admin")
+			})
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d; body %q", rec.Code, rec.Body.String())
+			}
+			var fields map[string]json.RawMessage
+			if err := json.Unmarshal(rec.Body.Bytes(), &fields); err != nil {
+				t.Fatalf("decode summary: %v", err)
+			}
+			if got := string(fields["params"]); got != "[]" {
+				t.Errorf("params = %s, want []", got)
+			}
+		})
+	}
+}
+
 func TestTaskLogRoute(t *testing.T) {
 	router := newAPIKeyTestEnv(t)
 	addFailedTestBuild(t)

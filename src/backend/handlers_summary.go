@@ -148,6 +148,9 @@ func HandleBuildSummary(w http.ResponseWriter, r *http.Request) {
 	if summary.Artifacts == nil {
 		summary.Artifacts = []*ArtifactInfo{}
 	}
+	if summary.Params == nil {
+		summary.Params = []map[string]string{}
+	}
 	for _, task := range build.Tasks {
 		if !slices.Contains(failedTaskStatuses, task.Status) || len(summary.Failed) >= maxSummaryTails {
 			continue

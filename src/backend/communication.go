@@ -139,6 +139,19 @@ func (x BuildUpdateData) MarshalJSON() ([]byte, error) {
 		Alias:     Alias(x),
 		StartedAt: x.StartedAt.Format(TimeFormat),
 	}
+	// Older history entries can contain null lists; the API promises arrays.
+	if aliased.Tasks == nil {
+		aliased.Tasks = []*TaskStatus{}
+	}
+	if aliased.Params == nil {
+		aliased.Params = []map[string]string{}
+	}
+	if aliased.Artifacts == nil {
+		aliased.Artifacts = []string{}
+	}
+	if aliased.BuildArtifacts == nil {
+		aliased.BuildArtifacts = []*ArtifactInfo{}
+	}
 
 	// Marshal the wrapped struct, letting the JSON package handle the marshaling of any fields
 	// we're not specifically overwriting here
