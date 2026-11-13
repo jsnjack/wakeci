@@ -102,7 +102,7 @@ The feed and the job list filter themselves with `Access.Reads`.
 Each API key may send a burst of requests, refilled at a steady rate
 (`apiKeyRequestLimiter`, after the key is verified); beyond that it gets
 429 with `Retry-After`. Both are settings (`apiKeyBurst`, `apiKeyRate`;
-120 at once and 10 a second unless changed), applied as soon as they are
+a burst of 120 refilled at 10 a second unless changed), applied as soon as they are
 saved and when wakeci starts; a client that saves the settings without
 them keeps their values. The defaults are far above what clients send, so
 they only slow down a loop that went wrong, and the limit is per key, so

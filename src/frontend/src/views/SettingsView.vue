@@ -105,20 +105,11 @@
                 <span class="helper">Number of builds to preserve</span>
             </div>
 
-            <h6 class="small">API keys</h6>
-            <p class="small-text muted">Limits for each key on its own. A key over them gets 429 and waits as long as Retry-After says.</p>
-            <div class="field border small">
-                <input
-                    id="api-key-rate"
-                    v-model="apiKeyRate"
-                    type="number"
-                    min="1"
-                    max="100000"
-                    data-cy="api-key-rate"
-                />
-                <span class="helper">Requests a second each key may keep sending</span>
-            </div>
-
+            <h6 class="small">API key limits</h6>
+            <p class="small-text muted">
+                Each key can send a burst of requests at full speed, then has to slow down to a steady rate. A key that is too fast gets 429 and waits as long
+                as Retry-After says.
+            </p>
             <div class="field border small">
                 <input
                     id="api-key-burst"
@@ -128,8 +119,27 @@
                     max="100000"
                     data-cy="api-key-burst"
                 />
-                <span class="helper">Requests each key may send at once</span>
+                <span class="helper">Burst size: a total, not per second: how many requests a key may send as fast as it can before it has to slow down</span>
             </div>
+
+            <div class="field border small">
+                <input
+                    id="api-key-rate"
+                    v-model="apiKeyRate"
+                    type="number"
+                    min="1"
+                    max="100000"
+                    data-cy="api-key-rate"
+                />
+                <span class="helper">Steady rate: requests a second after that</span>
+            </div>
+            <p
+                v-if="apiKeyExample"
+                class="small-text muted"
+                data-cy="api-key-example"
+            >
+                {{ apiKeyExample }}
+            </p>
 
             <nav class="no-space">
                 <div class="max"></div>
@@ -165,6 +175,24 @@ import SettingsFileCard from "@/components/SettingsFileCard.vue";
 import { escapeHtml } from "@/store/utils";
 import axios from "axios";
 import vuex from "vuex";
+
+// duration says how long seconds is, rounded for a sentence
+function duration(seconds) {
+    if (seconds < 1) {
+        return "less than a second";
+    }
+    const round = (value, unit) => {
+        const n = Math.round(value);
+        return n === 1 ? `1 ${unit}` : `${n} ${unit}s`;
+    };
+    if (seconds < 90) {
+        return round(seconds, "second");
+    }
+    if (seconds < 90 * 60) {
+        return round(seconds / 60, "minute");
+    }
+    return round(seconds / 3600, "hour");
+}
 
 export default {
     components: { SSOGroupsCard, ServerConfigCard, SettingsFileCard },
@@ -224,6 +252,21 @@ export default {
                 ? ` · checked at ${new Date(update.checkedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
                 : "";
             return { icon: "check", color: "secondary-container", text: `Up to date${checked}` };
+        },
+        // What the API key limits mean with the values typed, and how the
+        // burst comes back (keyRequestLimiter.take)
+        apiKeyExample: function () {
+            const burst = Number(this.apiKeyBurst);
+            const rate = Number(this.apiKeyRate);
+            if (!(burst >= 1 && rate >= 1)) {
+                return "";
+            }
+            const requests = burst === 1 ? "1 request" : `${burst} requests`;
+            return (
+                `With these values, a script can send ${requests} as fast as it can, even all within one second, then ${rate} a second. ` +
+                `The burst isn't reset on a timer: every second gives ${rate} of it back and every request uses one. ` +
+                `So ${duration(burst / rate)} without requests fill it again, and a key that keeps sending ${rate} a second never gets any back.`
+            );
         },
         // Not while stopping: the banner says what happens next
         canUpdate: function () {

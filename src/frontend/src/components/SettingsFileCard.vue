@@ -70,8 +70,8 @@ import axios from "axios";
 const names = {
     concurrentBuilds: "concurrent builds",
     buildHistorySize: "builds to preserve",
-    apiKeyRate: "API key requests a second",
-    apiKeyBurst: "API key requests at once",
+    apiKeyRate: "API key steady rate",
+    apiKeyBurst: "API key burst size",
     ssoGroups: "SSO groups",
     ssoNoGroup: "people in no group",
 };
