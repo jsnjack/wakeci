@@ -97,7 +97,9 @@ from each build's plan (`getBuildConfig`), read after the transaction.
 - **Flaky**: a failed or timed out build whose next build with the same
   parameters, aborted ones left out, finished.
 - **Time to fix**: from the start of the first build of a failing streak to
-  the end of the finished build after it.
+  the end of the finished build after it. While the last builds still fail,
+  the page says so and names the first build of that streak, next to the
+  median of earlier fixes if there are any.
 - **Parameters** with more than one value, each value with its success rate.
 
 ## Who sees what

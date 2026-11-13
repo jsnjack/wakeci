@@ -70,6 +70,38 @@ test("analytics count a job's builds and open its insights", async ({ page, wake
     await expect(page).toHaveURL(`/build/${failed}`);
 });
 
+test("time to fix distinguishes no failures, an ongoing failure and past recoveries", async ({ page, wake }) => {
+    const marker = join(wake.dir, `alternate-${randomUUID()}`);
+    const name = await wake.createJob(`tasks:
+  - name: alternate
+    run: if [ -f '${marker}' ]; then rm '${marker}'; exit 1; fi; touch '${marker}'
+`);
+    const run = async (status) => {
+        const id = await wake.runJob(name);
+        await wake.waitForBuild(id, status);
+        await waitForEnd(page, id);
+        await page.goto(`/job/${encodeURIComponent(name)}/insights`);
+        return id;
+    };
+    const tile = page.getByTestId("insight-fix");
+
+    await run("finished");
+    await expect(tile.getByTestId("tile-value")).toHaveText("—");
+    await expect(tile).toContainText("No failures in these builds");
+
+    const failed = await run("failed");
+    await expect(tile.getByTestId("tile-value")).toHaveText("Still failing");
+    await expect(tile).toContainText(`since #${failed},`);
+
+    await run("finished");
+    await expect(tile).toContainText("median of 1 fix, from a failure to the next success");
+    await expect(tile).not.toContainText("still failing");
+
+    const failedAgain = await run("failed");
+    await expect(tile).toContainText("median of 1 fix, from a failure to the next success");
+    await expect(tile).toContainText(`still failing since #${failedAgain},`);
+});
+
 test("the filters stay in the address", async ({ page, wake }) => {
     const name = await wake.createJob("tasks:\n  - name: broken step\n    run: exit 3\n");
     const id = await wake.runJob(name);

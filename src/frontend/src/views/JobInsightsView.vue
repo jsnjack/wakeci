@@ -303,12 +303,7 @@ export default {
                     value: d.flakyChecked ? `${d.flaky} of ${d.flakyChecked}` : "—",
                     sub: "failed, then passed with the same parameters",
                 },
-                {
-                    key: "fix",
-                    label: "Time to fix",
-                    value: d.timeToFix.count ? formatDuration(d.timeToFix.p50) : "—",
-                    sub: d.timeToFix.count ? `median of ${d.timeToFix.count}, from a failure to the next success` : "no failure was fixed in these builds",
-                },
+                { key: "fix", label: "Time to fix", ...this.timeToFix },
                 {
                     key: "duration",
                     label: "Median duration",
@@ -316,6 +311,19 @@ export default {
                     sub: d.duration.count ? `p95 ${formatDuration(d.duration.p95)} · finished builds` : "no finished builds",
                 },
             ];
+        },
+        timeToFix() {
+            const d = this.data;
+            const fixes = d.timeToFix.count;
+            const since = d.failing ? `since #${d.failing.first.id}, ${ago(d.failing.first.startedAt)}` : "";
+            if (fixes) {
+                const median = `median of ${fixes} ${fixes === 1 ? "fix" : "fixes"}, from a failure to the next success`;
+                return { value: formatDuration(d.timeToFix.p50), sub: d.failing ? `${median}; still failing ${since}` : median };
+            }
+            if (d.failing) {
+                return { value: "Still failing", sub: since };
+            }
+            return { value: "—", sub: "No failures in these builds" };
         },
         series() {
             const series = {};
