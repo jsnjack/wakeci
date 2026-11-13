@@ -206,8 +206,9 @@ func drainOnStop(ctx context.Context, q *Queue, interrupt <-chan os.Signal, drai
 // drainQueue waits until the running builds end, or until the abort time
 // BeginStop set, and then aborts the builds still running. Each value from
 // interrupt ends the current wait early: the first aborts the builds now,
-// the next stops waiting for their on_aborted and finally tasks. Queued
-// builds stay queued, so they start after the restart
+// the next stops waiting for their on_aborted and finally tasks. AbortNow
+// ends the first wait too. Queued builds stay queued, so they start after
+// the restart
 func drainQueue(q *Queue, interrupt <-chan os.Signal, hookTimeout time.Duration) {
 	status := q.Status()
 	if status.AbortAt == nil {
@@ -218,19 +219,21 @@ func drainQueue(q *Queue, interrupt <-chan os.Signal, hookTimeout time.Duration)
 		L.Warn("stopping: waiting for running builds; send the signal again to abort them now",
 			"running", status.Running, "abortAt", status.AbortAt.Format(time.DateTime))
 	}
-	if q.waitIdle(*status.AbortAt, interrupt) {
+	if q.waitIdle(*status.AbortAt, interrupt, q.abortNowRequested()) {
 		return
 	}
-	L.Warn("stopping: aborting running builds")
-	q.abortRunning(stopNote)
-	if !q.waitIdle(time.Now().Add(hookTimeout), interrupt) {
+	by := q.markBuildsAborted()
+	L.Warn("stopping: aborting running builds", "by", by)
+	q.abortRunning(stopNote, by)
+	// Not abortNowRequested, which stays closed
+	if !q.waitIdle(time.Now().Add(hookTimeout), interrupt, nil) {
 		L.Warn("stopping before the aborted builds ended")
 	}
 }
 
-// waitIdle waits until no build runs, until deadline, or until a value
-// arrives from interrupt, and reports whether no build runs
-func (q *Queue) waitIdle(deadline time.Time, interrupt <-chan os.Signal) bool {
+// waitIdle waits until no build runs, until deadline, until a value arrives
+// from interrupt, or until now is closed, and reports whether no build runs
+func (q *Queue) waitIdle(deadline time.Time, interrupt <-chan os.Signal, now <-chan struct{}) bool {
 	timer := time.NewTimer(time.Until(deadline))
 	defer timer.Stop()
 	ticker := time.NewTicker(stopPollInterval)
@@ -242,6 +245,8 @@ func (q *Queue) waitIdle(deadline time.Time, interrupt <-chan os.Signal) bool {
 			return q.idle()
 		case sig := <-interrupt:
 			L.Warn("stopping: received another signal", "signal", sig)
+			return q.idle()
+		case <-now:
 			return q.idle()
 		}
 	}

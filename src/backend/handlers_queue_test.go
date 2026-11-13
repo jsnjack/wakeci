@@ -53,3 +53,30 @@ func TestQueueAPIWhileStopping(t *testing.T) {
 		t.Error("the build must stay queued")
 	}
 }
+
+func TestQueueAbortAPI(t *testing.T) {
+	newSettingsTestEnv(t)
+	cookie := loginAs(t, "alice@example.com")
+	requested := func() bool {
+		select {
+		case <-GlobalQueue.abortNowRequested():
+			return true
+		default:
+			return false
+		}
+	}
+
+	rec := apiCall("POST", "/api/queue/abort", cookie, nil, nil)
+	if rec.Code != http.StatusConflict || requested() {
+		t.Errorf("abort while not stopping: %d %q, requested %v; want 409 and nothing asked", rec.Code, rec.Body.String(), requested())
+	}
+
+	GlobalQueue.BeginStop(time.Now().Add(time.Hour), "")
+	rec = apiCall("POST", "/api/queue/abort", cookie, nil, nil)
+	if rec.Code != http.StatusOK || !requested() {
+		t.Fatalf("abort while stopping: %d %q, requested %v; want 200", rec.Code, rec.Body.String(), requested())
+	}
+	if GlobalQueue.abortNowBy != "by alice@example.com" {
+		t.Errorf("abortNowBy = %q, want the SSO user", GlobalQueue.abortNowBy)
+	}
+}

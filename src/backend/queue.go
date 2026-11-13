@@ -20,6 +20,10 @@ const MsgTypeQueueStatus = "queue:status"
 // stopping. Queued builds start after the restart
 var ErrQueueStopping = errors.New("wakeci is stopping; queued builds start after the restart")
 
+// ErrNotStopping is returned when the running builds are to be aborted for
+// a stop that didn't begin
+var ErrNotStopping = errors.New("wakeci isn't stopping")
+
 // Queue represents queued and running builds
 type Queue struct {
 	queued  []*Build
@@ -33,6 +37,13 @@ type Queue struct {
 	// wakeci stops once the running builds end or abortAt passes
 	stopping chan struct{}
 	abortAt  time.Time
+	// abortNow is closed by AbortNow: the stop aborts the running builds
+	// now instead of at abortAt. abortNowBy completes "Aborted …" in their
+	// task logs with who asked
+	abortNow   chan struct{}
+	abortNowBy string
+	// buildsAborted is set once the stop aborted the running builds
+	buildsAborted bool
 	// restartVersion is the version an update restarts into
 	restartVersion string
 	// stopSignalled is set by the first stop signal (noteStopSignal): wakeci
@@ -332,6 +343,41 @@ func (q *Queue) noteStopSignal(sig os.Signal) {
 	}
 }
 
+// AbortNow makes the stop abort the running builds now instead of at
+// abortAt (drainQueue), like a second stop signal. by completes "Aborted …"
+// in their task logs. It returns ErrNotStopping unless BeginStop was called.
+// Asking again changes nothing
+func (q *Queue) AbortNow(by string) error {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+	if !q.isStoppingLocked() {
+		return ErrNotStopping
+	}
+	select {
+	case <-q.abortNowLocked():
+	default:
+		q.abortNowBy = by
+		close(q.abortNow)
+	}
+	return nil
+}
+
+// abortNowLocked returns the channel AbortNow closes, creating it for a
+// Queue made without CreateQueue. The caller holds q.mutex
+func (q *Queue) abortNowLocked() chan struct{} {
+	if q.abortNow == nil {
+		q.abortNow = make(chan struct{})
+	}
+	return q.abortNow
+}
+
+// abortNowRequested returns the channel AbortNow closes
+func (q *Queue) abortNowRequested() <-chan struct{} {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+	return q.abortNowLocked()
+}
+
 // Stopping returns a channel that BeginStop closes
 func (q *Queue) Stopping() <-chan struct{} {
 	q.mutex.Lock()
@@ -374,6 +420,7 @@ func (q *Queue) Status() QueueStatusData {
 		abortAt := q.abortAt
 		status.AbortAt = &abortAt
 		status.RestartVersion = q.restartVersion
+		status.BuildsAborted = q.buildsAborted
 	}
 	return status
 }
@@ -394,16 +441,27 @@ func (q *Queue) idle() bool {
 }
 
 // abortRunning aborts the running builds, and the on_aborted and finally
-// tasks of builds aborted while queued, and logs note in their tasks. Queued
-// builds stay queued
-func (q *Queue) abortRunning(note string) {
+// tasks of builds aborted while queued, and logs note in their tasks, with
+// who asked (by, may be empty). Queued builds stay queued
+func (q *Queue) abortRunning(note, by string) {
 	q.mutex.Lock()
 	running := slices.Concat(q.running, q.aborting)
 	q.mutex.Unlock()
 	for _, build := range running {
 		build.Logger.Warn("aborting build", "reason", note)
-		build.requestAbort(StatusAborted, note, "")
+		build.requestAbort(StatusAborted, note, by)
 	}
+}
+
+// markBuildsAborted records that the stop aborts the running builds, tells
+// the clients, and returns who asked for it (AbortNow), empty if no one did
+func (q *Queue) markBuildsAborted() string {
+	q.mutex.Lock()
+	q.buildsAborted = true
+	by := q.abortNowBy
+	q.mutex.Unlock()
+	q.broadcastStatus()
+	return by
 }
 
 // waitQueuedHooks waits for the on_pending tasks of the queued builds, at
@@ -456,7 +514,7 @@ func (q *Queue) stopTasks(note string, timeout time.Duration) bool {
 		build.requestAbort(StatusAborted, note, "")
 	}
 	deadline := time.Now().Add(timeout)
-	idle := q.waitIdle(deadline, nil)
+	idle := q.waitIdle(deadline, nil, nil)
 	return q.waitQueuedHooks(time.Until(deadline), nil) && idle
 }
 
@@ -510,6 +568,7 @@ func CreateQueue() (*Queue, error) {
 	q := &Queue{
 		concurrentBuilds: cb,
 		stopping:         make(chan struct{}),
+		abortNow:         make(chan struct{}),
 	}
 	return q, nil
 }

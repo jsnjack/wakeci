@@ -245,6 +245,7 @@ func TestLimitedSSOUser(t *testing.T) {
 		{"GET", "/api/settings", nil, http.StatusForbidden, "doesn't have the write scope"},
 		{"POST", "/api/settings", url.Values{"concurrentBuilds": {"9"}}, http.StatusForbidden, "doesn't have the write scope"},
 		{"POST", "/api/update/", url.Values{"version": {"9.9.9"}}, http.StatusForbidden, "doesn't have the write scope"},
+		{"POST", "/api/queue/abort", nil, http.StatusForbidden, "doesn't have the write scope"},
 		{"GET", "/auth/_isLoggedIn", nil, http.StatusOK, `"grants":[{"scopes":["read"],"allJobs":false,"jobs":["deploy"],"patterns":[]}]`},
 	}
 	for _, tt := range tests {

@@ -193,6 +193,9 @@ type QueueStatusData struct {
 	AbortAt *time.Time `json:"abortAt,omitempty"`
 	// RestartVersion is the version an update restarts into, while stopping
 	RestartVersion string `json:"restartVersion,omitempty"`
+	// BuildsAborted is true once the stop aborted the running builds, at
+	// AbortAt or earlier, and waits for their on_aborted and finally tasks
+	BuildsAborted bool `json:"buildsAborted,omitempty"`
 	// Running counts the builds that run tasks, also the on_aborted tasks of
 	// builds aborted while queued
 	Running int `json:"running"`

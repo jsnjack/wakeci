@@ -541,6 +541,8 @@ func apiRoutes(router chi.Router) {
 
 	// Every logged-in user: the queue banner shows the server's state
 	router.Get("/queue/", HandleQueueGet)
+	// Aborts the builds of every job, so like the update
+	router.With(requireAccess(ScopeWrite, nil)).Post("/queue/abort", HandleQueueAbort)
 	router.Get("/whoami", HandleWhoAmI)
 
 	router.Route("/update", func(router chi.Router) {

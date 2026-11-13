@@ -79,6 +79,36 @@ test("should abort a running build at the drain timeout and run its hooks", asyn
     expect(await taskLogs(restartable.root, id)).toContain("> Aborted: wakeci is stopping.");
 });
 
+test("should abort the running builds when asked from the banner", async ({ restartable, browser }) => {
+    await restartable.start();
+    const hook = join(restartable.root, "hook");
+    // Never released: only the abort ends it, long before the drain timeout
+    const gate = restartable.gate();
+    const id = await restartable.runJob(
+        await restartable.createJob(`tasks:\n  - name: wait\n    run: ${gate.command}\non_aborted:\n  - name: hook\n    run: touch '${hook}'\n`),
+    );
+    await restartable.waitForBuild(id, "running");
+    const context = await browser.newContext({ baseURL: restartable.url, storageState: await restartable.api.storageState() });
+    try {
+        const page = await context.newPage();
+        await page.goto("/");
+        await expect(page.getByTestId("logout")).toBeVisible();
+
+        restartable.signal("SIGTERM");
+        await expect(page.getByTestId("queue-stopping")).toBeVisible();
+        await page.getByTestId("queue-abort").click();
+        await page.getByTestId("queue-abort-confirm").click();
+        await restartable.waitForExit();
+    } finally {
+        await context.close();
+    }
+    await access(hook);
+
+    await restartable.start();
+    await restartable.waitForBuild(id, "aborted");
+    expect(await taskLogs(restartable.root, id)).toContain("> Aborted with the admin password: wakeci is stopping.");
+});
+
 test("should mark a build that ran when wakeci was killed as aborted", async ({ restartable }) => {
     await restartable.start();
     const gate = restartable.gate();

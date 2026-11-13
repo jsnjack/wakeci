@@ -542,6 +542,49 @@ func TestDrainQueueSecondSignal(t *testing.T) {
 	waitDone(t, done, 10*time.Second)
 }
 
+// AbortNow, the banner's button, aborts the running builds before the abort
+// time, says who asked in their task logs, and tells the clients
+func TestDrainQueueAbortNow(t *testing.T) {
+	build := abortTestBuild(t, &Job{Name: "drain-now", Tasks: []*Task{
+		{ID: 0, Command: "touch started; sleep 30", Kind: KindMain},
+		{ID: 1, Command: "touch hook", Kind: StatusAborted},
+	}})
+	if err := GlobalQueue.AbortNow("by alice@example.com"); !errors.Is(err, ErrNotStopping) {
+		t.Fatalf("AbortNow before the stop = %v, want ErrNotStopping", err)
+	}
+	done := startBuild(build)
+	waitForFile(t, build, "started")
+
+	GlobalQueue.BeginStop(time.Now().Add(time.Hour), "")
+	if GlobalQueue.Status().BuildsAborted {
+		t.Error("BuildsAborted before the stop aborted them")
+	}
+	drained := make(chan struct{})
+	go func() {
+		defer close(drained)
+		drainQueue(GlobalQueue, nil, time.Minute)
+	}()
+	if err := GlobalQueue.AbortNow("by alice@example.com"); err != nil {
+		t.Fatalf("AbortNow: %v", err)
+	}
+	// Asking twice changes nothing, not even who asked
+	if err := GlobalQueue.AbortNow("with the admin password"); err != nil {
+		t.Fatalf("AbortNow again: %v", err)
+	}
+	waitDone(t, drained, 10*time.Second)
+	waitDone(t, done, 5*time.Second)
+
+	if build.Status != StatusAborted || !workspaceHas(build, "hook") {
+		t.Errorf("build status = %q, on_aborted ran = %v; want aborted with its hook", build.Status, workspaceHas(build, "hook"))
+	}
+	if log := taskLog(t, build, 0); !strings.Contains(log, "> Aborted by alice@example.com: "+stopNote+".") {
+		t.Errorf("task log = %q, want who aborted it and why", log)
+	}
+	if !GlobalQueue.Status().BuildsAborted {
+		t.Error("BuildsAborted = false after the stop aborted the builds")
+	}
+}
+
 // TestDrainQueueAbortsBuildsAbortedWhileQueued is a regression test: the
 // stop aborted only running builds, so the on_aborted tasks of a build
 // aborted while queued ran on at the abort time, and the drain waited the

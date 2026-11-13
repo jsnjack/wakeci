@@ -28,6 +28,7 @@ const state = {
         stopping: false,
         abortAt: null,
         restartVersion: "",
+        buildsAborted: false,
     },
     // How many queue statuses were applied, so an older one can be told apart
     queueStatusCount: 0,

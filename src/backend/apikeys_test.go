@@ -206,6 +206,7 @@ func TestAPIKeyRoutes(t *testing.T) {
 		{"GET", "/api/queue/", nil, http.StatusForbidden, "can't be used here"},
 		{"GET", "/api/update/", nil, http.StatusForbidden, "can't be used here"},
 		{"POST", "/api/update/", url.Values{"version": {"9.9.9"}}, http.StatusForbidden, "can't be used here"},
+		{"POST", "/api/queue/abort", nil, http.StatusForbidden, "can't be used here"},
 		{"GET", "/ws", nil, http.StatusForbidden, "can't be used here"},
 		{"GET", "/auth/_isLoggedIn", nil, http.StatusForbidden, "can't be used here"},
 		{"GET", "/", nil, http.StatusForbidden, "can't be used here"},

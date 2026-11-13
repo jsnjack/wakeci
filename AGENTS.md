@@ -126,7 +126,8 @@ src/frontend/                Vue 3 + Vite SPA
    `queue:status`, which `App.vue` subscribes to on every connection for the
    banner.
 8. **Stop, restart and update**: a signal or an update drains the queue,
-   saves queued builds and sessions, and restarts in place
+   saves queued builds and sessions, and restarts in place; the banner's
+   Stop now aborts the running builds at once
    ([docs/restart.md](docs/restart.md)).
 9. **Audit log**: `LogMi` gives each request a `requestInfo` (log ID, IP,
    `X-Forwarded-For`); `AuthMi` and `APIKeyAuthMi` record who made it with

@@ -57,6 +57,7 @@ const mutations = {
             stopping: status.stopping,
             abortAt: status.abortAt || null,
             restartVersion: status.restartVersion || "",
+            buildsAborted: status.buildsAborted === true,
         };
         state.queueStatusCount++;
     },

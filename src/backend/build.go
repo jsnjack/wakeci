@@ -188,6 +188,8 @@ func (b *Build) nextAbortScope() {
 // aborted
 func (b *Build) logAbort(scope *abortScope, bw *bufio.Writer, task *Task) {
 	switch {
+	case scope.note != "" && scope.by != "":
+		b.ProcessLogEntry("> Aborted "+scope.by+": "+scope.note+".", bw, task.ID, task.startedAt)
 	case scope.note != "":
 		b.ProcessLogEntry("> Aborted: "+scope.note+".", bw, task.ID, task.startedAt)
 	case scope.reason == StatusTimedOut:

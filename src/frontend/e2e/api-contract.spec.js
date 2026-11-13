@@ -151,6 +151,8 @@ test("should answer every documented operation as the spec says", async ({ wake,
         // The server's own settings, so importing them changes nothing
         "POST /api/settings/import": async () => ({ target: "/api/settings/import", body: await (await backend.api.get("/api/settings/export")).text() }),
         "GET /api/queue/": async () => ({ target: "/api/queue/" }),
+        // 409: the server isn't stopping, and stopping would end the test
+        "POST /api/queue/abort": async () => ({ target: "/api/queue/abort", refused: true }),
         "GET /api/update/": async () => ({ target: "/api/update/" }),
         // Never a real version: it would install it
         "POST /api/update/": async () => ({ target: "/api/update/", form: { version: "0.0.0-contract" }, refused: true }),
@@ -350,6 +352,7 @@ test("should answer every documented operation as the spec says", async ({ wake,
         "main.WhoAmIData.groups": "a single sign-on session",
         "main.QueueStatusData.abortAt": "a stopping server",
         "main.QueueStatusData.restartVersion": "a server restarting after an update",
+        "main.QueueStatusData.buildsAborted": "a stopping server that aborted its builds",
         "main.UpdateData.error": "a failed check for a release",
         "main.UpdateData.problem": "a server that can't update itself",
         "main.ServerSSOData.idpMetadata": "a server with single sign-on",
@@ -372,7 +375,13 @@ test("should answer every documented operation as the spec says", async ({ wake,
         [...Object.keys(ops)].filter(
             (op) =>
                 !succeeded.has(op) &&
-                !["POST /api/build/{id}/abort", "POST /api/build/{id}/flush", "POST /api/build/{id}/start", "POST /api/update/"].includes(op),
+                ![
+                    "POST /api/build/{id}/abort",
+                    "POST /api/build/{id}/flush",
+                    "POST /api/build/{id}/start",
+                    "POST /api/update/",
+                    "POST /api/queue/abort",
+                ].includes(op),
         ),
     ).toEqual([]);
 });

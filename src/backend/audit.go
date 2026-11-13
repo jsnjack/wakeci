@@ -256,7 +256,8 @@ var auditedRoutes = map[string]auditedRoute{
 	"POST /api/settings/import":       {event: "settings.import"},
 	"DELETE /api/nogroup":             {event: "group.nogroup.delete"},
 	// The handler adds the version it installs, once it knows it
-	"POST /api/update/": {event: "server.update", attrs: runningVersion},
+	"POST /api/update/":     {event: "server.update", attrs: runningVersion},
+	"POST /api/queue/abort": {event: "server.abort_builds"},
 }
 
 func jobOfURL(_ *http.Request, param func(string) string) []any {
