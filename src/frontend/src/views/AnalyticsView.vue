@@ -157,9 +157,8 @@
                     </p>
                 </article>
                 <article class="border no-elevate padding s12 l6 chart-card">
-                    <div class="row no-space card-head">
+                    <div class="card-head">
                         <h6 class="small no-margin">Duration, 7-day rolling</h6>
-                        <div class="max"></div>
                         <div
                             v-if="!job && data.jobs.length > 1"
                             class="field suffix border small round no-margin chart-select"
@@ -182,7 +181,7 @@
                         </div>
                         <span
                             v-else
-                            class="muted"
+                            class="muted ellipsis"
                             >{{ durationTarget }}</span
                         >
                     </div>
@@ -700,8 +699,19 @@ export default {
     align-items: center;
     margin: 0;
 }
+/* A select is as wide as its longest option, and BeerCSS doesn't let a
+   nav's children shrink, so a long job name would push it off the page */
 .filter-select {
-    min-width: 11rem;
+    width: 14rem;
+    max-width: 100%;
+}
+.filter-select > select,
+.chart-select > select {
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 .tiles {
     margin-bottom: 0;
@@ -779,10 +789,17 @@ th.sortable {
     margin: 0;
 }
 .card-head {
-    gap: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
+    gap: 0.5rem 1rem;
 }
-.chart-select {
-    min-width: 9rem;
+.card-head > h6 {
+    flex: 1 1 auto;
+}
+.card-head > :not(h6) {
+    flex: 0 1 16rem;
+    min-width: 8rem;
+    max-width: 100%;
 }
 </style>

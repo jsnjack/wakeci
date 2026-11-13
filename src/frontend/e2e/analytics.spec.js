@@ -110,3 +110,26 @@ test("the jobs list and the job page lead to insights", async ({ page, wake }) =
     await page.getByTestId("job-insights-tab").click();
     await expect(page).toHaveURL(`/job/${encodeURIComponent(name)}/insights`);
 });
+
+test("a long job name stays inside its picker on a phone", async ({ page, wake }) => {
+    const job = "tasks:\n  - name: hello\n    run: echo hello\n";
+    const long = await wake.createJob(job, `job-${"with-a-long-name-".repeat(4)}${randomUUID()}`);
+    // The duration chart has its own picker once there are two jobs
+    const other = await wake.createJob(job);
+    for (const name of [long, other]) {
+        const id = await wake.runJob(name);
+        await wake.waitForBuild(id);
+        await waitForEnd(page, id);
+    }
+
+    await page.setViewportSize({ width: 420, height: 900 });
+    await page.goto("/analytics");
+    const picker = page.getByTestId("duration-job");
+    await picker.selectOption(long);
+    const card = await picker.locator("xpath=ancestor::article[1]").boundingBox();
+    const field = await picker.locator("xpath=..").boundingBox();
+    expect(field.x + field.width).toBeLessThanOrEqual(card.x + card.width);
+    await page.getByTestId("job-filter").selectOption(long);
+    await expect(page.getByTestId("tile-builds").getByTestId("tile-value")).toHaveText("1");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(420);
+});
