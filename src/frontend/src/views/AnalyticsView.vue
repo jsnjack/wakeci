@@ -20,40 +20,20 @@
                     {{ range }} days
                 </button>
             </nav>
-            <div class="field label suffix border small round no-margin filter-select">
-                <select
-                    v-model="job"
-                    data-cy="job-filter"
-                >
-                    <option value="">All jobs</option>
-                    <option
-                        v-for="name in jobNames"
-                        :key="name"
-                        :value="name"
-                    >
-                        {{ name }}
-                    </option>
-                </select>
-                <label>Job</label>
-                <i>arrow_drop_down</i>
-            </div>
-            <div class="field label suffix border small round no-margin filter-select">
-                <select
-                    v-model="trigger"
-                    data-cy="trigger-filter"
-                >
-                    <option value="">Anyone</option>
-                    <option
-                        v-for="(label, kind) in triggers"
-                        :key="kind"
-                        :value="kind"
-                    >
-                        {{ label }}
-                    </option>
-                </select>
-                <label>Started by</label>
-                <i>arrow_drop_down</i>
-            </div>
+            <SearchSelect
+                v-model="job"
+                :options="jobOptions"
+                label="Job"
+                class="filter-select"
+                data-cy="job-filter"
+            />
+            <SearchSelect
+                v-model="trigger"
+                :options="triggerOptions"
+                label="Started by"
+                class="filter-select"
+                data-cy="trigger-filter"
+            />
             <progress
                 v-show="loading"
                 class="circle small"
@@ -121,26 +101,14 @@
                 <article class="border no-elevate padding s12 l6 chart-card">
                     <div class="card-head">
                         <h6 class="small no-margin">Duration, 7-day rolling</h6>
-                        <div
+                        <SearchSelect
                             v-if="!job && data.jobs.length > 1"
-                            class="field suffix border small round no-margin chart-select"
-                        >
-                            <select
-                                :value="durationTarget"
-                                aria-label="Job whose duration the chart shows"
-                                data-cy="duration-job"
-                                @change="durationJob = $event.target.value"
-                            >
-                                <option
-                                    v-for="row in jobsByBuildTime"
-                                    :key="row.name"
-                                    :value="row.name"
-                                >
-                                    {{ row.name }}
-                                </option>
-                            </select>
-                            <i>arrow_drop_down</i>
-                        </div>
+                            :model-value="durationTarget"
+                            :options="durationOptions"
+                            aria-label="Job whose duration the chart shows"
+                            data-cy="duration-job"
+                            @update:model-value="durationJob = $event"
+                        />
                         <span
                             v-else
                             class="muted ellipsis"
@@ -308,6 +276,7 @@ import { STATUSES, TRIGGERS, ago, axisDuration, dayLabel, formatDuration, format
 import BandLegend from "@/components/charts/BandLegend.vue";
 import LineChart from "@/components/charts/LineChart.vue";
 import OutcomeStrip from "@/components/charts/OutcomeStrip.vue";
+import SearchSelect from "@/components/SearchSelect.vue";
 import SparkLine from "@/components/charts/SparkLine.vue";
 import StartsHeatmap from "@/components/charts/StartsHeatmap.vue";
 import StatusBarsChart from "@/components/charts/StatusBarsChart.vue";
@@ -320,7 +289,7 @@ const RANGES = [7, 30, 90, 365];
 const FINAL = new Set(STATUSES.map((s) => s.status));
 
 export default {
-    components: { BandLegend, LineChart, OutcomeStrip, SparkLine, StartsHeatmap, StatusBarsChart, StatusLegend },
+    components: { BandLegend, LineChart, OutcomeStrip, SearchSelect, SparkLine, StartsHeatmap, StatusBarsChart, StatusLegend },
     data() {
         return {
             ranges: RANGES,
@@ -413,6 +382,15 @@ export default {
                 return 0;
             }
             return Math.max(0, Math.min(0.9, Math.floor((Math.min(...rates) - 0.05) * 10) / 10));
+        },
+        jobOptions() {
+            return [{ value: "", label: "All jobs" }, ...this.jobNames.map((name) => ({ value: name, label: name }))];
+        },
+        triggerOptions() {
+            return [{ value: "", label: "Anyone" }, ...Object.entries(TRIGGERS).map(([value, label]) => ({ value, label }))];
+        },
+        durationOptions() {
+            return this.jobsByBuildTime.map((row) => ({ value: row.name, label: row.name }));
         },
         // The duration chart shows one job, since jobs of seconds and of
         // hours make a median of all of them say little: the job filtered
@@ -657,19 +635,11 @@ export default {
     align-items: center;
     margin: 0;
 }
-/* A select is as wide as its longest option, and BeerCSS doesn't let a
-   nav's children shrink, so a long job name would push it off the page */
+/* A fixed width, since BeerCSS doesn't let a nav's children shrink; the
+   picker cuts a long job name with an ellipsis */
 .filter-select {
     width: 14rem;
     max-width: 100%;
-}
-.filter-select > select,
-.chart-select > select {
-    width: 100%;
-    min-width: 0;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
 }
 .tiles {
     margin-bottom: 0;

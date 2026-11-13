@@ -17,6 +17,15 @@ async function waitForEnd(page, id) {
         .toBe(true);
 }
 
+// pick chooses an option of a picker (SearchSelect) by typing its name and
+// pressing Enter
+async function pick(page, cy, text) {
+    const input = page.getByTestId(cy);
+    await input.click();
+    await input.fill(text);
+    await input.press("Enter");
+}
+
 // A job whose test task fails the first time and passes after
 async function flakyJob(wake) {
     const marker = join(wake.dir, `passed-${randomUUID()}`);
@@ -77,7 +86,7 @@ test("the filters stay in the address", async ({ page, wake }) => {
     await page.getByTestId("range-90").click();
     await expect(page).toHaveURL(new RegExp(`days=90`));
     await expect(page.getByTestId("status-bar")).toHaveCount(90);
-    await page.getByTestId("trigger-filter").selectOption("interval");
+    await pick(page, "trigger-filter", "Schedule");
     await expect(page).toHaveURL(/trigger=interval/);
     // The build was started with the password, not the schedule
     await expect(page.getByTestId("analytics-empty")).toBeVisible();
@@ -123,11 +132,56 @@ test("a long job name stays inside its picker on a phone", async ({ page, wake }
     await page.setViewportSize({ width: 420, height: 900 });
     await page.goto("/analytics");
     const picker = page.getByTestId("duration-job");
-    await picker.selectOption(long);
+    await pick(page, "duration-job", long);
     const card = await picker.locator("xpath=ancestor::article[1]").boundingBox();
     const field = await picker.locator("xpath=..").boundingBox();
     expect(field.x + field.width).toBeLessThanOrEqual(card.x + card.width);
-    await page.getByTestId("job-filter").selectOption(long);
+    await pick(page, "job-filter", long);
     await expect(page.getByTestId("tile-builds").getByTestId("tile-value")).toHaveText("1");
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(420);
+});
+
+test("the pickers find an option as you type and fill in the rest", async ({ page, wake }) => {
+    const job = "tasks:\n  - name: hello\n    run: echo hello\n";
+    const id = randomUUID().slice(0, 8);
+    const alpha = await wake.createJob(job, `pick-${id}-alpha-deploy`);
+    const beta = await wake.createJob(job, `pick-${id}-beta-deploy`);
+    await page.goto("/analytics");
+    const input = page.getByTestId("job-filter");
+    await input.click();
+    const options = page.getByRole("listbox", { name: "Job" }).getByRole("option");
+    await expect(options.first()).toHaveText("All jobs");
+
+    // The rest of the first job that starts with the text is filled in and
+    // selected, so typing goes on over it, and Enter takes it
+    const typed = `pick-${id}-a`;
+    await input.pressSequentially(typed);
+    await expect(input).toHaveValue(alpha);
+    expect(await input.evaluate((el) => [el.selectionStart, el.selectionEnd])).toEqual([typed.length, alpha.length]);
+    await input.press("Enter");
+    await expect(page).toHaveURL(new RegExp(`job=${alpha}`));
+
+    // Text from the middle of a name narrows the list without filling in
+    await input.click();
+    await input.pressSequentially(`${id}-beta`);
+    await expect(input).toHaveValue(`${id}-beta`);
+    await expect(options).toHaveCount(1);
+    await expect(options).toHaveText(beta);
+    await input.press("Enter");
+    await expect(page).toHaveURL(new RegExp(`job=${beta}`));
+
+    // Escape puts the choice back
+    await input.click();
+    await input.pressSequentially("no-such-job-at-all");
+    await expect(page.getByText("No match")).toBeVisible();
+    await input.press("Escape");
+    await expect(input).toHaveValue(beta);
+
+    // Leaving the field takes what was filled in
+    const trigger = page.getByTestId("trigger-filter");
+    await trigger.click();
+    await trigger.pressSequentially("sing");
+    await expect(trigger).toHaveValue("Single sign-on");
+    await trigger.press("Tab");
+    await expect(page).toHaveURL(/trigger=sso/);
 });
