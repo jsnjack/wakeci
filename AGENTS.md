@@ -70,6 +70,7 @@ src/frontend/                Vue 3 + Vite SPA
 | [docs/deprecations.md](docs/deprecations.md) | Old parameters and fields that still work, their users and their removal |
 | [docs/settings.md](docs/settings.md) | Wakefile.yaml or the settings page, the settings file, `--import-settings` |
 | [docs/analytics.md](docs/analytics.md) | Build stats, who started a build, the analytics page, job insights |
+| [docs/ui-roadmap.md](docs/ui-roadmap.md) | The feed, live updates, the build page, task logs, the jobs page or the run form: the planned changes and their evidence |
 
 ---
 
