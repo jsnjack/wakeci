@@ -87,6 +87,13 @@ type Build struct {
 	// jobs (an API key, or a single sign-on user without write), so values
 	// the job writes into build.env may be built from them
 	untrustedParams bool
+	// queuedAt is when the build was created, and trigger who or what
+	// started it, both for its stats. Guarded by mutex
+	queuedAt time.Time
+	trigger  buildTrigger
+	// ended is set once the build's last tasks ran and Duration is final.
+	// Guarded by mutex
+	ended bool
 	// failedTask is the main task that stopped the build, exposed to the
 	// on_failed, on_aborted and finally tasks
 	failedTask *Task
@@ -740,7 +747,7 @@ func (b *Build) BroadcastUpdate() {
 	b.updateMu.Lock()
 	defer b.updateMu.Unlock()
 	bID := b.ID
-	data, queued, err := b.records()
+	data, queued, stats, err := b.records()
 	if err != nil {
 		b.Logger.Error("generate build update", "err", err)
 		return
@@ -757,6 +764,9 @@ func (b *Build) BroadcastUpdate() {
 		if err := hb.Put(Itob(bID), data); err != nil {
 			return err
 		}
+		if err := putBuildStats(tx, stats, bID); err != nil {
+			return err
+		}
 		qb := tx.Bucket(QueueBucket)
 		if queued == nil {
 			return qb.Delete(Itob(bID))
@@ -769,10 +779,10 @@ func (b *Build) BroadcastUpdate() {
 	buildChanges.notify(bID)
 }
 
-// records returns the build's history entry (BuildUpdateData) and, while it
-// is queued, what RestoreQueue needs to queue it again, nil once it left the
-// queue. Both describe the same moment
-func (b *Build) records() (data, queued []byte, err error) {
+// records returns the build's history entry (BuildUpdateData), its stats
+// record and, while it is queued, what RestoreQueue needs to queue it again,
+// nil once it left the queue. All describe the same moment
+func (b *Build) records() (data, queued, stats []byte, err error) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	// JSON, so the caller doesn't read the build's maps while it changes
@@ -788,18 +798,38 @@ func (b *Build) records() (data, queued []byte, err error) {
 		Duration:       b.Duration,
 		ETA:            b.ETA,
 	})
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	failedTask := ""
+	if b.failedTask != nil {
+		failedTask = displayTaskName(b.failedTask)
+	}
+	stats, err = json.Marshal(&buildStats{
+		ID:         b.ID,
+		Job:        b.Job.Name,
+		Status:     b.Status,
+		QueuedAt:   b.queuedAt,
+		StartedAt:  b.StartedAt,
+		Duration:   b.Duration,
+		Ended:      b.ended,
+		Trigger:    b.trigger,
+		FailedTask: failedTask,
+	})
 	if err != nil || b.Status != StatusPending || b.abortedWhileQueued {
-		return data, nil, err
+		return data, nil, stats, err
 	}
 	queued, err = json.Marshal(queuedBuild{
 		Job:             b.Job,
 		Params:          b.Params,
 		UntrustedParams: b.untrustedParams,
+		QueuedAt:        b.queuedAt,
+		Trigger:         b.trigger,
 		// So a rollback to wakeci 2.41, which reads only this name, keeps it
 		StartedWithAPIKey: b.untrustedParams,
 		Tasks:             b.GetTasksStatus(),
 	})
-	return data, queued, err
+	return data, queued, stats, err
 }
 
 // ProcessLogEntry handles log messages from tasks
@@ -897,11 +927,13 @@ func (b *Build) GetTasksStatus() []*TaskStatus {
 	return info
 }
 
-// setDuration records how long the build ran. A build aborted while queued
-// never started, and time.Since of a zero StartedAt is the maximum duration
+// setDuration records how long the build ran, and that it ended. A build
+// aborted while queued never started, and time.Since of a zero StartedAt is
+// the maximum duration
 func (b *Build) setDuration() {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
+	b.ended = true
 	if b.StartedAt.IsZero() {
 		b.Duration = 0
 		return
@@ -1016,6 +1048,7 @@ func CreateBuild(job *Job, jobPath string, untrustedParams bool) (*Build, error)
 		flushChannel: make(chan bool),
 		Params:       job.DefaultParams,
 		ETA:          GetJobETA(job.Name),
+		queuedAt:     time.Now(),
 		// Set before SetBuildStatus below starts the pending tasks
 		untrustedParams: untrustedParams,
 	}

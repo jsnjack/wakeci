@@ -23,6 +23,15 @@
                 <i>apps</i>
             </router-link>
             <router-link
+                v-if="auth.isLoggedIn && canAny('read')"
+                to="/analytics"
+                class="button circle transparent m l"
+                data-cy="nav-analytics"
+            >
+                <div class="tooltip bottom">Analytics</div>
+                <i>monitoring</i>
+            </router-link>
+            <router-link
                 v-if="auth.isLoggedIn"
                 to="/keys"
                 class="button circle transparent m l"

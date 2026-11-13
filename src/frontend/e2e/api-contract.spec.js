@@ -176,6 +176,8 @@ test("should answer every documented operation as the spec says", async ({ wake,
         "POST /api/nogroup": async () => ({ target: "/api/nogroup", form: { scope: "read", allJobs: "true" } }),
         "DELETE /api/nogroup": async () => ({ target: "/api/nogroup" }),
         "GET /api/whoami": async () => ({ target: "/api/whoami" }),
+        "GET /api/analytics/": async () => ({ target: "/api/analytics/?days=7" }),
+        "GET /api/job/{name}/insights": async () => ({ target: `/api/job/${job}/insights` }),
         "GET /storage/build/{id}/{path}": async () => ({ target: `/storage/build/${build}/task_0.log` }),
     };
     for (const opKey of Object.keys(ops)) {
@@ -231,6 +233,9 @@ test("should answer every documented operation as the spec says", async ({ wake,
         ["POST /api/nogroup", "/api/nogroup", 400, { scope: "write", job: job }],
         ["POST /api/settings/import", "/api/settings/import", 400, undefined, "concurrentBuilds: 0\n"],
         ["GET /storage/build/{id}/{path}", `/storage/build/${build}/nosuch.txt`, 404],
+        ["GET /api/analytics/", "/api/analytics/?days=0", 400],
+        ["GET /api/analytics/", "/api/analytics/?trigger=robot", 400],
+        ["GET /api/job/{name}/insights", `/api/job/${job}/insights?builds=0`, 400],
     ];
     for (const [opKey, target, status, form, body] of errors) {
         expectStatus(await call("admin", opKey, target, { form, body }), [status], `${opKey} ${target}`);
@@ -329,6 +334,13 @@ test("should answer every documented operation as the spec says", async ({ wake,
     expectStatus(await call("admin", "GET /api/groups/", "/api/groups/"), [200], "GET /api/groups/ with groups");
     await backend.api.delete("/api/nogroup");
     expectStatus(await call("admin", "GET /api/keys/", "/api/keys/"), [200], "GET /api/keys/ with used keys");
+
+    // Analytics again, now that keys started builds and the job ran with two
+    // values of TARGET, once those builds ended
+    await expect.poll(async () => (await json("/api/analytics/?days=7")).people.some((p) => p.keyName), { intervals: [100, 200, 500] }).toBe(true);
+    expectStatus(await call("admin", "GET /api/analytics/", "/api/analytics/?days=7"), [200], "GET /api/analytics/ with builds started by keys");
+    await expect.poll(async () => (await json(`/api/job/${job}/insights`)).params.length, { intervals: [100, 200, 500] }).toBe(1);
+    expectStatus(await call("admin", "GET /api/job/{name}/insights", `/api/job/${job}/insights`), [200], "GET /api/job/{name}/insights with two TARGETs");
 
     // 5. Every documented field shows up in some answer, except those of
     // states this test doesn't reach; Go tests and other specs cover them

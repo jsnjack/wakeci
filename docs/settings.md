@@ -24,17 +24,22 @@ that used to set them in `sso.groups` (wakeci 2.41 and older). wakeci
 ignores that key, so a Wakefile.yaml kept for a rollback can still have
 it. The settings file below is the way to keep groups in git.
 
-## The Server panel
+## The settings page
 
-The settings page shows what Wakefile.yaml set, read-only
-(`ServerConfigData` in `/api/settings`, `ServerConfigCard.vue`): the file's
-path, port, hostname, directories, the secrets file with how many secrets
-it holds (never their values), the time zone, the drain timeout, and the
-single sign-on settings with the identity provider's signing certificates.
-A certificate that expires within 30 days or has expired gets a warning,
-since the metadata must be replaced before logins stop working. Anyone who
-sees the settings sees it: they have `write`, so they can read the file on
-the server anyway.
+The page starts with the version and the update button, then has a
+section each for builds, API key limits, the admin password, single
+sign-on groups and the settings file, divided by lines rather than cards,
+like the other forms. The build limits, API
+key limits and password share one Save button below them.
+Groups and file imports have their own actions. The password, groups and
+settings file are shown only to the admin password.
+
+API clients can read runtime configuration in the `server` field of
+`/api/settings` (`ServerConfigData`): the configuration file's path, port,
+hostname, directories, the secrets file with its count (never the secret
+values), time zone, drain timeout and SSO metadata and signing
+certificates. The page shows only the settings it can edit and the update
+status; it has no read-only Server panel or certificate expiry warnings.
 
 ## The settings file
 

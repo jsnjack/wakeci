@@ -24,8 +24,8 @@
         </nav>
     </dialog>
 
-    <article
-        class="border no-elevate padding"
+    <section
+        class="no-margin"
         data-cy="settings-file"
     >
         <h6 class="small no-margin">Settings file</h6>
@@ -60,7 +60,7 @@
                 @change="choose"
             />
         </nav>
-    </article>
+    </section>
 </template>
 
 <script>
@@ -70,8 +70,8 @@ import axios from "axios";
 const names = {
     concurrentBuilds: "concurrent builds",
     buildHistorySize: "builds to preserve",
-    apiKeyRate: "API key requests a second",
-    apiKeyBurst: "API key requests at once",
+    apiKeyRate: "API key steady rate",
+    apiKeyBurst: "API key burst size",
     ssoGroups: "SSO groups",
     ssoNoGroup: "people in no group",
 };
@@ -111,9 +111,6 @@ export default {
 </script>
 
 <style scoped>
-article {
-    margin: 1.5rem 0 0;
-}
 .description {
     margin: 0.5rem 0;
 }

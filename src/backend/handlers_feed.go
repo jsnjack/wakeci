@@ -220,6 +220,8 @@ func markStaleBuildsAborted(logger *slog.Logger, ids []int) error {
 				logger.Error("marshal build history entry", "build", id, "err", err)
 			} else if err := b.Put(Itob(id), updatedB); err != nil {
 				logger.Error("save build history entry", "build", id, "err", err)
+			} else if err := markStatsAborted(tx, &msg); err != nil {
+				logger.Error("save build stats", "build", id, "err", err)
 			}
 		}
 		return nil

@@ -126,8 +126,8 @@ func TestMCPDocs(t *testing.T) {
 	for _, doc := range docs {
 		byName[doc.Name] = doc
 	}
-	if len(docs) != 8 {
-		t.Errorf("documented %d tools, want 8", len(docs))
+	if len(docs) != 10 {
+		t.Errorf("documented %d tools, want 10", len(docs))
 	}
 	summary := byName["build_summary"]
 	if summary.Scope != "read" || summary.Description == "" || len(summary.Inputs) != 3 || summary.Inputs[0].Name != "id" || !summary.Inputs[0].Required || summary.Inputs[0].Type != "integer" {

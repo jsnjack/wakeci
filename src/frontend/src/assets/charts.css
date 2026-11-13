@@ -1,0 +1,165 @@
+/* Colours of the analytics charts. Series take the slots in order; statuses
+   have their own colours, and every chart also names them in a legend and
+   in each mark's tooltip, and hatches failures, so colour never carries
+   meaning alone. */
+body.light {
+  --chart-1: #2a78d6;
+  --chart-2: #eb6834;
+  --chart-3: #1baf7a;
+  --chart-4: #eda100;
+  --chart-5: #e87ba4;
+  --status-finished: #0ca30c;
+  --status-timed-out: #7e57c2;
+}
+
+body.dark {
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
+  --chart-3: #199e70;
+  --chart-4: #c98500;
+  --chart-5: #d55181;
+  --status-finished: #0ca30c;
+  --status-timed-out: #9575cd;
+}
+
+.chart {
+  width: 100%;
+  min-width: 0;
+}
+
+.chart svg {
+  display: block;
+  overflow: visible;
+}
+
+.chart text {
+  fill: var(--on-surface-variant);
+  font-size: 11px;
+}
+
+.chart .grid line {
+  stroke: var(--outline-variant);
+  stroke-width: 1;
+}
+
+.chart .hit {
+  fill: transparent;
+}
+
+.chart .mark:hover .hit {
+  fill: color-mix(in srgb, var(--on-surface) 8%, transparent);
+}
+
+.chart .link {
+  cursor: pointer;
+}
+
+.s-finished {
+  fill: var(--status-finished);
+  background-color: var(--status-finished);
+}
+
+.s-failed {
+  fill: var(--error);
+  background: repeating-linear-gradient(
+    45deg,
+    var(--error) 0 3px,
+    color-mix(in srgb, var(--error) 45%, var(--surface)) 3px 4.5px
+  );
+}
+
+.s-timed-out {
+  fill: var(--status-timed-out);
+  background-color: var(--status-timed-out);
+}
+
+.s-aborted {
+  fill: var(--outline);
+  background-color: var(--outline);
+}
+
+.s-pending {
+  fill: var(--outline-variant);
+  background-color: var(--outline-variant);
+}
+
+.hatch-fill {
+  fill: var(--error);
+}
+
+.hatch-line {
+  fill: color-mix(in srgb, var(--surface) 55%, transparent);
+}
+
+.series-1 {
+  fill: var(--chart-1);
+  background-color: var(--chart-1);
+}
+.series-2 {
+  fill: var(--chart-2);
+  background-color: var(--chart-2);
+}
+.series-3 {
+  fill: var(--chart-3);
+  background-color: var(--chart-3);
+}
+.series-4 {
+  fill: var(--chart-4);
+  background-color: var(--chart-4);
+}
+.series-5 {
+  fill: var(--chart-5);
+  background-color: var(--chart-5);
+}
+.series-other {
+  fill: var(--outline-variant);
+  background-color: var(--outline-variant);
+}
+.series-hooks {
+  fill: var(--outline);
+  background-color: var(--outline);
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  font-size: 0.8rem;
+  color: var(--on-surface-variant);
+  margin-top: 0.25rem;
+}
+
+.chart-legend .swatch {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 0.2rem;
+  margin-right: 0.3rem;
+  vertical-align: -0.05rem;
+}
+
+.chart-legend .swatch.line {
+  height: 0.2rem;
+  width: 1rem;
+  vertical-align: 0.2rem;
+  background-color: var(--chart-1);
+}
+
+.chart-legend .swatch.band {
+  background-color: color-mix(in srgb, var(--chart-1) 25%, transparent);
+}
+
+.chart-legend i {
+  font-size: 1rem;
+  vertical-align: -0.2rem;
+}
+
+.chart-card {
+  min-width: 0;
+}
+
+.chart-note {
+  color: var(--on-surface-variant);
+  font-size: 0.8rem;
+  margin: 0.25rem 0 0;
+}

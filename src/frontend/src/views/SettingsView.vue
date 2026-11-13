@@ -23,12 +23,12 @@
         </nav>
     </dialog>
 
-    <div>
-        <article
-            class="border no-elevate update-card"
+    <div class="settings-page">
+        <section
             data-cy="update-card"
+            aria-label="Updates"
         >
-            <div class="row">
+            <div class="row update-row">
                 <div
                     class="update-icon"
                     :class="status.color"
@@ -66,73 +66,137 @@
                     {{ installing ? "Installing..." : canUpdate ? "Update to " + update.latest : "Update" }}
                 </button>
             </div>
-        </article>
-
+        </section>
+        <hr class="large" />
         <form
             method="post"
             @submit.prevent="save"
         >
+            <section aria-labelledby="builds-heading">
+                <h6
+                    id="builds-heading"
+                    class="small no-margin"
+                >
+                    Builds
+                </h6>
+                <div class="grid">
+                    <div class="s12 m6">
+                        <div class="field label border">
+                            <input
+                                id="concurrent-builds"
+                                v-model="concurrentBuilds"
+                                type="number"
+                                min="1"
+                                placeholder=" "
+                                aria-describedby="concurrent-builds-help"
+                            />
+                            <label for="concurrent-builds">Concurrent builds</label>
+                            <output id="concurrent-builds-help">How many builds may run at the same time</output>
+                        </div>
+                    </div>
+                    <div class="s12 m6">
+                        <div class="field label border">
+                            <input
+                                id="build-history-size"
+                                v-model="buildHistorySize"
+                                type="number"
+                                min="1"
+                                placeholder=" "
+                                aria-describedby="build-history-help"
+                            />
+                            <label for="build-history-size">Builds to keep</label>
+                            <output id="build-history-help">The latest builds of all jobs, with logs and files. Analytics keeps 400 days</output>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <hr class="large" />
+            <section aria-labelledby="api-limits-heading">
+                <nav class="no-margin">
+                    <h6
+                        id="api-limits-heading"
+                        class="small max no-margin"
+                    >
+                        API key limits
+                    </h6>
+                    <router-link
+                        to="/keys"
+                        class="button border small-round"
+                        ><i>key</i><span>Manage API keys</span></router-link
+                    >
+                </nav>
+                <p class="muted description">Each key has its own limits. A key that goes over them gets 429 and waits as long as Retry-After says.</p>
+                <div class="grid">
+                    <div class="s12 m6">
+                        <div class="field label border">
+                            <input
+                                id="api-key-burst"
+                                v-model="apiKeyBurst"
+                                type="number"
+                                min="1"
+                                max="100000"
+                                placeholder=" "
+                                data-cy="api-key-burst"
+                                aria-describedby="api-key-burst-help"
+                            />
+                            <label for="api-key-burst">Burst size</label>
+                            <output id="api-key-burst-help">How many requests a key may send at full speed before it has to slow down</output>
+                        </div>
+                    </div>
+                    <div class="s12 m6">
+                        <div class="field label border">
+                            <input
+                                id="api-key-rate"
+                                v-model="apiKeyRate"
+                                type="number"
+                                min="1"
+                                max="100000"
+                                placeholder=" "
+                                data-cy="api-key-rate"
+                                aria-describedby="api-key-rate-help"
+                            />
+                            <label for="api-key-rate">Steady rate</label>
+                            <output id="api-key-rate-help">Requests a second after the burst is used</output>
+                        </div>
+                    </div>
+                </div>
+                <p
+                    v-if="apiKeyExample"
+                    class="muted small-text"
+                    data-cy="api-key-example"
+                >
+                    {{ apiKeyExample }}
+                </p>
+            </section>
             <!-- Only the admin password may change the password -->
-            <div
-                v-if="admin"
-                class="field border small"
-            >
-                <input
-                    id="password"
-                    v-model="password"
-                    type="password"
-                />
-                <span class="helper">Password</span>
-            </div>
-
-            <div class="field border small">
-                <input
-                    id="concurrent-builds"
-                    v-model="concurrentBuilds"
-                    type="number"
-                    min="1"
-                />
-                <span class="helper">Number of concurrent builds</span>
-            </div>
-
-            <div class="field border small">
-                <input
-                    id="build-history-size"
-                    v-model="buildHistorySize"
-                    type="number"
-                    min="1"
-                />
-                <span class="helper">Number of builds to preserve</span>
-            </div>
-
-            <h6 class="small">API keys</h6>
-            <p class="small-text muted">Limits for each key on its own. A key over them gets 429 and waits as long as Retry-After says.</p>
-            <div class="field border small">
-                <input
-                    id="api-key-rate"
-                    v-model="apiKeyRate"
-                    type="number"
-                    min="1"
-                    max="100000"
-                    data-cy="api-key-rate"
-                />
-                <span class="helper">Requests a second each key may keep sending</span>
-            </div>
-
-            <div class="field border small">
-                <input
-                    id="api-key-burst"
-                    v-model="apiKeyBurst"
-                    type="number"
-                    min="1"
-                    max="100000"
-                    data-cy="api-key-burst"
-                />
-                <span class="helper">Requests each key may send at once</span>
-            </div>
-
-            <nav class="no-space">
-                <div class="max"></div>
+            <template v-if="admin">
+                <hr class="large" />
+                <section aria-labelledby="password-heading">
+                    <h6
+                        id="password-heading"
+                        class="small no-margin"
+                    >
+                        Admin password
+                    </h6>
+                    <div class="grid">
+                        <div class="s12 m6">
+                            <div class="field label border">
+                                <input
+                                    id="password"
+                                    v-model="password"
+                                    type="password"
+                                    autocomplete="new-password"
+                                    placeholder=" "
+                                    aria-describedby="password-help"
+                                />
+                                <label for="password">New password</label>
+                                <output id="password-help">For password login and Basic auth. Leave it empty to keep the current one</output>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </template>
+            <nav class="right-align">
                 <button
                     data-cy="save-settings"
                     type="submit"
@@ -141,33 +205,43 @@
                 </button>
             </nav>
         </form>
-
         <!-- Only the admin password sees or changes the groups -->
-        <SSOGroupsCard
-            v-if="auth.admin"
-            :key="groupsKey"
-        />
-        <SettingsFileCard
-            v-if="auth.admin"
-            @imported="reload"
-        />
-        <ServerConfigCard
-            v-if="server"
-            :server="server"
-        />
+        <template v-if="auth.admin">
+            <hr class="large" />
+            <SSOGroupsCard :key="groupsKey" />
+            <hr class="large" />
+            <SettingsFileCard @imported="reload" />
+        </template>
     </div>
 </template>
 
 <script>
 import SSOGroupsCard from "@/components/SSOGroupsCard.vue";
-import ServerConfigCard from "@/components/ServerConfigCard.vue";
 import SettingsFileCard from "@/components/SettingsFileCard.vue";
 import { escapeHtml } from "@/store/utils";
 import axios from "axios";
 import vuex from "vuex";
 
+// duration says how long seconds is, rounded for a sentence
+function duration(seconds) {
+    if (seconds < 1) {
+        return "less than a second";
+    }
+    const round = (value, unit) => {
+        const n = Math.round(value);
+        return n === 1 ? `1 ${unit}` : `${n} ${unit}s`;
+    };
+    if (seconds < 90) {
+        return round(seconds, "second");
+    }
+    if (seconds < 90 * 60) {
+        return round(seconds / 60, "minute");
+    }
+    return round(seconds / 3600, "hour");
+}
+
 export default {
-    components: { SSOGroupsCard, ServerConfigCard, SettingsFileCard },
+    components: { SSOGroupsCard, SettingsFileCard },
     data: function () {
         return {
             password: "",
@@ -179,8 +253,6 @@ export default {
             update: null,
             installing: false,
             confirmingUpdate: false,
-            // What Wakefile.yaml set, shown read-only
-            server: null,
             // Changing it reloads the groups after an import
             groupsKey: 0,
         };
@@ -224,6 +296,21 @@ export default {
                 ? ` · checked at ${new Date(update.checkedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
                 : "";
             return { icon: "check", color: "secondary-container", text: `Up to date${checked}` };
+        },
+        // What the API key limits mean with the values typed, and how the
+        // burst comes back (keyRequestLimiter.take)
+        apiKeyExample: function () {
+            const burst = Number(this.apiKeyBurst);
+            const rate = Number(this.apiKeyRate);
+            if (!(burst >= 1 && rate >= 1)) {
+                return "";
+            }
+            const requests = burst === 1 ? "1 request" : `${burst} requests`;
+            return (
+                `With these values, a script can send ${requests} as fast as it can, even all within one second, then ${rate} a second. ` +
+                `The burst isn't reset on a timer: every second gives ${rate} of it back and every request uses one. ` +
+                `So ${duration(burst / rate)} without requests fill it again, and a key that keeps sending ${rate} a second never gets any back.`
+            );
         },
         // Not while stopping: the banner says what happens next
         canUpdate: function () {
@@ -308,7 +395,6 @@ export default {
                     if (response.data.apiKeyBurst) {
                         this.apiKeyBurst = response.data.apiKeyBurst;
                     }
-                    this.server = response.data.server || null;
                 })
                 .catch(() => {});
         },
@@ -316,13 +402,12 @@ export default {
 };
 </script>
 
-<!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
 .muted {
-    opacity: 0.7;
+    color: var(--on-surface-variant);
 }
-.update-card {
-    margin: 0 0 1.5rem;
+.description {
+    margin: 0.5rem 0 0;
 }
 .update-icon {
     flex: none;
@@ -340,5 +425,13 @@ export default {
 .update-text {
     font-size: 0.875rem;
     opacity: 0.8;
+}
+@media (max-width: 600px) {
+    .update-row {
+        flex-wrap: wrap;
+    }
+    .update-row .max {
+        min-width: 0;
+    }
 }
 </style>

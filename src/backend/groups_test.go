@@ -339,8 +339,9 @@ func TestEveryAPIRouteChecksAccess(t *testing.T) {
 
 	open := map[string]bool{
 		// Filtered to the user's jobs
-		"GET /api/feed":  true,
-		"GET /api/jobs/": true,
+		"GET /api/feed":       true,
+		"GET /api/jobs/":      true,
+		"GET /api/analytics/": true,
 		// The state of the server, for the banner, and the user's own access
 		"GET /api/queue/": true,
 		"GET /api/whoami": true,

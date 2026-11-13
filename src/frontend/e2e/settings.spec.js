@@ -13,6 +13,12 @@ test("should modify settings", async ({ page, backend }) => {
     await expect(page.getByTestId("api-key-burst")).toHaveValue("120");
     await page.getByTestId("api-key-rate").fill("50");
     await page.getByTestId("api-key-burst").fill("500");
+    // The example follows the fields: 500 / 50 seconds to fill the burst
+    await expect(page.getByTestId("api-key-example")).toHaveText(
+        "With these values, a script can send 500 requests as fast as it can, even all within one second, then 50 a second. " +
+            "The burst isn't reset on a timer: every second gives 50 of it back and every request uses one. " +
+            "So 10 seconds without requests fill it again, and a key that keeps sending 50 a second never gets any back.",
+    );
     await page.getByTestId("save-settings").click();
     await expect(page.locator(".notification-content")).toContainText("Saved");
     await page.getByTestId("logout").click();
