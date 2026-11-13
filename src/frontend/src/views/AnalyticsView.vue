@@ -96,44 +96,6 @@
                 </article>
             </div>
 
-            <article
-                v-if="failing.length"
-                class="border no-elevate padding"
-                data-cy="failing-now"
-            >
-                <h6 class="small no-margin">Failing now</h6>
-                <div
-                    v-for="failed in failing"
-                    :key="failed.name"
-                    class="row failing-row"
-                    data-cy="failing-job"
-                >
-                    <BuildStatus :status="failed.failing.last.status" />
-                    <div class="max">
-                        <router-link
-                            :to="insightsLink(failed.name)"
-                            class="link bold"
-                            >{{ failed.name }}</router-link
-                        >
-                        <span class="muted">
-                            · {{ failed.failing.builds }} {{ failed.failing.builds === 1 ? "build" : "builds in a row" }} since #{{ failed.failing.first.id }},
-                            {{ ago(failed.failing.first.startedAt) }}</span
-                        >
-                        <div
-                            v-if="failed.failing.last.failedTask"
-                            class="muted"
-                        >
-                            #{{ failed.failing.last.id }} stopped at <b>{{ failed.failing.last.failedTask }}</b>
-                        </div>
-                    </div>
-                    <router-link
-                        :to="{ name: 'build', params: { id: failed.failing.last.id } }"
-                        class="button border small"
-                        >Open build</router-link
-                    >
-                </div>
-            </article>
-
             <article class="border no-elevate padding chart-card">
                 <h6 class="small no-margin">Builds per day, by result</h6>
                 <StatusBarsChart :days="data.byDay" />
@@ -343,7 +305,6 @@
 <script>
 import "@/assets/charts.css";
 import { STATUSES, TRIGGERS, ago, axisDuration, dayLabel, formatDuration, formatRate, isZeroTime, niceDurationMax } from "@/analytics";
-import BuildStatus from "@/components/BuildStatus.vue";
 import BandLegend from "@/components/charts/BandLegend.vue";
 import LineChart from "@/components/charts/LineChart.vue";
 import OutcomeStrip from "@/components/charts/OutcomeStrip.vue";
@@ -359,7 +320,7 @@ const RANGES = [7, 30, 90, 365];
 const FINAL = new Set(STATUSES.map((s) => s.status));
 
 export default {
-    components: { BandLegend, BuildStatus, LineChart, OutcomeStrip, SparkLine, StartsHeatmap, StatusBarsChart, StatusLegend },
+    components: { BandLegend, LineChart, OutcomeStrip, SparkLine, StartsHeatmap, StatusBarsChart, StatusLegend },
     data() {
         return {
             ranges: RANGES,
@@ -438,9 +399,6 @@ export default {
                     spark: days.map((d) => (d.wait.count ? d.wait.p50 : null)),
                 },
             ];
-        },
-        failing() {
-            return this.data.jobs.filter((job) => job.failing).sort((a, b) => b.failing.last.id - a.failing.last.id);
         },
         ratePoints() {
             return this.data.byDay.map((d) => ({
@@ -727,13 +685,6 @@ export default {
 .tile-sub {
     font-size: 0.8rem;
     min-height: 1.2rem;
-}
-.failing-row {
-    padding: 0.5rem 0;
-    border-top: 1px solid var(--outline-variant);
-}
-.failing-row:first-of-type {
-    border-top: 0;
 }
 .bar-row {
     display: grid;

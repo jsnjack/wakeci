@@ -68,8 +68,11 @@ last one today:
   builds that ended; wait is `startedAt − queuedAt`.
 - **The previous period** (as many days before the range) is compared only
   if the stats reach back to its start.
-- **Failing now** is a job whose last build that wasn't aborted failed or
-  timed out; aborted builds don't end the streak.
+- **`failing`**, in each job of the answer, is set when the job's last
+  build that wasn't aborted failed or timed out; aborted builds don't end
+  the streak. The page doesn't show it: with deleted and test jobs, whose
+  stats outlive them, the list grew long; the jobs table shows each job's
+  last builds instead. MCP's `analytics` tool reports it.
 - **Reading**: in a read transaction, from the newest record back until one
   is older than the range by more than `statsOrderSlack` (2 days), since a
   build may wait in the queue and backfilled records are ordered by start.

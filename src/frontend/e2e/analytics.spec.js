@@ -41,7 +41,6 @@ test("analytics count a job's builds and open its insights", async ({ page, wake
     await page.goto(`/analytics?job=${encodeURIComponent(name)}`);
     await expect(page.getByTestId("tile-builds").getByTestId("tile-value")).toHaveText("2");
     await expect(page.getByTestId("tile-success").getByTestId("tile-value")).toHaveText("50.0%");
-    await expect(page.getByTestId("failing-now")).toHaveCount(0);
     await expect(page.getByTestId("status-bar")).toHaveCount(30);
     const row = page.getByTestId(`job-row-${name}`);
     await expect(row.getByTestId("job-success")).toHaveText("50%");
@@ -62,7 +61,7 @@ test("analytics count a job's builds and open its insights", async ({ page, wake
     await expect(page).toHaveURL(`/build/${failed}`);
 });
 
-test("a failing job is listed as failing now, and the filters stay in the address", async ({ page, wake }) => {
+test("the filters stay in the address", async ({ page, wake }) => {
     const name = await wake.createJob("tasks:\n  - name: broken step\n    run: exit 3\n");
     const id = await wake.runJob(name);
     await wake.waitForBuild(id, "failed");
@@ -71,10 +70,9 @@ test("a failing job is listed as failing now, and the filters stay in the addres
     await page.goto(`/analytics?days=7&job=${encodeURIComponent(name)}`);
     await expect(page.getByTestId("range-7")).toHaveClass(/active/);
     await expect(page.getByTestId("job-filter")).toHaveValue(name);
-    const failing = page.getByTestId("failing-job");
-    await expect(failing).toHaveCount(1);
-    await expect(failing).toContainText(name);
-    await expect(failing).toContainText("broken step");
+    const row = page.getByTestId(`job-row-${name}`);
+    await expect(row.getByTestId("job-success")).toHaveText("0%");
+    await expect(row.locator("[data-cy-status=failed]")).toHaveCount(1);
 
     await page.getByTestId("range-90").click();
     await expect(page).toHaveURL(new RegExp(`days=90`));
