@@ -165,6 +165,35 @@ log (`abortedBy`): the single sign-on email, the API key's name and ID, or
 "with the admin password". Everyone who may read the build sees it, unlike
 the people on the analytics page, which only the admin password sees.
 
+## Revoking a person
+
+The admin password (password login or Basic auth) lists and revokes every
+key and can revoke all keys of a person (`DELETE /api/keys/?createdBy=`);
+an SSO user lists and revokes only keys with their email, and someone
+else's key is a 404 to them. Offboarding is this manual step: wakeci can't
+see a Google account go (custom SAML apps get no provisioning), and keys
+used by agents mean their owner may never sign in again, so expiring keys
+on inactivity would break live automation.
+
+- **Sessions end first.** Revoking a person's keys also ends their
+  sessions, first and under `apiKeyOwnersMu`, which key creation takes
+  too, so a session they still have can't make a new key.
+- **Their WebSockets close.** Ended sessions (revoke, logout, expiry,
+  password change) are passed to `SessionStorage.OnEnd`, which closes the
+  WebSockets opened with them (`Hub.CloseSessions`), since `/ws` only
+  checks auth at the upgrade. A request can pass `AuthMi` and register
+  only after its session ended, so the hub checks the session again when
+  it registers a client.
+- **Everyone can be signed out.** The admin's person list
+  (`APIKeysData.People`) includes everyone signed in with SSO, so someone
+  without keys can be signed out too.
+- **Older logins are refused.** A revoke also records a cutoff per person
+  (`SessionStorage.revoked`): an SSO login whose signed assertion was
+  issued before it, plus a minute for clock skew, is refused by `NewSSO`,
+  under the same lock as `DeleteUser`, so a login obtained before the
+  offboarding can't recreate a session. A fresh login still works unless
+  Google stopped the account.
+
 ## What it doesn't do
 
 Group membership comes from the identity provider at login, so a person

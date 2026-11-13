@@ -283,32 +283,16 @@ AGENTS.universal.md for the general contract.
   password would log in with it and be the admin, so `HandleSettingsPost`
   refuses a password change without the admin password (403, nothing
   saved) and the settings page hides the field. Revoking a person's keys
-  also ends their sessions, first and under `apiKeyOwnersMu`, which key
-  creation takes too, so a session they still have can't make a new key.
-  Ended sessions (revoke, logout, expiry, password change) are passed to
-  `SessionStorage.OnEnd`, which closes the WebSockets opened with them
-  (`Hub.CloseSessions`), since `/ws` only checks auth at the upgrade. A
-  request can pass `AuthMi` and register only after its session ended, so
-  the hub checks the session again when it registers a client. The
-  admin's person list (`APIKeysData.People`) includes everyone signed in
-  with SSO, so someone without keys can be signed out too. A revoke also
-  records a cutoff per person (`SessionStorage.revoked`): an SSO login whose
-  signed assertion was issued before it, plus a minute for clock skew, is
-  refused by `NewSSO`, under the same lock as `DeleteUser`, so a login
-  obtained before the offboarding can't recreate a session. A fresh login
-  still works unless Google stopped the account.
+  also ends their sessions and WebSockets and refuses their SSO logins
+  from before it ([docs/access.md](docs/access.md#revoking-a-person)).
   What an SSO user may do comes from their groups, set by the admin
   password in the settings ([docs/access.md](docs/access.md)); `write`
   still runs commands on the server, so those who have it are trusted.
   Sessions carry the SSO email (`session.user`, empty for the password) and
   each key records it in `CreatedBy`. `requestUser` reads it, Basic auth
-  first like `AuthMi`. The admin password (password login or Basic auth)
-  lists and revokes every key and can revoke all keys of a person
-  (`DELETE /api/keys/?createdBy=`); an SSO user lists and revokes only keys
-  with their email, and someone else's key is a 404 to them. Offboarding is
-  this manual step: wakeci can't see a Google account go (custom SAML apps
-  get no provisioning), and keys used by agents mean their owner may never
-  sign in again, so expiring keys on inactivity would break live automation.
+  first like `AuthMi`. The admin password lists and revokes every key,
+  also all of a person's; an SSO user only keys with their email.
+  Offboarding is that manual step.
 - **API key secrets are hashed with SHA-256, not bcrypt.** A secret is 256
   random bits, so there is nothing to guess; bcrypt would slow down every
   API call. Tokens are `wk_<id>_<secret>`: the ID is public (list, logs,
