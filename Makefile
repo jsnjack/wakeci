@@ -26,10 +26,12 @@ src/backend/wakeci: version src/backend/*.go
 	go tool swag init --parseInternal --parseDepth 1 || exit 99
 	CGO_ENABLED=0 go build -ldflags="-X main.Version=${VERSION}" -o ${BINARY}
 
+# -f replaces bin/wakeci even while a server runs it ("Text file busy"):
+# cp deletes the file and writes a new one, and the server keeps its copy
 .ONESHELL:
 bin/wakeci: src/backend/wakeci
 	cd src/backend
-	cp wakeci ${PWD}/bin/
+	cp -f wakeci ${PWD}/bin/
 
 # Starts the frontend and the backend in one terminal; open
 # http://localhost:8080. The frontend dev server updates the page as frontend
