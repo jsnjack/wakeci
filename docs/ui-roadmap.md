@@ -25,12 +25,10 @@ each, and the order. When an item ships, delete it here and name it (e.g.
 
 ## Feed
 
-- **F1. Show what a build is about.** Chips show the parameters whose value
-  differs from the job's default, in YAML order, with the name in a tooltip;
-  40-character hex values shortened to 7. On the data above this picks
-  commit, branch and author for every test job and drops the constant. Today
-  `FeedItem.getFilteredParams` takes the first three non-empty ones. The job
-  defaults come with the jobs list (`defaultParams`). Effort S.
+- **F1. Show what a build is about.** The chips already leave out empty
+  parameters and those at the job's current default, with the name in a
+  tooltip. Left: 40-character hex values shortened to 7, copying the full
+  value. Effort S.
 - **F2. Group builds under the build that started them.** `POST
   /api/job/{name}/run` accepts `parent=<build id>`; a job that starts others
   passes `parent=${WAKE_BUILD_ID}`. The feed shows one row per parent with a

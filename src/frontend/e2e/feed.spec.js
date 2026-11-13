@@ -57,14 +57,34 @@ tasks:
   - name: Print env
     run: env
 `);
-    await wake.runJob(name);
+    await wake.runJob(name, { param1: "new0", param2: "new1", param3: "new2", param4: "new3" });
     await wake.showFeed(name);
     const values = page.getByTestId("params-value");
-    await expect(values).toHaveText(["ok0content_copyparam1", "ok1content_copyparam2", "ok2content_copyparam3"]);
+    await expect(values).toHaveText(["new0content_copyparam1", "new1content_copyparam2", "new2content_copyparam3"]);
     await page.getByTestId("expand-more-params-button").click();
     await expect(values).toHaveCount(4);
     await page.getByTestId("expand-less-params-button").click();
     await expect(values).toHaveCount(3);
+});
+
+test("should show only the params that differ from the job's defaults", async ({ page, wake }) => {
+    const name = await wake.createJob(`
+desc: Test env variables
+params:
+  - COMMIT: ""
+  - BRANCH: main
+  - SUITE: all
+  - AUTHOR: nobody
+tasks:
+  - name: Print env
+    run: env
+`);
+    await wake.runJob(name, { COMMIT: "abc123", AUTHOR: "alice" });
+    await wake.showFeed(name);
+    const values = page.getByTestId("params-value");
+    await expect(values).toHaveText(["abc123content_copyCOMMIT", "alicecontent_copyAUTHOR"]);
+    await page.getByTestId("expand-more-params-button").click();
+    await expect(values).toHaveText(["abc123content_copyCOMMIT", "maincontent_copyBRANCH", "allcontent_copySUITE", "alicecontent_copyAUTHOR"]);
 });
 
 test("should preserve filter after reload", async ({ page, wake }) => {
@@ -120,9 +140,10 @@ test("should keep the filter in the address bar", async ({ page }) => {
 test("should filter by a build's parameter when it is clicked", async ({ page, wake }) => {
     // Short enough to be shown in full
     const target = `prod-${randomUUID().slice(0, 8)}`;
-    const name = await wake.createJob(`desc: Params\nparams:\n  - TARGET: ${target}\ntasks:\n  - name: hello\n    run: echo hello\n`);
+    const name = await wake.createJob(`desc: Params\nparams:\n  - TARGET: staging\ntasks:\n  - name: hello\n    run: echo hello\n`);
     await wake.showFeed(name);
-    await wake.runJob(name);
+    // The feed leaves out params at their default
+    await wake.runJob(name, { TARGET: target });
     const builds = page.getByTestId("feed-container").locator("[data-cy-build]");
     await expect(builds).toHaveCount(1);
 

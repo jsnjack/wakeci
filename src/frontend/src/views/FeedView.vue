@@ -61,6 +61,7 @@
             v-for="item in sortedBuilds"
             :key="item.id"
             :build="item"
+            :defaults="jobDefaults.get(item.name) || null"
             @set-filter="handleSetFilter"
         />
     </div>
@@ -110,6 +111,9 @@ export default {
             moreEnabled: true, // if makes sense to load more builds from the server
             filteredUpdates: 0, // When `filter` is active, updates which do not much are counted here
             filterObj: null,
+            // Each job's default params as { NAME: value }, so a row can
+            // leave them out
+            jobDefaults: new Map(),
         };
     },
     computed: {
@@ -141,6 +145,7 @@ export default {
         // `more` and load older builds instead.
         "ws.reconnects"() {
             this.fetchNow();
+            this.fetchJobDefaults();
         },
     },
     mounted() {
@@ -163,6 +168,7 @@ export default {
         }
 
         this.fetchNow();
+        this.fetchJobDefaults();
         this.subscribe();
         this.emitter.on(this.subscription, this.applyUpdate);
     },
@@ -240,6 +246,19 @@ export default {
             });
         },
         fetch() {},
+        // Without them, rows show the first non-empty params
+        fetchJobDefaults() {
+            axios
+                .get("/api/jobs/")
+                .then((response) => {
+                    const defaults = new Map();
+                    for (const job of response.data || []) {
+                        defaults.set(job.name, Object.assign({}, ...(job.defaultParams || [])));
+                    }
+                    this.jobDefaults = defaults;
+                })
+                .catch(() => {});
+        },
         fetchNow(more = false) {
             this.fetch(more);
             this.fetch.flush();

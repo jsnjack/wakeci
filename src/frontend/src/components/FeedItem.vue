@@ -107,6 +107,11 @@ export default {
             type: Object,
             required: true,
         },
+        // The job's default params as { NAME: value }, null while unknown
+        defaults: {
+            type: Object,
+            default: null,
+        },
     },
     emits: ["setFilter"],
     data: function () {
@@ -139,11 +144,14 @@ export default {
                 return this.build.params;
             }
 
-            // Limit number of params and skip empty ones
+            // Empty params, and those left at the job's default, say nothing
+            // about the build
             if (this.build.params) {
                 return this.build.params
-                    .filter((v) => {
-                        return Object.values(v)[0] !== ""; // skip empty params
+                    .filter((param) => {
+                        const [name, value] = Object.entries(param)[0];
+                        const isDefault = this.defaults !== null && Object.hasOwn(this.defaults, name) && this.defaults[name] === value;
+                        return value !== "" && !isDefault;
                     })
                     .slice(0, MAX_DEFAULT_NUMBER_OF_PARAMS);
             }

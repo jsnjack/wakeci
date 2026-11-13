@@ -266,8 +266,9 @@ export const test = base.extend({
                     .toBe(true);
                 return name;
             },
-            async runJob(name) {
-                const response = await backend.api.post(`/api/job/${encodeURIComponent(name)}/run`);
+            // params, e.g. { BRANCH: "main" }, replace the job's defaults
+            async runJob(name, params) {
+                const response = await backend.api.post(`/api/job/${encodeURIComponent(name)}/run`, params ? { form: params } : undefined);
                 await expect(response).toBeOK();
                 const id = await response.json();
                 builds.push(id);
