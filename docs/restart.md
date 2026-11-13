@@ -10,8 +10,8 @@ queued builds, saves sessions, or updates itself. AGENTS.md keeps a summary.
 builds are queued. `drainQueue` waits for the running builds until `abortAt`
 (`draintimeout`), then aborts them, also the hooks of builds aborted while
 queued, with a note in their logs, and waits `stopHookTimeout` for their
-hooks; each further signal skips one wait. The banner's Stop now (Restart
-now after an update) button skips the first one: `POST /api/queue/abort`
+hooks; each further signal skips one wait. The banner's Restart now button
+skips the first one: `POST /api/queue/abort`
 calls `Queue.AbortNow`, which closes `abortNow`, and the task logs say who
 asked. Once the builds are aborted, `buildsAborted` in the queue status
 changes the banner. Every signal goes through
@@ -79,14 +79,16 @@ or in `--import-settings`, `backupForNewVersion` writes a copy next to it,
   way to do it. The stop state isn't saved; it ends with the process. "Start
   now" doesn't work while stopping, since the build would delay or be cut by
   the restart.
-- **Anyone with write may abort the running builds of a stop.** Stop now
+- **Anyone with write may abort the running builds of a stop.** Restart now
   aborts every job's builds, so it needs the write scope, like the update
   that may have begun the stop, not run on one job. It only skips the wait
   for the running builds: their on_aborted and finally tasks still get
   `stopHookTimeout`, since they clean up after a deploy, and only a further
   signal cuts them short. It is the same as a second SIGTERM, which with
   `KillMode=mixed` only `systemctl kill --kill-whom=main` sends without
-  also signalling the tasks.
+  also signalling the tasks. It says "Restart now" even for a stop a signal
+  began, since that is usually a deploy's restart; the dialog says wakeci
+  stops.
 - **The settings page checks for updates on every visit.** `HandleUpdateGet`
   caches a found release for `releaseCacheTTL` (10 minutes) to stay well
   inside GitHub's 60 unauthenticated requests per hour, and returns a failed

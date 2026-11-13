@@ -28,7 +28,7 @@
                 :disabled="aborting"
                 @click.prevent="confirming = true"
             >
-                {{ actionName }}
+                Restart now
             </button>
         </div>
         <dialog
@@ -50,7 +50,7 @@
                     data-cy="queue-abort-confirm"
                     @click.prevent="abortNow"
                 >
-                    Abort builds and {{ queue.restartVersion ? "restart" : "stop" }}
+                    Abort builds and restart
                 </button>
             </nav>
         </dialog>
@@ -72,11 +72,6 @@ export default {
     computed: {
         ...vuex.mapState(["queue"]),
         ...vuex.mapGetters(["canAny"]),
-        // A stop that no update asked for is a restart only if a service
-        // manager starts wakeci again
-        actionName: function () {
-            return this.queue.restartVersion ? "Restart now" : "Stop now";
-        },
         abortTime: function () {
             if (!this.queue.abortAt) {
                 return "";
