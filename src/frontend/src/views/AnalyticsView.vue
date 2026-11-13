@@ -44,7 +44,7 @@
                 class="muted"
                 data-cy="analytics-range"
             >
-                {{ rangeText }} · server time
+                {{ rangeText }}
             </small>
         </nav>
 

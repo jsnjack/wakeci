@@ -51,7 +51,7 @@
                 class="swatch"
                 :style="{ backgroundColor: color(level * max) }"
             ></span>
-            <span>more · server time</span>
+            <span>more</span>
         </div>
     </div>
 </template>
