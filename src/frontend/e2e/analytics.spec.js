@@ -185,3 +185,26 @@ test("the pickers find an option as you type and fill in the rest", async ({ pag
     await trigger.press("Tab");
     await expect(page).toHaveURL(/trigger=sso/);
 });
+
+// Regression: the duration chart drew its axis from no days while its own
+// request was on the way, and the error left the router unable to show the
+// next page
+test("the page works while the duration chart's request is on its way", async ({ page, wake }) => {
+    const name = await wake.createJob("tasks:\n  - name: hello\n    run: echo hello\n");
+    const id = await wake.runJob(name);
+    await wake.waitForBuild(id);
+    await waitForEnd(page, id);
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.route(/\/api\/analytics\/\?.*job=/, async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await route.continue();
+    });
+
+    await page.goto("/analytics");
+    await expect(page.getByTestId("tile-builds")).toBeVisible();
+    await page.locator('header a[href="/jobs"]').click();
+    await expect(page).toHaveURL(/\/jobs$/);
+    await expect(page.getByTestId("jobs-container")).toBeVisible();
+    expect(errors).toEqual([]);
+});

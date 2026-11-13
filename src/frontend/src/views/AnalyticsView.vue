@@ -115,12 +115,20 @@
                             >{{ durationTarget }}</span
                         >
                     </div>
+                    <!-- The days of the job picked in the chart come in a request of their own -->
                     <LineChart
+                        v-if="durationDays"
                         :points="durationPoints"
                         :max="durationMax"
                         :format="axisDuration"
                         label="Median and 95th percentile of build duration"
                     />
+                    <div
+                        v-else
+                        class="chart-loading middle-align center-align"
+                    >
+                        <progress class="circle small"></progress>
+                    </div>
                     <BandLegend />
                 </article>
             </div>
@@ -408,16 +416,28 @@ export default {
             return this.jobsByBuildTime.length ? this.jobsByBuildTime[0].name : "";
         },
         durationDays() {
-            if (this.job || !this.durationData || this.durationData.job !== this.durationTarget) {
-                return this.job ? this.data.byDay : null;
+            if (this.job) {
+                return this.data.byDay;
+            }
+            // Null until the days of this job, range and trigger came
+            if (!this.durationData || this.durationData.params !== this.durationParams) {
+                return null;
             }
             return this.durationData.byDay;
         },
+        // What the duration chart asks for, as a key
+        durationParams() {
+            const params = { days: this.days, job: this.durationTarget };
+            if (this.trigger) {
+                params.trigger = this.trigger;
+            }
+            return JSON.stringify(params);
+        },
         durationPoints() {
-            return this.bandPoints("duration", this.durationDays || []);
+            return this.bandPoints("duration", this.durationDays);
         },
         durationMax() {
-            return niceDurationMax(Math.max(1, ...(this.durationDays || []).map((d) => d.duration.p95)));
+            return niceDurationMax(Math.max(1, ...this.durationDays.map((d) => d.duration.p95)));
         },
         waitPoints() {
             return this.bandPoints("wait", this.data.byDay);
@@ -544,21 +564,16 @@ export default {
         // fetchDuration reads the days of the job the duration chart shows,
         // unless the page is filtered to a job already
         fetchDuration() {
-            const job = this.durationTarget;
-            if (this.job || !job) {
+            if (this.job || !this.durationTarget) {
                 return;
             }
-            const params = { days: this.days, job };
-            if (this.trigger) {
-                params.trigger = this.trigger;
-            }
-            const asked = JSON.stringify(params);
-            this.durationAsked = asked;
+            const params = this.durationParams;
             axios
-                .get("/api/analytics/", { params })
+                .get("/api/analytics/", { params: JSON.parse(params) })
                 .then((response) => {
-                    if (this.durationAsked === asked) {
-                        this.durationData = { job, byDay: response.data.byDay };
+                    // An answer for other choices is dropped
+                    if (params === this.durationParams) {
+                        this.durationData = { params, byDay: response.data.byDay };
                     }
                 })
                 .catch(() => {});
@@ -708,6 +723,9 @@ th.sortable {
 }
 .analytics-page > .grid {
     margin: 0;
+}
+.chart-loading {
+    block-size: 160px;
 }
 .card-head {
     display: flex;

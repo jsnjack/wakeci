@@ -172,7 +172,10 @@ export default {
         },
         labels() {
             const n = this.points.length;
-            const count = Math.max(2, Math.min(n, Math.floor(this.width / 100)));
+            if (n === 0) {
+                return [];
+            }
+            const count = Math.min(n, Math.max(2, Math.floor(this.width / 100)));
             const labels = [];
             for (let k = 0; k < count; k++) {
                 const i = Math.round((k * (n - 1)) / Math.max(1, count - 1));
