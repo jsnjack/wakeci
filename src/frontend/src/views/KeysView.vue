@@ -153,6 +153,7 @@
                             v-if="today && key.uses > 0"
                             :uses-by-day="key.usesByDay || []"
                             :today="today"
+                            :created="key.createdAt"
                         />
                     </small>
                 </div>

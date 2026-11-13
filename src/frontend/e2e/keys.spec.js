@@ -263,9 +263,43 @@ test("should show how much each key is used, per day", async ({ page, backend, p
     const row = page.getByTestId(`key-${name}`);
     await expect(row.getByTestId("key-uses")).toHaveText("2 requests");
     await expect(row.getByTestId("key-last-used")).toContainText("Used");
-    await expect(row.getByTestId("key-usage-bar")).toHaveCount(30);
-    // Today is the last bar
-    await expect(row.getByTestId("key-usage-bar").last().locator("title")).toHaveText(/: 2 requests$/);
-    await expect(row.getByTestId("key-usage-total")).toHaveText("2 in 30 days");
-    await expect(row.getByTestId("key-usage").locator("svg")).toHaveAttribute("aria-label", /^2 requests in the last 30 days/);
+    // The chart starts on the day the key was created: today
+    await expect(row.getByTestId("key-usage-bar")).toHaveCount(1);
+    await expect(row.getByTestId("key-usage-bar").locator("title")).toHaveText(/: 2 requests$/);
+    await expect(row.getByTestId("key-usage-total")).toHaveText("today");
+    await expect(row.getByTestId("key-usage").locator("svg")).toHaveAttribute("aria-label", /^2 requests today/);
+});
+
+test("should chart a key's days since it was created, at most 30", async ({ page }) => {
+    const today = "2026-11-13";
+    const young = {
+        ...fakeKey("000000000001", "young", ""),
+        createdAt: "2026-11-10T09:30:00+01:00",
+        uses: 386,
+        usesByDay: [
+            { day: "2026-11-11", uses: 9 },
+            { day: "2026-11-12", uses: 7 },
+            { day: today, uses: 370 },
+        ],
+    };
+    const old = { ...fakeKey("000000000002", "old", ""), createdAt: "2026-06-01T09:30:00+02:00", uses: 1000, usesByDay: [{ day: "2026-10-20", uses: 12 }] };
+    await page.route(
+        (url) => url.pathname === "/api/keys/",
+        (route) => route.fulfill({ json: { admin: false, today, keys: [young, old] } }),
+    );
+    await page.goto("/keys");
+
+    const youngRow = page.getByTestId("key-young");
+    await expect(youngRow.getByTestId("key-usage-bar")).toHaveCount(4);
+    await expect(youngRow.getByTestId("key-usage-bar").first().locator("title")).toHaveText(/: 0 requests$/);
+    await expect(youngRow.getByTestId("key-usage-bar").last().locator("title")).toHaveText(/: 370 requests$/);
+    // Not "386 in 30 days" next to "386 requests"
+    await expect(youngRow.getByTestId("key-usage-total")).toHaveText(/^since \S/);
+    await expect(youngRow.getByTestId("key-usage").locator("svg")).toHaveAttribute("aria-label", /^386 requests since .+, most on .+ \(370\)$/);
+    // The row's rounded corners must not clip the first and last bars
+    await expect(youngRow.getByTestId("key-usage").locator("svg")).toHaveCSS("border-top-left-radius", "0px");
+
+    const oldRow = page.getByTestId("key-old");
+    await expect(oldRow.getByTestId("key-usage-bar")).toHaveCount(30);
+    await expect(oldRow.getByTestId("key-usage-total")).toHaveText("12 in 30 days");
 });
