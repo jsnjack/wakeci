@@ -245,6 +245,8 @@ func run(cleanup func()) (tasksLeft bool) {
 	if err != nil {
 		fatal("open db", err)
 	}
+	// Before anything writes to it
+	backUpForThisVersion(DB)
 	defer func() {
 		// The API key uses touchAPIKey hasn't saved yet
 		if err := flushAPIKeyUses(); err != nil {

@@ -345,6 +345,8 @@ func importSettingsFile(path string) ([]string, error) {
 			L.Error("close db", "err", closeErr)
 		}
 	}()
+	// An import can be the first thing a new version does to the db
+	backUpForThisVersion(DB)
 	if err := DB.Update(bootstrapDB); err != nil {
 		return nil, fmt.Errorf("bootstrap db: %w", err)
 	}

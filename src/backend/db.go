@@ -2,9 +2,15 @@ package main
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"regexp"
+	"slices"
 	"strconv"
+	"strings"
+	"time"
 
 	bolt "go.etcd.io/bbolt"
 	"golang.org/x/crypto/bcrypt"
@@ -192,4 +198,147 @@ func bootstrapDB(tx *bolt.Tx) error {
 		}
 	}
 	return nil
+}
+
+// dbVersionKey in GlobalBucket names the wakeci version that last opened the
+// database, so a new version backs it up first (backupForNewVersion)
+var dbVersionKey = []byte("dbVersion")
+
+// dbBackupsKept is how many backups backupForNewVersion keeps
+const dbBackupsKept = 3
+
+// dbBackupTime ends a backup's name; it sorts by time
+const dbBackupTime = "20060102T150405Z"
+
+// unsafeInFileName is what a version may not put in a backup's name
+var unsafeInFileName = regexp.MustCompile(`[^A-Za-z0-9._-]`)
+
+// backUpForThisVersion backs up the database if this version of wakeci opens
+// it for the first time, and logs the outcome. A failed backup doesn't stop
+// wakeci from starting
+func backUpForThisVersion(db *bolt.DB) {
+	path, err := backupForNewVersion(db, Version, time.Now())
+	if path != "" {
+		L.Info("backed up the database before this version first opened it", "version", Version, "path", path)
+	}
+	if err != nil {
+		L.Error("back up the database for a new version", "version", Version, "err", err)
+	}
+}
+
+// backupForNewVersion copies the database to <db>.before-<version>-<UTC time>
+// when version opens it for the first time, before anything writes to it, so
+// an update can be undone with the data the old version left. It keeps the
+// newest dbBackupsKept backups and returns the new one's path. A new database
+// isn't copied. The version is recorded even when the copy fails, so a later
+// start doesn't save the database it changed under that name
+func backupForNewVersion(db *bolt.DB, version string, now time.Time) (string, error) {
+	var stored []byte
+	isNew := false
+	if err := db.View(func(tx *bolt.Tx) error {
+		gb := tx.Bucket(GlobalBucket)
+		if gb == nil {
+			isNew = true
+			return nil
+		}
+		stored = slices.Clone(gb.Get(dbVersionKey))
+		return nil
+	}); err != nil {
+		return "", fmt.Errorf("read the version that last opened the db: %w", err)
+	}
+	if stored != nil && string(stored) == version {
+		return "", nil
+	}
+	var path string
+	var backupErr error
+	if !isNew {
+		path, backupErr = writeDBBackup(db, version, now)
+	}
+	if err := db.Update(func(tx *bolt.Tx) error {
+		gb, err := tx.CreateBucketIfNotExists(GlobalBucket)
+		if err != nil {
+			return err
+		}
+		return gb.Put(dbVersionKey, []byte(version))
+	}); err != nil {
+		return path, errors.Join(backupErr, fmt.Errorf("record the version that opened the db: %w", err))
+	}
+	return path, backupErr
+}
+
+// writeDBBackup writes a consistent copy of db next to it, under a temporary
+// name until it is complete, then deletes all but the newest dbBackupsKept
+func writeDBBackup(db *bolt.DB, version string, now time.Time) (string, error) {
+	name := unsafeInFileName.ReplaceAllString(version, "_")
+	path := db.Path() + ".before-" + name + "-" + now.UTC().Format(dbBackupTime)
+	tmp := path + ".tmp"
+	// Only its owner may read it, like the db it copies should be
+	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return "", fmt.Errorf("create backup: %w", err)
+	}
+	err = db.View(func(tx *bolt.Tx) error {
+		_, err := tx.WriteTo(f)
+		return err
+	})
+	if err == nil {
+		err = f.Sync()
+	}
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	if err == nil {
+		err = os.Rename(tmp, path)
+	}
+	if err != nil {
+		_ = os.Remove(tmp)
+		return "", fmt.Errorf("write backup: %w", err)
+	}
+	if err := pruneDBBackups(db.Path()); err != nil {
+		return path, fmt.Errorf("delete old backups: %w", err)
+	}
+	return path, nil
+}
+
+// pruneDBBackups deletes all but the newest dbBackupsKept backups of the db
+// at dbPath, and copies a crash left unfinished
+func pruneDBBackups(dbPath string) error {
+	dir, base := filepath.Split(dbPath)
+	if dir == "" {
+		dir = "."
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	prefix := base + ".before-"
+	var backups []string
+	var errs []error
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasPrefix(name, prefix) {
+			continue
+		}
+		if strings.HasSuffix(name, ".tmp") {
+			errs = append(errs, os.Remove(filepath.Join(dir, name)))
+			continue
+		}
+		if len(name) < len(prefix)+len(dbBackupTime) {
+			continue
+		}
+		if _, err := time.Parse(dbBackupTime, backupTime(name)); err == nil {
+			backups = append(backups, name)
+		}
+	}
+	// Newest first
+	slices.SortFunc(backups, func(a, b string) int { return strings.Compare(backupTime(b), backupTime(a)) })
+	for _, name := range backups[min(len(backups), dbBackupsKept):] {
+		errs = append(errs, os.Remove(filepath.Join(dir, name)))
+	}
+	return errors.Join(errs...)
+}
+
+// backupTime is the time at the end of a backup's name
+func backupTime(name string) string {
+	return name[len(name)-len(dbBackupTime):]
 }

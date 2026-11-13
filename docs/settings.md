@@ -69,4 +69,5 @@ There are two ways in:
   running wakeci holds it), creates what a first start would
   (`bootstrapDB`), imports, writes an audit line and exits. `bootstrapDB`
   writes each default only if it is missing, so the first start keeps the
-  imported values.
+  imported values. Like a start, an import by a new version backs up the
+  database first ([restart.md](restart.md)).

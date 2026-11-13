@@ -35,6 +35,12 @@ that `--version` prints the version, hard-links the old binary to
 `<binary>.previous` (refusing if it can't), renames the new one over it, then
 `BeginStop`.
 
+**Database backup**: the first time a version opens the database, at startup
+or in `--import-settings`, `backupForNewVersion` writes a copy next to it,
+`wakeci.db.before-<version>-<UTC time>` (mode 0600), with Bolt's
+`tx.WriteTo` before anything writes, and keeps the newest 3. The version is
+`dbVersion` in the global bucket. A new database isn't copied.
+
 ## Design decisions
 
 - **A restart waits for builds instead of resuming them.** A task's output
@@ -87,3 +93,13 @@ that `--version` prints the version, hard-links the old binary to
   manual one, and the update refuses if it can't create it. Any logged-in user
   may update, since they can already run commands as the service user; API
   keys can't.
+- **A new version backs up the database before it changes it,** so an update
+  can be undone with the data the old version left: stop wakeci, copy the
+  backup over `wakeci.db`, put the old binary back (`<binary>.previous`, or
+  `grm install jsnjack/wakeci==v<version>`) and start it. The copy is made in
+  the restart an update needs anyway, so it adds no stop, only the time to
+  copy; copying the file of a running wakeci isn't safe, since Bolt reuses
+  freed pages. A failed copy is logged as an error and wakeci starts anyway,
+  because a CI server that doesn't start is worse. The version is recorded
+  either way, so a later start doesn't save the database this version already
+  changed under its name.
