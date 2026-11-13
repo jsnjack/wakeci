@@ -31,12 +31,41 @@ bin/wakeci: src/backend/wakeci
 	cd src/backend
 	cp wakeci ${PWD}/bin/
 
-runf:
-	cd src/frontend && npm run serve
+# Starts the frontend and the backend in one terminal; open
+# http://localhost:8080. The frontend dev server updates the page as frontend
+# files change and passes API requests to the backend on 8081, which runb
+# rebuilds and restarts. Ctrl-C stops both
+run:
+	$(MAKE) --no-print-directory -j2 runf runb RUNF_ARGS="--clearScreen false"
 
-runb: src/backend/wakeci
+RUNF_ARGS ?=
+
+runf:
+	cd src/frontend && npm run serve -- $(RUNF_ARGS)
+
+# The backend embeds a build of the frontend, so it needs one to compile; in
+# development the frontend dev server serves the current files instead
+src/backend/assets/index.html:
+	test -f src/frontend/dist/index.html || (cd src/frontend && npm run build) || exit 1
+	rm -rf src/backend/assets
+	cp -r src/frontend/dist/ src/backend/assets
+
+# Rebuilds the backend and restarts it when a Go file (tests aside), llms.txt,
+# go.mod, Wakefile.yaml or the secrets file changes. entr stops when a file is
+# added to a watched directory (-d, status 2) or a watched file is deleted
+# (status 1), so the loop starts it again with the files there are now; it
+# ends after Ctrl-C (status 0). The binary goes to bin/ and the API spec to
+# docs/, made before entr starts, so a build adds nothing to a watched
+# directory, which would restart it in a loop
+runb: src/backend/assets/index.html
 	cd src/backend
-	ls *.go | entr -sr "cd ../../ && make src/backend/wakeci && ./src/backend/wakeci"
+	mkdir -p docs && touch docs/swagger.json
+	while :; do
+		{ ls *.go | grep -v '_test\.go$$'; ls llms.txt go.mod go.sum ../../Wakefile.yaml ../../secrets.yaml 2>/dev/null; } |
+			entr -dnrs 'go tool swag init --quiet --parseInternal --parseDepth 1 && go build -o ../../bin/wakeci-dev . && cd ../.. && exec bin/wakeci-dev'
+		[ $$? -eq 0 ] && break
+		sleep 0.5
+	done
 
 test_go:
 	cd src/backend && go test ./...
@@ -122,4 +151,4 @@ viewdb:
 	cp wakeci.db view.db
 	bolter -f view.db
 
-.PHONY: runb runf version clean clean_jobs testprod testdev testreport test_go test vet fmt lint lintf check agents-size standards buildf build release
+.PHONY: run runb runf version clean clean_jobs testprod testdev testreport test_go test vet fmt lint lintf check agents-size standards buildf build release

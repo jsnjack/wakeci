@@ -142,8 +142,9 @@ src/frontend/                Vue 3 + Vite SPA
 
 ```bash
 make build      # frontend (vite) + backend (`go tool swag` docs + go build), outputs bin/wakeci
+make run        # runf and runb together; open :8080
 make runf       # frontend dev server (npm run serve)
-make runb       # backend, rebuilt and restarted on *.go change (entr)
+make runb       # backend, restarted on Go or config change (entr)
 make test       # backend unit tests (alias for test_go)
 make lintf      # frontend: ESLint (no warnings allowed) and Prettier, checking only
 make check      # fmt, vet, build, test, lint, lintf, isolated parallel production E2E tests
