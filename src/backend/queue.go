@@ -192,6 +192,12 @@ func (q *Queue) Verify(id int) bool {
 // (Build.requestAbort), which never blocks and is kept until the build stops
 // the tasks that run, whatever it is doing when the request arrives.
 func (q *Queue) Abort(id int, reason string) error {
+	return q.AbortBy(id, reason, "")
+}
+
+// AbortBy is Abort that names who asked for it in the task log: by completes
+// "Aborted …", e.g. "by sam@example.com"; empty logs "Aborted by a user."
+func (q *Queue) AbortBy(id int, reason, by string) error {
 	q.mutex.Lock()
 	build := q.find(id)
 	dequeued := false
@@ -213,7 +219,7 @@ func (q *Queue) Abort(id int, reason string) error {
 	}
 
 	// Stops on_pending tasks of a queued build, too
-	build.requestAbort(reason, "")
+	build.requestAbort(reason, "", by)
 	if dequeued {
 		build.mutex.Lock()
 		build.abortedWhileQueued = true
@@ -396,7 +402,7 @@ func (q *Queue) abortRunning(note string) {
 	q.mutex.Unlock()
 	for _, build := range running {
 		build.Logger.Warn("aborting build", "reason", note)
-		build.requestAbort(StatusAborted, note)
+		build.requestAbort(StatusAborted, note, "")
 	}
 }
 
@@ -447,7 +453,7 @@ func (q *Queue) stopTasks(note string, timeout time.Duration) bool {
 	q.mutex.Unlock()
 	q.runMu.Unlock()
 	for _, build := range builds {
-		build.requestAbort(StatusAborted, note)
+		build.requestAbort(StatusAborted, note, "")
 	}
 	deadline := time.Now().Add(timeout)
 	idle := q.waitIdle(deadline, nil)

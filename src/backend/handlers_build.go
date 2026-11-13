@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/go-chi/chi/v5"
 	bolt "go.etcd.io/bbolt"
@@ -242,7 +243,7 @@ func readJobSummary(buildID int) (string, error) {
 
 // HandleAbortBuild aborts build
 // @Summary      Abort the build
-// @Description  API key scope: run
+// @Description  API key scope: run. The task log names who aborted it: the single sign-on email, the API key's name and ID, or the admin password
 // @Tags         build
 // @Produce      plain
 // @Param        id       path    integer   true  "Build ID"
@@ -261,12 +262,38 @@ func HandleAbortBuild(w http.ResponseWriter, r *http.Request) {
 		writePlainText(w, logger, http.StatusBadRequest, err.Error())
 		return
 	}
-	err = GlobalQueue.Abort(id, StatusAborted)
+	err = GlobalQueue.AbortBy(id, StatusAborted, abortedBy(r))
 	if err != nil {
 		logger.Error("abort build", "build", id, "err", err)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
+}
+
+// abortedBy completes "Aborted …" in the task log with who asked: a single
+// sign-on user's email, an API key's name and ID, or the admin password.
+// Empty if the request names no one, which logs "Aborted by a user."
+func abortedBy(r *http.Request) string {
+	info := requestInfoOf(r)
+	switch info.auth {
+	case "password", "basic":
+		return "with the admin password"
+	case "sso":
+		// One line, so it can't add lines of its own to the log
+		return "by " + strings.Map(func(c rune) rune {
+			if unicode.IsControl(c) {
+				return -1
+			}
+			return c
+		}, info.user)
+	case "apikey":
+		if key := apiKeyFromContext(r.Context()); key != nil {
+			// Quoted, which also escapes a line break in the name
+			return fmt.Sprintf("with API key %q (%s)", key.Name, key.ID)
+		}
+		return "with API key " + info.apiKey
+	}
+	return ""
 }
 
 // HandleFlushTaskLogs signals to flush logs

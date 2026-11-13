@@ -160,6 +160,11 @@ logs the page out. A 403 logs it out only if `/auth/_isLoggedIn` fails too;
 otherwise the request was something the user's groups don't allow, and the
 page shows the error and reads the permissions again.
 
+A build aborted from the page or the API says who aborted it in its task
+log (`abortedBy`): the single sign-on email, the API key's name and ID, or
+"with the admin password". Everyone who may read the build sees it, unlike
+the people on the analytics page, which only the admin password sees.
+
 ## What it doesn't do
 
 Group membership comes from the identity provider at login, so a person

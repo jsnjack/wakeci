@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { test, expect } from "./fixtures.js";
 
 test("should abort build when a user asks from the feed page", async ({ page, wake }) => {
@@ -18,7 +19,7 @@ tasks:
     await expect(page.locator("[data-cy-status]")).toHaveCount(2);
     await expect(page.locator("[data-cy-status]").nth(1)).toHaveAttribute("data-cy-status", "aborted");
     await page.getByTestId("reload").click();
-    await expect(page.locator("body")).toContainText("Aborted by a user.");
+    await expect(page.locator("body")).toContainText("Aborted with the admin password.");
 });
 
 test("should abort build when a user asks from the build page and run on_aborted tasks", async ({ page, wake }) => {
@@ -40,8 +41,35 @@ on_aborted:
     await expect(page.locator("[data-cy-status]")).toHaveCount(3);
     await page.getByTestId("reload").nth(0).click();
     await page.getByTestId("reload").nth(1).click();
-    await expect(page.locator("body")).toContainText("Aborted by a user.");
+    await expect(page.locator("body")).toContainText("Aborted with the admin password.");
     await expect(page.locator("body")).toContainText("BINGO");
+});
+
+test("should name the API key that aborted a build in its log", async ({ page, wake, backend, playwright }) => {
+    const gate = await wake.gate();
+    const name = await wake.createJob(`
+desc: Abort test
+tasks:
+  - name: Wait for test
+    run: ${gate.command}
+`);
+    const keyName = `aborter-${randomUUID().slice(0, 8)}`;
+    const created = await backend.api.post("/api/keys/", { form: { name: keyName, scope: "run", allJobs: "false", job: name, expiresInDays: "1" } });
+    await expect(created).toBeOK();
+    const { key, token } = await created.json();
+    const id = await wake.runJob(name);
+    await wake.waitForBuild(id, "running");
+    const keyAPI = await playwright.request.newContext({
+        baseURL: backend.url,
+        storageState: { cookies: [], origins: [] },
+        extraHTTPHeaders: { Authorization: `Bearer ${token}` },
+    });
+    await expect(await keyAPI.post(`/api/build/${id}/abort`)).toBeOK();
+    await keyAPI.dispose();
+    await wake.waitForBuild(id, "aborted");
+    await wake.livePage(`/build/${id}`);
+    await page.getByTestId("reload").click();
+    await expect(page.locator("body")).toContainText(`Aborted with API key "${keyName}" (${key.id}).`);
 });
 
 test("should abort build automatically when timeout is reached and run on_aborted tasks", async ({ page, wake }) => {

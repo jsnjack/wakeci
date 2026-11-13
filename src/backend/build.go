@@ -120,7 +120,10 @@ type abortScope struct {
 	// note says why, when neither a user nor the job timeout asked for it.
 	// Set with reason
 	note string
-	c    chan struct{}
+	// by completes "Aborted …" with who asked for it, e.g. "by
+	// sam@example.com"; empty if unknown. Set with reason
+	by string
+	c  chan struct{}
 }
 
 func newAbortScope() *abortScope {
@@ -157,7 +160,7 @@ func (b *Build) abortLocked() *abortScope {
 // requestAbort asks the build to stop the tasks that run now, with reason
 // StatusAborted or StatusTimedOut, and note for the task log if neither a
 // user nor the timeout asked for it. It never blocks; the first reason wins
-func (b *Build) requestAbort(reason, note string) {
+func (b *Build) requestAbort(reason, note, by string) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	scope := b.abortLocked()
@@ -166,6 +169,7 @@ func (b *Build) requestAbort(reason, note string) {
 	}
 	scope.reason = reason
 	scope.note = note
+	scope.by = by
 	close(scope.c)
 }
 
@@ -188,6 +192,8 @@ func (b *Build) logAbort(scope *abortScope, bw *bufio.Writer, task *Task) {
 		b.ProcessLogEntry("> Aborted: "+scope.note+".", bw, task.ID, task.startedAt)
 	case scope.reason == StatusTimedOut:
 		b.ProcessLogEntry("> Timed out.", bw, task.ID, task.startedAt)
+	case scope.reason == StatusAborted && scope.by != "":
+		b.ProcessLogEntry("> Aborted "+scope.by+".", bw, task.ID, task.startedAt)
 	case scope.reason == StatusAborted:
 		b.ProcessLogEntry("> Aborted by a user.", bw, task.ID, task.startedAt)
 	default:

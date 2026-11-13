@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -235,8 +236,8 @@ func TestAbortScope(t *testing.T) {
 		{
 			name: "first reason wins",
 			run: func(b *Build) *abortScope {
-				b.requestAbort(StatusTimedOut, "")
-				b.requestAbort(StatusAborted, "")
+				b.requestAbort(StatusTimedOut, "", "")
+				b.requestAbort(StatusAborted, "", "")
 				return b.currentAbort()
 			},
 			wantReason: StatusTimedOut,
@@ -252,7 +253,7 @@ func TestAbortScope(t *testing.T) {
 			run: func(b *Build) *abortScope {
 				s := b.currentAbort()
 				b.nextAbortScope()
-				b.requestAbort(StatusAborted, "")
+				b.requestAbort(StatusAborted, "", "")
 				return s
 			},
 			wantReason: StatusAborted,
@@ -261,7 +262,7 @@ func TestAbortScope(t *testing.T) {
 		{
 			name: "next scope after an abort is fresh",
 			run: func(b *Build) *abortScope {
-				b.requestAbort(StatusAborted, "")
+				b.requestAbort(StatusAborted, "", "")
 				s := b.currentAbort()
 				b.nextAbortScope()
 				return s
@@ -628,5 +629,52 @@ func TestAbortKillsTheWholeTask(t *testing.T) {
 			waitDone(t, done, 15*time.Second)
 			waitProcessGone(t, build)
 		})
+	}
+}
+
+func TestAbortedBy(t *testing.T) {
+	key := &APIKey{ID: "059d6642b7ee", Name: "deploy bot"}
+	tests := []struct {
+		name               string
+		auth, user, apiKey string
+		key                *APIKey
+		want               string
+	}{
+		{"password session", "password", "", "", nil, "with the admin password"},
+		{"basic auth", "basic", "", "", nil, "with the admin password"},
+		{"single sign-on", "sso", "sam@example.com", "", nil, "by sam@example.com"},
+		{"single sign-on, line break", "sso", "sam@example.com\n> Finished", "", nil, "by sam@example.com> Finished"},
+		{"API key", "apikey", "sam@example.com", key.ID, key, `with API key "deploy bot" (059d6642b7ee)`},
+		{"API key, line break in its name", "apikey", "", "abc", &APIKey{ID: "abc", Name: "a\nb"}, `with API key "a\nb" (abc)`},
+		{"API key not in the context", "apikey", "", "abc", nil, "with API key abc"},
+		{"no one", "", "", "", nil, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, _ := withRequestInfo(httpRequest())
+			setRequestUser(r, tt.auth, tt.user, tt.apiKey)
+			if tt.key != nil {
+				r = r.WithContext(context.WithValue(r.Context(), apiKeyContextKey, tt.key))
+			}
+			if got := abortedBy(r); got != tt.want {
+				t.Errorf("abortedBy = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// The task log says who aborted the build
+func TestAbortByNamesWhoInTheLog(t *testing.T) {
+	build := queuedAbortBuild(t, &Job{Name: "abort-by", Tasks: []*Task{
+		{ID: 0, Command: "touch pending; sleep 10", Kind: StatusPending},
+		{ID: 1, Command: "touch main", Kind: KindMain},
+	}})
+	waitForFile(t, build, "pending")
+	if err := GlobalQueue.AbortBy(build.ID, StatusAborted, "by sam@example.com"); err != nil {
+		t.Fatalf("AbortBy: %v", err)
+	}
+	waitGone(t, build)
+	if log := taskLog(t, build, 0); !strings.Contains(log, "> Aborted by sam@example.com.") || strings.Contains(log, "by a user") {
+		t.Errorf("task log = %q, want it to name sam@example.com", log)
 	}
 }
