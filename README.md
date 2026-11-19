@@ -310,9 +310,8 @@ with `limit`. A script that keeps up with new builds remembers the newest
 build ID it has and asks for `?after=<id>&limit=200`; `before=<id>` pages
 back from the oldest ID it got. `job` and `status` keep only builds of those
 jobs or with those statuses, by exact value, and `q` searches. An unchanged
-page answers `If-None-Match` with 304. `offset` and `filter` still work but
-are deprecated: page with `before` and search with `q`
-([docs/deprecations.md](docs/deprecations.md)). A build (`GET /api/build/<id>`)
+page answers `If-None-Match` with 304. `offset` and `filter` were removed
+and get 400: page with `before` and search with `q`. A build (`GET /api/build/<id>`)
 names its tasks and gives the URL and size of each task's log, and the URL
 of each artifact. `GET /api/build/<id>/summary` answers "why did it fail"
 in one request: the status, the tasks, the artifacts and the last 100 lines

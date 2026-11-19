@@ -28,9 +28,9 @@ func TestRequestLine(t *testing.T) {
 	}{
 		{
 			name:      "feed search",
-			target:    "/api/feed?q=%2Bname%3Atest_init&offset=15",
+			target:    "/api/feed?q=%2Bname%3Atest_init&before=15",
 			userAgent: "curl/8.9.1",
-			want:      map[string]any{"level": "INFO", "query": "offset=15&q=%2Bname%3Atest_init", "bytes": float64(5), "ua": "curl/8.9.1", "status": float64(200)},
+			want:      map[string]any{"level": "INFO", "query": "before=15&q=%2Bname%3Atest_init", "bytes": float64(5), "ua": "curl/8.9.1", "status": float64(200)},
 		},
 		{
 			// A run takes parameters from the query, and a job's parameter

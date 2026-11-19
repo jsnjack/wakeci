@@ -26,9 +26,7 @@ var feedStatuses = []string{StatusPending, StatusRunning, StatusFinished, Status
 
 // feedRequest is what a feed request asks for
 type feedRequest struct {
-	// offset skips that many matching builds
-	offset int
-	limit  int
+	limit int
 	// before and after bound the build IDs; 0 when not set
 	before, after int
 	// jobs and statuses, if set, are the only ones shown, by exact value
@@ -48,13 +46,24 @@ func positiveParam(query url.Values, name string, min, max, fallback int) (int, 
 	return n, nil
 }
 
+// removedFeedParams are parameters the feed no longer takes, with what
+// replaces each. They get 400 rather than being ignored: a client that
+// still pages with offset would read the first page again and again, and
+// one that searches with filter would act on builds it didn't ask for
+var removedFeedParams = []struct{ name, use string }{
+	{"offset", "page with before=<the oldest ID you got>"},
+	{"filter", "search with q"},
+}
+
 // feedRequestFrom reads a feed request from its query parameters
 func feedRequestFrom(query url.Values) (*feedRequest, error) {
+	for _, p := range removedFeedParams {
+		if query.Has(p.name) {
+			return nil, fmt.Errorf("%s was removed: %s", p.name, p.use)
+		}
+	}
 	f := &feedRequest{jobs: query["job"], statuses: query["status"]}
 	var err error
-	if f.offset, err = positiveParam(query, "offset", 0, math.MaxInt32, 0); err != nil {
-		return nil, err
-	}
 	if f.limit, err = positiveParam(query, "limit", 1, maxFeedLimit, defaultFeedLimit); err != nil {
 		return nil, err
 	}
@@ -69,13 +78,7 @@ func feedRequestFrom(query url.Values) (*feedRequest, error) {
 			return nil, fmt.Errorf("invalid status %q, want one of %s", status, strings.Join(feedStatuses, ", "))
 		}
 	}
-	// q is the search; filter, its old name, still works for clients that
-	// send it, unless q is there
-	search := query.Get("q")
-	if !query.Has("q") {
-		search = query.Get("filter")
-	}
-	f.filter = CreateFilterRequest(search)
+	f.filter = CreateFilterRequest(query.Get("q"))
 	return f, nil
 }
 
@@ -89,8 +92,8 @@ func (f *feedRequest) matches(msg *BuildUpdateData, access *Access) bool {
 
 // seekAtOrBefore moves c to the newest build whose ID is id or lower
 func seekAtOrBefore(c *bolt.Cursor, id int) ([]byte, []byte) {
-	// Below the first build, e.g. an offset past the end; Itob would turn a
-	// negative id into a huge key, after the last build
+	// Below the first build, e.g. before=1; Itob would turn a negative id
+	// into a huge key, after the last build
 	if id < 1 {
 		return nil, nil
 	}
@@ -106,7 +109,7 @@ func seekAtOrBefore(c *bolt.Cursor, id int) ([]byte, []byte) {
 
 // HandleFeedView returns builds, newest first
 // @Summary      Return builds, newest first
-// @Description  API key scope: read; a key or a single sign-on user only sees the builds of their jobs. To read the feed incrementally, keep the newest ID you have and ask for after=<it>; page through more with before=<the oldest ID you got>. An unchanged page answers If-None-Match with 304.
+// @Description  API key scope: read; a key or a single sign-on user only sees the builds of their jobs. To read the feed incrementally, keep the newest ID you have and ask for after=<it>; page through more with before=<the oldest ID you got>. An unchanged page answers If-None-Match with 304. offset and filter were removed and get 400: page with before, search with q.
 // @Tags         feed
 // @Produce      json
 // @Param        limit    query      integer   false  "How many builds, 1 to 200; 15 if not set"
@@ -114,9 +117,7 @@ func seekAtOrBefore(c *bolt.Cursor, id int) ([]byte, []byte) {
 // @Param        after    query      integer   false  "Only builds with a higher ID"
 // @Param        job      query      []string  false  "Only builds of these jobs, by exact name" collectionFormat(multi)
 // @Param        status   query      []string  false  "Only builds with these statuses: pending, running, finished, failed, aborted, timed out" collectionFormat(multi)
-// @Param        offset   query      integer   false  "Deprecated: skip that many matching builds; page with before=<the oldest ID you got> instead"
 // @Param        q        query      string    false  "Space-separated words matched as substrings of id:<id> name:<job> status:<status> and the params, so +name:test_unit also matches test_unit_js. Builds must contain the words prefixed with +, must not contain those prefixed with -, and must contain one of the others. Phrases can be wrapped in single or double quotes"
-// @Param        filter   query      string    false  "Deprecated: the old name of `q`, read only when `q` is absent"
 // @Success      200      {array}    BuildUpdateData
 // @Success      304      {string}   string
 // @Failure      400      {string}   string
@@ -135,9 +136,6 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 	}
 	// An API key or a single sign-on user only sees the builds of their jobs
 	access := accessFromContext(r.Context())
-	// Without anything that hides builds, offset can skip IDs instead of
-	// reading each build
-	narrowed := f.filter != nil || len(f.jobs) > 0 || len(f.statuses) > 0 || (access != nil && !access.Full)
 
 	payload := []*BuildUpdateData{}
 	// Builds the history still has as pending or running but the queue no
@@ -154,11 +152,6 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 		if f.before > 0 {
 			start = min(start, f.before-1)
 		}
-		skip := f.offset
-		if !narrowed {
-			start -= skip
-			skip = 0
-		}
 		for key, v := seekAtOrBefore(c, start); key != nil; key, v = c.Prev() {
 			if f.after > 0 && int(binary.BigEndian.Uint64(key)) <= f.after {
 				break
@@ -173,10 +166,6 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 				stale = append(stale, msg.ID)
 			}
 			if !f.matches(&msg, access) {
-				continue
-			}
-			if skip > 0 {
-				skip--
 				continue
 			}
 			addArtifactURLs(&msg)

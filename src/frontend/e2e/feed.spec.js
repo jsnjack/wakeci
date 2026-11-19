@@ -175,25 +175,6 @@ test("should keep a filter with escapes and percent signs as typed", async ({ pa
     await expect(page.getByTestId("filter")).toHaveValue(filter);
 });
 
-test("should open a feed link with the filter encoded twice, as wakeci wrote it before", async ({ page }) => {
-    await page.goto("/?filter=status%253Afailed%2520env%253Aa%2520b");
-    await expect(page.getByTestId("filter")).toHaveValue("status:failed env:a b");
-    // The address bar moves to the new parameter
-    await expect(page).toHaveURL(/\/\?q=status:failed\+env:a\+b$/);
-});
-
-test("should open an old feed link with a percent sign", async ({ page }) => {
-    // What wakeci wrote before for name:100%
-    await page.goto("/?filter=name%253A100%2525");
-    await expect(page.getByTestId("filter")).toHaveValue("name:100%");
-});
-
-test("should take q over an old filter parameter", async ({ page }) => {
-    await page.goto("/?q=env:new&filter=env%253Aold");
-    await expect(page.getByTestId("filter")).toHaveValue("env:new");
-    await expect(page).toHaveURL(/\/\?q=env:new$/);
-});
-
 test("should load older builds with before", async ({ page, wake }) => {
     const name = await wake.createJob(`
 desc: Paging
