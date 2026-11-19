@@ -51,9 +51,6 @@ here and name it (e.g. "F1") in the commit message.
 Bugs found while planning. Each is small and changes nothing people see
 except the fix.
 
-- **X4. Follow scrolls while the user reads.** `TaskItem` scrolls to the end
-  after every update even when the user has scrolled up; follow only while
-  at the bottom. Effort S.
 - **X5. The run form keys its rows by `item.name`** (`RunJobButton`), which
   is always undefined: each item is `{NAME: value}`. Effort S.
 - **X6. `material-dynamic-colors` is imported and never called** (`App.vue`):
@@ -425,7 +422,7 @@ The look (decided): Material's colours at the density of a developer tool.
 
 | Phase | Items |
 |---|---|
-| 0 | X4–X6 |
+| 0 | X5 and X6 |
 | 1 | S1 and S2; the feed on the new styles (S3) with F1, F7 and F3; phone menu |
 | 2 | The log viewer (B4) with L2, colours on the server; the build page on the new styles with B1–B3 and B6; then the build beside the feed (F9) |
 | 3 | F4 and F8, J1, J2 |

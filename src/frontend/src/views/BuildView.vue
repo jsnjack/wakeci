@@ -105,7 +105,7 @@
             :task="item"
             :build-i-d="id"
             :name="job.tasks[item.id].name"
-            :follow="follow"
+            :follow="follow && !readingAbove"
             :hide-all-logs="hideAllLogs"
         />
     </div>
@@ -133,7 +133,7 @@
             <input
                 v-model="follow"
                 type="checkbox"
-                @change="saveFollow"
+                @change="onFollowChange"
             />
             <span>
                 <i>route</i>
@@ -191,6 +191,12 @@ export default {
             buildLogSubscription: "build:log:" + this.id,
             buildUpdateSubscription: "build:update:" + this.id,
             follow: this.getSavedFollow(),
+            // The user scrolled above the end of the running task's log to
+            // read: following waits until they scroll back to the end
+            readingAbove: false,
+            // When the user last scrolled by hand, to tell their scrolls
+            // from the page's own
+            userScrolledAt: 0,
             hideAllLogs: false,
             empty: false,
         };
@@ -255,12 +261,20 @@ export default {
     mounted() {
         this.$store.commit("SET_CURRENT_PAGE", `#${this.id}`);
         document.addEventListener("keyup", this.onKeyUp);
+        for (const name of ["wheel", "touchmove", "keydown", "pointerdown"]) {
+            window.addEventListener(name, this.onUserScroll, { passive: true });
+        }
+        window.addEventListener("scroll", this.onScroll, { passive: true });
         this.fetch();
         this.subscribe();
         this.emitter.on(this.buildUpdateSubscription, this.applyBuildUpdate);
     },
     unmounted() {
         document.removeEventListener("keyup", this.onKeyUp);
+        for (const name of ["wheel", "touchmove", "keydown", "pointerdown"]) {
+            window.removeEventListener(name, this.onUserScroll);
+        }
+        window.removeEventListener("scroll", this.onScroll);
         this.unsubscribe();
         this.emitter.off(this.buildUpdateSubscription, this.applyBuildUpdate);
     },
@@ -384,12 +398,43 @@ export default {
         onKeyUp(event) {
             if (event.ctrlKey && event.altKey && event.code === "KeyF") {
                 this.follow = !this.follow;
+                this.readingAbove = false;
                 this.saveFollow();
                 return;
             }
             if (event.ctrlKey && event.altKey && event.code === "KeyH") {
                 this.hideAllLogs = !this.hideAllLogs;
             }
+        },
+        onUserScroll(event) {
+            if (event.target.closest && event.target.closest("input, textarea, select, [contenteditable]")) {
+                return;
+            }
+            this.userScrolledAt = performance.now();
+            // Scrolling up means reading: pause at once, so an update that
+            // arrives before the scroll event doesn't pull the page back down
+            const up = event.type === "wheel" ? event.deltaY < 0 : ["ArrowUp", "PageUp", "Home"].includes(event.key);
+            if (up && document.querySelector(".log-container.running")) {
+                this.readingAbove = true;
+            }
+        },
+        // Following pauses while the end of the running task's log is below
+        // the window, after a scroll by the user, and resumes once it is in
+        // view again
+        onScroll() {
+            if (performance.now() - this.userScrolledAt > 1000) {
+                return;
+            }
+            const logs = document.querySelectorAll(".log-container.running");
+            if (logs.length === 0) {
+                this.readingAbove = false;
+                return;
+            }
+            this.readingAbove = logs[logs.length - 1].getBoundingClientRect().bottom > window.innerHeight + 32;
+        },
+        onFollowChange() {
+            this.readingAbove = false;
+            this.saveFollow();
         },
         getSavedFollow() {
             return window.localStorage.getItem("follow") !== "false";

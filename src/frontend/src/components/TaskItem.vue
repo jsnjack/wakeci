@@ -38,6 +38,7 @@
                 v-if="content"
                 ref="logContainer"
                 class="log-container no-padding border"
+                :class="{ running: task.status === 'running' }"
             >
                 <pre class="log-line small-padding">{{ content }}</pre>
                 <TextSpinner v-show="task.status === 'running' && !hideAllLogs" />

@@ -315,3 +315,31 @@ tasks:
     await expect(page.getByTestId("build-summary")).toContainText("### Failed tests\n- test_login <b>", { timeout: 15000 });
     await wake.waitForBuild(id);
 });
+
+test("should stop following a log while the user reads above its end", async ({ page, wake }) => {
+    const gate = await wake.gate();
+    const name = await wake.createJob(`
+tasks:
+  - name: Talk
+    run: ${gate.command}; for i in $(seq 1 400); do echo "line $i"; done; while true; do echo more; sleep 0.05; done
+`);
+    const id = await wake.runJob(name);
+    // subscribed before the task prints, so the page gets every line
+    await wake.livePage(`/build/${id}`);
+    await gate.release();
+    const scrollY = () => page.evaluate(() => window.scrollY);
+    // following: the page keeps the end of the log in view
+    await expect.poll(scrollY).toBeGreaterThan(2000);
+    await page.mouse.move(600, 400);
+    await page.mouse.wheel(0, -600);
+    await page.waitForTimeout(300);
+    const reading = await scrollY();
+    // two flushes later the page is where the user left it
+    await page.waitForTimeout(1200);
+    expect(await scrollY()).toBe(reading);
+    // back at the end, following resumes
+    await page.keyboard.press("End");
+    await page.waitForTimeout(300);
+    const end = await scrollY();
+    await expect.poll(scrollY).toBeGreaterThan(end + 100);
+});
