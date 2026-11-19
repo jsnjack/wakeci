@@ -1,9 +1,9 @@
-# UI roadmap: feed, live updates, build page, task logs
+# UI roadmap: feed, live updates, build page, task logs, styles
 
-Read this before changing the feed, the build page, task logs, the jobs page
-or the run form. It lists the changes planned for them, the evidence behind
-each, and the order. When an item ships, delete it here and name it (e.g.
-"F1") in the commit message.
+Read this before changing the feed, labels, the build page, task logs, the
+jobs page, the run form or the styles. It lists the changes planned for
+them, the evidence behind each, and the order. When an item ships, delete it
+here and name it (e.g. "F1") in the commit message.
 
 ## Evidence
 
@@ -13,9 +13,24 @@ each, and the order. When an item ships, delete it here and name it (e.g.
   a commit's builds (median 10) were spread over 28 feed rows, between those
   of other commits. 19% were scheduled or maintenance builds, 98% of which
   passed.
-- **What the feed showed.** The first three non-empty parameters: a commit
-  hash cut to 27 characters, the branch, and a parameter that is the same on
-  every build. The author was the fourth, so hidden on every row.
+- **Nine days later** (all 6,011 builds the installation keeps): 738 builds
+  a day (median), up to 165 an hour and 28 running at once. 69% of builds
+  belonged to a commit's group (10 builds, median), spread over 21 feed rows
+  (median; 107 at the 90th percentile); half of those commits had a failed
+  or timed-out build. 6% were aborted, all superseded by a newer push.
+- **What the feed showed.** Since parameters at their default are hidden,
+  a test build shows a commit hash cut to 27 characters, the branch and the
+  author, none with its name: in 77% of rows with chips the first is a
+  40-character hash. Branch names are 26 characters (median; 40 at the 90th
+  percentile), most starting with a ticket number.
+- **Labels.** Jobs name the parameters that say what a build is about
+  `*_LABEL`: branch, author and region, on 75% of builds. 5.5% of those hid
+  a label: mostly a branch at its default, the placeholder `unknown`; 1% by
+  position. The other 25% were routine jobs without labels, told apart by a
+  parameter such as a server pattern. wakeci itself has no notion of labels.
+- **Who starts builds.** Of the builds whose trigger was recorded, API keys
+  started 75% and schedules 15%, the admin password 7% and SSO users 2%, so
+  "my builds" can only come from a label such as the author.
 - **Failed builds.** The failed task was row 14 of about 20 (median), below
   the fold. Failing task logs were 1,300 to 24,000 lines (110 KB to 2.4 MB),
   with the failed tests and the totals in the last 20 lines.
@@ -23,19 +38,64 @@ each, and the order. When an item ships, delete it here and name it (e.g.
   the header hides every link except Log out.
 - **Other tools.** Sources at the end.
 
+## Fix first
+
+Bugs found while planning. Each is small and changes nothing people see
+except the fix.
+
+- **X1. Live updates ignore searches with prefixes.** The browser matches a
+  new build against `id + name + status + JSON.stringify(params)`
+  (`isFilteredUpdate` in `store/utils.js`), the server against
+  `id:<id> name:<job> status:<status> [map[NAME:value] …]`
+  (`ToFilterMatchString`). A search with `NAME:value`, `status:`, `name:` or
+  `id:` matches on load, then drops every new build until a reload. Build
+  the server's text in the browser, with an E2E test that runs a build under
+  such a search. Effort S.
+- **X2. Save & Close doesn't wait for the save** (`saveAndClose` in
+  `JobEditView`): when the server refuses the file, say invalid YAML, the
+  error shows on the jobs page and the edit is lost. Effort S.
+- **X3. Two writers on one task log.** An abort's kill timer writes
+  "> Killing the command..." from its own goroutine while the read loop may
+  still write to the same `bufio.Writer` (`runTask`). Effort S.
+- **X4. Follow scrolls while the user reads.** `TaskItem` scrolls to the end
+  after every update even when the user has scrolled up; follow only while
+  at the bottom. Effort S.
+- **X5. The run form keys its rows by `item.name`** (`RunJobButton`), which
+  is always undefined: each item is `{NAME: value}`. Effort S.
+- **X6. `material-dynamic-colors` is imported and never called** (`App.vue`):
+  52 kB of JavaScript on every load. Effort S.
+
 ## Feed
 
-- **F1. Show what a build is about.** The chips already leave out empty
-  parameters and those at the job's current default, with the name in a
-  tooltip. Left: 40-character hex values shortened to 7, copying the full
-  value. Effort S.
+- **F1. Labels first.** A label is a parameter the job marks as one: a name
+  ending in `_LABEL`, or those listed in an optional `labels:` in the job
+  file, in display order:
+
+  ```yaml
+  labels: [BRANCH, AUTHOR, COMMIT]  # without it, *_LABEL parameters are the labels
+  ```
+
+  Labels stay parameters: nothing new in the run API, the history or the
+  audit log. The jobs list sends each job's labels next to its
+  `defaultParams`. A row shows the labels first with their names
+  (`branch main`: the `_LABEL` suffix dropped, lowercased), then the other
+  non-empty parameters behind "+N" (today the first three, the name only in
+  a tooltip). Values at their default stay hidden, labels too: the only one
+  seen was a placeholder. A job without labels shows today's chips, with
+  names. 40-character hex values are shortened to 7, copying the full
+  value; long values are cut in the middle, keeping a leading ticket
+  number. On phones the chips wrap under the job name
+  instead of disappearing. The build header (B1) and the run form (J2) show
+  the same labels. Effort M.
 - **F2. Group builds under the build that started them.** `POST
   /api/job/{name}/run` accepts `parent=<build id>`; a job that starts others
   passes `parent=${WAKE_BUILD_ID}`. The feed shows one row per parent with a
   strip of its children's statuses and the worst of them as the row's
   status; expanding lists the children. The build page shows the strip too,
   to move between siblings. Explicit rather than guessed: grouping by an
-  equal commit parameter would merge re-runs and miss jobs without it. Needs
+  equal commit parameter would merge re-runs and miss jobs without it. (Open:
+  where jobs share a 40-character commit value, as 69% of builds do, that
+  value could group them until they pass `parent=`.) Needs
   the parent in the build's history and stats records, the API docs and an
   audit attribute. Effort L.
 - **F3. One line per build.** About 40 px: status, number, job, chips,
@@ -43,12 +103,15 @@ each, and the order. When an item ships, delete it here and name it (e.g.
   hover and in a "⋯" menu, only when they can act (today they show disabled).
   Queued builds say how long they have waited and their place in the queue.
   Effort M.
-- **F4. Quick filters.** Chips that write the existing `q`: Failed, Running
-  and queued, Hide scheduled, several jobs, and Mine. Where builds are started
-  by another job or a shared credential, people are identified by a
-  parameter, so Mine is a filter each person sets once (e.g.
-  `AUTHOR:alice`), kept in the browser. "Started by me" from the recorded
-  trigger can come later; the feed doesn't send the trigger today. Effort M.
+- **F4. Quick filters and saved searches.** A row of chips above the feed
+  that write the existing `q`: Failed, Running and queued, Hide scheduled,
+  several jobs, and the user's saved searches. "Save this search" names the
+  current one. Where builds are started by another job or a shared
+  credential, only a label says whose they are, so Mine is a saved search
+  each person sets once (e.g. `+author=alice`). Kept in the browser first;
+  per SSO user on the server later, so they follow the user between
+  browsers. "Started by me" from the recorded trigger can come later; the
+  feed doesn't send the trigger today. Effort M.
 - **F5. Fold routine scheduled builds.** Passing builds of a scheduled job
   fold into one row at the place of the newest ("health_check ✓ ×12 since
   09:00"); a failure always gets its own row. Effort S.
@@ -56,6 +119,20 @@ each, and the order. When an item ships, delete it here and name it (e.g.
   name, and `title:` as a template over the params, like GitHub's
   `run-name`. Not a colour per job: colour means status. Lower value than
   F1, which covers most of the need. Effort S.
+- **F7. Exact match in the search.** `NAME=value` matches a parameter equal
+  to the value, and a label also by its shown name (`branch=main` finds
+  `BRANCH_LABEL`). `NAME:value` keeps matching substrings, so links and
+  scripts keep working, but `BRANCH_LABEL:main` also finds `main-fix` and
+  `maintenance`. A chip click writes `+branch=main` instead of
+  `+"BRANCH_LABEL:main"`; the `+` stays, since plain terms mean "any of" and
+  Ctrl/Cmd+click must narrow the search. One list of queries and the builds they match,
+  checked by the Go tests and an E2E test, keeps the server's and the
+  browser's parsers from drifting apart again (X1). Effort M.
+- **F8. Help while typing.** The search box suggests label names, then
+  values seen in the loaded builds; the active terms show as chips that can
+  be removed one by one. Effort M.
+- Not planned: labels added to a build after it ran ("flaky"). They would
+  need storage per build, an audited route and access rules.
 
 ## Live updates
 
@@ -68,7 +145,13 @@ each, and the order. When an item ships, delete it here and name it (e.g.
   arrives after the page subscribed: `wsclient.go` sends no earlier lines and
   `TaskItem` starts empty. Fetch what is written, then append streamed lines.
   Each `build:log:` message carries the line's number so the page can drop
-  what it already has; this also fills the gap after a reconnect. Effort M.
+  what it already has; this also fills the gap after a reconnect. Today a
+  reload of a running task replaces the text with the file: lines shown but
+  not yet flushed disappear, and lines waiting in the 500 ms buffer appear
+  twice. The server sends a task's lines in batches (about every 100 ms),
+  numbered from the first, in `CommandLogData.ID`, which nothing sets
+  today: one message per line through the unbuffered hub disconnects a
+  browser with 1,024 messages queued during a burst. Effort M.
 - **L3. Progress against the usual duration.** A bar from `eta` on running
   rows and in the build header ("4m 12s of about 9m"); mark builds far over
   it, and flag a build past its usual duration that printed nothing for a
@@ -150,7 +233,12 @@ every update: at 10 MB 387 ms of every 500 ms, 1.2 GB and rising.
   hand-written virtual list loses them), and has line numbers, wrapping and
   scrolling to a position. The job editor already ships it: the log viewer
   needs `@codemirror/view`, `state` and `search`, about 250 kB minified,
-  shared with the editor's chunk, under the 500 kB limit.
+  shared with the editor's chunk, under the 500 kB limit. Import them
+  directly, not through `vue-codemirror`'s `basicSetup` (a 428 kB chunk with
+  autocompletion and lint), and add `state` and `search` to `package.json`;
+  today they come only through other packages. The editor view stays out of
+  Vue's reactivity, and streamed lines are appended in one transaction per
+  animation frame, never by rebuilding the text.
 - **The document is the visible text.** Colour codes are parsed once (60 ms
   for 10 MB) into spans per line; a view plugin turns the spans of the
   visible lines into decorations, so the cost does not grow with the log.
@@ -189,6 +277,10 @@ every update: at 10 MB 387 ms of every 500 ms, 1.2 GB and rising.
   - The 16 basic colours map to CSS variables chosen for contrast in light
     and dark; 256 colours through a table; 24-bit colours to the nearest of
     those.
+- **Tests.** `secrets.spec.js` matches the `.log-line` text with the time
+  prefix inline; with the prefix in a gutter it reads the viewer's text
+  instead. Tests that look for a line in the page text pass while short logs
+  are drawn whole.
 - **Effort.** The viewer with search and links M–L; colours on the server M;
   line numbers in log messages S.
 
@@ -198,7 +290,8 @@ every update: at 10 MB 387 ms of every 500 ms, 1.2 GB and rising.
   strip, last run, next scheduled run, "failing since …"; sort by recently
   failed; star to pin; group by name prefix or a `group:` in the job file.
   Concourse found users care most about which jobs fail and for how long.
-  Effort M.
+  The search goes in the URL and survives a reconnect, and names sort as
+  people expect, not in Bolt's byte order. Effort M.
 - **J2. A run form that explains itself.** Wider, changed values marked,
   the last values used per job remembered, and optional metadata kept apart
   from `params` so existing files don't change:
@@ -209,7 +302,62 @@ every update: at 10 MB 387 ms of every 500 ms, 1.2 GB and rising.
     CLEANUP: {type: bool}
   ```
 
-  Effort L.
+  Labels come first. An empty value means the job's default (`RunJob`), so
+  a parameter with a default can't be run empty; the form says so. Effort L.
+
+## Styles
+
+BeerCSS 5.0.3 shapes most of the UI, much of it without the templates
+saying so:
+
+- 36 of the 43 components use its classes (835 uses of 82 classes).
+- Its reset gives every element `position: relative`, no margin or padding
+  and `border-radius: inherit`. `article`, `nav`, `p`, `pre`, `table`,
+  headings and others get a 1rem top margin after a sibling, which
+  `no-margin` cancels 31 times.
+- Its script, loaded with the CSS, watches `body` and runs its setup again
+  180 ms after DOM changes. Floating field labels work only because it sets
+  `placeholder=" "` on inputs. The run dialog opens with its `ui()`, the
+  other ten dialogs with the `active` class.
+- Five components carry comments working around it, and `FeedItem` needs
+  `!important`. `medium-padding` and `medium-margin` (10 uses) don't exist
+  in 5.0.3.
+- It adds 88 kB of CSS and 91 kB of shape images the app never uses, 19 kB
+  of JavaScript, and three icon fonts, 1.43 MB in the binary; browsers fetch
+  only Outlined (464 kB) for the 67 icons in use.
+- The 36 theme colours in `main.css` equal its defaults, so they carry over
+  unchanged.
+
+It goes in favour of a stylesheet of our own, one page at a time. Not
+Tailwind, which rewrites every class use and adds a build plugin, nor a
+component kit, which is another lock-in with larger chunks.
+
+- **S1. Groundwork.** Screenshot baselines (`toHaveScreenshot`) of the feed,
+  a failed and a running build, the jobs page, the run form, settings and
+  analytics, at 1440, 1024 and 390 px, light and dark, times masked: each
+  later PR shows what it changed on screen. The 24 E2E selectors that depend
+  on markup (`nav a[href=…]`, `header h6`, `dialog.active`, `progress`,
+  `.row`) move to test IDs. `tokens.css` (colours, spacing, radius, type
+  scale) and `base.css`; BeerCSS imported into `@layer beer` under our
+  `@layer app`, so our rules win without `!important`. Effort S–M.
+- **S2. Components.** About 40 styles replace what the app uses: rows and
+  grids with `gap` (no 12-column classes, no automatic margins); `.btn` in
+  four kinds and two sizes; one dialog component on the native `<dialog>`
+  with `showModal()`; labels above fields, which need no script; a segmented
+  control and tabs; tooltips in our CSS, with `aria-label` on icon-only
+  buttons; notifications; three named breakpoints. Effort M.
+- **S3. Page by page,** each with that page's items so it changes once: the
+  feed with F1, F3 and F7; the build page with B1–B4 and B6; the jobs page
+  with J1; the run form with J2; then settings, keys and groups, analytics,
+  help and login. Effort M per page.
+- **S4. Remove BeerCSS** once no page uses it, and ship an icon font with
+  only the icons in use, generated by a script, with a test that every icon
+  name in `src` is in it. Effort S.
+
+The look: the system font, 14 px text, 40 px rows (about 17 builds on
+1440×900 instead of 7), borders rather than shadows, one accent colour.
+Colour means status only, always with a shape. Dark mode follows the system
+unless the user picks one.
 
 ## Phones and smaller things
 
@@ -227,9 +375,12 @@ every update: at 10 MB 387 ms of every 500 ms, 1.2 GB and rising.
 
 | Phase | Items |
 |---|---|
-| 1 | F1, B2 and B3, L2, F3, phone menu |
-| 2 | B1 and B6, the log viewer (B4), F4 and F5, L1, L3, L4, L6, J1 |
-| 3 | F2 and B7, L5, colours on the server, J2 and B5, F6 |
+| 0 | X1–X6 |
+| 1 | S1 and S2; the feed on the new styles (S3) with F1, F7 and F3; phone menu |
+| 2 | The log viewer (B4) with L2, colours on the server; the build page on the new styles with B1–B3 and B6 |
+| 3 | F4 and F8, J1, J2 |
+| 4 | The other pages on the new styles, S4 |
+| Later | F2, F5, F6, L1, L3–L6, B5, B7 |
 
 ## Sources
 
