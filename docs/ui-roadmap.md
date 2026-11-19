@@ -51,9 +51,6 @@ here and name it (e.g. "F1") in the commit message.
 Bugs found while planning. Each is small and changes nothing people see
 except the fix.
 
-- **X2. Save & Close doesn't wait for the save** (`saveAndClose` in
-  `JobEditView`): when the server refuses the file, say invalid YAML, the
-  error shows on the jobs page and the edit is lost. Effort S.
 - **X3. Two writers on one task log.** An abort's kill timer writes
   "> Killing the command..." from its own goroutine while the read loop may
   still write to the same `bufio.Writer` (`runTask`). Effort S.
@@ -431,7 +428,7 @@ The look (decided): Material's colours at the density of a developer tool.
 
 | Phase | Items |
 |---|---|
-| 0 | X2–X6 |
+| 0 | X3–X6 |
 | 1 | S1 and S2; the feed on the new styles (S3) with F1, F7 and F3; phone menu |
 | 2 | The log viewer (B4) with L2, colours on the server; the build page on the new styles with B1–B3 and B6; then the build beside the feed (F9) |
 | 3 | F4 and F8, J1, J2 |

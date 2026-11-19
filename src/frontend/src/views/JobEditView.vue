@@ -96,11 +96,13 @@ export default {
                 })
                 .catch(() => {});
         },
+        // save resolves to whether the server took the file; the error itself
+        // is shown by axios' interceptor
         save() {
             const data = new FormData();
             data.append("name", this.job.name);
             data.append("fileContent", this.job.fileContent);
-            axios
+            return axios
                 .post(`/api/job/${encodeURIComponent(this.name)}`, data, {
                     headers: {
                         "Content-type": "application/x-www-form-urlencoded",
@@ -111,12 +113,16 @@ export default {
                         text: "Saved",
                         type: "primary",
                     });
+                    return true;
                 })
-                .catch(() => {});
+                .catch(() => false);
         },
-        saveAndClose() {
-            this.save();
-            this.$router.push("/jobs");
+        // Leave only once the file is saved: when the server refuses it, say
+        // as invalid YAML, the edit stays in the editor with the error
+        async saveAndClose() {
+            if (await this.save()) {
+                this.$router.push("/jobs");
+            }
         },
     },
 };

@@ -121,6 +121,20 @@ test("should edit a job and navigate", async ({ page, wake }) => {
     await expect(page).toHaveURL(`${wake.url}/jobs`);
 });
 
+test("should stay in the editor when Save & Close is refused", async ({ page, wake }) => {
+    const name = await wake.createJob("desc: Valid\ntasks: []\n");
+    await page.goto(`/job/${name}`);
+    const editor = page.locator("[data-cy=editor] .cm-content");
+    await expect(editor).toContainText("desc: Valid");
+    await editor.fill("tasks: [unclosed");
+    const refused = page.waitForResponse((response) => response.url().endsWith(`/api/job/${name}`) && response.request().method() === "POST");
+    await page.getByTestId("save-and-close-button").click();
+    expect((await refused).status()).toBe(400);
+    await expect(page.locator(".notification-content").last()).toBeVisible();
+    await expect(page).toHaveURL(`${wake.url}/job/${name}`);
+    await expect(editor).toContainText("tasks: [unclosed");
+});
+
 test("should filter jobs", async ({ page, wake }) => {
     const name = await wake.createJob();
     await page.goto("/jobs");
