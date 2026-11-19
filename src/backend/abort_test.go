@@ -632,6 +632,27 @@ func TestAbortKillsTheWholeTask(t *testing.T) {
 	}
 }
 
+// TestAbortKillNoteHasOneWriter is a regression test, for go test -race: the
+// abort's kill timer wrote "> Killing the command..." to the task log from
+// its own goroutine while the loop reading the command's output wrote to the
+// same buffered writer
+func TestAbortKillNoteHasOneWriter(t *testing.T) {
+	build := abortTestBuild(t, &Job{Name: "kill-note", Tasks: []*Task{
+		{ID: 0, Command: "trap '' TERM; echo $$ > pid; touch started; while true; do echo still here; sleep 0.002; done", Kind: KindMain},
+	}})
+	done := startBuild(build)
+	waitForFile(t, build, "started")
+	if err := GlobalQueue.Abort(build.ID, StatusAborted); err != nil {
+		t.Fatalf("Abort: %v", err)
+	}
+	waitDone(t, done, 15*time.Second)
+	waitProcessGone(t, build)
+	log := taskLog(t, build, 0)
+	if n := strings.Count(log, "] > Killing the command...\n"); n != 1 {
+		t.Errorf("the kill note is on %d whole lines, want 1:\n%s", n, log[max(0, len(log)-400):])
+	}
+}
+
 func TestAbortedBy(t *testing.T) {
 	key := &APIKey{ID: "059d6642b7ee", Name: "deploy bot"}
 	tests := []struct {

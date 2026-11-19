@@ -403,10 +403,18 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	// Written by the goroutine below, read after doneChan is closed
 	var abortedReason string
 	var abortedAt time.Time
+	// The abort's kill timer closes killed when it sends SIGKILL. The loop
+	// below writes the note, since it alone writes to bw while the command
+	// runs; the timer used to write from its own goroutine.
+	killed := make(chan struct{})
 	go func() {
 		defer close(doneChan)
+		killedC := killed
 		for taskCmd.Stdout != nil || taskCmd.Stderr != nil {
 			select {
+			case <-killedC:
+				killedC = nil
+				b.ProcessLogEntry("> Killing the command...", bw, task.ID, task.startedAt)
 			case line, open := <-taskCmd.Stdout:
 				if !open {
 					taskCmd.Stdout = nil
@@ -430,7 +438,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 				// there are applications which will just ignore it or are in busy state and can't handle the signal.
 				// Here we start a timer for SIGTERM to succeed and if it doesn't, SIGKILL is sent
 				abortTimer := time.AfterFunc(ABORT_TIMEOUT*time.Second, func() {
-					b.ProcessLogEntry("> Killing the command...", bw, task.ID, task.startedAt)
+					close(killed)
 					// PID 0 means the command never started; kill(0) would
 					// signal wakeci's own process group
 					pid := taskCmd.Status().PID
