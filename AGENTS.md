@@ -412,10 +412,9 @@ AGENTS.universal.md for the general contract.
   `<object>` and a popup created API keys, and a service worker registered).
   Dropping `allow-same-origin` breaks reports' own files instead. The app
   must keep opening artifacts with `rel="noopener"` and never frame them.
-- The feed's search is `q` and it pages with `before`; `filter` and `offset`
-  still work for old clients. Don't use or drop them;
-  [docs/deprecations.md](docs/deprecations.md) says when they go. Builds
-  carry only `build_artifacts`.
+- The feed's search is `q` and it pages with `before`/`after`; `offset` and
+  `filter` were removed and get 400 (`removedFeedParams`), and builds carry
+  only `build_artifacts`. Deprecate before removing: [docs/deprecations.md](docs/deprecations.md).
 - `HandleFeedView` scans the history in a read transaction, so a slow or
   filtered scan never holds Bolt's single write lock; builds the queue no
   longer knows are marked aborted afterwards by `markStaleBuildsAborted`,
