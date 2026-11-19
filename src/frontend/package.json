@@ -32,7 +32,6 @@
     "globals": "^17.14.0",
     "javascript-time-ago": "^2.5.12",
     "lodash": "^4.17.23",
-    "material-dynamic-colors": "^1.1.4",
     "minimist": "^1.2.8",
     "mitt": "^3.0.1",
     "prettier": "^3.9.10",

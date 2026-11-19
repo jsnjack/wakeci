@@ -87,10 +87,8 @@
 </template>
 
 <script>
-// importing as beercss and materialDynamicColors
 import "@/assets/main.css";
 import "beercss";
-import "material-dynamic-colors";
 
 import QueueBanner from "@/components/QueueBanner.vue";
 import { getWSURL } from "@/store/communication.js";
