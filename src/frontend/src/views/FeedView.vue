@@ -151,20 +151,10 @@ export default {
     mounted() {
         this.$store.commit("SET_CURRENT_PAGE", "Feed");
 
-        // Restore filter from URL in address bar. Links written before
-        // wakeci encoded it once carry it in `filter`, encoded twice
-        // (status%253Afailed), so that one is decoded once more; showFilterInURL
-        // then moves it to `q`
+        // Restore the search from the address bar
         const url = new URL(window.location.href);
         if (url.searchParams.has("q")) {
             this.filter = url.searchParams.get("q");
-        } else if (url.searchParams.has("filter")) {
-            const filterValue = url.searchParams.get("filter");
-            try {
-                this.filter = decodeURIComponent(filterValue);
-            } catch {
-                this.filter = filterValue;
-            }
         }
 
         this.fetchNow();
@@ -214,8 +204,8 @@ export default {
         // for a navigation that cancels one still loading its page
         showFilterInURL() {
             const url = new URL(window.location.href);
-            // searchParams encodes the value itself. `q`, not `filter`, so
-            // that a link tells which encoding it has (mounted)
+            // searchParams encodes the value itself. An old link's `filter`,
+            // which the feed no longer reads, leaves the address bar
             url.searchParams.delete("filter");
             if (this.filter === "") {
                 url.searchParams.delete("q");

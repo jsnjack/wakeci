@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -114,7 +115,7 @@ func TestMarkStaleBuildsAbortedRechecks(t *testing.T) {
 	}
 }
 
-// The feed's search is q; filter, its old name, still works when q is absent
+// The feed's search is q
 func TestFeedQuery(t *testing.T) {
 	router := newAPIKeyTestEnv(t)
 	for id := 3; id <= 6; id++ {
@@ -127,10 +128,8 @@ func TestFeedQuery(t *testing.T) {
 		want   []int
 	}{
 		{"/api/feed?q=id:4", []int{4}},
-		{"/api/feed?filter=id:4", []int{4}},
-		{"/api/feed?q=id:5&filter=id:4", []int{5}},
-		// An empty q is no search, not a reason to read filter
-		{"/api/feed?q=&filter=id:4", []int{6, 5, 4, 3, 1}},
+		// An empty q is no search
+		{"/api/feed?q=", []int{6, 5, 4, 3, 1}},
 	}
 	for _, tt := range tests {
 		rec := keyRequest(router, "GET", tt.target, token, nil)
@@ -139,6 +138,36 @@ func TestFeedQuery(t *testing.T) {
 		}
 		if got := buildIDs(t, rec.Body.Bytes()); !slices.Equal(got, tt.want) {
 			t.Errorf("%s builds = %v, want %v", tt.target, got, tt.want)
+		}
+	}
+}
+
+// offset and filter were removed: a client that still sends them gets 400
+// naming what replaces them, instead of the first page again and again or an
+// unfiltered feed
+func TestFeedRemovedParams(t *testing.T) {
+	router := newAPIKeyTestEnv(t)
+	token := createTestKey(t, url.Values{"name": {"read"}, "scope": {"read"}, "allJobs": {"true"}})
+	tests := []struct {
+		target, want string
+	}{
+		{"/api/feed?offset=15", "offset was removed: page with before=<the oldest ID you got>"},
+		{"/api/feed?offset=0&q=id:4", "offset was removed: page with before=<the oldest ID you got>"},
+		{"/api/feed?filter=id:4", "filter was removed: search with q"},
+		// Also next to q, which a client may send as well
+		{"/api/feed?q=id:5&filter=id:4", "filter was removed: search with q"},
+	}
+	for _, tt := range tests {
+		for name, send := range map[string]func() *httptest.ResponseRecorder{
+			"password": func() *httptest.ResponseRecorder {
+				return apiCall("GET", tt.target, nil, nil, func(r *http.Request) { r.SetBasicAuth("", "admin") })
+			},
+			"key": func() *httptest.ResponseRecorder { return keyRequest(router, "GET", tt.target, token, nil) },
+		} {
+			rec := send()
+			if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), tt.want) {
+				t.Errorf("%s with %s: %d %q, want 400 %q", tt.target, name, rec.Code, rec.Body.String(), tt.want)
+			}
 		}
 	}
 }
@@ -185,13 +214,6 @@ func TestFeedCursorAndFilters(t *testing.T) {
 		{"status=failed", []int{40, 35, 30, 25, 20, 15, 10, 5}},
 		{"status=failed&job=deploy", []int{35, 25, 15, 5}},
 		{"status=failed&before=30&limit=2", []int{25, 20}},
-		{"offset=2&limit=2", []int{38, 37}},
-		{"offset=1&job=deploy&limit=2", []int{37, 35}},
-		// Past the end: [], so a client that pages until an empty page stops
-		{"offset=40", []int{}},
-		{"offset=45", []int{}},
-		{"offset=38&before=3", []int{}},
-		{"offset=30&job=deploy", []int{}},
 		{"before=1", []int{}},
 		{"limit=200", nil},
 	}
@@ -217,7 +239,7 @@ func TestFeedCursorAndFilters(t *testing.T) {
 		})
 	}
 
-	for _, query := range []string{"limit=0", "limit=201", "before=0", "after=x", "offset=-1", "status=done"} {
+	for _, query := range []string{"limit=0", "limit=201", "before=0", "after=x", "status=done"} {
 		t.Run("invalid "+query, func(t *testing.T) {
 			if rec := apiCall("GET", "/api/feed?"+query, nil, nil, basicAuth); rec.Code != http.StatusBadRequest {
 				t.Errorf("status = %d, want 400; body %q", rec.Code, rec.Body.String())

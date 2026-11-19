@@ -287,8 +287,9 @@ func TestAPIKeyFeedPages(t *testing.T) {
 		want   []int
 	}{
 		{"/api/feed", []int{39, 37, 35, 33, 31, 29, 27, 25, 23, 21, 19, 17, 15, 13, 11}},
-		{"/api/feed?offset=15", []int{9, 7, 5, 3, 1}},
-		{"/api/feed?offset=1&q=id:1", []int{17, 15, 13, 11, 1}},
+		// Paging back only goes over the key's builds
+		{"/api/feed?before=11", []int{9, 7, 5, 3, 1}},
+		{"/api/feed?before=18&q=id:1", []int{17, 15, 13, 11, 1}},
 	}
 	for _, tt := range tests {
 		rec := keyRequest(router, "GET", tt.target, token, nil)

@@ -104,6 +104,9 @@ func LogMi(next http.Handler) http.Handler {
 // loggedQueryParams are the query parameters the request line shows for a
 // read (GET or HEAD): those that say what a client reads. Others can carry
 // run parameters, and so secrets.
+//
+// offset and filter were removed from the feed; logging them shows who still
+// sends them and gets 400
 var loggedQueryParams = []string{"q", "filter", "offset", "limit", "before", "after", "job", "status", "tail", "wait"}
 
 // loggedQuery returns the query parameters of loggedQueryParams that are set
