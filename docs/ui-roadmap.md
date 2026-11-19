@@ -34,8 +34,16 @@ here and name it (e.g. "F1") in the commit message.
 - **Failed builds.** The failed task was row 14 of about 20 (median), below
   the fold. Failing task logs were 1,300 to 24,000 lines (110 KB to 2.4 MB),
   with the failed tests and the totals in the last 20 lines.
-- **Screens.** On 1440×900, 7 feed rows fit (96 px each). On a 390 px phone
-  the header hides every link except Log out.
+- **Screens.** On 1440×900, 7 to 8 feed rows fit (80 to 96 px each). On a
+  390 px phone the header hides every link except Log out.
+- **Layouts tried.** Five feed and five build-page layouts were drawn on
+  real builds, and the chosen ones built as a working prototype. With two
+  plain lines per build the feed shows 12 builds on 1440×900 instead of 8; a
+  denser one-line table showed 17 but cut long branch names. On the build
+  page the last line of the failed log was 672 px down instead of behind a
+  click. The prototype's log viewer, written by hand, opened an 8 MB
+  coloured log (57,600 lines) in about 65 ms and streamed 10 MB at 1 MB/s
+  with no frame over 50 ms (Chrome on a desktop).
 - **Other tools.** Sources at the end.
 
 ## Fix first
@@ -77,16 +85,14 @@ except the fix.
 
   Labels stay parameters: nothing new in the run API, the history or the
   audit log. The jobs list sends each job's labels next to its
-  `defaultParams`. A row shows the labels first with their names
-  (`branch main`: the `_LABEL` suffix dropped, lowercased), then the other
-  non-empty parameters behind "+N" (today the first three, the name only in
-  a tooltip). Values at their default stay hidden, labels too: the only one
-  seen was a placeholder. A job without labels shows today's chips, with
-  names. 40-character hex values are shortened to 7, copying the full
-  value; long values are cut in the middle, keeping a leading ticket
-  number. On phones the chips wrap under the job name
-  instead of disappearing. The build header (B1) and the run form (J2) show
-  the same labels. Effort M.
+  `defaultParams`. A row shows the label values first, then the other
+  changed parameters, as grey text separated by dots, not boxes; the name
+  and the full value show on hover, and a click adds the value to the
+  search (F7). Named values (`branch main`) were tried and read as
+  overloaded. Values at their default stay hidden, labels too: the only one
+  seen was a placeholder. 40-character hex values are shortened to 7; long
+  values are cut in the middle, keeping a leading ticket number. The build
+  header (B1) and the run form (J2) show the same labels. Effort M.
 - **F2. Group builds under the build that started them.** `POST
   /api/job/{name}/run` accepts `parent=<build id>`; a job that starts others
   passes `parent=${WAKE_BUILD_ID}`. The feed shows one row per parent with a
@@ -98,11 +104,15 @@ except the fix.
   value could group them until they pass `parent=`.) Needs
   the parent in the build's history and stats records, the API docs and an
   audit attribute. Effort L.
-- **F3. One line per build.** About 40 px: status, number, job, chips,
-  progress or duration, time. The row is the link; Abort and Start now on
-  hover and in a "⋯" menu, only when they can act (today they show disabled).
-  Queued builds say how long they have waited and their place in the queue.
-  Effort M.
+- **F3. Two plain lines per build (decided).** Today's two lines in the same
+  order, without the card, the boxes and the copy icons: the status icon,
+  `#id` in grey and the job name on the first line, the F1 values on the
+  second; duration and time on the right, without icons; thin lines between
+  rows. About 60 px, 12 builds on 1440×900. The row is the link; Abort, Run
+  again and Open in a new tab appear on hover and focus, only when they can
+  act (today they show disabled), and in a "⋯" menu on phones. A running
+  build has a thin progress line along its bottom edge. Queued builds say
+  how long they have waited and their place in the queue. Effort M.
 - **F4. Quick filters and saved searches.** A row of chips above the feed
   that write the existing `q`: Failed, Running and queued, Hide scheduled,
   several jobs, and the user's saved searches. "Save this search" names the
@@ -131,6 +141,14 @@ except the fix.
 - **F8. Help while typing.** The search box suggests label names, then
   values seen in the loaded builds; the active terms show as chips that can
   be removed one by one. Effort M.
+- **F9. The build beside the feed (decided).** On a wide window a click on
+  a row opens the build on the right, and the feed narrows to a list on the
+  left (two short lines per build, the selected one highlighted), like an
+  email app. The list keeps its search and scroll position; ↑ and ↓ move to
+  the next build, Esc closes, and a button opens the build as its own page.
+  The address names both, so a reload or a shared link restores them. Below
+  the wide breakpoint a click opens the build page as today. The right half
+  is the build page (B1–B3). Effort M.
 - Not planned: labels added to a build after it ran ("flaky"). They would
   need storage per build, an audited route and access rules.
 
@@ -167,29 +185,40 @@ except the fix.
 
 ## Build page
 
-- **B1. A header that says what happened.** A status-coloured band: "Failed
-  at Run tests after 9m 46s (usually 8m 30s)", the F1 chips, who started it
-  (recorded for analytics, not yet sent to the page), the F2 strip, previous
-  and next build of the job, and labelled actions: Re-run (primary), Re-run
-  with changes…, Abort while running; notify, hide logs and raw logs in "⋯".
-  Compact and sticky, so status stays visible while a log follows. Effort M.
-- **B2. Failure first.** Open the failed task, or the running one, at the end
-  of its log. Jenkins Blue Ocean auto-opened whole failed logs and users
-  complained that they pushed everything else away; opening at the end
-  avoids that. "First error" heuristics don't work: in the logs looked at,
-  the first line matching `Error` was harmless noise near the top. Effort S with the log viewer.
-- **B3. Fold what passed.** Passed tasks before the failure fold into "✓ 12
-  tasks passed · 31 s"; hooks fold by group ("After failure · 4 tasks");
-  main tasks that never ran say "not run" in grey instead of showing the
-  pending icon. Effort S.
+Decided: one header, then the failure, then a plain task list (B1–B3). A
+header with more in it (a status band, strips, counts) and folded task
+groups were tried and read as overloaded.
+
+- **B1. One header of three lines.** The status icon, the job name and its
+  description, with labelled actions on the right: Run again, Abort while
+  running, a bell to notify, and "⋯" for start now, hide logs and raw logs.
+  Under it "#1204 · Failed after 7 min 46 s · started 11 min ago, 11:20
+  UTC", then the F1 values and "All 11 parameters", which opens the full
+  list (B6). No second card for the parameters. Who started the build, the
+  usual duration and the F2 strip can join the second line later. Effort M.
+- **B2. Failure first.** The failed task's log sits right under the header,
+  in a box about 420 px high, opened at its end; its row in the list scrolls
+  to it. A running task opens in its place, in the list, following its end.
+  Jenkins Blue Ocean auto-opened whole failed logs and users complained
+  that they pushed everything else away; a box opened at the end avoids
+  that. "First error" heuristics don't work: in the logs looked at, the first
+  line matching `Error` was harmless noise near the top, and the failing
+  test was named about 40 lines above the end. Search in the log (B4) finds
+  it. Effort S with the log viewer.
+- **B3. A plain task list.** Every task that ran, and every main task, as a
+  row of about 34 px: status, name, duration, no buttons; a click opens its
+  log under the row, with raw log and reload in the log's bar. Hooks sit
+  under small headings: Before start, After failure, After abort, After
+  success, Always. Main tasks that never ran say "not run" in grey instead
+  of showing the pending icon. Effort S.
 - **B4. Log viewer.** See [Task logs](#task-logs).
 - **B5. Summary first.** `$WAKE_SUMMARY` already shows above the tasks; the
   docs should show how a test task writes its failed tests and the value to
   re-run only them. Later: a "Re-run with these values" link, and Markdown
   rendered without raw HTML. Effort S, then M.
-- **B6. Parameters folded.** "Parameters · 3 differ from defaults", the
-  changed ones first. Re-run with changes opens the run form with this
-  build's values. Effort S.
+- **B6. All parameters on demand.** "All 11 parameters" opens a list of
+  names and values, the changed ones first. Re-run with changes opens the
+  run form with this build's values. Effort S.
 - **B7. History in reach.** The job's last 20 builds as a strip next to the
   title (`OutcomeStrip` from the analytics page), keys for previous and next
   build. Effort S.
@@ -226,6 +255,17 @@ It is colours and links as ordinary elements (half a million nodes), and
 streaming as `TaskItem` does it, which copies and lays out the whole log on
 every update: at 10 MB 387 ms of every 500 ms, 1.2 GB and rising.
 
+A hand-written viewer in the prototype kept the text in 256 KB pieces with
+a typed-array line index, drew 200-line chunks only near the visible part,
+and worked out colours, links and search hits only for drawn lines. An 8 MB
+coloured log was indexed in 5 ms and its end drawn in about 40 ms, with 400
+lines in the page; scrolling it top to bottom held 60 frames a second;
+searching all of it took 12–22 ms; 10 MB streamed at 1 MB/s (7,000 lines a
+second) averaged 17–18 ms a frame, the worst 33–50 ms. It is about 10 kB
+instead of CodeMirror's 250 kB, but a selection dragged past the drawn
+chunks loses its text, so CodeMirror stays the engine and the prototype
+fixes the look and behaviour.
+
 ### Design
 
 - **CodeMirror 6, read-only, as the viewer.** It renders only the visible
@@ -243,16 +283,23 @@ every update: at 10 MB 387 ms of every 500 ms, 1.2 GB and rising.
   for 10 MB) into spans per line; a view plugin turns the spans of the
   visible lines into decorations, so the cost does not grow with the log.
   Links come from a `MatchDecorator`, also only for visible lines: `http`
-  and `https` only, opened with `rel="noopener noreferrer"`. Nothing from a
-  log is ever inserted as HTML.
+  and `https` only, opened with `rel="noopener noreferrer"`. Terminal
+  hyperlinks (OSC 8, printed by test reporters and `ls --hyperlink`) become
+  links too, under the same rule. A line redrawn with carriage returns (a
+  progress bar) shows only its last state; cursor movement and other escape
+  sequences are dropped. Nothing from a log is ever inserted as HTML.
 - **Search.** A search box of our own (Ctrl+F and `/` inside the viewer open
   it, as the browser can't find text that isn't drawn): `indexOf` or a regex
   over the document text, "37 of 2,633", next and previous via the editor's
   selection, and highlights as decorations of the visible matches only.
   "Search all tasks" uses the existing `GET /api/build/{id}/log/{task}?grep=`.
-- **Line links and the time prefix.** Click a line number for `#L120`,
-  shift-click for a range, with Copy lines. The `[ 9m46.704s] ` prefix moves
-  to its own gutter that can be hidden.
+- **Line links and the time prefix.** Click a line number to put the task
+  and the line in the address (`#t13-L120`), shift-click for a range
+  (`#t13-L120-L125`), with Copy lines; opening such a link opens that task
+  scrolled to the lines, marked. The `[ 9m46.704s] ` prefix is drawn in grey,
+  and can move to its own gutter that can be hidden.
+- **Wrapping.** On by default, as today; off keeps each line on one row and
+  the line numbers in place while scrolling sideways.
 - **Loading.** A finished task's log is fetched whole: full fetches are
   gzipped, and a real log compressed 5.7 times, so 10 MB is about 1.8 MB on
   the wire. Above 50 MB the viewer opens the last 10,000 lines (`?tail=`)
@@ -266,17 +313,22 @@ every update: at 10 MB 387 ms of every 500 ms, 1.2 GB and rising.
   - Write `task_N.ansi.log` beside it, line for line, keeping only SGR
     codes (colour and style), once a line of the task has any; before that
     the plain lines are the same. Other escape sequences are still removed.
-  - An opt-in `color: true` on the job or task sets `FORCE_COLOR=1`,
-    `CLICOLOR_FORCE=1` and `PY_COLORS=1`. Not on by default, since a script
-    that parses a tool's output would get codes; not a PTY, which would merge
-    stdout and stderr and change line endings.
+  - Jobs opt in (decided): `color: true` on the job or task sets
+    `FORCE_COLOR=1`, `CLICOLOR_FORCE=1` and `PY_COLORS=1`, and a job may set
+    them, or a tool's `--color=always`, itself. Not on by default, since a
+    script that parses a tool's output would get codes; not a PTY, which
+    would merge stdout and stderr and change line endings.
   - Redact secrets in the visible text: today `redactSecrets` runs before
     `StripColor`, so a secret split by colour codes isn't matched, and
     stripping joins it again in the plain log. For the colour file, redact
     the visible text and keep the codes around it.
-  - The 16 basic colours map to CSS variables chosen for contrast in light
-    and dark; 256 colours through a table; 24-bit colours to the nearest of
-    those.
+  - The 16 basic colours map to CSS variables, one palette for light and
+    one for dark, each readable on its log background. 256 and 24-bit
+    colours keep the program's colour, moved toward the text colour until
+    it has 4.5:1 contrast with the background (white text on the light
+    theme turns grey), cached per colour. Background colours are drawn at
+    about a quarter strength, so text on them stays readable in both
+    themes.
 - **Tests.** `secrets.spec.js` matches the `.log-line` text with the time
   prefix inline; with the prefix in a gutter it reads the viewer's text
   instead. Tests that look for a line in the page text pass while short logs
@@ -354,10 +406,22 @@ component kit, which is another lock-in with larger chunks.
   only the icons in use, generated by a script, with a test that every icon
   name in `src` is in it. Effort S.
 
-The look: the system font, 14 px text, 40 px rows (about 17 builds on
-1440×900 instead of 7), borders rather than shadows, one accent colour.
-Colour means status only, always with a shape. Dark mode follows the system
-unless the user picks one.
+The look (decided): Material's colours at the density of a developer tool.
+
+- **Colour.** Material's tonal palette from wakeci's purple, so the 36 theme
+  colours in `main.css` carry over and hover, selection, light and dark all
+  follow from them. Dark follows the system unless the user picks one.
+  Colour means status only, always with a shape; one accent colour.
+- **Shape and density.** 12 px corners on containers, 8 to 10 px on
+  controls, pills only for navigation; thin dividers instead of cards and
+  shadows; text about 15 px. Material's own components are sized for touch
+  (40 px chips, 48 px targets), which is why today's feed fits 8 builds.
+- **Type.** Roboto Flex cut to Latin letters and the weight axis, or the
+  system font. Open: the full Roboto Flex file is 1.8 MB, and the cut one
+  is not measured yet.
+- Tried and not chosen: Material 3 Expressive (28 px corners, list items as
+  separate tiles, bolder titles) fitted 10 builds and looked playful; a
+  neutral grey style like GitHub's fitted 13 but lost the wakeci look.
 
 ## Phones and smaller things
 
@@ -377,7 +441,7 @@ unless the user picks one.
 |---|---|
 | 0 | X1–X6 |
 | 1 | S1 and S2; the feed on the new styles (S3) with F1, F7 and F3; phone menu |
-| 2 | The log viewer (B4) with L2, colours on the server; the build page on the new styles with B1–B3 and B6 |
+| 2 | The log viewer (B4) with L2, colours on the server; the build page on the new styles with B1–B3 and B6; then the build beside the feed (F9) |
 | 3 | F4 and F8, J1, J2 |
 | 4 | The other pages on the new styles, S4 |
 | Later | F2, F5, F6, L1, L3–L6, B5, B7 |
