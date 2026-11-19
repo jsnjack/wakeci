@@ -334,23 +334,12 @@ func RunJob(name string, params url.Values, untrustedParams bool, trigger buildT
 		return nil, err
 	}
 	build, err := GlobalQueue.addNewBuild(func() (*Build, error) {
-		build, err := CreateBuild(job, jobFile, untrustedParams)
+		build, err := createBuild(job, jobFile, untrustedParams, params)
 		if err != nil {
 			return nil, err
 		}
-
-		// Update params from URL
 		build.mutex.Lock()
 		build.trigger = trigger
-		for idx := range build.Params {
-			for pkey := range build.Params[idx] {
-				value := params.Get(pkey)
-				if value != "" {
-					build.Params[idx][pkey] = value
-					build.Logger.Debug("updating param", "key", pkey, "value", value)
-				}
-			}
-		}
 		build.mutex.Unlock()
 		return build, nil
 	})

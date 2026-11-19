@@ -1,10 +1,15 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -210,5 +215,75 @@ finally:
 				}
 			}
 		})
+	}
+}
+
+// RunJob sets the run's params before the build's first update and its
+// on_pending tasks. It used to set them afterwards, so the feed got the
+// job's defaults first (and dropped the build under a search for the run's
+// value), and an on_pending task could run with the defaults.
+func TestRunJobGivesTheFirstUpdateAndPendingTasksTheRunParams(t *testing.T) {
+	newTestBuildEnv(t)
+	useQueue(t, &Queue{}) // starts nothing, so the build stays queued
+	oldCron := GlobalCron
+	GlobalCron = cron.New()
+	t.Cleanup(func() { GlobalCron = oldCron })
+	var (
+		mu   sync.Mutex
+		sent []*MsgBroadcast
+	)
+	hub := newHub()
+	oldHub := WSHub
+	WSHub = hub
+	stop := make(chan struct{})
+	t.Cleanup(func() { close(stop); WSHub = oldHub })
+	go func() {
+		for {
+			select {
+			case msg := <-hub.broadcast:
+				mu.Lock()
+				sent = append(sent, msg)
+				mu.Unlock()
+			case <-stop:
+				return
+			}
+		}
+	}()
+	path := Config.JobDir + "pending-params" + Config.jobsExt
+	content := "desc: pending params\nparams:\n  - CITY: nowhere\non_pending:\n  - name: Record the city\n    run: echo \"$CITY\" > city\ntasks: []\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatalf("write job: %v", err)
+	}
+	if err := RegisterJob(path); err != nil {
+		t.Fatalf("register job: %v", err)
+	}
+
+	build, err := RunJob("pending-params", url.Values{"CITY": {"minsk"}}, false, buildTrigger{Kind: TriggerPassword})
+	if err != nil {
+		t.Fatalf("RunJob: %v", err)
+	}
+	build.pendingTasksWG.Wait()
+
+	mu.Lock()
+	var first *BuildUpdateData
+	for _, msg := range sent {
+		if msg.Type == "build:update:"+strconv.Itoa(build.ID) {
+			first = &BuildUpdateData{}
+			if err := json.Unmarshal(msg.Data.(json.RawMessage), first); err != nil {
+				t.Fatalf("decode the first update: %v", err)
+			}
+			break
+		}
+	}
+	mu.Unlock()
+	if first == nil || len(first.Params) != 1 || first.Params[0]["CITY"] != "minsk" {
+		t.Errorf("first update params = %v, want CITY=minsk", first)
+	}
+	city, err := os.ReadFile(filepath.Join(build.GetWorkspaceDir(), "city"))
+	if err != nil || strings.TrimSpace(string(city)) != "minsk" {
+		t.Errorf("on_pending task saw CITY = %q (%v), want minsk", city, err)
+	}
+	if build.Job.DefaultParams[0]["CITY"] != "nowhere" {
+		t.Errorf("the job's default became %q; the run's value must go to a copy", build.Job.DefaultParams[0]["CITY"])
 	}
 }

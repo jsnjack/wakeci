@@ -1027,8 +1027,38 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 
 }
 
-// CreateBuild creates Build instance and all necessary files and folders in wakespace
+// CreateBuild creates Build instance and all necessary files and folders in
+// wakespace, with the job's default params
 func CreateBuild(job *Job, jobPath string, untrustedParams bool) (*Build, error) {
+	return createBuild(job, jobPath, untrustedParams, nil)
+}
+
+// runParams returns a copy of the job's default params with the run's
+// non-empty values in place of the defaults; an empty value keeps the
+// default. A copy, so the job's defaults stay the defaults.
+func runParams(defaults []map[string]string, values url.Values) []map[string]string {
+	if defaults == nil {
+		return nil
+	}
+	params := make([]map[string]string, len(defaults))
+	for idx, param := range defaults {
+		params[idx] = make(map[string]string, len(param))
+		for pkey, pval := range param {
+			if value := values.Get(pkey); value != "" {
+				pval = value
+			}
+			params[idx][pkey] = pval
+		}
+	}
+	return params
+}
+
+// createBuild creates a build whose params are the run's values (runParams).
+// They are set before the build is marked pending, because that sends the
+// build's first update and starts its on_pending tasks: both must see the
+// values the build runs with. RunJob used to set them afterwards, so the
+// feed got the defaults first and an on_pending task could run with them.
+func createBuild(job *Job, jobPath string, untrustedParams bool, values url.Values) (*Build, error) {
 	var counti int
 	err := DB.Update(func(tx *bolt.Tx) error {
 		var err error
@@ -1054,7 +1084,7 @@ func CreateBuild(job *Job, jobPath string, untrustedParams bool) (*Build, error)
 		ID:           counti,
 		abort:        newAbortScope(),
 		flushChannel: make(chan bool),
-		Params:       job.DefaultParams,
+		Params:       runParams(job.DefaultParams, values),
 		ETA:          GetJobETA(job.Name),
 		queuedAt:     time.Now(),
 		// Set before SetBuildStatus below starts the pending tasks
