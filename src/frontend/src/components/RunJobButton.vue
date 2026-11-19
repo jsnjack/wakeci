@@ -32,7 +32,7 @@
         >
             <RunFormItem
                 v-for="item in params"
-                :key="item.name"
+                :key="Object.keys(item)[0]"
                 :params="item"
             />
         </form>
