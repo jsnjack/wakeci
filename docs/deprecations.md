@@ -57,19 +57,9 @@ without the query, so the check only means something after the update.
   and the E2E test "should take q over an old filter parameter", and the
   Gotcha in `AGENTS.md`. Old bookmarks then open the unfiltered feed.
 
-## `artifacts` in build updates
+## Removed
 
-- **Replaced by:** `build_artifacts`, which has each file's name, size and
-  URL. The field is in the feed, `GET /api/build/{id}` (`status_update`) and
-  the WebSocket build updates. Not to be confused with `artifacts` in
-  `GET /api/build/{id}/summary`, which already holds the full entries.
-- **Why:** it holds file names only, and every build stores the list twice.
-- **Still used by:** `BuildView.vue`, only for builds saved before
-  `build_artifacts` existed (January 2021); `buildHistorySize` has most
-  likely removed those. The request log can't show which clients read a
-  response field, so ask the owners of scripts that read builds.
-- **To remove:** `Build.Artifacts` and the lines that fill it
-  (`src/backend/build.go`), `BuildUpdateData.Artifacts`
-  (`communication.go`), and the fallback in `BuildView.vue`'s
-  `getArtifacts`. History entries keep the old field in the database, which
-  is harmless.
+- **2026-11:** `artifacts` in build updates. Builds carry only
+  `build_artifacts`, which has each file's name, size and URL; history
+  entries saved before keep `artifacts` in the database, which is never
+  sent.
