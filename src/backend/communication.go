@@ -108,7 +108,6 @@ type BuildUpdateData struct {
 	// on_finished and finally. Only those the build's status calls for run.
 	Tasks          []*TaskStatus       `json:"tasks"`
 	Params         []map[string]string `json:"params"`
-	Artifacts      []string            `json:"artifacts"` // Deprecated: file names only; use build_artifacts
 	BuildArtifacts []*ArtifactInfo     `json:"build_artifacts"`
 	// StartedAt is when the build started running, after its on_pending
 	// tasks; 0001-01-01T00:00:00.000000Z if it never did
@@ -145,9 +144,6 @@ func (x BuildUpdateData) MarshalJSON() ([]byte, error) {
 	}
 	if aliased.Params == nil {
 		aliased.Params = []map[string]string{}
-	}
-	if aliased.Artifacts == nil {
-		aliased.Artifacts = []string{}
 	}
 	if aliased.BuildArtifacts == nil {
 		aliased.BuildArtifacts = []*ArtifactInfo{}

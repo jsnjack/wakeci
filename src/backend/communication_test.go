@@ -27,7 +27,11 @@ func TestBuildUpdateDataSendsEmptyLists(t *testing.T) {
 			if err := json.Unmarshal(data, &fields); err != nil {
 				t.Fatalf("decode fields: %v", err)
 			}
-			for _, field := range []string{"params", "artifacts", "build_artifacts", "tasks"} {
+			// History entries saved before keep artifacts; it isn't sent any more
+			if _, ok := fields["artifacts"]; ok {
+				t.Errorf("artifacts = %s, want no such field", fields["artifacts"])
+			}
+			for _, field := range []string{"params", "build_artifacts", "tasks"} {
 				if got := string(fields[field]); got != "[]" {
 					t.Errorf("%s = %s, want []", field, got)
 				}

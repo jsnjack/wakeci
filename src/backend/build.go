@@ -76,7 +76,6 @@ type Build struct {
 	flushChannel   chan bool // Instructs to flush bw
 	pendingTasksWG sync.WaitGroup
 	Params         []map[string]string
-	Artifacts      []string // Deprecate
 	BuildArtifacts []*ArtifactInfo
 	StartedAt      time.Time
 	Duration       time.Duration // ns
@@ -706,7 +705,6 @@ func (b *Build) CollectArtifacts() {
 					Size:     artifactSize,
 					Filename: relPath,
 				})
-				b.Artifacts = append(b.Artifacts, relPath) // Deprecate
 				b.mutex.Unlock()
 			}
 		}
@@ -800,7 +798,6 @@ func (b *Build) records() (data, queued, stats []byte, err error) {
 		Status:         b.Status,
 		Tasks:          b.GetTasksStatus(),
 		Params:         b.Params,
-		Artifacts:      b.Artifacts, // Deprecate
 		BuildArtifacts: b.BuildArtifacts,
 		StartedAt:      b.StartedAt,
 		Duration:       b.Duration,
