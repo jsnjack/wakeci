@@ -51,14 +51,6 @@ here and name it (e.g. "F1") in the commit message.
 Bugs found while planning. Each is small and changes nothing people see
 except the fix.
 
-- **X1. Live updates ignore searches with prefixes.** The browser matches a
-  new build against `id + name + status + JSON.stringify(params)`
-  (`isFilteredUpdate` in `store/utils.js`), the server against
-  `id:<id> name:<job> status:<status> [map[NAME:value] …]`
-  (`ToFilterMatchString`). A search with `NAME:value`, `status:`, `name:` or
-  `id:` matches on load, then drops every new build until a reload. Build
-  the server's text in the browser, with an E2E test that runs a build under
-  such a search. Effort S.
 - **X2. Save & Close doesn't wait for the save** (`saveAndClose` in
   `JobEditView`): when the server refuses the file, say invalid YAML, the
   error shows on the jobs page and the edit is lost. Effort S.
@@ -137,7 +129,7 @@ except the fix.
   `+"BRANCH_LABEL:main"`; the `+` stays, since plain terms mean "any of" and
   Ctrl/Cmd+click must narrow the search. One list of queries and the builds they match,
   checked by the Go tests and an E2E test, keeps the server's and the
-  browser's parsers from drifting apart again (X1). Effort M.
+  browser's parsers from drifting apart again. Effort M.
 - **F8. Help while typing.** The search box suggests label names, then
   values seen in the loaded builds; the active terms show as chips that can
   be removed one by one. Effort M.
@@ -439,7 +431,7 @@ The look (decided): Material's colours at the density of a developer tool.
 
 | Phase | Items |
 |---|---|
-| 0 | X1–X6 |
+| 0 | X2–X6 |
 | 1 | S1 and S2; the feed on the new styles (S3) with F1, F7 and F3; phone menu |
 | 2 | The log viewer (B4) with L2, colours on the server; the build page on the new styles with B1–B3 and B6; then the build beside the feed (F9) |
 | 3 | F4 and F8, J1, J2 |

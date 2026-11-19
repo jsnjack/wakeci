@@ -18,14 +18,32 @@ export function findInContainer(container, key, value) {
     return [undefined, undefined];
 }
 
+// filterMatchText is the text the server matches a search against
+// (BuildUpdateData.ToFilterMatchString): id:<id> name:<job> status:<status>
+// and the params as Go prints a []map[string]string, keys sorted:
+// [map[NAME:value] map[OTHER:value]]. A different text here made the feed
+// drop new builds that a search with id:, name:, status: or NAME:value
+// matched on load.
+export function filterMatchText(ev) {
+    const params = (ev.params || []).map(
+        (param) =>
+            "map[" +
+            Object.keys(param)
+                .sort()
+                .map((name) => `${name}:${param[name]}`)
+                .join(" ") +
+            "]",
+    );
+    return `id:${ev.id} name:${ev.name} status:${ev.status} [${params.join(" ")}]`;
+}
+
 export function isFilteredUpdate(ev, filterObj) {
     // Returns true if the update should be ignored
-    // The filter is similar to the implementation on the server side (HandleFeedView)
+    // The filter is the same as on the server side (HandleFeedView)
     if (filterObj === null) {
         return false;
     }
-    const info = "" + ev.id + ev.name + ev.status + JSON.stringify(ev.params);
-    return !matchesFilter(info, filterObj);
+    return !matchesFilter(filterMatchText(ev), filterObj);
 }
 
 // The filter is similar to the implementation on the server side (HandleFeedView)

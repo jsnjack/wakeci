@@ -30,6 +30,26 @@ test("should hide updates when filter is active", async ({ page, wake }) => {
     await expect(page.getByTestId("feed-container").locator("[data-cy-build]")).toHaveCount(1);
 });
 
+test("should keep showing new builds that match a search with prefixes", async ({ page, wake }) => {
+    const value = `minsk-${randomUUID()}`;
+    const name = await wake.createJob(`
+desc: Prefix search
+params:
+  - CITY: ""
+tasks:
+  - name: Print env
+    run: env
+`);
+    await wake.showFeed(`+name:${name} +CITY:${value}`);
+    await wake.runJob(name, { CITY: value });
+    await expect(page.getByTestId("feed-container").locator("[data-cy-build]")).toHaveCount(1);
+    await expect(page.getByTestId("filtered-updates")).toBeHidden();
+    // a build the search doesn't match is still left out
+    await wake.runJob(name, { CITY: "elsewhere" });
+    await expect(page.getByTestId("filtered-updates")).toBeVisible();
+    await expect(page.getByTestId("feed-container").locator("[data-cy-build]")).toHaveCount(1);
+});
+
 test("should filter jobs with params", async ({ page, wake }) => {
     const value = `brest-${randomUUID()}`;
     const name = await wake.createJob(`
