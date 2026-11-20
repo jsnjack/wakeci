@@ -177,6 +177,7 @@ func HandleBuildSummary(w http.ResponseWriter, r *http.Request) {
 // @Param        task     path    integer   true   "Task ID, from status_update.tasks"
 // @Param        tail     query   integer   false  "Only the last lines, 1 to 10000"
 // @Param        grep     query   string    false  "Only lines whose text contains this, ignoring case and the time each line starts with"
+// @Param        case     query   boolean   false  "With grep: match case, which grep otherwise ignores"
 // @Param        ansi     query   boolean   false  "The whole log with the colour codes and hyperlinks of the task's output (ESC sequences), line for line, if it printed any; else the plain log. Not with tail or grep"
 // @Success      200      {string}   string
 // @Failure      400      {string}   string
@@ -233,7 +234,7 @@ func HandleTaskLog(w http.ResponseWriter, r *http.Request) {
 	var text string
 	switch {
 	case grep != "":
-		text, err = grepLines(path, grep, tail)
+		text, err = grepLines(path, grep, tail, query.Get("case") == "1" || query.Get("case") == "true")
 	case tail > 0:
 		text, err = tailLines(path, tail)
 	default:
@@ -295,15 +296,18 @@ func tailLines(path string, n int) (string, error) {
 }
 
 // grepLines returns the lines of the file at path whose text contains
-// text, ignoring case, after their line numbers: the first maxGrepMatches,
-// or the last tail if tail is set
-func grepLines(path, text string, tail int) (string, error) {
+// text, ignoring case unless matchCase, after their line numbers: the first
+// maxGrepMatches, or the last tail if tail is set
+func grepLines(path, text string, tail int, matchCase bool) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return "", fmt.Errorf("open log: %w", err)
 	}
 	defer closeLog(f, path)
-	wanted := strings.ToLower(text)
+	wanted := text
+	if !matchCase {
+		wanted = strings.ToLower(text)
+	}
 	limit := maxGrepMatches
 	if tail > 0 {
 		limit = tail
@@ -313,7 +317,11 @@ func grepLines(path, text string, tail int) (string, error) {
 	reader := bufio.NewReader(f)
 	for number := 1; ; number++ {
 		line, err := reader.ReadString('\n')
-		if line != "" && strings.Contains(strings.ToLower(logText(line)), wanted) {
+		haystack := logText(line)
+		if !matchCase {
+			haystack = strings.ToLower(haystack)
+		}
+		if line != "" && strings.Contains(haystack, wanted) {
 			match := strconv.Itoa(number) + ": " + strings.TrimRight(line, "\n")
 			switch {
 			case tail > 0:
