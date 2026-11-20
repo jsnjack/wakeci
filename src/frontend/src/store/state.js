@@ -29,6 +29,8 @@ const state = {
         abortAt: null,
         restartVersion: "",
         buildsAborted: false,
+        // The queued builds' IDs in the order they start
+        queuedIDs: [],
     },
     // How many queue statuses were applied, so an older one can be told apart
     queueStatusCount: 0,
