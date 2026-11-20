@@ -1,97 +1,95 @@
 <template>
-    <header :class="{ fill: theme === 'light' }">
-        <nav>
-            <router-link to="/">
-                <i class="large fill primary-text">water</i>
-            </router-link>
-            <small
-                class="m l"
-                data-cy="app-version"
-                >{{ getVesion }}</small
-            >
-            <h6
-                class="max center-align"
-                data-cy="page-title"
-            >
-                {{ currentPage }}
-            </h6>
+    <header class="ui app-header">
+        <router-link
+            to="/"
+            class="brand"
+            aria-label="wakeci"
+        >
+            <i class="icon">water</i>
+        </router-link>
+        <span
+            class="version muted text-sm"
+            data-cy="app-version"
+            >{{ getVesion }}</span
+        >
+        <h1
+            class="page-title ellipsis"
+            data-cy="page-title"
+        >
+            {{ currentPage }}
+        </h1>
+        <nav
+            class="app-nav"
+            aria-label="Pages"
+        >
             <router-link
-                v-if="auth.isLoggedIn"
-                to="/"
-                class="button circle transparent m l"
-                data-cy="nav-feed"
+                v-for="link in links"
+                :key="link.to"
+                :to="link.to"
+                :data-cy="link.cy"
+                :data-tip="link.label"
+                :aria-label="link.label"
             >
-                <div class="tooltip bottom">Feed</div>
-                <i>list</i>
+                <i class="icon">{{ link.icon }}</i>
+                <span class="link-label">{{ link.label }}</span>
             </router-link>
-            <router-link
-                v-if="auth.isLoggedIn"
-                to="/jobs"
-                class="button circle transparent m l"
-                data-cy="nav-jobs"
-            >
-                <div class="tooltip bottom">Jobs</div>
-                <i>apps</i>
-            </router-link>
-            <router-link
-                v-if="auth.isLoggedIn && canAny('read')"
-                to="/analytics"
-                class="button circle transparent m l"
-                data-cy="nav-analytics"
-            >
-                <div class="tooltip bottom">Analytics</div>
-                <i>monitoring</i>
-            </router-link>
-            <router-link
-                v-if="auth.isLoggedIn"
-                to="/keys"
-                class="button circle transparent m l"
-                data-cy="nav-keys"
-            >
-                <div class="tooltip bottom">API keys</div>
-                <i>key</i>
-            </router-link>
-            <router-link
-                v-if="auth.isLoggedIn && canAny('write')"
-                to="/settings"
-                class="button circle transparent m l"
-                data-cy="nav-settings"
-            >
-                <div class="tooltip bottom">Settings</div>
-                <i>settings</i>
-            </router-link>
-            <button
-                class="circle transparent m l"
-                data-cy="toggle-theme"
-                @click.prevent="toggleDarkMode"
-            >
-                <div class="tooltip bottom">Toggle dark mode</div>
-                <i>dark_mode</i>
-            </button>
-            <router-link
-                to="/help"
-                class="button circle transparent m l"
-            >
-                <div class="tooltip bottom">Help</div>
-                <i>help</i>
-            </router-link>
-            <button
-                class="circle transparent"
-                data-cy="logout"
-                href="#"
-                @click.prevent="logOut"
-            >
-                <i>logout</i>
-                <div class="tooltip bottom">Log out</div>
-            </button>
         </nav>
+        <div class="cluster nowrap gap-1 header-actions">
+            <button
+                type="button"
+                class="btn btn-ghost btn-icon wide-only"
+                data-cy="toggle-theme"
+                :aria-label="themeLabel"
+                :data-tip="themeLabel"
+                @click="toggleDarkMode"
+            >
+                <i class="icon">{{ theme === "light" ? "dark_mode" : "light_mode" }}</i>
+            </button>
+            <button
+                v-if="auth.isLoggedIn"
+                type="button"
+                class="btn btn-ghost btn-icon tip-end"
+                data-cy="logout"
+                aria-label="Log out"
+                data-tip="Log out"
+                @click="logOut"
+            >
+                <i class="icon">logout</i>
+            </button>
+            <UiMenu
+                class="phone-only"
+                label="Pages"
+                icon="menu"
+                cy="nav-menu"
+            >
+                <router-link
+                    v-for="link in links"
+                    :key="link.to"
+                    :to="link.to"
+                    role="menuitem"
+                >
+                    <i class="icon">{{ link.icon }}</i>
+                    {{ link.label }}
+                </router-link>
+                <button
+                    type="button"
+                    role="menuitem"
+                    @click="toggleDarkMode"
+                >
+                    <i class="icon">{{ theme === "light" ? "dark_mode" : "light_mode" }}</i>
+                    {{ themeLabel }}
+                </button>
+            </UiMenu>
+        </div>
     </header>
     <main class="responsive no-scroll medium-padding">
         <QueueBanner v-if="auth.isLoggedIn" />
         <router-view />
     </main>
     <notifications
-        classes="snackbar active"
+        class="ui"
+        classes="toast"
+        position="bottom center"
         :dangerously-set-inner-html="true"
         :max="1"
         :pause-on-hover="true"
@@ -104,13 +102,14 @@ import "@/assets/styles.css";
 import "beercss/dist/cdn/beer.min.js";
 
 import QueueBanner from "@/components/QueueBanner.vue";
+import UiMenu from "@/components/ui/UiMenu.vue";
 import { getWSURL } from "@/store/communication.js";
 import axios from "axios";
 import vuex from "vuex";
 import wsMessageHandler from "./store/communication.js";
 
 export default {
-    components: { QueueBanner },
+    components: { QueueBanner, UiMenu },
     data: function () {
         return {
             // How many times the page asked for the queue status
@@ -125,10 +124,33 @@ export default {
         getVesion: function () {
             return import.meta.env.VITE_VERSION || "0.0.0";
         },
+        // The pages the header links to, those the user may open
+        links() {
+            if (!this.auth.isLoggedIn) {
+                return [{ to: "/help", label: "Help", icon: "help", cy: "nav-help" }];
+            }
+            return [
+                { to: "/", label: "Feed", icon: "list", cy: "nav-feed" },
+                { to: "/jobs", label: "Jobs", icon: "apps", cy: "nav-jobs" },
+                ...(this.canAny("read") ? [{ to: "/analytics", label: "Analytics", icon: "monitoring", cy: "nav-analytics" }] : []),
+                { to: "/keys", label: "API keys", icon: "key", cy: "nav-keys" },
+                ...(this.canAny("write") ? [{ to: "/settings", label: "Settings", icon: "settings", cy: "nav-settings" }] : []),
+                { to: "/help", label: "Help", icon: "help", cy: "nav-help" },
+            ];
+        },
+        themeLabel() {
+            return this.theme === "light" ? "Dark theme" : "Light theme";
+        },
     },
     mounted() {
         this.connect();
         this.applyTheme();
+        // Until the user picks a theme, it follows the system's
+        this.systemTheme = window.matchMedia?.("(prefers-color-scheme: dark)");
+        this.systemTheme?.addEventListener("change", this.onSystemTheme);
+    },
+    unmounted() {
+        this.systemTheme?.removeEventListener("change", this.onSystemTheme);
     },
     methods: {
         connect: function () {
@@ -230,11 +252,14 @@ export default {
                 .catch(() => {});
         },
         toggleDarkMode: function () {
-            if (this.theme === "light") {
-                this.$store.commit("SET_THEME", "dark");
-            } else {
-                this.$store.commit("SET_THEME", "light");
+            this.$store.commit("SET_THEME", { theme: this.theme === "light" ? "dark" : "light" });
+            this.applyTheme();
+        },
+        onSystemTheme(event) {
+            if (window.localStorage.getItem("theme")) {
+                return;
             }
+            this.$store.commit("SET_THEME", { theme: event.matches ? "dark" : "light", picked: false });
             this.applyTheme();
         },
         applyTheme: function () {
@@ -250,4 +275,95 @@ export default {
 };
 </script>
 
-<style></style>
+<style>
+.app-header {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    block-size: 52px;
+    padding: 0 var(--space-4);
+    background-color: var(--surface-container);
+    border-block-end: 1px solid var(--outline-variant);
+}
+
+.app-header .brand {
+    display: inline-flex;
+    color: var(--primary);
+}
+
+.app-header .brand .icon {
+    font-size: 28px;
+}
+
+.app-header .page-title {
+    flex: 1 1 auto;
+    font-size: var(--text-md);
+    font-weight: 600;
+}
+
+.app-nav {
+    display: flex;
+    gap: var(--space-1);
+}
+
+.app-nav > a {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    block-size: 32px;
+    padding: 0 var(--space-3);
+    border-radius: var(--radius-pill);
+    color: var(--on-surface-variant);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.app-nav > a:hover {
+    background-color: color-mix(in srgb, var(--on-surface) 8%, transparent);
+    text-decoration: none;
+}
+
+.app-nav > a[aria-current="page"] {
+    background-color: var(--secondary-container);
+    color: var(--on-secondary-container);
+}
+
+.app-nav .icon {
+    font-size: 18px;
+}
+
+.phone-only {
+    display: none;
+}
+
+/* Labels where they fit; below that, tips name the icons */
+@media (min-width: 1025px) {
+    .app-nav > a::after {
+        content: none;
+    }
+}
+
+@media (max-width: 1024px) {
+    .app-header .link-label {
+        display: none;
+    }
+    .app-nav > a {
+        padding: 0 var(--space-2);
+    }
+}
+
+@media (max-width: 600px) {
+    .app-header .version,
+    .app-nav,
+    .app-header .wide-only {
+        display: none;
+    }
+    .phone-only {
+        display: inline-flex;
+    }
+}
+</style>

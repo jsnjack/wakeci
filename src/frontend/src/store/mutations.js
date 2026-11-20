@@ -61,9 +61,13 @@ const mutations = {
         };
         state.queueStatusCount++;
     },
-    SET_THEME(state, value) {
-        state.theme = value;
-        window.localStorage.setItem("theme", value);
+    // SET_THEME sets the theme; picked, the user's choice, is kept, while a
+    // theme that follows the system is not
+    SET_THEME(state, { theme, picked = true }) {
+        state.theme = theme;
+        if (picked) {
+            window.localStorage.setItem("theme", theme);
+        }
     },
     SUBSCRIBE_NOTIFICATION(state, buildId) {
         if (!state.notifyOnBuildStatusUpdate.includes(buildId)) {

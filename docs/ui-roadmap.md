@@ -425,8 +425,7 @@ The look (decided): Material's colours at the density of a developer tool.
 
 ## Phones and smaller things
 
-- The header hides every page link on phones (`m l` classes); add a menu.
-  The search row and some feed rows are wider than the screen.
+- The search row and some feed rows are wider than the screen on phones.
 - The status icon is a `<button>` that does nothing; use an image with a
   label.
 - Pending and timed out are both purple, skipped is light green next to
@@ -439,7 +438,7 @@ The look (decided): Material's colours at the density of a developer tool.
 
 | Phase | Items |
 |---|---|
-| 1 | The feed on the new styles (S3) with F1 and F3; phone menu |
+| 1 | The feed on the new styles (S3) with F1 and F3 |
 | 2 | The log viewer (B4) with L2, colours on the server; the build page on the new styles with B1–B3 and B6; then the build beside the feed (F9) |
 | 3 | F4 and F8, J1, J2 |
 | 4 | The other pages on the new styles, S4 |
