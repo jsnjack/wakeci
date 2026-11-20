@@ -94,14 +94,6 @@ here and name it (e.g. "F1") in the commit message.
 - **F8. Help while typing.** The search box suggests label names, then
   values seen in the loaded builds; the active terms show as chips that can
   be removed one by one. Effort M.
-- **F9. The build beside the feed (decided).** On a wide window a click on
-  a row opens the build on the right, and the feed narrows to a list on the
-  left (two short lines per build, the selected one highlighted), like an
-  email app. The list keeps its search and scroll position; ↑ and ↓ move to
-  the next build, Esc closes, and a button opens the build as its own page.
-  The address names both, so a reload or a shared link restores them. Below
-  the wide breakpoint a click opens the build page as today. The right half
-  is the build page. Effort M.
 - Not planned: labels added to a build after it ran ("flaky"). They would
   need storage per build, an audited route and access rules.
 
@@ -236,7 +228,6 @@ The look (decided): Material's colours at the density of a developer tool.
 
 | Phase | Items |
 |---|---|
-| 2 | The build beside the feed (F9) |
 | 3 | F4 and F8, J1, J2 |
 | 4 | The other pages on the new styles, S4 |
 | Later | F2, L1, L3–L6, B5, B7 |

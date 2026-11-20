@@ -305,3 +305,36 @@ tasks:
     await expect(page.locator(`[data-cy-build="${ids[0]}"]`)).toBeVisible();
     await expect(page.getByTestId("more")).toBeHidden();
 });
+
+// F9: on a wide window a build opens beside the feed, which keeps its search
+test("should show a build beside the feed on a wide window", async ({ page, wake }) => {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    const name = await wake.createJob();
+    const first = await wake.runJob(name);
+    const second = await wake.runJob(name);
+    await wake.waitForBuild(first);
+    await wake.waitForBuild(second);
+    await wake.showFeed(name);
+    await page.locator(`[data-cy-build="${second}"]`).getByTestId("open-build-button").click();
+    await expect(page).toHaveURL(new RegExp(`[?&]build=${second}(&|$)`));
+    await expect(page.getByTestId("build-pane")).toContainText(`#${second}`);
+    await expect(page.getByTestId("page-title")).toHaveText("Feed");
+    await expect(page.locator(`[data-cy-build="${second}"]`)).toHaveAttribute("aria-current", "true");
+    // Down moves to the next, older build
+    await page.keyboard.press("ArrowDown");
+    await expect(page).toHaveURL(new RegExp(`[?&]build=${first}(&|$)`));
+    // The address names both, so a reload shows them again
+    await page.reload();
+    await expect(page.getByTestId("build-pane")).toContainText(`#${first}`);
+    await expect(page.getByTestId("filter")).toHaveValue(name);
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("build-pane")).toHaveCount(0);
+    await expect(page).not.toHaveURL(/build=/);
+});
+
+test("should open a shared feed address with a build as the build's page on a narrow window", async ({ page, wake }) => {
+    const name = await wake.createJob();
+    const id = await wake.runJob(name);
+    await page.goto(`/?build=${id}`);
+    await expect(page).toHaveURL(`${wake.url}/build/${id}`);
+});
