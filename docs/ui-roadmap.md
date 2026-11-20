@@ -118,15 +118,6 @@ here and name it (e.g. "F1") in the commit message.
   per SSO user on the server later, so they follow the user between
   browsers. "Started by me" from the recorded trigger can come later; the
   feed doesn't send the trigger today. Effort M.
-- **F7. Exact match in the search.** `NAME=value` matches a parameter equal
-  to the value, and a label also by its shown name (`branch=main` finds
-  `BRANCH_LABEL`). `NAME:value` keeps matching substrings, so links and
-  scripts keep working, but `BRANCH_LABEL:main` also finds `main-fix` and
-  `maintenance`. A chip click writes `+branch=main` instead of
-  `+"BRANCH_LABEL:main"`; the `+` stays, since plain terms mean "any of" and
-  Ctrl/Cmd+click must narrow the search. One list of queries and the builds they match,
-  checked by the Go tests and an E2E test, keeps the server's and the
-  browser's parsers from drifting apart again. Effort M.
 - **F8. Help while typing.** The search box suggests label names, then
   values seen in the loaded builds; the active terms show as chips that can
   be removed one by one. Effort M.
@@ -410,7 +401,7 @@ tests find elements by test ID, not by BeerCSS's markup.
   control and tabs; tooltips in our CSS, with `aria-label` on icon-only
   buttons; notifications; three named breakpoints. Effort M.
 - **S3. Page by page,** each with that page's items so it changes once: the
-  feed with F1, F3 and F7; the build page with B1–B4 and B6; the jobs page
+  feed with F1 and F3; the build page with B1–B4 and B6; the jobs page
   with J1; the run form with J2; then settings, keys and groups, analytics,
   help and login. Effort M per page.
 - **S4. Remove BeerCSS** once no page uses it, and ship an icon font with
@@ -450,7 +441,7 @@ The look (decided): Material's colours at the density of a developer tool.
 
 | Phase | Items |
 |---|---|
-| 1 | S2; the feed on the new styles (S3) with F1, F7 and F3; phone menu |
+| 1 | S2; the feed on the new styles (S3) with F1 and F3; phone menu |
 | 2 | The log viewer (B4) with L2, colours on the server; the build page on the new styles with B1–B3 and B6; then the build beside the feed (F9) |
 | 3 | F4 and F8, J1, J2 |
 | 4 | The other pages on the new styles, S4 |
