@@ -1,0 +1,10 @@
+/* The app's stylesheet. Its layers, lowest first: base (element defaults),
+   beer (BeerCSS, until it is removed) and app (ours), so the app's rules
+   win over BeerCSS's without !important. A component's <style> is in no
+   layer and wins over all three. */
+@layer base, beer, app;
+
+@import "beercss/dist/cdn/beer.min.css" layer(beer);
+@import "./base.css" layer(base);
+@import "./tokens.css" layer(app);
+@import "./main.css" layer(app);

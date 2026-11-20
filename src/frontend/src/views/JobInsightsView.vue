@@ -440,7 +440,7 @@ export default {
 .insight-filters {
     gap: 0.75rem;
     align-items: center;
-    margin: 0;
+    margin: 1rem 0 0;
 }
 .insight-filters small {
     flex: 1 1 14rem;
@@ -512,6 +512,6 @@ export default {
     gap: 1rem;
 }
 .insights-page > .grid {
-    margin: 0;
+    margin: 1rem 0 0;
 }
 </style>

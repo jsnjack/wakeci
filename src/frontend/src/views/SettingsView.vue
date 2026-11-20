@@ -407,7 +407,7 @@ export default {
     color: var(--on-surface-variant);
 }
 .description {
-    margin: 0.5rem 0 0;
+    margin: 1rem 0 0;
 }
 .update-icon {
     flex: none;
