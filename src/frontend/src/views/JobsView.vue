@@ -232,9 +232,14 @@
                 class="stack gap-2"
                 @submit.prevent="create"
             >
-                <label class="form-field">
-                    <span class="label-text">Name</span>
+                <div class="form-field">
+                    <label
+                        class="label-text"
+                        for="new-job-name"
+                        >Name</label
+                    >
                     <input
+                        id="new-job-name"
                         ref="newJobInput"
                         v-model="newJobName"
                         class="input"
@@ -242,7 +247,7 @@
                         required
                     />
                     <span class="hint">Also the job file's name, in the job directory</span>
-                </label>
+                </div>
             </form>
             <template #actions>
                 <button

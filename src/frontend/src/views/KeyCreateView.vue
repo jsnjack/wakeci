@@ -7,8 +7,12 @@
             @submit.prevent="create"
         >
             <div class="key-fields">
-                <label class="form-field">
-                    <span class="label-text">Name</span>
+                <div class="form-field">
+                    <label
+                        class="label-text"
+                        for="key-name"
+                        >Name</label
+                    >
                     <input
                         id="key-name"
                         ref="nameInput"
@@ -26,7 +30,7 @@
                         class="hint error-text"
                         >Give the key a name</span
                     >
-                </label>
+                </div>
                 <label class="form-field">
                     <span class="label-text">Expires after</span>
                     <select

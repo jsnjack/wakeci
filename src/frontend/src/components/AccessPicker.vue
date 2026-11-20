@@ -78,8 +78,12 @@
         </fieldset>
 
         <template v-if="jobAccess === 'selected'">
-            <label class="form-field">
-                <span class="label-text">Name patterns</span>
+            <div class="form-field">
+                <label
+                    class="label-text"
+                    :for="cyPrefix + '-patterns'"
+                    >Name patterns</label
+                >
                 <span class="input-icon">
                     <i class="icon">filter_alt</i>
                     <input
@@ -103,7 +107,7 @@
                     class="hint"
                     >For example test_*, vrec_*. Jobs added later that match are included</span
                 >
-            </label>
+            </div>
             <div class="cluster between gap-2">
                 <label class="input-icon job-search">
                     <i class="icon">search</i>

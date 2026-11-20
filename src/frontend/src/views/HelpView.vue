@@ -89,8 +89,12 @@
             </p>
 
             <h2>Connect</h2>
-            <label class="form-field mcp-key">
-                <span class="label-text">API key (optional)</span>
+            <div class="form-field mcp-key">
+                <label
+                    class="label-text"
+                    for="mcp-key"
+                    >API key (optional)</label
+                >
                 <input
                     id="mcp-key"
                     v-model="apiKey"
@@ -100,7 +104,7 @@
                     data-cy="mcp-key"
                 />
                 <span class="hint">Fills in the commands below. It stays in this page and isn't saved.</span>
-            </label>
+            </div>
             <div
                 class="segmented"
                 role="tablist"
