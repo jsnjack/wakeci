@@ -73,7 +73,7 @@ func TestGrepLines(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s tail %d", tt.text, tt.tail), func(t *testing.T) {
-			got, err := grepLines(path, tt.text, tt.tail)
+			got, err := grepLines(path, tt.text, tt.tail, false)
 			if err != nil {
 				t.Fatalf("grepLines: %v", err)
 			}
@@ -85,7 +85,7 @@ func TestGrepLines(t *testing.T) {
 
 	many := filepath.Join(t.TempDir(), "many.log")
 	writeLog(t, many, maxGrepMatches+5, "")
-	got, err := grepLines(many, "line", 0)
+	got, err := grepLines(many, "line", 0, false)
 	if err != nil {
 		t.Fatalf("grepLines: %v", err)
 	}
@@ -112,12 +112,31 @@ func TestGrepLinesSkipsTheTimePrefix(t *testing.T) {
 		{"[warn]", "4: [ 1m13.004s] [warn] retrying"},
 	}
 	for _, tt := range tests {
-		got, err := grepLines(path, tt.text, 0)
+		got, err := grepLines(path, tt.text, 0, false)
 		if err != nil {
 			t.Fatalf("grepLines: %v", err)
 		}
 		if got != tt.want {
 			t.Errorf("grepLines(%q) = %q, want %q", tt.text, got, tt.want)
+		}
+	}
+}
+
+// case=1 matches case, which grep otherwise ignores
+func TestGrepLinesMatchesCaseWhenAsked(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "task.log")
+	if err := os.WriteFile(path, []byte("[ 0.1s] FAILED one\n[ 0.2s] failed two\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct {
+		matchCase bool
+		want      string
+	}{
+		{false, "1: [ 0.1s] FAILED one\n2: [ 0.2s] failed two"},
+		{true, "2: [ 0.2s] failed two"},
+	} {
+		if got, err := grepLines(path, "failed", 0, tt.matchCase); err != nil || got != tt.want {
+			t.Errorf("grepLines(failed, case %v) = %q, %v; want %q", tt.matchCase, got, err, tt.want)
 		}
 	}
 }
@@ -248,6 +267,7 @@ func TestTaskLogRoute(t *testing.T) {
 		{"/api/build/7/log/1?ansi=1", http.StatusOK, "\x1b[31mFAILED\x1b[0m test_login"},
 		{"/api/build/7/log/0?ansi=1", http.StatusOK, "line 1\nline 2\nline 3\n"},
 		{"/api/build/7/log/1?ansi=1&grep=failed", http.StatusOK, "300: FAILED test_login"},
+		{"/api/build/7/log/1?grep=FAILED&case=1", http.StatusOK, "300: FAILED test_login"},
 		{"/api/build/7/log/2", http.StatusNotFound, "task 2 of build 7 wrote no log"},
 		{"/api/build/99/log/0", http.StatusNotFound, "build 99 not found"},
 		{"/api/build/7/log/x", http.StatusBadRequest, `invalid task ID "x"`},
