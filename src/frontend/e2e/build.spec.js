@@ -331,8 +331,12 @@ tasks:
     const scrollTop = () => scroller.evaluate((el) => el.scrollTop);
     // following: the log keeps its end in view
     await expect.poll(scrollTop).toBeGreaterThan(2000);
-    await scroller.hover();
-    await page.mouse.wheel(0, -600);
+    // A wheel up in the log: sent to the box itself, since the page's layout
+    // can move under a mouse while it loads
+    await scroller.evaluate((el) => {
+        el.dispatchEvent(new WheelEvent("wheel", { deltaY: -600, bubbles: true }));
+        el.scrollTop -= 600;
+    });
     // new lines wait behind a pill while the user reads
     await expect(page.getByTestId("log-new-lines")).toBeVisible();
     const reading = await scrollTop();
