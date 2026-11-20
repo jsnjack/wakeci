@@ -50,6 +50,12 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request) {
 				if job.DefaultParams == nil {
 					job.DefaultParams = []map[string]string{}
 				}
+				job.Labels = []string{}
+				if labels := jb.Get([]byte("labels")); labels != nil {
+					if err := json.Unmarshal(labels, &job.Labels); err != nil {
+						return err
+					}
+				}
 				desc := jb.Get([]byte("desc"))
 				job.Desc = string(desc)
 				interval := jb.Get([]byte("interval"))

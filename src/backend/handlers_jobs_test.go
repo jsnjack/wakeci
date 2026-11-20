@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -121,7 +122,50 @@ func TestJobListHasNoNulls(t *testing.T) {
 	if err := json.Unmarshal(adminRequest("GET", "/api/jobs/", nil).Body.Bytes(), &jobs); err != nil {
 		t.Fatal(err)
 	}
-	if len(jobs) != 1 || jobs[0]["defaultParams"] == nil {
-		t.Errorf("a job without parameters: got %v, want defaultParams []", jobs)
+	if len(jobs) != 1 || jobs[0]["defaultParams"] == nil || jobs[0]["labels"] == nil {
+		t.Errorf("a job without parameters: got %v, want defaultParams and labels []", jobs)
+	}
+}
+
+func TestJobLabels(t *testing.T) {
+	params := []map[string]string{{"COMMIT": ""}, {"AUTHOR_LABEL": "unknown"}, {"TARGET": "staging"}, {"BRANCH_LABEL": "main"}}
+	tests := []struct {
+		name   string
+		labels []string
+		want   []string
+	}{
+		{"params named *_LABEL, in the order of params", nil, []string{"AUTHOR_LABEL", "BRANCH_LABEL"}},
+		{"the labels list, in its order", []string{"BRANCH_LABEL", "COMMIT"}, []string{"BRANCH_LABEL", "COMMIT"}},
+		{"names that aren't params left out, and repeats", []string{"MISSING", "TARGET", "TARGET"}, []string{"TARGET"}},
+		{"a list of only unknown names: none, not the *_LABEL ones", []string{"MISSING"}, []string{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			job := Job{DefaultParams: params, Labels: tt.labels}
+			if got := job.labelNames(); !slices.Equal(got, tt.want) {
+				t.Errorf("labelNames() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// The jobs list sends each job's labels, as registering its file found them
+func TestJobListSendsLabels(t *testing.T) {
+	newAPIKeyTestEnv(t)
+	path := Config.JobDir + "labelled" + Config.jobsExt
+	content := "labels: [BRANCH, AUTHOR]\nparams:\n  - AUTHOR: unknown\n  - BRANCH: main\ntasks: []\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := RegisterJob(path); err != nil {
+		t.Fatal(err)
+	}
+	var jobs []JobsListData
+	if err := json.Unmarshal(adminRequest("GET", "/api/jobs/", nil).Body.Bytes(), &jobs); err != nil {
+		t.Fatal(err)
+	}
+	i := slices.IndexFunc(jobs, func(job JobsListData) bool { return job.Name == "labelled" })
+	if i < 0 || !slices.Equal(jobs[i].Labels, []string{"BRANCH", "AUTHOR"}) {
+		t.Errorf("jobs = %+v, want labelled with labels [BRANCH AUTHOR]", jobs)
 	}
 }

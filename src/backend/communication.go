@@ -40,8 +40,12 @@ type JobsListData struct {
 	Name          string              `json:"name"`
 	Desc          string              `json:"desc"`
 	DefaultParams []map[string]string `json:"defaultParams"`
-	Interval      string              `json:"interval"`
-	Active        string              `json:"active"`
+	// Labels are the names of the params that say what a build is about, in
+	// the order the feed shows them: the job's labels list, or else its
+	// params named *_LABEL
+	Labels   []string `json:"labels"`
+	Interval string   `json:"interval"`
+	Active   string   `json:"active"`
 }
 
 // TaskStatus contains basic info about a task, used for status updates

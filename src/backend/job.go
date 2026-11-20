@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -42,6 +43,38 @@ type Job struct {
 	Timeout       string              `yaml:"timeout" json:"timeout"`
 	Concurrency   int                 `yaml:"concurrency" json:"concurrency"`
 	Priority      int                 `yaml:"priority" json:"priority"`
+	// Labels are the params that say what a build is about, shown first in
+	// the feed, in this order; without it, the params named *_LABEL
+	Labels []string `yaml:"labels" json:"labels"`
+}
+
+// labelSuffix marks a param as a label when the job lists no labels
+const labelSuffix = "_LABEL"
+
+// labelNames returns the job's labels: those in its labels list that are
+// params, or else its params named *_LABEL, in the order of params
+func (j *Job) labelNames() []string {
+	params := []string{}
+	for _, param := range j.DefaultParams {
+		for name := range param {
+			params = append(params, name)
+		}
+	}
+	labels := []string{}
+	if len(j.Labels) > 0 {
+		for _, name := range j.Labels {
+			if slices.Contains(params, name) && !slices.Contains(labels, name) {
+				labels = append(labels, name)
+			}
+		}
+		return labels
+	}
+	for _, name := range params {
+		if strings.HasSuffix(name, labelSuffix) {
+			labels = append(labels, name)
+		}
+	}
+	return labels
 }
 
 // AddToCron adds a job to cron
@@ -256,6 +289,14 @@ func RegisterJob(filename string) error {
 			return err
 		}
 		err = jb.Put([]byte("defaultParams"), paramsB)
+		if err != nil {
+			return err
+		}
+		labelsB, err := json.Marshal(job.labelNames())
+		if err != nil {
+			return err
+		}
+		err = jb.Put([]byte("labels"), labelsB)
 		if err != nil {
 			return err
 		}
