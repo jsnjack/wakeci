@@ -490,7 +490,8 @@ export default {
             this.tail = tail;
             this.dropped = 0;
             this.lineCount = lines.length;
-            this.view.setState(this.newState(visible.length ? visible.join("\n") + "\n" : ""));
+            // Without the last line break, which would show an empty line
+            this.view.setState(this.newState(visible.join("\n")));
             this.loading = false;
             this.newLines = 0;
             this.newMatches = 0;
@@ -552,7 +553,8 @@ export default {
             }
             const first = this.lineCount + 1;
             const visible = lines.map((line, i) => this.parse(line, first + i));
-            this.view.dispatch({ changes: { from: this.view.state.doc.length, insert: visible.join("\n") + "\n" } });
+            const insert = (this.lineCount > 0 ? "\n" : "") + visible.join("\n");
+            this.view.dispatch({ changes: { from: this.view.state.doc.length, insert } });
             this.lineCount += lines.length;
             let added = 0;
             if (this.searchState?.query) {
