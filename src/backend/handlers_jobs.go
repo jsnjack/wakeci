@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"slices"
 
 	bolt "go.etcd.io/bbolt"
 	yaml "gopkg.in/yaml.v2"
@@ -15,6 +16,7 @@ import (
 // @Description  API key scope: read; a key or a single sign-on user only sees their jobs
 // @Tags         jobs
 // @Produce      json
+// @Param        board    query    boolean  false  "With 1, each job's last 20 builds (recent), failing streak (failing) and next scheduled run (nextRun), as the jobs page shows them"
 // @Success      200      {array}    JobsListData
 // @Failure      401      {string}   string
 // @Failure      403      {string}   string
@@ -56,6 +58,12 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request) {
 						return err
 					}
 				}
+				job.ParamInfo = map[string]ParamInfo{}
+				if info := jb.Get([]byte("paramInfo")); info != nil {
+					if err := json.Unmarshal(info, &job.ParamInfo); err != nil {
+						return err
+					}
+				}
 				desc := jb.Get([]byte("desc"))
 				job.Desc = string(desc)
 				interval := jb.Get([]byte("interval"))
@@ -67,6 +75,9 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request) {
 		}
 		return nil
 	})
+	if err == nil && r.URL.Query().Get("board") == "1" {
+		err = addBoard(data)
+	}
 	if err != nil {
 		logger.Error("list jobs", "err", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -162,4 +173,67 @@ func HandleJobsCreate(w http.ResponseWriter, r *http.Request) {
 		writeBody(logger, w, []byte(err.Error()))
 		return
 	}
+}
+
+// boardBuilds is how many builds of each job the jobs page shows, and
+// boardScan how many build records it reads at most to find them
+const (
+	boardBuilds = 20
+	boardScan   = 20000
+)
+
+// addBoard adds what the jobs page shows of each job (J1): its last builds,
+// from the build stats, newest first until every job has boardBuilds or
+// boardScan records were read; its failing streak; and its next scheduled
+// run
+func addBoard(jobs []*JobsListData) error {
+	byName := make(map[string]*JobsListData, len(jobs))
+	for _, job := range jobs {
+		byName[job.Name] = job
+	}
+	recent := make(map[string][]*buildStats, len(jobs))
+	err := DB.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket(BuildStatsBucket)
+		if b == nil {
+			return nil
+		}
+		full, read := 0, 0
+		c := b.Cursor()
+		for k, v := c.Last(); k != nil && read < boardScan && full < len(jobs); k, v = c.Prev() {
+			read++
+			var s buildStats
+			if json.Unmarshal(v, &s) != nil {
+				continue
+			}
+			if _, ok := byName[s.Job]; !ok || len(recent[s.Job]) >= boardBuilds {
+				continue
+			}
+			recent[s.Job] = append(recent[s.Job], &s)
+			if len(recent[s.Job]) == boardBuilds {
+				full++
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	for name, builds := range recent {
+		slices.Reverse(builds)
+		job := byName[name]
+		job.Recent = make([]BuildOutcome, 0, len(builds))
+		for _, s := range builds {
+			job.Recent = append(job.Recent, outcomeOf(s))
+		}
+		job.Failing = failingStreak(builds)
+	}
+	for _, entry := range GlobalCron.Entries() {
+		if cronJob, ok := entry.Job.(*Job); ok {
+			if job, ok := byName[cronJob.Name]; ok && !entry.Next.IsZero() {
+				next := entry.Next
+				job.NextRun = &next
+			}
+		}
+	}
+	return nil
 }

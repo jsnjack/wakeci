@@ -48,6 +48,30 @@ type Job struct {
 	Labels []string `yaml:"labels" json:"labels"`
 	// Color asks the tools of every task to print colours (colorEnv)
 	Color bool `yaml:"color" json:"color"`
+	// ParamInfo explains params to the run form, apart from params so
+	// existing files don't change
+	ParamInfo map[string]ParamInfo `yaml:"param_info" json:"param_info"`
+}
+
+// ParamInfo is what the run form says about a param: what it is for, the
+// values it suggests, and whether it is true or false (Type bool)
+type ParamInfo struct {
+	Desc    string   `yaml:"desc" json:"desc"`
+	Options []string `yaml:"options" json:"options"`
+	Type    string   `yaml:"type" json:"type"`
+}
+
+// paramInfo returns the job's ParamInfo of its params only, never nil
+func (j *Job) paramInfo() map[string]ParamInfo {
+	info := map[string]ParamInfo{}
+	for _, param := range j.DefaultParams {
+		for name := range param {
+			if value, ok := j.ParamInfo[name]; ok {
+				info[name] = value
+			}
+		}
+	}
+	return info
 }
 
 // colorEnv asks tools that see no terminal to print colours anyway: a job
@@ -306,6 +330,14 @@ func RegisterJob(filename string) error {
 			return err
 		}
 		err = jb.Put([]byte("labels"), labelsB)
+		if err != nil {
+			return err
+		}
+		infoB, err := json.Marshal(job.paramInfo())
+		if err != nil {
+			return err
+		}
+		err = jb.Put([]byte("paramInfo"), infoB)
 		if err != nil {
 			return err
 		}
