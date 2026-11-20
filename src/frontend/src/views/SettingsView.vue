@@ -1,168 +1,192 @@
 <template>
-    <dialog
-        :class="{ active: confirmingUpdate }"
-        class="padding"
-    >
-        <div v-if="update">
-            Install version <b>{{ update.latest }}</b> and restart? wakeci waits for the running builds and aborts any still running after the drain timeout (30
-            minutes by default). New builds wait in the queue and start after the restart.
-        </div>
-        <nav class="right-align">
-            <button
-                class="border"
-                @click.prevent="confirmingUpdate = false"
-            >
-                Cancel
-            </button>
-            <button
-                data-cy="update-confirm"
-                @click.prevent="install"
-            >
-                Update and restart
-            </button>
-        </nav>
-    </dialog>
+    <div class="ui settings-page stack gap-6">
+        <UiDialog
+            v-model:open="confirmingUpdate"
+            title="Update and restart?"
+        >
+            <p v-if="update">
+                Install version <b>{{ update.latest }}</b> and restart? wakeci waits for the running builds and aborts any still running after the drain timeout
+                (30 minutes by default). New builds wait in the queue and start after the restart.
+            </p>
+            <template #actions>
+                <button
+                    type="button"
+                    class="btn btn-ghost"
+                    @click="confirmingUpdate = false"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-primary"
+                    data-cy="update-confirm"
+                    @click="install"
+                >
+                    Update and restart
+                </button>
+            </template>
+        </UiDialog>
 
-    <div class="settings-page">
         <section
+            class="cluster gap-3 update-row"
             data-cy="update-card"
             aria-label="Updates"
         >
-            <div class="row update-row">
-                <div
-                    class="update-icon"
-                    :class="status.color"
-                >
-                    <i>{{ status.icon }}</i>
-                </div>
-                <div class="max">
-                    <div
-                        class="update-title"
-                        data-cy="version"
-                    >
-                        wakeci {{ currentVersion }}
-                    </div>
-                    <div
-                        class="update-text"
-                        data-cy="update-status"
-                    >
-                        {{ status.text }}
-                        <a
-                            v-if="status.notes && update.releaseNotes"
-                            :href="update.releaseNotes"
-                            target="_blank"
-                            rel="noopener"
-                            class="link"
-                            data-cy="release-notes"
-                            >Release notes</a
-                        >
-                    </div>
-                </div>
-                <button
-                    data-cy="update-install"
-                    :disabled="!canUpdate || installing"
-                    @click.prevent="confirmingUpdate = true"
-                >
-                    {{ installing ? "Installing..." : canUpdate ? "Update to " + update.latest : "Update" }}
-                </button>
+            <div
+                class="update-icon"
+                :style="{ backgroundColor: `var(--${status.color})`, color: `var(--on-${status.color})` }"
+            >
+                <i class="icon">{{ status.icon }}</i>
             </div>
+            <div class="grow">
+                <div
+                    class="update-title"
+                    data-cy="version"
+                >
+                    wakeci {{ currentVersion }}
+                </div>
+                <div
+                    class="muted text-sm"
+                    data-cy="update-status"
+                >
+                    {{ status.text }}
+                    <a
+                        v-if="status.notes && update.releaseNotes"
+                        :href="update.releaseNotes"
+                        target="_blank"
+                        rel="noopener"
+                        data-cy="release-notes"
+                        >Release notes</a
+                    >
+                </div>
+            </div>
+            <button
+                type="button"
+                class="btn btn-primary"
+                data-cy="update-install"
+                :disabled="!canUpdate || installing"
+                @click="confirmingUpdate = true"
+            >
+                {{ installing ? "Installing..." : canUpdate ? "Update to " + update.latest : "Update" }}
+            </button>
         </section>
-        <hr class="large" />
+        <hr class="rule" />
         <form
+            class="stack gap-6"
             method="post"
             @submit.prevent="save"
         >
-            <section aria-labelledby="builds-heading">
-                <h6
-                    id="builds-heading"
-                    class="small no-margin"
-                >
-                    Builds
-                </h6>
-                <div class="grid">
-                    <div class="s12 m6">
-                        <div class="field label border">
-                            <input
-                                id="concurrent-builds"
-                                v-model="concurrentBuilds"
-                                type="number"
-                                min="1"
-                                placeholder=" "
-                                aria-describedby="concurrent-builds-help"
-                            />
-                            <label for="concurrent-builds">Concurrent builds</label>
-                            <output id="concurrent-builds-help">How many builds may run at the same time</output>
-                        </div>
+            <section
+                class="stack gap-3"
+                aria-labelledby="builds-heading"
+            >
+                <h2 id="builds-heading">Builds</h2>
+                <div class="cols">
+                    <div class="form-field">
+                        <label
+                            class="label-text"
+                            for="concurrent-builds"
+                            >Concurrent builds</label
+                        >
+                        <input
+                            id="concurrent-builds"
+                            v-model="concurrentBuilds"
+                            class="input"
+                            type="number"
+                            min="1"
+                            :aria-describedby="'concurrent-builds-help'"
+                        />
+                        <span
+                            id="concurrent-builds-help"
+                            class="hint"
+                            >How many builds may run at the same time</span
+                        >
                     </div>
-                    <div class="s12 m6">
-                        <div class="field label border">
-                            <input
-                                id="build-history-size"
-                                v-model="buildHistorySize"
-                                type="number"
-                                min="1"
-                                placeholder=" "
-                                aria-describedby="build-history-help"
-                            />
-                            <label for="build-history-size">Builds to keep</label>
-                            <output id="build-history-help">The latest builds of all jobs, with logs and files. Analytics keeps 400 days</output>
-                        </div>
+                    <div class="form-field">
+                        <label
+                            class="label-text"
+                            for="build-history-size"
+                            >Builds to keep</label
+                        >
+                        <input
+                            id="build-history-size"
+                            v-model="buildHistorySize"
+                            class="input"
+                            type="number"
+                            min="1"
+                            :aria-describedby="'build-history-help'"
+                        />
+                        <span
+                            id="build-history-help"
+                            class="hint"
+                            >The latest builds of all jobs, with logs and files. Analytics keeps 400 days</span
+                        >
                     </div>
                 </div>
             </section>
-            <hr class="large" />
-            <section aria-labelledby="api-limits-heading">
-                <nav class="no-margin">
-                    <h6
-                        id="api-limits-heading"
-                        class="small max no-margin"
-                    >
-                        API key limits
-                    </h6>
+            <hr class="rule" />
+            <section
+                class="stack gap-3"
+                aria-labelledby="api-limits-heading"
+            >
+                <div class="cluster between gap-2">
+                    <h2 id="api-limits-heading">API key limits</h2>
                     <router-link
                         to="/keys"
-                        class="button border small-round"
-                        ><i>key</i><span>Manage API keys</span></router-link
+                        class="btn btn-outline btn-ghost"
+                        ><i class="icon small">key</i><span>Manage API keys</span></router-link
                     >
-                </nav>
-                <p class="muted description">Each key has its own limits. A key that goes over them gets 429 and waits as long as Retry-After says.</p>
-                <div class="grid">
-                    <div class="s12 m6">
-                        <div class="field label border">
-                            <input
-                                id="api-key-burst"
-                                v-model="apiKeyBurst"
-                                type="number"
-                                min="1"
-                                max="100000"
-                                placeholder=" "
-                                data-cy="api-key-burst"
-                                aria-describedby="api-key-burst-help"
-                            />
-                            <label for="api-key-burst">Burst size</label>
-                            <output id="api-key-burst-help">How many requests a key may send at full speed before it has to slow down</output>
-                        </div>
+                </div>
+                <p class="muted">Each key has its own limits. A key that goes over them gets 429 and waits as long as Retry-After says.</p>
+                <div class="cols">
+                    <div class="form-field">
+                        <label
+                            class="label-text"
+                            for="api-key-burst"
+                            >Burst size</label
+                        >
+                        <input
+                            id="api-key-burst"
+                            v-model="apiKeyBurst"
+                            class="input"
+                            type="number"
+                            min="1"
+                            max="100000"
+                            data-cy="api-key-burst"
+                            :aria-describedby="'api-key-burst-help'"
+                        />
+                        <span
+                            id="api-key-burst-help"
+                            class="hint"
+                            >How many requests a key may send at full speed before it has to slow down</span
+                        >
                     </div>
-                    <div class="s12 m6">
-                        <div class="field label border">
-                            <input
-                                id="api-key-rate"
-                                v-model="apiKeyRate"
-                                type="number"
-                                min="1"
-                                max="100000"
-                                placeholder=" "
-                                data-cy="api-key-rate"
-                                aria-describedby="api-key-rate-help"
-                            />
-                            <label for="api-key-rate">Steady rate</label>
-                            <output id="api-key-rate-help">Requests a second after the burst is used</output>
-                        </div>
+                    <div class="form-field">
+                        <label
+                            class="label-text"
+                            for="api-key-rate"
+                            >Steady rate</label
+                        >
+                        <input
+                            id="api-key-rate"
+                            v-model="apiKeyRate"
+                            class="input"
+                            type="number"
+                            min="1"
+                            max="100000"
+                            data-cy="api-key-rate"
+                            :aria-describedby="'api-key-rate-help'"
+                        />
+                        <span
+                            id="api-key-rate-help"
+                            class="hint"
+                            >Requests a second after the burst is used</span
+                        >
                     </div>
                 </div>
                 <p
                     v-if="apiKeyExample"
-                    class="muted small-text"
+                    class="muted text-sm"
                     data-cy="api-key-example"
                 >
                     {{ apiKeyExample }}
@@ -170,46 +194,51 @@
             </section>
             <!-- Only the admin password may change the password -->
             <template v-if="admin">
-                <hr class="large" />
-                <section aria-labelledby="password-heading">
-                    <h6
-                        id="password-heading"
-                        class="small no-margin"
-                    >
-                        Admin password
-                    </h6>
-                    <div class="grid">
-                        <div class="s12 m6">
-                            <div class="field label border">
-                                <input
-                                    id="password"
-                                    v-model="password"
-                                    type="password"
-                                    autocomplete="new-password"
-                                    placeholder=" "
-                                    aria-describedby="password-help"
-                                />
-                                <label for="password">New password</label>
-                                <output id="password-help">For password login and Basic auth. Leave it empty to keep the current one</output>
-                            </div>
+                <hr class="rule" />
+                <section
+                    class="stack gap-3"
+                    aria-labelledby="password-heading"
+                >
+                    <h2 id="password-heading">Admin password</h2>
+                    <div class="cols">
+                        <div class="form-field">
+                            <label
+                                class="label-text"
+                                for="password"
+                                >New password</label
+                            >
+                            <input
+                                id="password"
+                                v-model="password"
+                                class="input"
+                                type="password"
+                                autocomplete="new-password"
+                                :aria-describedby="'password-help'"
+                            />
+                            <span
+                                id="password-help"
+                                class="hint"
+                                >For password login and Basic auth. Leave it empty to keep the current one</span
+                            >
                         </div>
                     </div>
                 </section>
             </template>
-            <nav class="right-align">
+            <div class="cluster end">
                 <button
-                    data-cy="save-settings"
                     type="submit"
+                    class="btn btn-primary"
+                    data-cy="save-settings"
                 >
                     Save
                 </button>
-            </nav>
+            </div>
         </form>
         <!-- Only the admin password sees or changes the groups -->
         <template v-if="auth.admin">
-            <hr class="large" />
+            <hr class="rule" />
             <SSOGroupsCard :key="groupsKey" />
-            <hr class="large" />
+            <hr class="rule" />
             <SettingsFileCard @imported="reload" />
         </template>
     </div>
@@ -217,6 +246,7 @@
 
 <script>
 import SSOGroupsCard from "@/components/SSOGroupsCard.vue";
+import UiDialog from "@/components/ui/UiDialog.vue";
 import SettingsFileCard from "@/components/SettingsFileCard.vue";
 import { escapeHtml } from "@/store/utils";
 import axios from "axios";
@@ -241,7 +271,7 @@ function duration(seconds) {
 }
 
 export default {
-    components: { SSOGroupsCard, SettingsFileCard },
+    components: { SSOGroupsCard, SettingsFileCard, UiDialog },
     data: function () {
         return {
             password: "",
@@ -403,35 +433,21 @@ export default {
 </script>
 
 <style scoped>
-.muted {
-    color: var(--on-surface-variant);
-}
-.description {
-    margin: 1rem 0 0;
-}
 .update-icon {
     flex: none;
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
+    inline-size: 2.5rem;
+    block-size: 2.5rem;
+    border-radius: 50%;
 }
+
 .update-title {
-    font-size: 1rem;
-    font-weight: 500;
+    font-weight: 600;
 }
-.update-text {
-    font-size: 0.875rem;
-    opacity: 0.8;
-}
-@media (max-width: 600px) {
-    .update-row {
-        flex-wrap: wrap;
-    }
-    .update-row .max {
-        min-width: 0;
-    }
+
+.cols {
+    --min: 18rem;
 }
 </style>

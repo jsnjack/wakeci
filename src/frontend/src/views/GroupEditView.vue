@@ -5,11 +5,15 @@
         novalidate
         @submit.prevent="save"
     >
-        <label
+        <div
             v-if="isNew"
             class="form-field"
         >
-            <span class="label-text">Group name</span>
+            <label
+                class="label-text"
+                for="group-name"
+                >Group name</label
+            >
             <input
                 id="group-name"
                 ref="nameInput"
@@ -31,7 +35,7 @@
                 class="hint"
                 >As the identity provider names it, for example Service Team. Case doesn't matter.</span
             >
-        </label>
+        </div>
         <p v-else-if="noGroup">
             What people in <b data-cy="group-title">none of the groups</b> may do when they sign in with single sign-on. Members of a group get only their
             groups' permissions. A change applies to their next request.
