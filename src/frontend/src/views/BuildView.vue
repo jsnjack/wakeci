@@ -410,6 +410,14 @@ export default {
             if (event.target.closest && event.target.closest("input, textarea, select, [contenteditable]")) {
                 return;
             }
+            // End asks for the end: follow again at once. Its scroll isn't
+            // checked, since Chrome animates it, and lines added meanwhile
+            // leave it short of the end, which kept following paused
+            if (event.key === "End") {
+                this.readingAbove = false;
+                this.userScrolledAt = -Infinity;
+                return;
+            }
             this.userScrolledAt = performance.now();
             // Scrolling up means reading: pause at once, so an update that
             // arrives before the scroll event doesn't pull the page back down
