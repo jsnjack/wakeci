@@ -1,146 +1,148 @@
 <template>
-    <h6 class="small">Scopes</h6>
-    <ul class="list border">
-        <li
-            v-for="scope in offeredScopes"
-            :key="scope.name"
-        >
-            <label class="checkbox">
-                <input
-                    v-model="selectedScopes"
-                    type="checkbox"
-                    :value="scope.name"
-                    :data-cy="'scope-' + scope.name"
-                    @change="scopeError = false"
-                />
-                <span>
-                    <span class="option-text">
-                        <b>{{ scope.name }}</b>
-                        <small class="muted">{{ scope.description }}</small>
-                    </span>
-                </span>
-            </label>
-        </li>
-    </ul>
-    <p
-        v-if="scopeError"
-        class="error-text"
-        role="alert"
-    >
-        Select at least one scope
-    </p>
+    <div class="access-picker stack gap-4">
+        <fieldset class="stack gap-1">
+            <legend class="label-text">Scopes</legend>
+            <ul class="choices">
+                <li
+                    v-for="scope in offeredScopes"
+                    :key="scope.name"
+                >
+                    <label class="choice">
+                        <input
+                            v-model="selectedScopes"
+                            type="checkbox"
+                            :value="scope.name"
+                            :data-cy="'scope-' + scope.name"
+                            @change="scopeError = false"
+                        />
+                        <span class="option-text">
+                            <b>{{ scope.name }}</b>
+                            <small class="muted">{{ scope.description }}</small>
+                        </span>
+                    </label>
+                </li>
+            </ul>
+            <p
+                v-if="scopeError"
+                class="error-text"
+                role="alert"
+            >
+                Select at least one scope
+            </p>
+        </fieldset>
 
-    <h6 class="small">Jobs</h6>
-    <ul class="list border">
-        <li>
-            <label class="radio">
-                <input
-                    v-model="jobAccess"
-                    type="radio"
-                    value="all"
-                    data-cy="jobs-all"
-                />
-                <span>
-                    <span class="option-text">
-                        All jobs
-                        <small class="muted">{{ allJobsHint }}</small>
-                    </span>
-                </span>
-            </label>
-        </li>
-        <li>
-            <label class="radio">
-                <input
-                    v-model="jobAccess"
-                    type="radio"
-                    value="selected"
-                    data-cy="jobs-selected"
-                    :disabled="writeSelected"
-                />
-                <span>
-                    <span class="option-text">
-                        Only selected jobs
-                        <small
-                            v-if="writeSelected"
-                            class="muted"
-                        >
-                            Write can run any command on the server, so it covers all jobs
-                        </small>
-                        <small
-                            v-else
-                            class="muted"
-                        >
-                            Pick jobs below, or match them by name
-                        </small>
-                    </span>
-                </span>
-            </label>
-        </li>
-    </ul>
+        <fieldset class="stack gap-1">
+            <legend class="label-text">Jobs</legend>
+            <ul class="choices">
+                <li>
+                    <label class="choice">
+                        <input
+                            v-model="jobAccess"
+                            type="radio"
+                            value="all"
+                            data-cy="jobs-all"
+                        />
+                        <span class="option-text">
+                            All jobs
+                            <small class="muted">{{ allJobsHint }}</small>
+                        </span>
+                    </label>
+                </li>
+                <li>
+                    <label class="choice">
+                        <input
+                            v-model="jobAccess"
+                            type="radio"
+                            value="selected"
+                            data-cy="jobs-selected"
+                            :disabled="writeSelected"
+                        />
+                        <span class="option-text">
+                            Only selected jobs
+                            <small
+                                v-if="writeSelected"
+                                class="muted"
+                            >
+                                Write can run any command on the server, so it covers all jobs
+                            </small>
+                            <small
+                                v-else
+                                class="muted"
+                            >
+                                Pick jobs below, or match them by name
+                            </small>
+                        </span>
+                    </label>
+                </li>
+            </ul>
+        </fieldset>
 
-    <template v-if="jobAccess === 'selected'">
-        <div
-            class="field label prefix border"
-            :class="{ invalid: patternError !== '' }"
-        >
-            <i>filter_alt</i>
-            <input
-                :id="cyPrefix + '-patterns'"
-                v-model="patternText"
-                type="text"
-                placeholder=" "
-                :data-cy="cyPrefix + '-patterns'"
-                @input="jobsError = false"
-                @keydown.enter.prevent
-            />
-            <label :for="cyPrefix + '-patterns'">Name patterns</label>
-            <output
-                v-if="patternError"
-                class="invalid"
-            >
-                {{ patternError }}
-            </output>
-            <output v-else>For example test_*, vrec_*. Jobs added later that match are included</output>
-        </div>
-        <nav>
-            <div class="field small prefix border round max">
-                <i>search</i>
-                <input
-                    v-model="search"
-                    type="search"
-                    aria-label="Search jobs"
-                    placeholder="Search jobs"
-                    :data-cy="cyPrefix + '-job-search'"
-                    @keydown.enter.prevent
-                />
-            </div>
-            <small
-                :class="{ 'error-text': jobsError }"
-                aria-live="polite"
-                :data-cy="cyPrefix + '-jobs-count'"
-            >
-                <template v-if="jobsError">Select a job or enter a pattern</template>
-                <template v-else>{{ selectedCount }} of {{ jobs.length }} selected</template>
-            </small>
-        </nav>
-        <!-- Scrolls on its own, so a long job list doesn't push Create off screen -->
-        <ul
-            class="list border jobs"
-            :data-cy="cyPrefix + '-jobs'"
-        >
-            <li
-                v-for="job in shownJobs"
-                :key="job.name"
-                :data-cy="cyPrefix + '-job-' + job.name"
-            >
-                <label class="checkbox max">
+        <template v-if="jobAccess === 'selected'">
+            <label class="form-field">
+                <span class="label-text">Name patterns</span>
+                <span class="input-icon">
+                    <i class="icon">filter_alt</i>
                     <input
-                        type="checkbox"
-                        :checked="isSelected(job.name)"
-                        :disabled="matchedBy(job.name) !== ''"
-                        @change="toggleJob(job.name, $event.target.checked)"
+                        :id="cyPrefix + '-patterns'"
+                        v-model="patternText"
+                        type="text"
+                        class="input"
+                        :class="{ invalid: patternError !== '' }"
+                        :data-cy="cyPrefix + '-patterns'"
+                        @input="jobsError = false"
+                        @keydown.enter.prevent
                     />
-                    <span>
+                </span>
+                <span
+                    v-if="patternError"
+                    class="hint error-text"
+                    >{{ patternError }}</span
+                >
+                <span
+                    v-else
+                    class="hint"
+                    >For example test_*, vrec_*. Jobs added later that match are included</span
+                >
+            </label>
+            <div class="cluster between gap-2">
+                <label class="input-icon job-search">
+                    <i class="icon">search</i>
+                    <input
+                        v-model="search"
+                        type="search"
+                        class="input"
+                        aria-label="Search jobs"
+                        placeholder="Search jobs"
+                        :data-cy="cyPrefix + '-job-search'"
+                        @keydown.enter.prevent
+                    />
+                </label>
+                <small
+                    :class="{ 'error-text': jobsError }"
+                    aria-live="polite"
+                    :data-cy="cyPrefix + '-jobs-count'"
+                >
+                    <template v-if="jobsError">Select a job or enter a pattern</template>
+                    <template v-else>{{ selectedCount }} of {{ jobs.length }} selected</template>
+                </small>
+            </div>
+            <!-- Scrolls on its own, so a long job list doesn't push Create off screen -->
+            <ul
+                class="choices jobs"
+                :data-cy="cyPrefix + '-jobs'"
+            >
+                <li
+                    v-for="job in shownJobs"
+                    :key="job.name"
+                    :data-cy="cyPrefix + '-job-' + job.name"
+                >
+                    <label class="choice grow">
+                        <input
+                            type="checkbox"
+                            :checked="isSelected(job.name)"
+                            :disabled="matchedBy(job.name) !== ''"
+                            @change="toggleJob(job.name, $event.target.checked)"
+                        />
                         <span class="option-text">
                             {{ job.name }}
                             <small
@@ -150,20 +152,30 @@
                                 {{ job.desc }}
                             </small>
                         </span>
+                    </label>
+                    <span
+                        v-if="matchedBy(job.name)"
+                        class="matched text-sm"
+                        :title="'Matches ' + matchedBy(job.name)"
+                    >
+                        {{ matchedBy(job.name) }}
                     </span>
-                </label>
-                <span
-                    v-if="matchedBy(job.name)"
-                    class="chip small no-margin"
-                    :title="'Matches ' + matchedBy(job.name)"
+                </li>
+                <li
+                    v-if="jobsLoaded && jobs.length === 0"
+                    class="muted"
                 >
-                    {{ matchedBy(job.name) }}
-                </span>
-            </li>
-            <li v-if="jobsLoaded && jobs.length === 0">No jobs yet. Patterns also cover jobs added later.</li>
-            <li v-else-if="jobsLoaded && shownJobs.length === 0">No jobs match "{{ search.trim() }}"</li>
-        </ul>
-    </template>
+                    No jobs yet. Patterns also cover jobs added later.
+                </li>
+                <li
+                    v-else-if="jobsLoaded && shownJobs.length === 0"
+                    class="muted"
+                >
+                    No jobs match "{{ search.trim() }}"
+                </li>
+            </ul>
+        </template>
+    </div>
 </template>
 
 <script>
@@ -308,17 +320,69 @@ export default {
 </script>
 
 <style scoped>
+fieldset {
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+.choices {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border: 1px solid var(--outline-variant);
+    border-radius: var(--radius-control);
+}
+
+.choices > li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+}
+
+.choices > li + li {
+    border-block-start: 1px solid var(--outline-variant);
+}
+
+.choice {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    cursor: pointer;
+}
+
+.choice input {
+    margin-block-start: 3px;
+}
+
 .option-text {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    padding-inline-start: 0.5rem;
 }
-.muted {
-    opacity: 0.7;
+
+.matched {
+    padding: 0 6px;
+    border-radius: 4px;
+    background-color: var(--secondary-container);
+    color: var(--on-secondary-container);
 }
+
+.job-search {
+    flex: 0 1 20rem;
+}
+
+.input.invalid {
+    border-color: var(--error);
+}
+
+.error-text {
+    color: var(--error);
+}
+
 .jobs {
-    max-height: 20rem;
+    max-block-size: 20rem;
     overflow-y: auto;
 }
 </style>
