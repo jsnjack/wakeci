@@ -1,0 +1,195 @@
+/* The log viewer's colours and marks (LogViewer.vue): classes on the text
+   CodeMirror draws, which a component's scoped styles don't reach.
+   CodeMirror's own elements are styled by the viewer's EditorView.theme,
+   since CodeMirror adds its styles outside the layers. */
+@layer app {
+  body.light {
+    --log-bg: #ffffff;
+    --log-fg: #1c1b1e;
+    --log-muted: #6e6a72;
+    --log-hit: rgb(212 167 44 / 0.4);
+    --log-hit-current: rgb(212 167 44 / 0.85);
+    --log-marked: rgb(103 80 164 / 0.12);
+    --ansi-0: #1f2328;
+    --ansi-1: #cf222e;
+    --ansi-2: #116329;
+    --ansi-3: #8a6100;
+    --ansi-4: #0550ae;
+    --ansi-5: #8250df;
+    --ansi-6: #1b7c83;
+    --ansi-7: #6e7781;
+    --ansi-8: #57606a;
+    --ansi-9: #a40e26;
+    --ansi-10: #1a7f37;
+    --ansi-11: #7d4e00;
+    --ansi-12: #0969da;
+    --ansi-13: #8250df;
+    --ansi-14: #1b7c83;
+    --ansi-15: #6e7781;
+  }
+
+  body.dark {
+    --log-bg: #0f0e11;
+    --log-fg: #e6e1e6;
+    --log-muted: #948f99;
+    --log-hit: rgb(212 167 44 / 0.35);
+    --log-hit-current: rgb(212 167 44 / 0.75);
+    --log-marked: rgb(207 188 255 / 0.12);
+    --ansi-0: #8b949e;
+    --ansi-1: #ff7b72;
+    --ansi-2: #3fb950;
+    --ansi-3: #d29922;
+    --ansi-4: #58a6ff;
+    --ansi-5: #bc8cff;
+    --ansi-6: #39c5cf;
+    --ansi-7: #b1bac4;
+    --ansi-8: #6e7681;
+    --ansi-9: #ffa198;
+    --ansi-10: #56d364;
+    --ansi-11: #e3b341;
+    --ansi-12: #79c0ff;
+    --ansi-13: #d2a8ff;
+    --ansi-14: #56d4dd;
+    --ansi-15: #f0f6fc;
+  }
+
+  .log-prefix {
+    color: var(--log-muted);
+  }
+
+  .log-hit {
+    background-color: var(--log-hit);
+    border-radius: 2px;
+  }
+
+  .log-hit-current {
+    background-color: var(--log-hit-current);
+    border-radius: 2px;
+  }
+
+  .log-marked {
+    background-color: var(--log-marked);
+  }
+
+  .log-view a.log-link {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, currentColor 50%, transparent);
+    cursor: pointer;
+  }
+
+  .log-gap {
+    padding: 2px 0 2px 2px;
+    color: var(--log-muted);
+    font-style: italic;
+  }
+
+  .ansi-bold {
+    font-weight: 700;
+  }
+  .ansi-dim {
+    opacity: 0.7;
+  }
+  .ansi-italic {
+    font-style: italic;
+  }
+  .ansi-underline {
+    text-decoration: underline;
+  }
+  .ansi-fg-0 {
+    color: var(--ansi-0);
+  }
+  .ansi-fg-1 {
+    color: var(--ansi-1);
+  }
+  .ansi-fg-2 {
+    color: var(--ansi-2);
+  }
+  .ansi-fg-3 {
+    color: var(--ansi-3);
+  }
+  .ansi-fg-4 {
+    color: var(--ansi-4);
+  }
+  .ansi-fg-5 {
+    color: var(--ansi-5);
+  }
+  .ansi-fg-6 {
+    color: var(--ansi-6);
+  }
+  .ansi-fg-7 {
+    color: var(--ansi-7);
+  }
+  .ansi-fg-8 {
+    color: var(--ansi-8);
+  }
+  .ansi-fg-9 {
+    color: var(--ansi-9);
+  }
+  .ansi-fg-10 {
+    color: var(--ansi-10);
+  }
+  .ansi-fg-11 {
+    color: var(--ansi-11);
+  }
+  .ansi-fg-12 {
+    color: var(--ansi-12);
+  }
+  .ansi-fg-13 {
+    color: var(--ansi-13);
+  }
+  .ansi-fg-14 {
+    color: var(--ansi-14);
+  }
+  .ansi-fg-15 {
+    color: var(--ansi-15);
+  }
+  .ansi-bg-0 {
+    background-color: color-mix(in srgb, var(--ansi-0) 25%, transparent);
+  }
+  .ansi-bg-1 {
+    background-color: color-mix(in srgb, var(--ansi-1) 25%, transparent);
+  }
+  .ansi-bg-2 {
+    background-color: color-mix(in srgb, var(--ansi-2) 25%, transparent);
+  }
+  .ansi-bg-3 {
+    background-color: color-mix(in srgb, var(--ansi-3) 25%, transparent);
+  }
+  .ansi-bg-4 {
+    background-color: color-mix(in srgb, var(--ansi-4) 25%, transparent);
+  }
+  .ansi-bg-5 {
+    background-color: color-mix(in srgb, var(--ansi-5) 25%, transparent);
+  }
+  .ansi-bg-6 {
+    background-color: color-mix(in srgb, var(--ansi-6) 25%, transparent);
+  }
+  .ansi-bg-7 {
+    background-color: color-mix(in srgb, var(--ansi-7) 25%, transparent);
+  }
+  .ansi-bg-8 {
+    background-color: color-mix(in srgb, var(--ansi-8) 25%, transparent);
+  }
+  .ansi-bg-9 {
+    background-color: color-mix(in srgb, var(--ansi-9) 25%, transparent);
+  }
+  .ansi-bg-10 {
+    background-color: color-mix(in srgb, var(--ansi-10) 25%, transparent);
+  }
+  .ansi-bg-11 {
+    background-color: color-mix(in srgb, var(--ansi-11) 25%, transparent);
+  }
+  .ansi-bg-12 {
+    background-color: color-mix(in srgb, var(--ansi-12) 25%, transparent);
+  }
+  .ansi-bg-13 {
+    background-color: color-mix(in srgb, var(--ansi-13) 25%, transparent);
+  }
+  .ansi-bg-14 {
+    background-color: color-mix(in srgb, var(--ansi-14) 25%, transparent);
+  }
+  .ansi-bg-15 {
+    background-color: color-mix(in srgb, var(--ansi-15) 25%, transparent);
+  }
+}
