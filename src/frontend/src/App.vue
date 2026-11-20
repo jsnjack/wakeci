@@ -4,12 +4,22 @@
             <router-link to="/">
                 <i class="large fill primary-text">water</i>
             </router-link>
-            <small class="m l">{{ getVesion }}</small>
-            <h6 class="max center-align">{{ currentPage }}</h6>
+            <small
+                class="m l"
+                data-cy="app-version"
+                >{{ getVesion }}</small
+            >
+            <h6
+                class="max center-align"
+                data-cy="page-title"
+            >
+                {{ currentPage }}
+            </h6>
             <router-link
                 v-if="auth.isLoggedIn"
                 to="/"
                 class="button circle transparent m l"
+                data-cy="nav-feed"
             >
                 <div class="tooltip bottom">Feed</div>
                 <i>list</i>
@@ -18,6 +28,7 @@
                 v-if="auth.isLoggedIn"
                 to="/jobs"
                 class="button circle transparent m l"
+                data-cy="nav-jobs"
             >
                 <div class="tooltip bottom">Jobs</div>
                 <i>apps</i>
@@ -51,6 +62,7 @@
             </router-link>
             <button
                 class="circle transparent m l"
+                data-cy="toggle-theme"
                 @click.prevent="toggleDarkMode"
             >
                 <div class="tooltip bottom">Toggle dark mode</div>

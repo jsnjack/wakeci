@@ -8,11 +8,9 @@ async function createJob(page, name) {
     await expect(page.locator(".notification-content")).toContainText("New job created");
 }
 
+// row is the jobs page's row of the job name
 function row(page, name) {
-    return page
-        .locator(".row")
-        .filter({ has: page.locator("[data-cy=run-job-button]") })
-        .filter({ hasText: name });
+    return page.getByTestId(name);
 }
 
 async function deleteJob(page, name) {
@@ -58,8 +56,8 @@ test("should escape HTML in a job name shown in notifications", async ({ page, w
     const name = wake.trackJob(`${prefix}<img src=x onerror="window.__xssTriggered = true">`);
     await page.goto("/jobs");
     await createJob(page, name);
-    await row(page, prefix).getByTestId("run-job-button").click();
-    await row(page, prefix).getByTestId("start-job-confirm").click();
+    await row(page, name).getByTestId("run-job-button").click();
+    await row(page, name).getByTestId("start-job-confirm").click();
     const notification = page.locator(".notification-content").filter({ hasText: "has been scheduled" });
     await expect(notification).toContainText(`${name} has been scheduled`);
     await expect(notification.locator("img")).toHaveCount(0);

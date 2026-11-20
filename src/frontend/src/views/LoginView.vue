@@ -7,6 +7,7 @@
         <progress
             v-show="fetching"
             class="circle large"
+            data-cy="login-progress"
         ></progress>
         <div
             v-if="!fetching"

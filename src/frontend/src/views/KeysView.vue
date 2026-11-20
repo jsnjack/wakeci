@@ -26,6 +26,7 @@
     <dialog
         :class="{ active: revokingPerson !== null }"
         class="padding"
+        data-cy="revoke-person-dialog"
     >
         <div v-if="revokingPerson">
             Revoke access of <b>{{ revokingPerson.person }}</b

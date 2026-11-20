@@ -100,7 +100,10 @@
                         >
                     </p>
                 </article>
-                <article class="border no-elevate padding s12 l6 chart-card">
+                <article
+                    class="border no-elevate padding s12 l6 chart-card"
+                    data-cy="duration-card"
+                >
                     <div class="card-head">
                         <h6 class="small no-margin">Duration, 7-day rolling</h6>
                         <SearchSelect
