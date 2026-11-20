@@ -84,7 +84,7 @@ func (f *feedRequest) matches(msg *BuildUpdateData, access *Access) bool {
 	return access.Reads(msg.Name) &&
 		(len(f.jobs) == 0 || slices.Contains(f.jobs, msg.Name)) &&
 		(len(f.statuses) == 0 || slices.Contains(f.statuses, string(msg.Status))) &&
-		(f.filter == nil || matchesFilter(msg.ToFilterMatchString(), f.filter))
+		matchesFilter(msg, f.filter)
 }
 
 // seekAtOrBefore moves c to the newest build whose ID is id or lower

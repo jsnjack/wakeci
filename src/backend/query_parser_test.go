@@ -1,6 +1,9 @@
 package main
 
 import (
+	"encoding/json"
+	"os"
+	"slices"
 	"testing"
 )
 
@@ -280,11 +283,44 @@ func Test_matchesFilter(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			filter := CreateFilterRequest(tt.query)
 			for i, d := range tt.data {
-				result := matchesFilter(d.update.ToFilterMatchString(), filter)
+				result := matchesFilter(&d.update, filter)
 				if result != d.expected {
 					t.Errorf("Subtest %d (%v): For query %q, expected %v, got %v", i, d.update, tt.query, d.expected, result)
 				}
 			}
 		})
+	}
+}
+
+// searchCases are testdata/search_cases.json, which e2e/search.spec.js
+// checks against the browser's parser too
+type searchCases struct {
+	Builds []BuildUpdateData `json:"builds"`
+	Cases  []struct {
+		Query string `json:"query"`
+		Finds []int  `json:"finds"`
+	} `json:"cases"`
+}
+
+func TestSearchCases(t *testing.T) {
+	data, err := os.ReadFile("testdata/search_cases.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cases searchCases
+	if err := json.Unmarshal(data, &cases); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range cases.Cases {
+		filter := CreateFilterRequest(c.Query)
+		found := []int{}
+		for i := range cases.Builds {
+			if matchesFilter(&cases.Builds[i], filter) {
+				found = append(found, cases.Builds[i].ID)
+			}
+		}
+		if !slices.Equal(found, c.Finds) {
+			t.Errorf("%q finds %v, want %v", c.Query, found, c.Finds)
+		}
 	}
 }

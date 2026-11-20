@@ -163,19 +163,21 @@ test("should filter by a build's parameter when it is clicked", async ({ page, w
     const name = await wake.createJob(`desc: Params\nparams:\n  - TARGET: staging\ntasks:\n  - name: hello\n    run: echo hello\n`);
     await wake.showFeed(name);
     // The feed leaves out params at their default
+    await wake.runJob(name, { TARGET: `${target}-fix` });
     await wake.runJob(name, { TARGET: target });
     const builds = page.getByTestId("feed-container").locator("[data-cy-build]");
-    await expect(builds).toHaveCount(1);
+    await expect(builds).toHaveCount(2);
 
-    await builds.getByTestId("params-value").getByText(target).click();
-    await expect(page.getByTestId("filter")).toHaveValue(`+"TARGET:${target}"`);
+    // The search finds the value exactly, so not the build with -fix
+    await builds.getByTestId("params-value").getByText(target, { exact: true }).click();
+    await expect(page.getByTestId("filter")).toHaveValue(`+target=${target}`);
     await expect(builds).toHaveCount(1);
     // Ctrl+click adds the parameter once
     await builds
         .getByTestId("params-value")
-        .getByText(target)
+        .getByText(target, { exact: true })
         .click({ modifiers: ["Control"] });
-    await expect(page.getByTestId("filter")).toHaveValue(`+"TARGET:${target}"`);
+    await expect(page.getByTestId("filter")).toHaveValue(`+target=${target}`);
 });
 
 test("should show the filter in the address bar encoded once", async ({ page }) => {

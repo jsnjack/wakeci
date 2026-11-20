@@ -43,7 +43,7 @@ export function isFilteredUpdate(ev, filterObj) {
     if (filterObj === null) {
         return false;
     }
-    return !matchesFilter(filterMatchText(ev), filterObj);
+    return !matchesFilter(ev, filterObj);
 }
 
 // The filter is similar to the implementation on the server side (HandleFeedView)
@@ -107,32 +107,75 @@ export function createFilterObj(query) {
     return result;
 }
 
-function matchesFilter(s, filter) {
+// matchesFilter works like matchesFilter on the server: a term is found
+// anywhere in the build's text, unless it is NAME=value (termMatches).
+// e2e/search.spec.js checks both against the same cases.
+export function matchesFilter(ev, filter) {
     if (filter === null) {
         return true;
     }
+    const s = filterMatchText(ev);
 
     for (let item of filter.MustInclude) {
-        if (!s.includes(item)) {
+        if (!termMatches(ev, s, item)) {
             return false;
         }
     }
 
     for (let item of filter.MustExclude) {
-        if (s.includes(item)) {
+        if (termMatches(ev, s, item)) {
             return false;
         }
     }
 
     let contains = filter.ContainsAny.length === 0;
     for (let item of filter.ContainsAny) {
-        if (s.includes(item)) {
+        if (termMatches(ev, s, item)) {
             contains = true;
             break;
         }
     }
 
     return contains;
+}
+
+// LABEL_SUFFIX marks a param as a label when its job lists no labels
+export const LABEL_SUFFIX = "_LABEL";
+
+// shownName is the name a search finds a param by: lowercase, without
+// _LABEL, so BRANCH_LABEL is branch
+export function shownName(name) {
+    const lower = name.toLowerCase();
+    return lower.endsWith(LABEL_SUFFIX.toLowerCase()) ? lower.slice(0, -LABEL_SUFFIX.length) : lower;
+}
+
+// searchTerm is the term that finds builds whose param name is value,
+// quoted only if it has a space or a quote
+export function searchTerm(name, value) {
+    const term = `${shownName(name)}=${value}`;
+    if (!/[\s"']/.test(term)) {
+        return term;
+    }
+    return term.includes('"') ? `'${term}'` : `"${term}"`;
+}
+
+// NAME=value matches a build whose id, name or status is value, or with a
+// param equal to value named NAME, ignoring case, or NAME_LABEL: a label by
+// its shown name, so branch=main finds BRANCH_LABEL
+const EXACT_TERM = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/;
+
+function termMatches(ev, text, term) {
+    const m = EXACT_TERM.exec(term);
+    if (m === null) {
+        return text.includes(term);
+    }
+    const [, name, value] = m;
+    const field = { id: String(ev.id), name: ev.name, status: ev.status }[name.toLowerCase()];
+    if (field === value) {
+        return true;
+    }
+    const wanted = [name.toLowerCase(), (name + LABEL_SUFFIX).toLowerCase()];
+    return (ev.params || []).some((param) => Object.entries(param).some(([key, v]) => v === value && wanted.includes(key.toLowerCase())));
 }
 
 export function humanFileSize(size) {
