@@ -65,7 +65,7 @@ tasks:
     await expect(page.getByTestId("feed-container").locator("[data-cy-build]")).toHaveCount(1);
 });
 
-test("should toggle params", async ({ page, wake }) => {
+test("should show the params a build changed, five at most", async ({ page, wake }) => {
     const name = await wake.createJob(`
 desc: Test env variables
 params:
@@ -73,18 +73,17 @@ params:
   - param2: ok1
   - param3: ok2
   - param4: ok3
+  - param5: ok4
+  - param6: ok5
 tasks:
   - name: Print env
     run: env
 `);
-    await wake.runJob(name, { param1: "new0", param2: "new1", param3: "new2", param4: "new3" });
+    await wake.runJob(name, { param1: "new0", param2: "new1", param3: "new2", param4: "new3", param5: "new4", param6: "new5" });
     await wake.showFeed(name);
-    const values = page.getByTestId("params-value");
-    await expect(values).toHaveText(["new0content_copyparam1", "new1content_copyparam2", "new2content_copyparam3"]);
-    await page.getByTestId("expand-more-params-button").click();
-    await expect(values).toHaveCount(4);
-    await page.getByTestId("expand-less-params-button").click();
-    await expect(values).toHaveCount(3);
+    await expect(page.getByTestId("params-value")).toHaveText(["new0", "new1", "new2", "new3", "new4"]);
+    // The build page lists the rest
+    await expect(page.locator("[data-cy-build]")).toContainText("+1");
 });
 
 test("should show only the params that differ from the job's defaults", async ({ page, wake }) => {
@@ -101,10 +100,78 @@ tasks:
 `);
     await wake.runJob(name, { COMMIT: "abc123", AUTHOR: "alice" });
     await wake.showFeed(name);
-    const values = page.getByTestId("params-value");
-    await expect(values).toHaveText(["abc123content_copyCOMMIT", "alicecontent_copyAUTHOR"]);
-    await page.getByTestId("expand-more-params-button").click();
-    await expect(values).toHaveText(["abc123content_copyCOMMIT", "maincontent_copyBRANCH", "allcontent_copySUITE", "alicecontent_copyAUTHOR"]);
+    await expect(page.getByTestId("params-value")).toHaveText(["abc123", "alice"]);
+    // The name and the full value show on hover
+    await expect(page.getByTestId("params-value").first()).toHaveAttribute("data-tip", "COMMIT: abc123");
+});
+
+test("should show the labels first, and a commit hash short", async ({ page, wake }) => {
+    const commit = "3f9c2a1e5d4b8a0c7f6e2d1b9a8c7f6e5d4b3a2c";
+    const name = await wake.createJob(`
+desc: Labels
+labels: [BRANCH, AUTHOR]
+params:
+  - COMMIT: ""
+  - AUTHOR: unknown
+  - BRANCH: main
+tasks:
+  - name: Print env
+    run: env
+`);
+    await wake.runJob(name, { COMMIT: commit, AUTHOR: "alice", BRANCH: "T-4821-fix-login" });
+    await wake.showFeed(name);
+    await expect(page.getByTestId("params-value")).toHaveText(["T-4821-fix-login", "alice", "3f9c2a1"]);
+    // A label's value searches by its name
+    await page.getByTestId("params-value").first().click();
+    await expect(page.getByTestId("filter")).toHaveValue("+branch=T-4821-fix-login");
+});
+
+test("should say where a queued build waits", async ({ page, wake }) => {
+    const gate = await wake.gate();
+    const name = await wake.createJob(`
+desc: Queue place
+tasks:
+  - name: Wait
+    run: ${gate.command}
+concurrency: 1
+`);
+    await wake.runJob(name);
+    const queued = await wake.runJob(name);
+    await wake.showFeed(name);
+    const row = page.locator(`[data-cy-build="${queued}"]`);
+    await expect(row.getByTestId("queue-place")).toHaveText(/^\d+(st|nd|rd|th) in queue$/);
+    await expect(row.getByTestId("started-ago")).toHaveText(/^waiting \d+s$/);
+    await gate.release();
+});
+
+test("should run a build again with its params", async ({ page, wake }) => {
+    const name = await wake.createJob(`
+desc: Run again
+params:
+  - TARGET: staging
+tasks:
+  - name: Print env
+    run: env
+`);
+    const first = await wake.runJob(name, { TARGET: "prod" });
+    await wake.waitForBuild(first);
+    await wake.showFeed(name);
+    const builds = page.locator("[data-cy-build]");
+    await expect(builds).toHaveCount(1);
+    await builds.first().getByTestId("run-again-button").click();
+    await expect(page.locator(".notification-content")).toContainText(`${name} has been scheduled`);
+    await expect(builds).toHaveCount(2);
+    await expect(builds.first().getByTestId("params-value")).toHaveText(["prod"]);
+    // A finished build can't be aborted, nor a running one run again
+    await expect(builds.last().getByTestId("abort-build-button")).toHaveCount(0);
+});
+
+test("should open a build from anywhere on its row", async ({ page, wake }) => {
+    const name = await wake.createJob();
+    const id = await wake.runJob(name);
+    await wake.showFeed(name);
+    await page.locator(`[data-cy-build="${id}"] [data-cy=duration]`).click();
+    await expect(page).toHaveURL(`${wake.url}/build/${id}`);
 });
 
 test("should preserve filter after reload", async ({ page, wake }) => {

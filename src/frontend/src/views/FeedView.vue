@@ -1,97 +1,125 @@
 <template>
-    <dialog :class="{ active: isHelpDialogOpen }">
-        <h5>Search examples</h5>
-        <div class="space"></div>
-        <ul>
-            <li><code>status:failed</code> - Failed builds</li>
-            <li><code>status:failed "status:timed out"</code> - Failed or timed out builds</li>
-            <li><code>+status:failed -name:test_</code> - Failed builds, excluding builds with names containing "test_"</li>
-            <li><code>env=prod</code> - Builds whose parameter "ENV" (or label "ENV_LABEL") is exactly "prod"</li>
-            <li><code>+status:failed env=prod env=uat</code> - Failed builds with "ENV" equal to "prod" or "uat"</li>
-            <li><code>env:prod</code> - "env:prod" anywhere, so also "env:production"</li>
-        </ul>
-        <nav class="right-align">
+    <div class="ui feed-page stack gap-3">
+        <UiDialog
+            v-model:open="isHelpDialogOpen"
+            title="Search examples"
+        >
+            <ul class="search-examples stack gap-2">
+                <li><code>status:failed</code> Failed builds</li>
+                <li><code>status:failed "status:timed out"</code> Failed or timed out builds</li>
+                <li><code>+status:failed -name:test_</code> Failed builds, excluding builds with names containing "test_"</li>
+                <li><code>env=prod</code> Builds whose parameter "ENV" (or label "ENV_LABEL") is exactly "prod"</li>
+                <li><code>+status:failed env=prod env=uat</code> Failed builds with "ENV" equal to "prod" or "uat"</li>
+                <li><code>env:prod</code> "env:prod" anywhere, so also "env:production"</li>
+            </ul>
+            <p class="muted text-sm">A click on a value in a row searches for it; Ctrl+click adds it to the search.</p>
+            <template #actions>
+                <button
+                    type="button"
+                    class="btn"
+                    @click="isHelpDialogOpen = false"
+                >
+                    Close
+                </button>
+            </template>
+        </UiDialog>
+
+        <div class="cluster nowrap gap-1">
+            <label class="input-icon grow">
+                <i class="icon">search</i>
+                <input
+                    type="search"
+                    class="input"
+                    data-cy="filter"
+                    aria-label="Search builds"
+                    placeholder="Search by id, job, status, branch=main…"
+                    :value="filter"
+                    @input="(evt) => (filter = evt.target.value)"
+                />
+                <span
+                    v-show="isFetching"
+                    class="feed-spinner status-ring"
+                    aria-hidden="true"
+                ></span>
+            </label>
             <button
-                class="border"
-                @click.prevent="isHelpDialogOpen = false"
+                type="button"
+                class="btn btn-ghost btn-icon"
+                aria-label="Clear the search"
+                data-tip="Clear the search"
+                :disabled="filter === ''"
+                @click="clearFilter"
             >
-                Close
+                <i class="icon">backspace</i>
             </button>
-        </nav>
-    </dialog>
+            <button
+                type="button"
+                class="btn btn-ghost btn-icon tip-end"
+                aria-label="Search examples"
+                data-tip="Search examples"
+                @click="isHelpDialogOpen = true"
+            >
+                <i class="icon">help</i>
+            </button>
+        </div>
 
-    <nav class="group connected">
-        <div class="max field label prefix border left-round">
-            <i>search</i>
-            <input
-                type="text"
-                data-cy="filter"
-                :value="filter"
-                @input="(evt) => (filter = evt.target.value)"
+        <div
+            v-if="filteredUpdates !== 0"
+            class="panel cluster between text-sm"
+            data-cy="filtered-updates"
+        >
+            <span>{{ filteredUpdates }} new {{ filteredUpdates === 1 ? "build doesn't" : "builds don't" }} match the search</span>
+            <button
+                type="button"
+                class="btn btn-sm"
+                @click="clearFilter"
+            >
+                Clear the search
+            </button>
+        </div>
+
+        <div
+            class="feed-list"
+            data-cy="feed-container"
+        >
+            <FeedItem
+                v-for="item in sortedBuilds"
+                :key="item.id"
+                :build="item"
+                :job="jobs.get(item.name) || null"
+                :now="now"
+                @set-filter="handleSetFilter"
             />
-            <label>Filter builds by id, name, params and status</label>
-            <progress
-                v-show="isFetching"
-                class="circle"
-            ></progress>
         </div>
-        <button
-            class="large no-round"
-            @click.prevent="clearFilter"
+
+        <div
+            v-if="sortedBuilds.length === 0 && !isFetching && !filterIsDirty"
+            class="feed-empty stack muted"
+            data-cy="no-builds-found"
         >
-            <i>backspace</i>
-        </button>
-        <button
-            class="large right-round"
-            @click.prevent="isHelpDialogOpen = true"
-        >
-            <i>help</i>
-        </button>
-    </nav>
-
-    <article
-        v-show="filteredUpdates !== 0"
-        class="fill small-margin center-align large-text m l"
-        data-cy="filtered-updates"
-    >
-        <p>{{ filteredUpdates }} updates have been filtered because of the active filter</p>
-    </article>
-
-    <div data-cy="feed-container">
-        <FeedItem
-            v-for="item in sortedBuilds"
-            :key="item.id"
-            :build="item"
-            :defaults="jobDefaults.get(item.name) || null"
-            @set-filter="handleSetFilter"
-        />
-    </div>
-
-    <div
-        v-if="sortedBuilds.length === 0 && !isFetching && !filterIsDirty"
-        class="fill medium-height middle-align center-align small-margin small-round"
-        data-cy="no-builds-found"
-    >
-        <div class="center-align">
-            <i class="extra">water</i>
-            <h5>No builds found</h5>
+            <i class="icon large">water</i>
+            <span>No builds found</span>
         </div>
-    </div>
 
-    <nav class="no-space">
-        <div class="max"></div>
-        <button
+        <div
             v-show="moreEnabled && !isFetching && !filterIsDirty"
-            data-cy="more"
-            @click.prevent="fetchNow(true)"
+            class="cluster end"
         >
-            more...
-        </button>
-    </nav>
+            <button
+                type="button"
+                class="btn"
+                data-cy="more"
+                @click="fetchNow(true)"
+            >
+                Load older builds
+            </button>
+        </div>
+    </div>
 </template>
 
 <script>
 import FeedItem from "@/components/FeedItem.vue";
+import UiDialog from "@/components/ui/UiDialog.vue";
 import { createFilterObj, findInContainer, isFilteredUpdate } from "@/store/utils.js";
 import axios from "axios";
 import debounce from "lodash/debounce";
@@ -100,7 +128,7 @@ import vuex from "vuex";
 const FetchItemsSize = 10;
 
 export default {
-    components: { FeedItem },
+    components: { FeedItem, UiDialog },
     data: function () {
         return {
             builds: [],
@@ -112,9 +140,11 @@ export default {
             moreEnabled: true, // if makes sense to load more builds from the server
             filteredUpdates: 0, // When `filter` is active, updates which do not much are counted here
             filterObj: null,
-            // Each job's default params as { NAME: value }, so a row can
-            // leave them out
-            jobDefaults: new Map(),
+            // Each job's { defaults: { NAME: value }, labels: [NAME] }, so
+            // a row can show the labels first and leave defaults out
+            jobs: new Map(),
+            // The time the rows show durations against, moved on every second
+            now: Date.now(),
         };
     },
     computed: {
@@ -146,7 +176,7 @@ export default {
         // `more` and load older builds instead.
         "ws.reconnects"() {
             this.fetchNow();
-            this.fetchJobDefaults();
+            this.fetchJobs();
         },
     },
     mounted() {
@@ -169,13 +199,15 @@ export default {
         }
 
         this.fetchNow();
-        this.fetchJobDefaults();
+        this.fetchJobs();
         this.subscribe();
         this.emitter.on(this.subscription, this.applyUpdate);
+        this.clock = setInterval(() => (this.now = Date.now()), 1000);
     },
     unmounted() {
         this.unsubscribe();
         this.emitter.off(this.subscription, this.applyUpdate);
+        clearInterval(this.clock);
     },
     created() {
         this.fetch = debounce((more = false) => {
@@ -247,16 +279,16 @@ export default {
             });
         },
         fetch() {},
-        // Without them, rows show the first non-empty params
-        fetchJobDefaults() {
+        // Without them, rows show every non-empty param
+        fetchJobs() {
             axios
                 .get("/api/jobs/")
                 .then((response) => {
-                    const defaults = new Map();
+                    const jobs = new Map();
                     for (const job of response.data || []) {
-                        defaults.set(job.name, Object.assign({}, ...(job.defaultParams || [])));
+                        jobs.set(job.name, { defaults: Object.assign({}, ...(job.defaultParams || [])), labels: job.labels || [] });
                     }
-                    this.jobDefaults = defaults;
+                    this.jobs = jobs;
                 })
                 .catch(() => {});
         },
@@ -312,4 +344,37 @@ export default {
 };
 </script>
 
-<style scoped></style>
+<style scoped>
+.feed-list {
+    border-block-start: 1px solid var(--outline-variant);
+}
+
+.feed-spinner {
+    position: absolute;
+    inset-inline-end: 10px;
+    inline-size: 16px;
+    block-size: 16px;
+    --_c: var(--primary);
+}
+
+.feed-page input[type="search"] {
+    padding-inline-end: 34px;
+}
+
+.feed-empty {
+    align-items: center;
+    padding: var(--space-8) 0;
+}
+
+.search-examples {
+    padding-inline-start: 0;
+    list-style: none;
+}
+
+.search-examples code {
+    margin-inline-end: var(--space-2);
+    padding: 1px 6px;
+    border-radius: 4px;
+    background-color: var(--surface-container-highest);
+}
+</style>

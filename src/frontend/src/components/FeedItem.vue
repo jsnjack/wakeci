@@ -1,189 +1,436 @@
 <template>
     <div
-        class="row round large-text feed-item"
+        class="feed-row"
         :data-cy-build="build.id"
+        @click="openFromRow"
     >
-        <BuildStatus :status="build.status" />
-        <div class="max">
-            <a
-                class="small-padding"
-                style="padding-bottom: 0 !important; padding-top: 0 !important"
+        <StatusIcon
+            :status="build.status"
+            tip
+            class="tip-start"
+        />
+        <div class="feed-main">
+            <router-link
+                :to="buildPath"
+                class="feed-name ellipsis"
+                data-cy="open-build-button"
             >
-                <router-link :to="{ name: 'build', params: { id: build.id } }"> #{{ build.id }} {{ build.name }}</router-link>
-            </a>
+                <span class="muted nums">#{{ build.id }}</span> {{ build.name }}
+            </router-link>
             <div
-                data-cy="params-container"
-                class="l"
+                v-if="values.length"
+                class="feed-values muted text-sm"
             >
-                <div></div>
-                <ParamItem
-                    v-for="(item, index) in getFilteredParams"
-                    :key="index + 'param'"
-                    :param="item"
-                    @set-filter="handleSetFilter"
-                />
+                <template
+                    v-for="(item, i) in shownValues"
+                    :key="item.name"
+                >
+                    <span
+                        v-if="i"
+                        aria-hidden="true"
+                        >·</span
+                    >
+                    <button
+                        type="button"
+                        class="feed-value"
+                        data-cy="params-value"
+                        :data-tip="`${item.name}: ${item.value}`"
+                        :aria-label="`Search for ${item.name} ${item.value}`"
+                        @click.stop="search(item, $event)"
+                    >
+                        {{ item.short }}
+                    </button>
+                </template>
+                <span v-if="values.length > shownValues.length">· +{{ values.length - shownValues.length }}</span>
             </div>
         </div>
-        <div class="l">
-            <button
-                v-if="build.params && build.params.length > getFilteredParams.length"
-                class="circle transparent"
-                data-cy="expand-more-params-button"
-                @click.prevent="toggleExpandParams"
-            >
-                <i>expand_more</i>
-                <div class="tooltip bottom">More</div>
-            </button>
-            <button
-                v-if="expandParams"
-                class="circle transparent"
-                data-cy="expand-less-params-button"
-                @click.prevent="toggleExpandParams"
-            >
-                <i>expand_less</i>
-                <div class="tooltip bottom">Less</div>
-            </button>
+        <div class="feed-meta muted text-sm nums">
+            <template v-if="build.status === 'pending'">
+                <span data-cy="queue-place">{{ queuePlace }}</span>
+                <span data-cy="started-ago">{{ waited }}</span>
+            </template>
+            <template v-else>
+                <span data-cy="duration">{{ durationText }}</span>
+                <span
+                    data-cy="started-ago"
+                    :data-tip="startedAtText"
+                    class="tip-end"
+                    >{{ startedAgo }}</span
+                >
+            </template>
         </div>
+        <div class="feed-actions">
+            <button
+                v-if="canAbort"
+                type="button"
+                class="btn btn-ghost btn-icon"
+                data-cy="abort-build-button"
+                aria-label="Abort"
+                data-tip="Abort"
+                @click.stop="abort"
+            >
+                <i class="icon">stop</i>
+            </button>
+            <button
+                v-if="canStartNow"
+                type="button"
+                class="btn btn-ghost btn-icon"
+                data-cy="start-build-button"
+                aria-label="Start now"
+                data-tip="Start now, past the limit of concurrent builds"
+                @click.stop="startNow"
+            >
+                <i class="icon">play_arrow</i>
+            </button>
+            <button
+                v-if="canRunAgain"
+                type="button"
+                class="btn btn-ghost btn-icon"
+                data-cy="run-again-button"
+                aria-label="Run again"
+                data-tip="Run again with these parameters"
+                @click.stop="runAgain"
+            >
+                <i class="icon">replay</i>
+            </button>
+            <a
+                :href="buildPath"
+                target="_blank"
+                rel="noopener"
+                class="btn btn-ghost btn-icon tip-end"
+                aria-label="Open in a new tab"
+                data-tip="Open in a new tab"
+                @click.stop
+            >
+                <i class="icon">open_in_new</i>
+            </a>
+        </div>
+        <UiMenu
+            class="feed-menu"
+            label="Build actions"
+        >
+            <button
+                v-if="canAbort"
+                type="button"
+                role="menuitem"
+                @click.stop="abort"
+            >
+                <i class="icon">stop</i> Abort
+            </button>
+            <button
+                v-if="canStartNow"
+                type="button"
+                role="menuitem"
+                @click.stop="startNow"
+            >
+                <i class="icon">play_arrow</i> Start now
+            </button>
+            <button
+                v-if="canRunAgain"
+                type="button"
+                role="menuitem"
+                @click.stop="runAgain"
+            >
+                <i class="icon">replay</i> Run again
+            </button>
+            <a
+                :href="buildPath"
+                target="_blank"
+                rel="noopener"
+                role="menuitem"
+                @click.stop
+            >
+                <i class="icon">open_in_new</i> Open in a new tab
+            </a>
+        </UiMenu>
         <div
-            style="min-width: 200px"
-            class="m l"
+            v-if="build.status === 'running'"
+            class="feed-progress-track"
+            aria-hidden="true"
         >
-            <SimpleDuration :item="build" />
-            <SimpleStartedAgo :item="build" />
+            <div
+                class="feed-progress"
+                :class="{ unknown: progress === null }"
+                :style="progress === null ? null : { inlineSize: `${progress}%` }"
+            ></div>
         </div>
-        <!-- Open build view -->
-        <router-link
-            :to="{ name: 'build', params: { id: build.id } }"
-            class="button circle transparent m l"
-            data-cy="open-build-button"
-        >
-            <i>arrow_forward</i>
-            <div class="tooltip bottom">Open</div>
-        </router-link>
-
-        <!-- Abort build -->
-        <a
-            v-if="can('run', build.name)"
-            :disabled="isDone ? true : null"
-            :href="getAbortURL"
-            class="button circle transparent"
-            data-cy="abort-build-button"
-            @click.prevent="abort"
-        >
-            <i>stop</i>
-            <div class="tooltip bottom">Abort</div>
-        </a>
-
-        <!-- Start build -->
-        <StartBuildNowButton
-            v-if="build.id && can('run', build.name)"
-            :status="build.status"
-            :build-i-d="build.id"
-        />
     </div>
 </template>
 
 <script>
-import BuildStatus from "@/components/BuildStatus.vue";
-import ParamItem from "@/components/ParamItem.vue";
-import SimpleDuration from "@/components/SimpleDuration.vue";
-import SimpleStartedAgo from "@/components/SimpleStartedAgo.vue";
+import { ago, dateTime, formatDuration, isZeroTime } from "@/analytics.js";
+import StatusIcon from "@/components/StatusIcon.vue";
+import UiMenu from "@/components/ui/UiMenu.vue";
+import { MAX_ROW_VALUES, ordinal, rowValues } from "@/feed.js";
+import { escapeHtml, searchTerm } from "@/store/utils.js";
 import axios from "axios";
 import vuex from "vuex";
-import StartBuildNowButton from "./StartBuildNowButton.vue";
 
-const MAX_DEFAULT_NUMBER_OF_PARAMS = 3;
+const NS = 1e9;
 
+// A build in the feed: two plain lines, the status, ID and job on the first,
+// the labels and changed params on the second; duration and time on the
+// right. The row opens the build; its actions show on hover and focus, and
+// in a menu on phones, only when they can act.
 export default {
-    components: {
-        ParamItem,
-        BuildStatus,
-        SimpleStartedAgo,
-        SimpleDuration,
-        StartBuildNowButton,
-    },
+    components: { StatusIcon, UiMenu },
     props: {
         build: {
             type: Object,
             required: true,
         },
-        // The job's default params as { NAME: value }, null while unknown
-        defaults: {
+        // The job's { defaults, labels }, null while unknown
+        job: {
             type: Object,
             default: null,
         },
+        // The time, which the feed moves on every second
+        now: {
+            type: Number,
+            required: true,
+        },
     },
     emits: ["setFilter"],
-    data: function () {
-        return {
-            expandParams: false,
-        };
-    },
     computed: {
         ...vuex.mapGetters(["can"]),
-        getAbortURL: function () {
-            return `/api/build/${this.build.id}/abort`;
+        ...vuex.mapState(["queue"]),
+        buildPath() {
+            return `/build/${this.build.id}`;
         },
-        getStartURL: function () {
-            return `/api/build/${this.build.id}/start`;
+        values() {
+            return rowValues(this.build.params, this.job);
+        },
+        shownValues() {
+            return this.values.slice(0, MAX_ROW_VALUES);
         },
         isDone() {
-            switch (this.build.status) {
-                case "failed":
-                case "finished":
-                case "aborted":
-                case "skipped":
-                case "timed out":
-                    return true;
-            }
-            return false;
+            return ["failed", "finished", "aborted", "skipped", "timed out"].includes(this.build.status);
         },
-        getFilteredParams() {
-            // User asked to show all params
-            if (this.expandParams) {
-                return this.build.params;
+        canRun() {
+            return this.can("run", this.build.name);
+        },
+        canAbort() {
+            return this.canRun && !this.isDone;
+        },
+        canStartNow() {
+            return this.canRun && this.build.status === "pending" && this.queue.queuedIDs.includes(this.build.id);
+        },
+        canRunAgain() {
+            return this.canRun && this.isDone;
+        },
+        started() {
+            return !isZeroTime(this.build.startedAt);
+        },
+        // How long it took, or runs so far
+        durationText() {
+            if (this.build.status === "running" && this.started) {
+                return formatDuration(this.elapsed * NS);
             }
-
-            // Empty params, and those left at the job's default, say nothing
-            // about the build
-            if (this.build.params) {
-                return this.build.params
-                    .filter((param) => {
-                        const [name, value] = Object.entries(param)[0];
-                        const isDefault = this.defaults !== null && Object.hasOwn(this.defaults, name) && this.defaults[name] === value;
-                        return value !== "" && !isDefault;
-                    })
-                    .slice(0, MAX_DEFAULT_NUMBER_OF_PARAMS);
+            return this.build.duration ? formatDuration(this.build.duration) : "";
+        },
+        elapsed() {
+            return Math.max(0, (this.now - new Date(this.build.startedAt).getTime()) / 1000);
+        },
+        // Running time against the usual duration, null without one
+        progress() {
+            if (!this.build.eta || !this.started) {
+                return null;
             }
-            return [];
+            return Math.min(100, (this.elapsed / (this.build.eta / NS)) * 100);
+        },
+        startedAgo() {
+            // `now` makes it move on
+            return this.now && this.started ? ago(this.build.startedAt) : "";
+        },
+        startedAtText() {
+            return this.started ? dateTime(this.build.startedAt) : null;
+        },
+        queuePlace() {
+            const i = this.queue.queuedIDs.indexOf(this.build.id);
+            return i < 0 ? "queued" : `${ordinal(i + 1)} in queue`;
+        },
+        waited() {
+            if (isZeroTime(this.build.queuedAt)) {
+                return "";
+            }
+            const seconds = Math.max(0, (this.now - new Date(this.build.queuedAt).getTime()) / 1000);
+            return `waiting ${formatDuration(seconds * NS)}`;
         },
     },
     methods: {
-        abort(event) {
-            if (!this.isDone) {
-                axios
-                    .post(event.target.href || event.target.parentElement.href)
-                    .then(() => {
-                        this.$notify({ text: `${this.build.id} has been aborted`, type: "primary" });
-                    })
-                    .catch(() => {});
+        // A click anywhere on the row opens the build, unless it was on a
+        // control or selected text
+        openFromRow(event) {
+            if (event.target.closest("a, button, .menu") || window.getSelection()?.toString()) {
+                return;
             }
+            if (event.ctrlKey || event.metaKey) {
+                window.open(this.buildPath, "_blank", "noopener");
+                return;
+            }
+            this.$router.push(this.buildPath);
         },
-        toggleExpandParams() {
-            this.expandParams = !this.expandParams;
+        search(item, event) {
+            this.$emit("setFilter", { term: searchTerm(item.name, item.value), append: event.ctrlKey || event.metaKey });
         },
-        handleSetFilter(event) {
-            this.$emit("setFilter", event);
+        abort() {
+            axios
+                .post(`/api/build/${this.build.id}/abort`)
+                .then(() => this.$notify({ text: `#${this.build.id} has been aborted`, type: "primary" }))
+                .catch(() => {});
+        },
+        startNow() {
+            axios
+                .post(`/api/build/${this.build.id}/start`)
+                .then(() => this.$notify({ text: `#${this.build.id} has been started`, type: "primary" }))
+                .catch(() => {});
+        },
+        runAgain() {
+            const params = new URLSearchParams((this.build.params || []).map((param) => Object.entries(param)[0]));
+            axios
+                .post(`/api/job/${encodeURIComponent(this.build.name)}/run?${params}`)
+                .then((response) => {
+                    const id = escapeHtml(response.data);
+                    this.$notify({
+                        text: `${escapeHtml(this.build.name)} has been scheduled (<a href="/build/${id}/">#${id}</a>)`,
+                        type: "primary",
+                        duration: 10000,
+                    });
+                })
+                .catch(() => {});
         },
     },
 };
 </script>
 
-<!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
-.feed-item {
-    background-color: var(--surface-container);
-    padding: 0.5rem 0.5rem !important;
-    margin-top: 0.5rem !important;
+.feed-row {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: var(--space-3);
+    min-block-size: 60px;
+    padding: var(--space-2) var(--space-3);
+    border-block-end: 1px solid var(--outline-variant);
+    cursor: pointer;
+}
+
+.feed-row:hover {
+    background-color: color-mix(in srgb, var(--on-surface) 4%, transparent);
+}
+
+.feed-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-inline-size: 0;
+}
+
+.feed-name {
+    color: var(--on-surface);
+    font-weight: 500;
+}
+
+.feed-values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--space-1);
+    align-items: baseline;
+}
+
+.feed-value {
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.feed-value:hover {
+    color: var(--on-surface);
+    text-decoration: underline;
+}
+
+.feed-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    min-inline-size: 7rem;
+    text-align: end;
+    white-space: nowrap;
+}
+
+.feed-actions {
+    display: flex;
+    gap: 2px;
+    opacity: 0;
+}
+
+.feed-row:hover .feed-actions,
+.feed-row:focus-within .feed-actions {
+    opacity: 1;
+}
+
+.feed-menu {
+    display: none;
+}
+
+/* Along the bottom edge: the running time against the usual duration, or a
+   moving stripe without one */
+.feed-progress-track {
+    position: absolute;
+    inset-inline: 0;
+    inset-block-end: -1px;
+    block-size: 2px;
+    overflow: hidden;
+}
+
+.feed-progress {
+    position: absolute;
+    inset-inline-start: 0;
+    block-size: 100%;
+    background-color: var(--status-running);
+    transition: inline-size 1s linear;
+}
+
+.feed-progress.unknown {
+    inline-size: 30%;
+    animation: feed-progress 1.6s ease-in-out infinite;
+}
+
+@keyframes feed-progress {
+    from {
+        inset-inline-start: -30%;
+    }
+    to {
+        inset-inline-start: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .feed-progress.unknown {
+        animation: none;
+        inline-size: 100%;
+        opacity: 0.5;
+    }
+}
+
+@media (max-width: 600px) {
+    .feed-row {
+        grid-template-columns: auto minmax(0, 1fr) auto auto;
+        gap: var(--space-2);
+        padding-inline: var(--space-2);
+    }
+    .feed-meta {
+        min-inline-size: 0;
+    }
+    .feed-actions {
+        display: none;
+    }
+    .feed-menu {
+        display: inline-flex;
+    }
 }
 </style>

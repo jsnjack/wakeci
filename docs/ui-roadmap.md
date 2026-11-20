@@ -48,24 +48,6 @@ here and name it (e.g. "F1") in the commit message.
 
 ## Feed
 
-- **F1. Labels first.** A label is a parameter the job marks as one: a name
-  ending in `_LABEL`, or those listed in an optional `labels:` in the job
-  file, in display order:
-
-  ```yaml
-  labels: [BRANCH, AUTHOR, COMMIT]  # without it, *_LABEL parameters are the labels
-  ```
-
-  Labels stay parameters: nothing new in the run API, the history or the
-  audit log. The jobs list sends each job's labels next to its
-  `defaultParams`. A row shows the label values first, then the other
-  changed parameters, as grey text separated by dots, not boxes; the name
-  and the full value show on hover, and a click adds the value to the
-  search (F7). Named values (`branch main`) were tried and read as
-  overloaded. Values at their default stay hidden, labels too: the only one
-  seen was a placeholder. 40-character hex values are shortened to 7; long
-  values are cut in the middle, keeping a leading ticket number. The build
-  header (B1) and the run form (J2) show the same labels. Effort M.
 - **F2. Builds under the build that started them (decided).** A job that
   starts others adds `WAKE_PARENT=$WAKE_BUILD_ID` to the run call: not
   `parent`, which a job may have as a parameter. The started build gets
@@ -100,15 +82,6 @@ here and name it (e.g. "F1") in the commit message.
     merge re-runs and deploys and miss jobs without one. Effort M to record
     the parent and show it on the build page, which jobs can adopt first;
     M–L for the feed.
-- **F3. Two plain lines per build (decided).** Today's two lines in the same
-  order, without the card, the boxes and the copy icons: the status icon,
-  `#id` in grey and the job name on the first line, the F1 values on the
-  second; duration and time on the right, without icons; thin lines between
-  rows. About 60 px, 12 builds on 1440×900. The row is the link; Abort, Run
-  again and Open in a new tab appear on hover and focus, only when they can
-  act (today they show disabled), and in a "⋯" menu on phones. A running
-  build has a thin progress line along its bottom edge. Queued builds say
-  how long they have waited and their place in the queue. Effort M.
 - **F4. Quick filters and saved searches.** A row of chips above the feed
   that write the existing `q`: Failed, Running and queued, Hide scheduled,
   several jobs, and the user's saved searches. "Save this search" names the
@@ -173,7 +146,8 @@ groups were tried and read as overloaded.
   description, with labelled actions on the right: Run again, Abort while
   running, a bell to notify, and "⋯" for start now, hide logs and raw logs.
   Under it "#1204 · Failed after 7 min 46 s · started 11 min ago, 11:20
-  UTC", then the F1 values and "All 11 parameters", which opens the full
+  UTC", then the labels and changed values, as the feed shows them
+  (`src/feed.js`), and "All 11 parameters", which opens the full
   list (B6). No second card for the parameters. Who started the build, the
   usual duration and the F2 strip can join the second line later. Effort M.
 - **B2. Failure first.** The failed task's log sits right under the header,
@@ -399,7 +373,7 @@ inside an element with the class `ui`, where BeerCSS's styles of elements
 are rolled back, so a page moves by putting `ui` on its root.
 
 - **S3. Page by page,** each with that page's items so it changes once: the
-  feed with F1 and F3; the build page with B1–B4 and B6; the jobs page
+  build page with B1–B4 and B6; the jobs page
   with J1; the run form with J2; then settings, keys and groups, analytics,
   help and login. Effort M per page.
 - **S4. Remove BeerCSS** once no page uses it, and ship an icon font with
@@ -425,20 +399,16 @@ The look (decided): Material's colours at the density of a developer tool.
 
 ## Phones and smaller things
 
-- The search row and some feed rows are wider than the screen on phones.
 - The status icon is a `<button>` that does nothing; use an image with a
   label.
 - Pending and timed out are both purple, skipped is light green next to
   finished green. Pair colour with shape: grey outline for queued and not
   run, a clock for timed out.
-- The "updates have been filtered" note is hidden on phones and doesn't
-  offer to clear the filter.
 
 ## Order
 
 | Phase | Items |
 |---|---|
-| 1 | The feed on the new styles (S3) with F1 and F3 |
 | 2 | The log viewer (B4) with L2, colours on the server; the build page on the new styles with B1–B3 and B6; then the build beside the feed (F9) |
 | 3 | F4 and F8, J1, J2 |
 | 4 | The other pages on the new styles, S4 |
