@@ -66,17 +66,40 @@ here and name it (e.g. "F1") in the commit message.
   seen was a placeholder. 40-character hex values are shortened to 7; long
   values are cut in the middle, keeping a leading ticket number. The build
   header (B1) and the run form (J2) show the same labels. Effort M.
-- **F2. Group builds under the build that started them.** `POST
-  /api/job/{name}/run` accepts `parent=<build id>`; a job that starts others
-  passes `parent=${WAKE_BUILD_ID}`. The feed shows one row per parent with a
-  strip of its children's statuses and the worst of them as the row's
-  status; expanding lists the children. The build page shows the strip too,
-  to move between siblings. Explicit rather than guessed: grouping by an
-  equal commit parameter would merge re-runs and miss jobs without it. (Open:
-  where jobs share a 40-character commit value, as 69% of builds do, that
-  value could group them until they pass `parent=`.) Needs
-  the parent in the build's history and stats records, the API docs and an
-  audit attribute. Effort L.
+- **F2. Builds under the build that started them (decided).** A job that
+  starts others adds `WAKE_PARENT=$WAKE_BUILD_ID` to the run call: not
+  `parent`, which a job may have as a parameter. The started build gets
+  `WAKE_PARENT_ID`. The parent must still be in the queue (otherwise 400,
+  "build 5115 has ended") and readable by the caller (otherwise as if it
+  didn't exist), so no one can hang builds under an old build, and loops
+  can't happen. Each build stores its parent and its root in the history,
+  stats and queue records, with a `parent` audit attribute, MCP argument and
+  API docs.
+  - **The feed** shows the root's row, then every build of the group on a
+    short line below it, always, so the failure needs no click. The lines
+    form a tree in the order the builds started, indented 22 px per level,
+    up to 4 levels (2 on phones); deeper builds stay at the last level with
+    "via #5210". The root row is running while builds run, with "1 failed"
+    as soon as one fails, and at the end shows the worst of them. A build
+    that started more than 10 lists its failed, running and queued ones,
+    then a "+26 passed" line that opens the rest. The group sits at the
+    root's place: the feed pages by the root's ID, and a bucket from each
+    root to its members reads them without scanning the history.
+  - **The build page** of a member says "Part of #5115 push" with the
+    group's strip, and `[` and `]` move between siblings. The root's page
+    lists the builds it started.
+  - Run again on a member keeps its parent, copied by the server, so the
+    parent may have ended; the tree shows each job's latest attempt ("2
+    attempts" on hover). Abort on the root row aborts the whole group: 6% of
+    builds were aborted one by one when a newer push superseded them. A
+    search shows a group when any of its builds matches. A member's live
+    update carries its root. An SSO user sees the members they may read and
+    "+3 you can't see"; members whose root they can't read, or whose root
+    was cleaned up, show as their own rows.
+  - Explicit rather than guessed: grouping by an equal commit value would
+    merge re-runs and deploys and miss jobs without one. Effort M to record
+    the parent and show it on the build page, which jobs can adopt first;
+    M–L for the feed.
 - **F3. Two plain lines per build (decided).** Today's two lines in the same
   order, without the card, the boxes and the copy icons: the status icon,
   `#id` in grey and the job name on the first line, the F1 values on the
@@ -95,13 +118,6 @@ here and name it (e.g. "F1") in the commit message.
   per SSO user on the server later, so they follow the user between
   browsers. "Started by me" from the recorded trigger can come later; the
   feed doesn't send the trigger today. Effort M.
-- **F5. Fold routine scheduled builds.** Passing builds of a scheduled job
-  fold into one row at the place of the newest ("health_check ✓ ×12 since
-  09:00"); a failure always gets its own row. Effort S.
-- **F6. Optional job icon and title.** `icon:` (an emoji) shown before the
-  name, and `title:` as a template over the params, like GitHub's
-  `run-name`. Not a colour per job: colour means status. Lower value than
-  F1, which covers most of the need. Effort S.
 - **F7. Exact match in the search.** `NAME=value` matches a parameter equal
   to the value, and a label also by its shown name (`branch=main` finds
   `BRANCH_LABEL`). `NAME:value` keeps matching substrings, so links and
@@ -137,12 +153,12 @@ here and name it (e.g. "F1") in the commit message.
   `TaskItem` starts empty. Fetch what is written, then append streamed lines.
   Each `build:log:` message carries the line's number so the page can drop
   what it already has; this also fills the gap after a reconnect. Today a
-  reload of a running task replaces the text with the file: lines shown but
-  not yet flushed disappear, and lines waiting in the 500 ms buffer appear
-  twice. The server sends a task's lines in batches (about every 100 ms),
-  numbered from the first, in `CommandLogData.ID`, which nothing sets
-  today: one message per line through the unbuffered hub disconnects a
-  browser with 1,024 messages queued during a burst. Effort M.
+  reload of a running task replaces the text with the file, so lines waiting
+  in the 500 ms buffer appear twice. The server sends a task's lines in
+  batches (about every 100 ms), numbered from the first, in
+  `CommandLogData.ID`, which nothing sets today: one message per line
+  through the unbuffered hub disconnects a browser with 1,024 messages
+  queued during a burst. Effort M.
 - **L3. Progress against the usual duration.** A bar from `eta` on running
   rows and in the build header ("4m 12s of about 9m"); mark builds far over
   it, and flag a build past its usual duration that printed nothing for a
@@ -262,10 +278,29 @@ fixes the look and behaviour.
   progress bar) shows only its last state; cursor movement and other escape
   sequences are dropped. Nothing from a log is ever inserted as HTML.
 - **Search.** A search box of our own (Ctrl+F and `/` inside the viewer open
-  it, as the browser can't find text that isn't drawn): `indexOf` or a regex
-  over the document text, "37 of 2,633", next and previous via the editor's
+  it, as the browser can't find text that isn't drawn) with the rules of
+  `GET /api/build/{id}/log/{task}?grep=`: text, not a regex, ignoring case
+  (an Aa toggle, and `case=1` for `grep`), in each line after its time
+  prefix. A regex would run on every streamed batch in the page, and a slow
+  one freezes it. "37 of 2,633", next and previous via the editor's
   selection, and highlights as decorations of the visible matches only.
-  "Search all tasks" uses the existing `GET /api/build/{id}/log/{task}?grep=`.
+  - **While the task runs (decided).** A line never changes once it appears:
+    go-cmd hands a line over at its line break, and `ProcessLogEntry` keeps
+    the last state of a `\r` redraw. So each streamed batch is searched on
+    its own; the count grows and the current match stays. A jump to a match
+    pauses following, which today only a wheel or key scroll does (it sets
+    `readingAbove`); new lines and matches wait behind the pill ("214 new
+    lines · 2 new matches").
+  - **Only matching lines (decided),** a toggle, like `tail -f | grep`: the
+    matching lines with their own line numbers and "⋯ 245 lines" between
+    them, new matches appended as they arrive. A click on a line number
+    opens the full log at that line.
+  - **Search all tasks** lists the matches per task: finished tasks from
+    `grep`, the running task from the viewer's own text with new matches
+    added as they arrive, later tasks as "not started". `grep` stops at
+    1,000 matches, shown as "1,000+".
+  - **After a reconnect** the page fetches the log again; the search keeps
+    its query, counts again and keeps the current match by its line number.
 - **Line links and the time prefix.** Click a line number to put the task
   and the line in the address (`#t13-L120`), shift-click for a range
   (`#t13-L120-L125`), with Copy lines; opening such a link opens that task
@@ -278,7 +313,10 @@ fixes the look and behaviour.
   the wire. Above 50 MB the viewer opens the last 10,000 lines (`?tail=`)
   and offers the full log; search then uses `grep`. A running task loads
   what is written, then appends streamed lines (L2), and follows the end
-  only while the user is at the bottom; otherwise a "N new lines" pill.
+  only while the user is at the bottom; otherwise a "N new lines" pill. A
+  running task that grows past 50 MB while open drops its oldest lines and
+  says so; the search then covers what it keeps and offers the whole log
+  through `grep`.
 - **Colours on the server.** Tasks run without a terminal, so most tools
   print no colours, and `ProcessLogEntry` strips the codes anyway.
   - Keep `task_N.log` plain: `WAKE_FAILED_TASK_LOG`, the raw log link, the
@@ -416,7 +454,7 @@ The look (decided): Material's colours at the density of a developer tool.
 | 2 | The log viewer (B4) with L2, colours on the server; the build page on the new styles with B1–B3 and B6; then the build beside the feed (F9) |
 | 3 | F4 and F8, J1, J2 |
 | 4 | The other pages on the new styles, S4 |
-| Later | F2, F5, F6, L1, L3–L6, B5, B7 |
+| Later | F2, L1, L3–L6, B5, B7 |
 
 ## Sources
 
