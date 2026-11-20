@@ -105,6 +105,10 @@ type Build struct {
 	// queue record from then on, although it is pending until its on_pending
 	// tasks end. Guarded by mutex
 	abortedWhileQueued bool
+	// interrupted is set for a build that wakeci stopped without ending,
+	// which FinishInterruptedBuilds restored to run the tasks it has left.
+	// Set before the build is shared, never changed
+	interrupted bool
 	// updateMu is held by BroadcastUpdate from taking the build's state until
 	// it is saved, so updates are saved in the order they were taken: an
 	// update taken while queued, saved after a later one, would queue the
@@ -261,6 +265,11 @@ func (b *Build) runOnStatusTasks(status ItemStatus) {
 	}
 	abort := b.currentAbort()
 	for _, task := range b.Job.Tasks {
+		// A task of an interrupted build that started before wakeci stopped
+		// doesn't run again: it may have done part of its work
+		if b.interrupted && !task.startedAt.IsZero() {
+			continue
+		}
 		if task.Kind == string(status) {
 			// An abort stops the rest of the group
 			if reason := abort.stopped(); reason != "" {
@@ -330,6 +339,9 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	if GlobalQueue.tasksStoppedNow() {
 		b.ProcessLogEntry("> Not started: "+stopNote+".", bw, task.ID, task.startedAt)
 		return StatusAborted
+	}
+	if b.interrupted {
+		b.ProcessLogEntry("> "+interruptedRunNote+".", bw, task.ID, task.startedAt)
 	}
 
 	// Construct environment for the task
@@ -641,7 +653,10 @@ func (b *Build) buildStateEnvVariables() []string {
 	status := b.Status
 	failedTask := b.failedTask
 	b.mutex.Unlock()
-	evs := []string{fmt.Sprintf("WAKE_BUILD_STATUS=%s", status)}
+	evs := []string{
+		fmt.Sprintf("WAKE_BUILD_STATUS=%s", status),
+		fmt.Sprintf("WAKE_INTERRUPTED=%t", b.interrupted),
+	}
 	if failedTask != nil {
 		evs = append(evs,
 			fmt.Sprintf("WAKE_FAILED_TASK_ID=%d", failedTask.ID),
@@ -745,13 +760,14 @@ func copyArtifact(source string, destination string, mode os.FileMode) (size int
 }
 
 // BroadcastUpdate sends update to all subscribed clients. Contains general
-// information about the build. It saves the build in the history, and in
-// QueueBucket while the build is queued
+// information about the build. It saves the build in the history, in
+// QueueBucket while the build is queued, and in StartedBucket from then
+// until it ends
 func (b *Build) BroadcastUpdate() {
 	b.updateMu.Lock()
 	defer b.updateMu.Unlock()
 	bID := b.ID
-	data, queued, stats, err := b.records()
+	data, queued, started, stats, err := b.records()
 	if err != nil {
 		b.Logger.Error("generate build update", "err", err)
 		return
@@ -771,11 +787,10 @@ func (b *Build) BroadcastUpdate() {
 		if err := putBuildStats(tx, stats, bID); err != nil {
 			return err
 		}
-		qb := tx.Bucket(QueueBucket)
-		if queued == nil {
-			return qb.Delete(Itob(bID))
+		if err := putOrDelete(tx.Bucket(QueueBucket), bID, queued); err != nil {
+			return err
 		}
-		return qb.Put(Itob(bID), queued)
+		return putOrDelete(tx.Bucket(StartedBucket), bID, started)
 	})
 	if err != nil {
 		b.Logger.Error("save build history", "err", err)
@@ -783,10 +798,21 @@ func (b *Build) BroadcastUpdate() {
 	buildChanges.notify(bID)
 }
 
+// putOrDelete saves value under the build's ID in bucket, or deletes the key
+// if value is nil
+func putOrDelete(bucket *bolt.Bucket, id int, value []byte) error {
+	if value == nil {
+		return bucket.Delete(Itob(id))
+	}
+	return bucket.Put(Itob(id), value)
+}
+
 // records returns the build's history entry (BuildUpdateData), its stats
 // record and, while it is queued, what RestoreQueue needs to queue it again,
-// nil once it left the queue. All describe the same moment
-func (b *Build) records() (data, queued, stats []byte, err error) {
+// nil once it left the queue. From then until the build ended, started is
+// what FinishInterruptedBuilds needs to run the tasks it has left. All
+// describe the same moment
+func (b *Build) records() (data, queued, started, stats []byte, err error) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	// JSON, so the caller doesn't read the build's maps while it changes
@@ -803,7 +829,7 @@ func (b *Build) records() (data, queued, stats []byte, err error) {
 		ETA:            b.ETA,
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	failedTask := ""
 	if b.failedTask != nil {
@@ -820,10 +846,10 @@ func (b *Build) records() (data, queued, stats []byte, err error) {
 		Trigger:    b.trigger,
 		FailedTask: failedTask,
 	})
-	if err != nil || b.Status != StatusPending || b.abortedWhileQueued {
-		return data, nil, stats, err
+	if err != nil {
+		return data, nil, nil, stats, err
 	}
-	queued, err = json.Marshal(queuedBuild{
+	saved := queuedBuild{
 		Job:             b.Job,
 		Params:          b.Params,
 		UntrustedParams: b.untrustedParams,
@@ -832,8 +858,20 @@ func (b *Build) records() (data, queued, stats []byte, err error) {
 		// So a rollback to wakeci 2.41, which reads only this name, keeps it
 		StartedWithAPIKey: b.untrustedParams,
 		Tasks:             b.GetTasksStatus(),
-	})
-	return data, queued, stats, err
+	}
+	switch {
+	case b.Status == StatusPending && !b.abortedWhileQueued:
+		queued, err = json.Marshal(saved)
+	// A build aborted while queued is pending until its on_pending tasks
+	// end, and has no record then
+	case b.Status != StatusPending && !b.ended:
+		record := startedBuild{queuedBuild: saved, Status: b.Status, StartedAt: b.StartedAt}
+		if b.failedTask != nil {
+			record.FailedTask = &b.failedTask.ID
+		}
+		started, err = json.Marshal(record)
+	}
+	return data, queued, started, stats, err
 }
 
 // taskLogWriter is a task's log file behind a buffer. The task writes its lines
@@ -986,12 +1024,14 @@ func (b *Build) GetTasksStatus() []*TaskStatus {
 
 // setDuration records how long the build ran, and that it ended. A build
 // aborted while queued never started, and time.Since of a zero StartedAt is
-// the maximum duration
+// the maximum duration. An interrupted build's is 0, like that of a build
+// MarkInterruptedBuilds marks aborted
 func (b *Build) setDuration() {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	b.ended = true
-	if b.StartedAt.IsZero() {
+	// An interrupted build's would include the time wakeci was stopped
+	if b.StartedAt.IsZero() || b.interrupted {
 		b.Duration = 0
 		return
 	}
@@ -1066,9 +1106,11 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		b.nextAbortScope()
 		b.runOnStatusTasks(FinalTask)
 		b.setDuration()
-		err := RecordBuildDuration(b.Job.Name, int(b.Duration))
-		if err != nil {
-			b.Logger.Error("record build duration", "err", err)
+		// An interrupted build's duration is unknown (setDuration)
+		if !b.interrupted {
+			if err := RecordBuildDuration(b.Job.Name, int(b.Duration)); err != nil {
+				b.Logger.Error("record build duration", "err", err)
+			}
 		}
 		b.BroadcastUpdate()
 		b.Cleanup()

@@ -33,7 +33,7 @@ src/backend/                 Go server (package main, module "wakeci")
   job_expand.go              Expands `include` and `block` task directives
   build.go                   Build/Task execution: runs tasks via go-cmd, writes task_N.log
   queue.go                   Queue of pending/running builds, concurrency limiting, stop state
-  restart.go                 Restores queued builds at startup, marks interrupted ones aborted, drains on stop
+  restart.go                 Restores queued builds at startup, finishes interrupted ones' hooks, drains on stop
   update.go                  Self-update: latest GitHub release, download + checks, binary swap, handlers
   cleanup.go                 Periodic removal of old build workspaces/history
   stats.go, analytics.go     Build stats kept past cleanup; analytics page and job insights (insights.go)
@@ -65,7 +65,7 @@ src/frontend/                Vue 3 + Vite SPA
 
 | File | Read before working on |
 |---|---|
-| [docs/restart.md](docs/restart.md) | Stopping, draining, restarting, restoring queued builds, saved sessions, self-update |
+| [docs/restart.md](docs/restart.md) | Stopping, draining, restarting, restoring queued builds, interrupted builds, saved sessions, self-update |
 | [docs/access.md](docs/access.md) | Single sign-on groups and their permissions, API key scopes, access checks on routes and live updates |
 | [docs/deprecations.md](docs/deprecations.md) | Old parameters and fields that still work, their users and their removal |
 | [docs/settings.md](docs/settings.md) | Wakefile.yaml or the settings page, the settings file, `--import-settings` |
@@ -78,8 +78,9 @@ src/frontend/                Vue 3 + Vite SPA
 
 1. **Startup** (`main.go`): parse flags → init logger → load `WakeConfig` → open
    BoltDB → bootstrap buckets/default password → start WebSocket hub, cron,
-   job watcher → `RestoreQueue`, `MarkInterruptedBuilds`, `BackfillBuildStats` → cleanup ticker
-   → bind the port → `Queue.Take` starts the restored builds → serve HTTP (or
+   job watcher → `RestoreQueue`, `FinishInterruptedBuilds`, `MarkInterruptedBuilds`,
+   `BackfillBuildStats` → cleanup ticker → bind the port → interrupted builds
+   run their remaining hooks, `Queue.Take` starts the restored builds → serve HTTP (or
    HTTP+HTTPS via autocert on port 443).
 2. **Job registration**: job YAML files in `jobdir` are scanned at startup
    (`ScanAllJobs`) and watched via fsnotify (`InitJobWatcher`); each
@@ -341,7 +342,8 @@ AGENTS.universal.md for the general contract.
   A build aborted while queued moves to `Queue.aborting`: it can't be
   started and holds no concurrency slot, but `Abort` still reaches its
   `on_aborted` and `finally` tasks.
-- **Stopping waits for builds; queued builds and sessions survive it.**
+- **Stopping waits for builds; queued builds and sessions survive it.** A
+  killed wakeci runs its builds' remaining hooks at the next start.
   Why, and how self-update installs a release: [docs/restart.md](docs/restart.md).
 - **fsnotify watcher and the port-80 redirect listener never crash the
   server.** Both run in the background after the server is already serving

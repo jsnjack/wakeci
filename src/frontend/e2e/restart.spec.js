@@ -66,7 +66,7 @@ test("should abort a running build at the drain timeout and run its hooks", asyn
     // Never released: only the abort at the drain timeout ends it
     const gate = restartable.gate();
     const id = await restartable.runJob(
-        await restartable.createJob(`tasks:\n  - name: wait\n    run: ${gate.command}\non_aborted:\n  - name: hook\n    run: touch '${hook}'\n`),
+        await restartable.createJob(`tasks:\n  - name: wait\n    run: ${gate.command}\non_aborted:\n  - name: hook\n    run: echo ran >> '${hook}'\n`),
     );
     await restartable.waitForBuild(id, "running");
 
@@ -77,6 +77,9 @@ test("should abort a running build at the drain timeout and run its hooks", asyn
     await restartable.start(["draintimeout: 1s"]);
     await restartable.waitForBuild(id, "aborted");
     expect(await taskLogs(restartable.root, id)).toContain("> Aborted: wakeci is stopping.");
+    // The build ended before the stop, so the restart doesn't run its hook again
+    await expect.poll(async () => (await (await restartable.api.get("/api/queue/")).json()).running).toBe(0);
+    expect(await readFile(hook, "utf8")).toBe("ran\n");
 });
 
 test("should abort the running builds when asked from the banner", async ({ restartable, browser }) => {
@@ -109,10 +112,17 @@ test("should abort the running builds when asked from the banner", async ({ rest
     expect(await taskLogs(restartable.root, id)).toContain("> Aborted with the admin password: wakeci is stopping.");
 });
 
-test("should mark a build that ran when wakeci was killed as aborted", async ({ restartable }) => {
+test("should run the on_aborted and finally tasks of a build that ran when wakeci was killed", async ({ restartable }) => {
     await restartable.start();
+    const hooks = join(restartable.root, "hooks");
     const gate = restartable.gate();
-    const id = await restartable.runJob(await restartable.createJob(`tasks:\n  - name: wait\n    run: ${gate.command}\n`));
+    const id = await restartable.runJob(
+        await restartable.createJob(
+            `tasks:\n  - name: wait\n    run: ${gate.command}\n  - name: later\n    run: echo later >> '${hooks}'\n` +
+                `on_aborted:\n  - name: aborted\n    run: echo "aborted $WAKE_INTERRUPTED $WAKE_FAILED_TASK_NAME" >> '${hooks}'\n` +
+                `finally:\n  - name: finally\n    run: echo finally >> '${hooks}'\n`,
+        ),
+    );
     await restartable.waitForBuild(id, "running");
 
     restartable.signal("SIGKILL");
@@ -122,4 +132,9 @@ test("should mark a build that ran when wakeci was killed as aborted", async ({ 
 
     await restartable.start();
     await restartable.waitForBuild(id, "aborted");
+    await expect.poll(async () => (await (await restartable.api.get("/api/queue/")).json()).running).toBe(0);
+    expect(await readFile(hooks, "utf8")).toBe("aborted true wait\nfinally\n");
+    const logs = await taskLogs(restartable.root, id);
+    expect(logs).toContain("> Aborted: wakeci stopped while this task ran.");
+    expect(logs).toContain("> Running after a restart: wakeci stopped while this build ran.");
 });

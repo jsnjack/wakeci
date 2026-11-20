@@ -98,6 +98,13 @@ concurrency: 0
 #  - in `on_finished`, `on_failed` or `on_aborted` tasks: the rest of that
 #    group is skipped and the build keeps its status
 #  - `finally` tasks run in every case; an abort during them skips the rest
+#
+# If wakeci stops without ending a build, e.g. it was killed, it runs the
+# build's remaining tasks when it starts again: `on_aborted` and `finally` if
+# the build was running, otherwise the rest of the group it was in and
+# `finally`. A task that had started doesn't run again. These tasks see
+# WAKE_INTERRUPTED=true, so one that mustn't run late can skip itself:
+# when: '"$WAKE_INTERRUPTED" != "true"'
 on_pending:
   - name: Log a call
     run: logger "Looking for a suitable cow"
@@ -127,6 +134,8 @@ finally:
 #                  page as plain text and returned by the API, up to 64 KB,
 #                  with secret values redacted as in the logs:
 #                  echo "Failed: test_login" >> "$WAKE_SUMMARY"
+# "WAKE_INTERRUPTED" - `true` in the tasks a build runs after wakeci stopped
+#                      without ending it (see on_aborted above), else `false`
 #
 # Set only after a main task failed, timed out or was aborted, so they reach
 # the `on_failed`, `on_aborted` and `finally` tasks:
@@ -148,5 +157,5 @@ finally:
 #  - variables from `params` section
 #  - variables from `env` section
 #  - variables from `build.env` file
-#  - `WAKE_BUILD_STATUS` and `WAKE_FAILED_TASK_*`, which nothing overrides, so
-#    hooks always see how the build really stopped
+#  - `WAKE_BUILD_STATUS`, `WAKE_FAILED_TASK_*` and `WAKE_INTERRUPTED`, which
+#    nothing overrides, so hooks always see how the build really stopped

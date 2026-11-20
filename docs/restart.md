@@ -1,7 +1,8 @@
 # Stopping, restarting and updating
 
 Read this before changing how wakeci stops, drains and restarts, restores
-queued builds, saves sessions, or updates itself. AGENTS.md keeps a summary.
+queued builds, finishes interrupted ones, saves sessions, or updates itself.
+AGENTS.md keeps a summary.
 
 ## Flow
 
@@ -32,6 +33,24 @@ and starts the new binary. Sessions are saved, so open pages reconnect;
 `version` changed; it ignores the answer if a `queue:status` message arrived
 while the request ran.
 
+**Interrupted builds**: from the moment a build leaves the queue until it
+ends, `BroadcastUpdate` keeps a `startedBuild` record of it in the
+`started` bucket, in the same transaction as its history entry; the final
+update, after `setDuration`, deletes it. A record left at startup means
+wakeci stopped without ending the build (SIGKILL, a crash, a reboot, or
+hooks still running when a stop gave up on them). `FinishInterruptedBuilds`,
+called after `RestoreQueue`, rebuilds each such build with its job snapshot,
+params, untrusted-params flag, task statuses and failed task, marks the task
+that ran aborted and ends its log with a note, and adds the build to
+`Queue.aborting`. Once the port is bound, `finishInterrupted` calls
+`SetBuildStatus` with the build's status, `aborted` if it was running, so
+the normal path runs `on_aborted` (or the rest of `on_failed`,
+`on_finished`, `on_aborted`) and `finally`. `runOnStatusTasks` skips tasks
+of an interrupted build that had started; the others log a note first and
+see `WAKE_INTERRUPTED=true`. A record that can't be read, or whose history
+entry is gone, is dropped, and `MarkInterruptedBuilds` marks the build
+aborted as before.
+
 **Update**: `HandleUpdatePost` asks GitHub for the latest release, refuses
 unless it is the requested, newer version and `updateProblem` is empty,
 downloads it next to the binary, checks the sha256 digest GitHub lists and
@@ -61,6 +80,21 @@ or in `--import-settings`, `backupForNewVersion` writes a copy next to it,
   (`BroadcastUpdate` before `Cleanup`), since a stop closes the DB once the
   queue is empty, and `Build.updateMu` saves a build's updates in the order
   they were taken, so an older pending one can't bring its queue record back.
+- **A killed wakeci finishes its builds' hooks at the next start, and
+  nothing more.** `on_aborted` and `finally` clean up: they delete
+  containers and servers, set commit statuses, send notifications. When
+  they never ran, the resources leaked and statuses stayed "pending" until
+  someone noticed. The main tasks still don't resume, for the reasons above,
+  and a task that had started doesn't run again, since it may have done part
+  of its work; the cost is that a cleanup task cut off halfway stays
+  undone. The hooks run however long wakeci was down, because a late
+  cleanup is better than none; a hook that mustn't run late checks
+  `WAKE_INTERRUPTED`. The record has its own bucket, not `queue`: a rollback
+  to an older wakeci would queue a running build again and run it twice.
+  The build waits in `Queue.aborting`, so it holds no concurrency slot and
+  Abort and a stop reach it, and its tasks start only once the port is bound,
+  since a hook may call wakeci's API. Its duration stays 0 and isn't counted
+  in the ETA: the real one would include the time wakeci was down.
 - **Sessions survive restarts.** Otherwise every update would sign everyone
   out. `SessionsBucket` keeps each session under `sessionKey`, the SHA-256 of
   its token, like API keys, so the db file (mode 0644) holds nothing that logs

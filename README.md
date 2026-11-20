@@ -178,9 +178,12 @@ again. A second signal aborts the running builds at once, and a third one
 stops waiting for their `on_aborted` and `finally` tasks. Before it exits,
 wakeci aborts any task that still runs and waits up to 10 seconds for it, so
 no task outlives it; further signals don't cut this short.
-Builds that were running when wakeci was killed are shown as aborted after the
-restart. Sessions survive restarts, and open pages reconnect on their own; after
-an update they reload to get the new version.
+If wakeci is killed or crashes while builds run, it runs their remaining
+tasks when it starts again: `on_aborted` and `finally` for a build that was
+running, which then ends aborted. A task that had started doesn't run again,
+and the tasks can tell from `WAKE_INTERRUPTED=true`. Sessions survive
+restarts, and open pages reconnect on their own; after an update they reload
+to get the new version.
 
 Under systemd, let wakeci send the signal to its builds itself and give it
 time to wait for them, as in [config/wakeci.service](config/wakeci.service):

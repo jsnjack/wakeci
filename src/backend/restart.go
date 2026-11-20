@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -96,8 +98,14 @@ func restoreBuild(id int, record []byte) (*Build, error) {
 	if err := json.Unmarshal(record, &saved); err != nil {
 		return nil, fmt.Errorf("decode queued build: %w", err)
 	}
+	return newRestoredBuild(id, &saved)
+}
+
+// newRestoredBuild creates a pending build from saved. A task that ran when
+// wakeci stopped is marked aborted
+func newRestoredBuild(id int, saved *queuedBuild) (*Build, error) {
 	if saved.Job == nil {
-		return nil, fmt.Errorf("queued build has no job")
+		return nil, fmt.Errorf("saved build has no job")
 	}
 	build := &Build{
 		ID:              id,
@@ -133,9 +141,164 @@ func restoreBuild(id int, record []byte) (*Build, error) {
 	return build, nil
 }
 
+// interruptedRunNote starts the log of each task an interrupted build runs
+// after the restart
+const interruptedRunNote = "Running after a restart: wakeci stopped while this build ran"
+
+// interruptedTaskNote ends the log of the task that ran when wakeci stopped
+const interruptedTaskNote = "Aborted: wakeci stopped while this task ran"
+
+// startedBuild is what a build that left the queue needs to run the tasks
+// it has left if wakeci stops without ending it, stored in StartedBucket
+// until it ends. A bucket of its own: an older wakeci queues every build in
+// QueueBucket again, so after a rollback it would run these from the start
+type startedBuild struct {
+	queuedBuild
+	// Status is running, or the final status while the build's on_* and
+	// finally tasks run
+	Status    ItemStatus `json:"status"`
+	StartedAt time.Time  `json:"startedAt,omitzero"`
+	// FailedTask is the ID of the main task that stopped the build
+	FailedTask *int `json:"failedTask,omitempty"`
+}
+
+// FinishInterruptedBuilds adds to q the builds that wakeci stopped without
+// ending, as when it was killed, to run the tasks they have left: on_aborted
+// and finally for a build that was running; the rest of its on_* tasks and
+// finally for one that was running those. Tasks that started before don't
+// run again. Call it after RestoreQueue and before MarkInterruptedBuilds,
+// which marks aborted the builds it couldn't restore. It doesn't run the
+// tasks, which may call wakeci's API: call finishInterrupted on each build
+// it returns once the server listens
+func FinishInterruptedBuilds(q *Queue) ([]*Build, error) {
+	type saved struct {
+		id     int
+		record []byte
+		// The history entry is gone, as after a rollback that cleaned the
+		// build up: there is nothing to finish
+		forgotten bool
+	}
+	var records []saved
+	err := DB.View(func(tx *bolt.Tx) error {
+		history := tx.Bucket(HistoryBucket)
+		return tx.Bucket(StartedBucket).ForEach(func(k, v []byte) error {
+			records = append(records, saved{
+				id:        int(binary.BigEndian.Uint64(k)),
+				record:    append([]byte(nil), v...),
+				forgotten: history.Get(k) == nil,
+			})
+			return nil
+		})
+	})
+	if err != nil {
+		return nil, fmt.Errorf("read started builds: %w", err)
+	}
+	var builds []*Build
+	for _, rec := range records {
+		var build *Build
+		var err error
+		if rec.forgotten {
+			// Restoring would create its directories again
+			err = errors.New("its history entry is gone")
+		} else {
+			build, err = restoreStartedBuild(rec.id, rec.record)
+		}
+		if err != nil {
+			// MarkInterruptedBuilds marks it aborted
+			L.Error("restore interrupted build", "build", rec.id, "err", err)
+			if err := DB.Update(func(tx *bolt.Tx) error {
+				return tx.Bucket(StartedBucket).Delete(Itob(rec.id))
+			}); err != nil {
+				L.Error("forget interrupted build", "build", rec.id, "err", err)
+			}
+			continue
+		}
+		q.addInterrupted(build)
+		builds = append(builds, build)
+	}
+	if len(builds) > 0 {
+		L.Warn("finishing builds wakeci stopped without ending", "builds", len(builds))
+	}
+	return builds, nil
+}
+
+// restoreStartedBuild creates the interrupted build saved in record, and
+// ends the log of the task that ran when wakeci stopped with why it ended
+func restoreStartedBuild(id int, record []byte) (*Build, error) {
+	var saved startedBuild
+	if err := json.Unmarshal(record, &saved); err != nil {
+		return nil, fmt.Errorf("decode started build: %w", err)
+	}
+	// Before newRestoredBuild marks it aborted
+	var cut *Task
+	if saved.Job != nil {
+		for _, task := range saved.Job.Tasks {
+			if task.Status == StatusRunning {
+				cut = task
+				break
+			}
+		}
+	}
+	build, err := newRestoredBuild(id, &saved.queuedBuild)
+	if err != nil {
+		return nil, err
+	}
+	build.Status = saved.Status
+	build.StartedAt = saved.StartedAt
+	build.interrupted = true
+	switch {
+	case saved.FailedTask != nil:
+		for _, task := range build.Job.Tasks {
+			if task.ID == *saved.FailedTask {
+				build.failedTask = task
+			}
+		}
+	// The main task that ran when wakeci stopped is the one that stopped
+	// the build, as for an abort
+	case saved.Status == StatusRunning && cut != nil && cut.Kind == KindMain:
+		build.failedTask = cut
+	}
+	if cut != nil {
+		build.noteInterrupted(cut)
+	}
+	return build, nil
+}
+
+// noteInterrupted ends task's log with why it ended: wakeci stopped while
+// it ran
+func (b *Build) noteInterrupted(task *Task) {
+	file, err := os.OpenFile(b.taskLogPath(task.ID), os.O_APPEND|os.O_CREATE|os.O_WRONLY, privateBuildFileMode)
+	if err != nil {
+		b.Logger.Error("open task log", "task", task.ID, "err", err)
+		return
+	}
+	log := &taskLogWriter{file: file, w: bufio.NewWriter(file)}
+	b.ProcessLogEntry("> "+interruptedTaskNote+".", log, task.ID, task.startedAt)
+	if err := log.Close(); err != nil {
+		b.Logger.Error("close task log", "task", task.ID, "err", err)
+	}
+}
+
+// finishInterrupted runs the tasks the interrupted build has left (see
+// FinishInterruptedBuilds), and ends it
+func (b *Build) finishInterrupted() {
+	b.mutex.Lock()
+	status := b.Status
+	b.mutex.Unlock()
+	switch status {
+	case StatusFailed, StatusFinished, StatusAborted, StatusTimedOut:
+		// It was running the on_* and finally tasks of this status
+	default:
+		// It was running, so it was aborted
+		status = StatusAborted
+	}
+	b.Logger.Warn("finishing build wakeci stopped without ending", "status", status)
+	b.SetBuildStatus(status)
+}
+
 // MarkInterruptedBuilds saves the builds that were running when wakeci
-// stopped as aborted. Call it after RestoreQueue, so that queued builds are
-// known
+// stopped as aborted. Call it after RestoreQueue and
+// FinishInterruptedBuilds, so that the builds they restored are known
 func MarkInterruptedBuilds() error {
 	var stale []int
 	err := DB.View(func(tx *bolt.Tx) error {

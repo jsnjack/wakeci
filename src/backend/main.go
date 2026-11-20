@@ -332,6 +332,11 @@ func run(cleanup func()) (tasksLeft bool) {
 	if err != nil {
 		fatal("restore queue", err)
 	}
+	interrupted, err := FinishInterruptedBuilds(GlobalQueue)
+	if err != nil {
+		// MarkInterruptedBuilds marks them aborted, as older versions did
+		L.Error("finish interrupted builds", "err", err)
+	}
 	err = MarkInterruptedBuilds()
 	if err != nil {
 		L.Error("mark interrupted builds", "err", err)
@@ -452,6 +457,10 @@ func run(cleanup func()) (tasksLeft bool) {
 	server.RegisterOnShutdown(buildWaitsEnd.stop)
 	// A scheduled build would start queued ones too
 	GlobalCron.Start()
+	// Once the port is bound, since their tasks may call wakeci's API
+	for _, build := range interrupted {
+		go build.finishInterrupted()
+	}
 	GlobalQueue.Take()
 	err = serveUntilShutdown(ctx, serve, server.Shutdown)
 	stop()

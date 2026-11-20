@@ -28,8 +28,9 @@ var ErrNotStopping = errors.New("wakeci isn't stopping")
 type Queue struct {
 	queued  []*Build
 	running []*Build
-	// aborting holds builds aborted while queued, until their on_aborted and
-	// finally tasks end. They hold no concurrency slot
+	// aborting holds builds aborted while queued, and interrupted builds
+	// (FinishInterruptedBuilds), until their on_* and finally tasks end.
+	// They hold no concurrency slot
 	aborting         []*Build
 	mutex            deadlock.Mutex
 	concurrentBuilds int
@@ -159,6 +160,15 @@ func (q *Queue) Add(b *Build) {
 		}
 	}
 	L.Info("new build queued", "job", b.Job.Name, "build", b.ID)
+}
+
+// addInterrupted adds an interrupted build (FinishInterruptedBuilds) next to
+// the builds aborted while queued: it holds no concurrency slot, and Abort
+// and a stop reach its tasks
+func (q *Queue) addInterrupted(b *Build) {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+	q.aborting = append(q.aborting, b)
 }
 
 // Remove removes a build from Queue

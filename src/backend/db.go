@@ -43,6 +43,11 @@ var APIKeysBucket = []byte("apikeys")
 // queued again after a restart
 var QueueBucket = []byte("queue")
 
+// StartedBucket contains the builds that left the queue and haven't ended,
+// by ID, see startedBuild, so a wakeci that stopped without ending them runs
+// the tasks they have left when it starts again (FinishInterruptedBuilds)
+var StartedBucket = []byte("started")
+
 // SessionsBucket contains the active sessions by sessionKey, see
 // storedSession, so a restart doesn't sign everyone out
 var SessionsBucket = []byte("sessions")
@@ -192,7 +197,7 @@ func bootstrapDB(tx *bolt.Tx) error {
 			}
 		}
 	}
-	for _, bucket := range [][]byte{JobsBucket, HistoryBucket, APIKeysBucket, QueueBucket, SessionsBucket, SSOGroupsBucket, BuildStatsBucket} {
+	for _, bucket := range [][]byte{JobsBucket, HistoryBucket, APIKeysBucket, QueueBucket, StartedBucket, SessionsBucket, SSOGroupsBucket, BuildStatsBucket} {
 		if _, err := tx.CreateBucketIfNotExists(bucket); err != nil {
 			return err
 		}
