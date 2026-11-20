@@ -654,3 +654,22 @@ func TestBroadcastUpdateWhileBuildRuns(t *testing.T) {
 		}
 	}
 }
+
+// A build's record says when it was queued, so the feed can say how long a
+// queued build has waited
+func TestBuildRecordHasQueuedAt(t *testing.T) {
+	newTestBuildEnv(t)
+	before := time.Now()
+	build, err := CreateBuild(&Job{Name: "queued-at", Tasks: []*Task{{ID: 0, Command: "true", Kind: KindMain}}}, "", false)
+	if err != nil {
+		t.Fatalf("CreateBuild: %v", err)
+	}
+	build.BroadcastUpdate()
+	saved, err := readBuildStatus(build.ID)
+	if err != nil {
+		t.Fatalf("read build: %v", err)
+	}
+	if saved.QueuedAt.Before(before) || saved.QueuedAt.After(time.Now()) {
+		t.Errorf("QueuedAt = %v, want the time CreateBuild ran", saved.QueuedAt)
+	}
+}
