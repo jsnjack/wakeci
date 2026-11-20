@@ -196,6 +196,8 @@ func TestProcessLogEntryCollapsesCarriageReturns(t *testing.T) {
 			bw := &taskLogWriter{w: bufio.NewWriter(&buf)}
 
 			build.ProcessLogEntry(tt.line, bw, 1, time.Now())
+			// As runTask does when the task ends, so no batch outlives the test
+			build.flushLog()
 			if err := bw.Flush(); err != nil {
 				t.Fatalf("flush: %v", err)
 			}
@@ -678,4 +680,65 @@ func TestBuildRecordHasQueuedAt(t *testing.T) {
 	if saved.QueuedAt.Before(before) || saved.QueuedAt.After(time.Now()) {
 		t.Errorf("QueuedAt = %v, want the time CreateBuild ran", saved.QueuedAt)
 	}
+}
+
+// Log lines go out in batches, each numbered by its first line in the
+// task's log, where an entry of several lines counts as those lines, so a
+// page that read the log can drop what it already has (L2)
+func TestLogLinesGoOutNumberedInBatches(t *testing.T) {
+	newTestBuildEnv(t)
+	hub := newHub()
+	oldHub := WSHub
+	WSHub = hub
+	got := make(chan *CommandLogData, 10)
+	stop := make(chan struct{})
+	t.Cleanup(func() { close(stop); WSHub = oldHub })
+	go func() {
+		for {
+			select {
+			case msg := <-hub.broadcast:
+				if msg.Type == "build:log:7" {
+					got <- msg.Data.(*CommandLogData)
+				}
+			case <-stop:
+				return
+			}
+		}
+	}()
+	next := func() *CommandLogData {
+		t.Helper()
+		select {
+		case data := <-got:
+			return data
+		case <-time.After(2 * time.Second):
+			t.Fatal("no log message")
+			return nil
+		}
+	}
+	build := &Build{ID: 7, Logger: L, Job: &Job{Name: "batch"}}
+	log := &taskLogWriter{w: bufio.NewWriter(&bytes.Buffer{})}
+	other := &taskLogWriter{w: bufio.NewWriter(&bytes.Buffer{})}
+	start := time.Now()
+
+	build.ProcessLogEntry("one", log, 3, start)
+	build.ProcessLogEntry("> Running command: two\nthree", log, 3, start)
+	build.ProcessLogEntry("four", log, 3, start)
+	if data := next(); data.TaskID != 3 || data.ID != 1 || strings.Count(data.Data, "\n") != 4 {
+		t.Errorf("first batch: task %d, line %d, %q; want task 3, line 1, 4 lines", data.TaskID, data.ID, data.Data)
+	}
+	// The next line starts the next batch, with its own number
+	build.ProcessLogEntry("five", log, 3, start)
+	if data := next(); data.ID != 5 || !strings.HasSuffix(data.Data, "five\n") {
+		t.Errorf("second batch: line %d, %q; want line 5, five", data.ID, data.Data)
+	}
+	// A line of another task sends the waiting ones first
+	build.ProcessLogEntry("six", log, 3, start)
+	build.ProcessLogEntry("first of task 4", other, 4, start)
+	if data := next(); data.TaskID != 3 || data.ID != 6 {
+		t.Errorf("third batch: task %d, line %d; want task 3, line 6", data.TaskID, data.ID)
+	}
+	if data := next(); data.TaskID != 4 || data.ID != 1 {
+		t.Errorf("fourth batch: task %d, line %d; want task 4, line 1", data.TaskID, data.ID)
+	}
+	build.flushLog()
 }

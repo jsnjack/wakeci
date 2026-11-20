@@ -211,16 +211,33 @@ func TestBuildUpdatesSaveInOrder(t *testing.T) {
 		return done
 	}
 
+	// Only this build's updates count: log batches of builds from earlier
+	// tests may still reach the hub
+	update := "build:update:" + strconv.Itoa(build.ID)
+	sent := func(wait time.Duration) bool {
+		deadline := time.After(wait)
+		for {
+			select {
+			case msg := <-hub.broadcast:
+				if msg.Type == update {
+					return true
+				}
+			case <-deadline:
+				return false
+			}
+		}
+	}
+
 	queuedDone := broadcast()
-	<-hub.broadcast
+	if !sent(5 * time.Second) {
+		t.Fatal("the queued update was never sent")
+	}
 	build.mutex.Lock()
 	build.Status = StatusRunning
 	build.mutex.Unlock()
 	runningDone := broadcast()
-	select {
-	case <-hub.broadcast:
+	if sent(300 * time.Millisecond) {
 		t.Error("the running update was sent before the queued one was saved")
-	case <-time.After(300 * time.Millisecond):
 	}
 
 	if err := tx.Rollback(); err != nil {

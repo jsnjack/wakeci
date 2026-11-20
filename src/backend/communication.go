@@ -170,11 +170,13 @@ func (x BuildUpdateData) ToFilterMatchString() string {
 	return fmt.Sprintf("id:%v name:%s status:%s %s", x.ID, x.Name, x.Status, x.Params)
 }
 
-// CommandLogData ...
+// CommandLogData is a batch of whole lines of a task's log
 type CommandLogData struct {
-	TaskID int    `json:"taskID"`
-	ID     int    `json:"id"` // ID of a log message
-	Data   string `json:"data"`
+	TaskID int `json:"taskID"`
+	// ID is the number of Data's first line in the task's log, counting
+	// from 1, so a page that read the log can drop what it already has
+	ID   int    `json:"id"`
+	Data string `json:"data"`
 }
 
 // SettingsData used for Settings view to allow user to modify settings
