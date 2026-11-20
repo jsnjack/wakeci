@@ -20,6 +20,10 @@ const formBody = (fields) => {
 const contractJob = (id) => `desc: contract ${id}
 params:
   - TARGET: staging
+param_info:
+  TARGET: {desc: "Where it deploys", options: [staging, prod], type: text}
+# Once a year, so the jobs page has a next run, and no build starts
+interval: "0 0 1 1 *"
 artifacts:
   - artifacts/**
 tasks:
@@ -343,6 +347,8 @@ test("should answer every documented operation as the spec says", async ({ wake,
     expectStatus(await call("admin", "GET /api/analytics/", "/api/analytics/?days=7"), [200], "GET /api/analytics/ with builds started by keys");
     await expect.poll(async () => (await json(`/api/job/${job}/insights`)).params.length, { intervals: [100, 200, 500] }).toBe(1);
     expectStatus(await call("admin", "GET /api/job/{name}/insights", `/api/job/${job}/insights`), [200], "GET /api/job/{name}/insights with two TARGETs");
+    // Jobs as the jobs page asks for them, now that the job failed
+    expectStatus(await call("admin", "GET /api/jobs/", "/api/jobs/?board=1"), [200], "GET /api/jobs/ as the jobs page asks");
 
     // 5. Every documented field shows up in some answer, except those of
     // states this test doesn't reach; Go tests and other specs cover them

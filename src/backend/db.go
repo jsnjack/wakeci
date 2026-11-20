@@ -26,6 +26,7 @@ import (
 // | defaultParams | null    |
 // | labels        | []      | names of the params shown first, Job.labelNames
 // | paramInfo     | {}      | what the run form says about params, Job.paramInfo
+// | group         |         | the jobs page's heading for the job
 // | desc          | New job |
 // | interval      |         |
 // | active        | true    |

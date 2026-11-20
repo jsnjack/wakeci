@@ -17,7 +17,7 @@ async function deleteJob(page, name) {
     const job = page.getByTestId(name);
     await job.getByTestId("delete-job-button").click();
     const refreshed = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/jobs/" && response.request().method() === "GET");
-    await job.getByTestId("delete-job-confirm").click();
+    await page.getByTestId("delete-job-confirm").click();
     const response = await refreshed;
     expect(response.status()).toBe(200);
     expect(((await response.json()) || []).map((item) => item.name)).not.toContain(name);
@@ -25,7 +25,7 @@ async function deleteJob(page, name) {
 }
 
 test("should handle API network errors without crashing", async ({ page }) => {
-    await page.route("**/api/jobs/", (route) => route.abort());
+    await page.route((url) => url.pathname === "/api/jobs/", (route) => route.abort());
     await page.goto("/jobs");
     await expect(page).toHaveURL(/\/jobs$/);
     await expect(page.locator(".notification-content")).toContainText("Network Error");
@@ -57,7 +57,7 @@ test("should escape HTML in a job name shown in notifications", async ({ page, w
     await page.goto("/jobs");
     await createJob(page, name);
     await row(page, name).getByTestId("run-job-button").click();
-    await row(page, name).getByTestId("start-job-confirm").click();
+    await page.getByTestId("start-job-confirm").click();
     const notification = page.locator(".notification-content").filter({ hasText: "has been scheduled" });
     await expect(notification).toContainText(`${name} has been scheduled`);
     await expect(notification.locator("img")).toHaveCount(0);
@@ -68,7 +68,7 @@ test("should handle reserved URL characters in a job name", async ({ page, wake 
     const name = await wake.createJob(undefined, `job#?% ${Date.now()}`);
     await page.goto("/jobs");
     await row(page, name).getByTestId("run-job-button").click();
-    await row(page, name).getByTestId("start-job-confirm").click();
+    await page.getByTestId("start-job-confirm").click();
     await expect(page.locator(".notification-content")).toContainText(`${name} has been scheduled`);
     const build = page.locator(".notification-content a[href^='/build/']");
     await expect(build).toHaveAttribute("href", /^\/build\/\d+\/$/);
@@ -103,7 +103,7 @@ test("should start a job", async ({ page, wake }) => {
     await page.goto("/jobs");
     await createJob(page, name);
     await page.getByTestId(name).getByTestId("run-job-button").click();
-    await page.getByTestId(name).getByTestId("start-job-confirm").click();
+    await page.getByTestId("start-job-confirm").click();
     await expect(page.locator(".notification-content").last()).toContainText(`${name} has been scheduled`);
     await page.goto("/");
     await expect(page.locator("body")).toContainText(name);

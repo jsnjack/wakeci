@@ -2,6 +2,7 @@
     <dialog
         ref="dialog"
         class="modal"
+        :class="{ wide }"
         :aria-labelledby="title ? titleID : null"
         @close="onClose"
         @click="onClick"
@@ -39,6 +40,11 @@ export default {
         title: {
             type: String,
             default: "",
+        },
+        // Wider, for a form of several fields
+        wide: {
+            type: Boolean,
+            default: false,
         },
     },
     emits: ["update:open"],

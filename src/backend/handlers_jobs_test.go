@@ -154,7 +154,7 @@ func TestJobLabels(t *testing.T) {
 func TestJobListSendsLabels(t *testing.T) {
 	newAPIKeyTestEnv(t)
 	path := Config.JobDir + "labelled" + Config.jobsExt
-	content := "labels: [BRANCH, AUTHOR]\nparams:\n  - AUTHOR: unknown\n  - BRANCH: main\nparam_info:\n  BRANCH: {desc: Branch to test, options: [main, dev]}\n  GONE: {type: bool}\ntasks: []\n"
+	content := "labels: [BRANCH, AUTHOR]\nparams:\n  - AUTHOR: unknown\n  - BRANCH: main\nparam_info:\n  BRANCH: {desc: Branch to test, options: [main, dev]}\n  GONE: {type: bool}\ngroup: Tests\ntasks: []\n"
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -172,6 +172,9 @@ func TestJobListSendsLabels(t *testing.T) {
 	// What the run form says about params, for params only
 	if info := jobs[i].ParamInfo; len(info) != 1 || info["BRANCH"].Desc != "Branch to test" || !slices.Equal(info["BRANCH"].Options, []string{"main", "dev"}) {
 		t.Errorf("paramInfo = %+v, want BRANCH's only", info)
+	}
+	if jobs[i].Group != "Tests" {
+		t.Errorf("group = %q, want Tests", jobs[i].Group)
 	}
 }
 

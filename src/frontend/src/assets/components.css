@@ -543,6 +543,10 @@
   overflow: auto;
 }
 
+.ui .modal.wide {
+  inline-size: min(820px, calc(100vw - 2 * var(--space-4)));
+}
+
 .ui .modal::backdrop {
   background-color: rgb(0 0 0 / 0.4);
 }

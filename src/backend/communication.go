@@ -49,6 +49,8 @@ type JobsListData struct {
 	ParamInfo map[string]ParamInfo `json:"paramInfo"`
 	Interval  string               `json:"interval"`
 	Active    string               `json:"active"`
+	// Group is the heading the job file puts the job under, if any
+	Group string `json:"group"`
 	// Recent, with board=1, are the job's last builds, oldest first, at
 	// most boardBuilds
 	Recent []BuildOutcome `json:"recent,omitempty"`
