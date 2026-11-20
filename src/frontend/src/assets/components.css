@@ -320,6 +320,14 @@
   inline-size: 26px;
 }
 
+/* A toggle that is on, such as a filter, or a menu with choices made */
+.ui .btn[aria-pressed="true"],
+.ui .btn.picked {
+  --_bg: var(--secondary-container);
+  --_fg: var(--on-secondary-container);
+  border-color: var(--primary);
+}
+
 .ui .btn:disabled,
 .ui .btn[aria-disabled="true"] {
   opacity: 0.45;

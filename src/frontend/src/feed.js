@@ -54,3 +54,71 @@ export function ordinal(n) {
     }
     return n + ({ 1: "st", 2: "nd", 3: "rd" }[n % 10] || "th");
 }
+
+// splitTerms splits a search into its terms as the server does
+// (SplitFilterQuery): at spaces outside quotes, keeping the quotes
+export function splitTerms(query) {
+    const terms = [];
+    let current = "";
+    let quote = null;
+    for (const ch of query) {
+        if ((ch === '"' || ch === "'") && (quote === null || quote === ch)) {
+            quote = quote === null ? ch : null;
+            current += ch;
+        } else if (ch === " " && quote === null) {
+            if (current) {
+                terms.push(current);
+            }
+            current = "";
+        } else {
+            current += ch;
+        }
+    }
+    if (current) {
+        terms.push(current);
+    }
+    return terms;
+}
+
+// termText is a term without its quotes: +"a b" is +a b
+function termText(term) {
+    const sign = /^[+-]/.test(term) ? term[0] : "";
+    const rest = term.slice(sign.length).replace(/^(["'])(.*)\1$/, "$2");
+    return sign + rest;
+}
+
+// quoteTerm writes a term with quotes if it has a space or a quote, after
+// its sign: +"status=timed out"
+export function quoteTerm(term) {
+    const sign = /^[+-]/.test(term) ? term[0] : "";
+    const rest = term.slice(sign.length);
+    if (!/[\s"']/.test(rest)) {
+        return term;
+    }
+    return sign + (rest.includes('"') ? `'${rest}'` : `"${rest}"`);
+}
+
+export function hasTerm(query, term) {
+    return splitTerms(query).some((t) => termText(t) === termText(term));
+}
+
+// withoutTerms leaves the given terms out of a search
+export function withoutTerms(query, terms) {
+    const drop = terms.map(termText);
+    return splitTerms(query)
+        .filter((t) => !drop.includes(termText(t)))
+        .join(" ");
+}
+
+// toggleTerms adds the terms to a search, or takes them out if it has them
+// all
+export function toggleTerms(query, terms) {
+    if (terms.length && terms.every((term) => hasTerm(query, term))) {
+        return withoutTerms(query, terms);
+    }
+    const missing = terms.filter((term) => !hasTerm(query, term)).map(quoteTerm);
+    return [query.trim(), ...missing].filter(Boolean).join(" ");
+}
+
+// The statuses of builds that ended, which "Running and queued" leaves out
+export const DONE_STATUSES = ["finished", "failed", "aborted", "timed out", "skipped"];

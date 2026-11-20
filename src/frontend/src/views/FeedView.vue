@@ -4,68 +4,13 @@
         :class="{ split }"
     >
         <div class="feed-column stack gap-3">
-            <UiDialog
-                v-model:open="isHelpDialogOpen"
-                title="Search examples"
-            >
-                <ul class="search-examples stack gap-2">
-                    <li><code>status:failed</code> Failed builds</li>
-                    <li><code>status:failed "status:timed out"</code> Failed or timed out builds</li>
-                    <li><code>+status:failed -name:test_</code> Failed builds, excluding builds with names containing "test_"</li>
-                    <li><code>env=prod</code> Builds whose parameter "ENV" (or label "ENV_LABEL") is exactly "prod"</li>
-                    <li><code>+status:failed env=prod env=uat</code> Failed builds with "ENV" equal to "prod" or "uat"</li>
-                    <li><code>env:prod</code> "env:prod" anywhere, so also "env:production"</li>
-                </ul>
-                <p class="muted text-sm">A click on a value in a row searches for it; Ctrl+click adds it to the search.</p>
-                <template #actions>
-                    <button
-                        type="button"
-                        class="btn"
-                        @click="isHelpDialogOpen = false"
-                    >
-                        Close
-                    </button>
-                </template>
-            </UiDialog>
-
-            <div class="cluster nowrap gap-1">
-                <label class="input-icon grow">
-                    <i class="icon">search</i>
-                    <input
-                        type="search"
-                        class="input"
-                        data-cy="filter"
-                        aria-label="Search builds"
-                        placeholder="Search by id, job, status, branch=main…"
-                        :value="filter"
-                        @input="(evt) => (filter = evt.target.value)"
-                    />
-                    <span
-                        v-show="isFetching"
-                        class="feed-spinner status-ring"
-                        aria-hidden="true"
-                    ></span>
-                </label>
-                <button
-                    type="button"
-                    class="btn btn-ghost btn-icon"
-                    aria-label="Clear the search"
-                    data-tip="Clear the search"
-                    :disabled="filter === ''"
-                    @click="clearFilter"
-                >
-                    <i class="icon">backspace</i>
-                </button>
-                <button
-                    type="button"
-                    class="btn btn-ghost btn-icon tip-end"
-                    aria-label="Search examples"
-                    data-tip="Search examples"
-                    @click="isHelpDialogOpen = true"
-                >
-                    <i class="icon">help</i>
-                </button>
-            </div>
+            <FeedSearch
+                v-model="filter"
+                :jobs="jobs"
+                :builds="builds"
+                :fetching="isFetching"
+                @clear="clearFilter"
+            />
 
             <div
                 v-if="filteredUpdates !== 0"
@@ -159,7 +104,7 @@
 
 <script>
 import FeedItem from "@/components/FeedItem.vue";
-import UiDialog from "@/components/ui/UiDialog.vue";
+import FeedSearch from "@/components/FeedSearch.vue";
 import { defineAsyncComponent } from "vue";
 import { createFilterObj, findInContainer, isFilteredUpdate } from "@/store/utils.js";
 import axios from "axios";
@@ -175,7 +120,7 @@ const WIDE = "(min-width: 1440px)";
 export default {
     components: {
         FeedItem,
-        UiDialog,
+        FeedSearch,
         // Loaded with the first build shown beside the feed
         BuildView: defineAsyncComponent(() => import("@/views/BuildView.vue")),
     },
@@ -184,14 +129,14 @@ export default {
             builds: [],
             subscription: "build:update:",
             isFetching: false, // request to the server is in progress
-            isHelpDialogOpen: false,
             filterIsDirty: false, // when user is still typing
             filter: "", // sent to the server, to filter builds out
             moreEnabled: true, // if makes sense to load more builds from the server
             filteredUpdates: 0, // When `filter` is active, updates which do not much are counted here
             filterObj: null,
-            // Each job's { defaults: { NAME: value }, labels: [NAME] }, so
-            // a row can show the labels first and leave defaults out
+            // Each job's { defaults: { NAME: value }, labels: [NAME],
+            // interval }, so a row can show the labels first and leave
+            // defaults out, and the search can suggest and filter
             jobs: new Map(),
             // The time the rows show durations against, moved on every second
             now: Date.now(),
@@ -357,7 +302,11 @@ export default {
                 .then((response) => {
                     const jobs = new Map();
                     for (const job of response.data || []) {
-                        jobs.set(job.name, { defaults: Object.assign({}, ...(job.defaultParams || [])), labels: job.labels || [] });
+                        jobs.set(job.name, {
+                            defaults: Object.assign({}, ...(job.defaultParams || [])),
+                            labels: job.labels || [],
+                            interval: job.interval || "",
+                        });
                     }
                     this.jobs = jobs;
                 })
@@ -475,32 +424,8 @@ export default {
     border-block-start: 1px solid var(--outline-variant);
 }
 
-.feed-spinner {
-    position: absolute;
-    inset-inline-end: 10px;
-    inline-size: 16px;
-    block-size: 16px;
-    --_c: var(--primary);
-}
-
-.feed-page input[type="search"] {
-    padding-inline-end: 34px;
-}
-
 .feed-empty {
     align-items: center;
     padding: var(--space-8) 0;
-}
-
-.search-examples {
-    padding-inline-start: 0;
-    list-style: none;
-}
-
-.search-examples code {
-    margin-inline-end: var(--space-2);
-    padding: 1px 6px;
-    border-radius: 4px;
-    background-color: var(--surface-container-highest);
 }
 </style>
