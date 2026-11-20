@@ -19,7 +19,7 @@ test("should load the job editor's code only when the editor opens", async ({ pa
     expect(feed).toBeLessThan(500 * 1000);
 
     // In the app, so the browser keeps counting what it loaded
-    await page.locator('nav a[href="/jobs"]').click();
+    await page.getByTestId("nav-jobs").click();
     await page.getByTestId("filter").fill(name);
     await expect(page.getByTestId("edit-job-button")).toHaveCount(1);
     await page.getByTestId("edit-job-button").click();
@@ -75,7 +75,7 @@ test("should load a page in full when its code fails to load after an update", a
     await failJobsChunk(page, 1);
     await updateServer(page);
 
-    await page.locator('nav a[href="/jobs"]').click();
+    await page.getByTestId("nav-jobs").click();
     await expect(page.getByTestId("jobs-container")).toBeVisible();
     await expect(page).toHaveURL(/\/jobs$/);
     // The load event may reach the test after the page shows
@@ -88,7 +88,7 @@ test("should not load a page in full when wakeci runs the same version", async (
     const counter = await openFeed(page);
     await failJobsChunk(page, Infinity);
 
-    await page.locator('nav a[href="/jobs"]').click();
+    await page.getByTestId("nav-jobs").click();
     await expect(page.locator(".notification-content")).toContainText("couldn't be loaded");
     expect(counter.loads).toBe(0);
     // Registering router.onError stops vue-router from logging it
@@ -100,7 +100,7 @@ test("should load a page in full only once after an update when its code keeps f
     await failJobsChunk(page, Infinity);
     await updateServer(page);
 
-    await page.locator('nav a[href="/jobs"]').click();
+    await page.getByTestId("nav-jobs").click();
     await expect.poll(() => counter.loads).toBe(1);
     // Shown once the loaded page decided not to load again
     await expect(page.locator(".notification-content")).toContainText("couldn't be loaded");
@@ -113,7 +113,7 @@ test("should not load a page in full while wakeci doesn't answer", async ({ page
     // As while wakeci restarts
     await page.route("**/api/queue/", (route) => route.abort("connectionrefused"));
 
-    await page.locator('nav a[href="/jobs"]').click();
+    await page.getByTestId("nav-jobs").click();
     await expect(page.locator(".notification-content")).toContainText("couldn't be loaded");
     expect(counter.loads).toBe(0);
     await expect(page.getByTestId("filter")).toBeVisible();
@@ -125,8 +125,8 @@ test("should not load a page in full when another page was opened meanwhile", as
     await updateServer(page, 1500);
     const answered = page.waitForResponse((response) => response.url().endsWith("/api/queue/"));
 
-    await page.locator('nav a[href="/jobs"]').click();
-    await page.locator('nav a[href="/settings"]').click();
+    await page.getByTestId("nav-jobs").click();
+    await page.getByTestId("nav-settings").click();
     await expect(page.getByTestId("version")).toBeVisible();
     await answered;
     // Lets the page act on the answer
@@ -141,8 +141,8 @@ test("should not load a page in full when its chunk fails after another page ope
     await updateServer(page);
     const answered = page.waitForResponse((response) => response.url().endsWith("/api/queue/"));
 
-    await page.locator('nav a[href="/jobs"]').click();
-    await page.locator('nav a[href="/settings"]').click();
+    await page.getByTestId("nav-jobs").click();
+    await page.getByTestId("nav-settings").click();
     await expect(page.getByTestId("version")).toBeVisible();
     await answered;
     // Lets the page act on the answer
@@ -157,7 +157,7 @@ test("should say a page couldn't be loaded when wakeci doesn't answer in time", 
     // Accepts the request and never answers
     await page.route("**/api/queue/", () => {});
 
-    await page.locator('nav a[href="/jobs"]').click();
+    await page.getByTestId("nav-jobs").click();
     await expect(page.locator(".notification-content")).toContainText("couldn't be loaded", { timeout: 15000 });
     expect(counter.loads).toBe(0);
 });
@@ -168,9 +168,9 @@ test("should not load a page in full when the shown page was opened again meanwh
     await updateServer(page, 1500);
     const answered = page.waitForResponse((response) => response.url().endsWith("/api/queue/"));
 
-    await page.locator('nav a[href="/jobs"]').click();
+    await page.getByTestId("nav-jobs").click();
     // The feed is still shown while Jobs loads, so vue-router skips beforeEach
-    await page.locator('nav a.button[href="/"]').click();
+    await page.getByTestId("nav-feed").click();
     await answered;
     // Lets the page act on the answer
     await page.evaluate(() => new Promise((done) => setTimeout(done, 100)));
@@ -190,7 +190,7 @@ test("should load a page in full after an update when the feed answers meanwhile
     await updateServer(page, 1500);
     const checking = page.waitForRequest((request) => request.url().endsWith("/api/queue/"));
 
-    await page.locator('nav a[href="/jobs"]').click();
+    await page.getByTestId("nav-jobs").click();
     await checking;
     // The feed puts its filter in the URL when it answers, the same URL here
     const feedAnswered = page.waitForResponse(/\/api\/feed\?/);
@@ -216,7 +216,7 @@ test("should open a page whose code loads while the feed answers", async ({ page
         await route.continue();
     });
 
-    await page.locator('nav a[href="/jobs"]').click();
+    await page.getByTestId("nav-jobs").click();
     await jobsAsked;
     const feedAnswered = page.waitForResponse(/\/api\/feed\?/);
     releaseFeed();
@@ -245,7 +245,7 @@ test("should open a page whose code loads after a filter was typed", async ({ pa
     });
 
     await page.getByTestId("filter").fill("abc");
-    await page.locator('nav a[href="/jobs"]').click();
+    await page.getByTestId("nav-jobs").click();
     await jobsAsked;
     const filteredFeedAnswered = page.waitForResponse(/\/api\/feed\?.*q=abc/);
     releaseFeed();

@@ -32,7 +32,7 @@ test("should not show the password field before it knows about single sign-on", 
         await route.fulfill({ json: { sso: true } });
     });
     await page.goto("/login");
-    await expect(page.locator("progress")).toBeVisible();
+    await expect(page.getByTestId("login-progress")).toBeVisible();
     await expect(page.locator("input[type=password]")).toHaveCount(0);
     answer();
     await expect(page.getByTestId("sso-login")).toBeVisible();
@@ -43,7 +43,7 @@ test("should offer the password if it can't find out about single sign-on", asyn
     // Never answered: the page stops waiting after 5 seconds
     await page.route("**/auth/methods", () => {});
     await page.goto("/login");
-    await expect(page.locator("progress")).toBeVisible();
+    await expect(page.getByTestId("login-progress")).toBeVisible();
     await expect(page.locator("#password")).toBeVisible({ timeout: 10_000 });
     await expect(page.getByTestId("sso-login")).toHaveCount(0);
 });

@@ -309,7 +309,7 @@ tasks:
     // The page is open while the build runs, so the summary has to come
     // from the reload when the build ends
     await wake.livePage(`/build/${id}`);
-    await expect(page.locator("header h6")).toContainText(`#${id} - running`);
+    await expect(page.getByTestId("page-title")).toContainText(`#${id} - running`);
     await expect(page.getByTestId("build-summary")).toHaveCount(0);
     // Shown as text, so markup in it stays text
     await expect(page.getByTestId("build-summary")).toContainText("### Failed tests\n- test_login <b>", { timeout: 15000 });
