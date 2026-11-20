@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -10,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/go-chi/chi/v5"
 )
 
 // abortTestBuild creates a build of job that GlobalQueue sees as running
@@ -586,6 +590,66 @@ func TestFlushLogsDuringCondition(t *testing.T) {
 		t.Fatalf("Abort: %v", err)
 	}
 	waitDone(t, done, 2*time.Second)
+}
+
+// TestTaskLogRouteHasLinesStillInTheBuffer is a regression test: a flush
+// was a message to the task's output loop, dropped while the loop waited on
+// the hub to take a line, as it does while output is heavy. Reading a
+// running task's log then missed its last lines, and the build page lost
+// them on reload.
+func TestTaskLogRouteHasLinesStillInTheBuffer(t *testing.T) {
+	build := abortTestBuild(t, &Job{Name: "flush-busy", Tasks: []*Task{
+		{ID: 0, Command: "echo output; sleep 10", Kind: KindMain},
+	}})
+	// A hub that takes the build's updates but holds its first log line,
+	// so the task waits on the hub with its next line in the buffer
+	hub := newHub()
+	oldHub := WSHub
+	WSHub = hub
+	held := make(chan string, 1)
+	release := make(chan struct{})
+	stop := make(chan struct{})
+	t.Cleanup(func() { close(stop); WSHub = oldHub })
+	go func() {
+		holding := true
+		for {
+			select {
+			case msg := <-hub.broadcast:
+				if holding && strings.HasPrefix(msg.Type, "build:log:") {
+					holding = false
+					held <- msg.Data.(*CommandLogData).Data
+					select {
+					case <-release:
+					case <-stop:
+						return
+					}
+				}
+			case <-stop:
+				return
+			}
+		}
+	}()
+	done := startBuild(build)
+	var line string
+	select {
+	case line = <-held:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the task wrote no log line")
+	}
+
+	router := chi.NewRouter()
+	router.Get("/api/build/{id}/log/{task}", HandleTaskLog)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest("GET", fmt.Sprintf("/api/build/%d/log/0", build.ID), nil))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), line) {
+		t.Errorf("log route = %d %q, want it to hold %q", rec.Code, rec.Body.String(), line)
+	}
+
+	close(release)
+	if err := GlobalQueue.Abort(build.ID, StatusAborted); err != nil {
+		t.Fatalf("Abort: %v", err)
+	}
+	waitDone(t, done, 5*time.Second)
 }
 
 // TestAbortKillsTheWholeTask is a regression test: when a command ignored

@@ -296,9 +296,9 @@ func abortedBy(r *http.Request) string {
 	return ""
 }
 
-// HandleFlushTaskLogs signals to flush logs
-// @Summary      Signal the build to flush its log buffer
-// @Description  API key scope: run
+// HandleFlushTaskLogs writes out the running task's log
+// @Summary      Write out the running task's log buffer
+// @Description  Reading a log doesn't need it: the log route writes the buffer out first. API key scope: run
 // @Tags         build
 // @Produce      plain
 // @Param        id       path    integer   true  "Build ID"

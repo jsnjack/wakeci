@@ -104,7 +104,6 @@ func restoreBuild(id int, record []byte) (*Build, error) {
 		Job:             saved.Job,
 		Status:          StatusPending,
 		abort:           newAbortScope(),
-		flushChannel:    make(chan bool),
 		Params:          saved.Params,
 		ETA:             GetJobETA(saved.Job.Name),
 		untrustedParams: saved.UntrustedParams || saved.StartedWithAPIKey,

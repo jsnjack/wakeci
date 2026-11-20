@@ -170,7 +170,7 @@ func HandleBuildSummary(w http.ResponseWriter, r *http.Request) {
 // HandleTaskLog returns a task's log, its end, or the lines that contain a
 // text
 // @Summary      Read a task's log, its last lines, or the lines that contain a text
-// @Description  Without tail or grep, the whole log (Range works). grep returns the lines whose text contains it, ignoring case and the time each line starts with, each after its line number and a colon, at most 1000. With both, the last tail matching lines. API key scope: read
+// @Description  Without tail or grep, the whole log (Range works). A running task's log holds every line sent so far. grep returns the lines whose text contains it, ignoring case and the time each line starts with, each after its line number and a colon, at most 1000. With both, the last tail matching lines. API key scope: read
 // @Tags         build
 // @Produce      plain
 // @Param        id       path    integer   true   "Build ID"
@@ -217,6 +217,12 @@ func HandleTaskLog(w http.ResponseWriter, r *http.Request) {
 		}
 		writePlainText(w, logger, status, err.Error())
 		return
+	}
+	// A running task keeps its last lines in a buffer. An error means the
+	// build has ended, and its tasks wrote their logs out. Tests may run
+	// without a queue.
+	if GlobalQueue != nil {
+		_ = GlobalQueue.FlushLogs(id)
 	}
 	path := taskLogFile(id, task)
 	if _, err := os.Stat(path); err != nil {

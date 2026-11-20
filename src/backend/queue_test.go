@@ -42,12 +42,9 @@ func TestQueueAbortDoesNotBlockWithoutARunningTask(t *testing.T) {
 }
 
 // TestQueueFlushLogsDoesNotBlockWithoutARunningTask mirrors the Abort
-// regression test above for flushChannel.
+// regression test above for FlushLogs.
 func TestQueueFlushLogsDoesNotBlockWithoutARunningTask(t *testing.T) {
-	build := &Build{
-		ID:           2,
-		flushChannel: make(chan bool),
-	}
+	build := &Build{ID: 2}
 	q := &Queue{running: []*Build{build}}
 
 	done := make(chan error, 1)

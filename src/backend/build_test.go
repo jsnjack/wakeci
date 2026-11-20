@@ -187,7 +187,7 @@ func TestProcessLogEntryCollapsesCarriageReturns(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			build := &Build{ID: 1, Logger: L, Job: &Job{Name: "log-test"}}
 			var buf bytes.Buffer
-			bw := bufio.NewWriter(&buf)
+			bw := &taskLogWriter{w: bufio.NewWriter(&buf)}
 
 			build.ProcessLogEntry(tt.line, bw, 1, time.Now())
 			if err := bw.Flush(); err != nil {
@@ -236,7 +236,7 @@ func TestWaitForCondition(t *testing.T) {
 			}
 			build := &Build{Logger: L}
 			start := time.Now()
-			timedOut, aborted, err := build.waitForCondition(command, 1, tt.timeout, tt.abort, func() {})
+			timedOut, aborted, err := build.waitForCondition(command, 1, tt.timeout, tt.abort)
 			if timedOut != tt.wantTimedOut {
 				t.Errorf("timedOut = %t, want %t", timedOut, tt.wantTimedOut)
 			}
@@ -574,7 +574,7 @@ func TestWaitForConditionEndsAsTimeoutFires(t *testing.T) {
 		}
 		// Let it exit, so both the timer and Wait are ready at once
 		time.Sleep(5 * time.Millisecond)
-		timedOut, _, err := build.waitForCondition(command, 1, 0, nil, func() {})
+		timedOut, _, err := build.waitForCondition(command, 1, 0, nil)
 		if timedOut && err == nil {
 			t.Fatal("timedOut with a nil error: the condition finished, it didn't time out")
 		}

@@ -260,8 +260,9 @@ func (q *Queue) find(id int) *Build {
 	return nil
 }
 
-// FlushLogs instructs to flush logs. The send happens outside q.mutex and
-// never blocks.
+// FlushLogs writes out the log of the build's running task, whatever the
+// task is doing, so a read of the file gets every line sent so far. It
+// flushes outside q.mutex.
 func (q *Queue) FlushLogs(id int) error {
 	q.mutex.Lock()
 	running := q.find(id)
@@ -269,11 +270,7 @@ func (q *Queue) FlushLogs(id int) error {
 	if running == nil {
 		return fmt.Errorf("Build is not running")
 	}
-
-	select {
-	case running.flushChannel <- true:
-	default:
-	}
+	running.flushLiveLog()
 	return nil
 }
 

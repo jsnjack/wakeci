@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -73,7 +74,6 @@ type Build struct {
 	Job            *Job
 	Status         ItemStatus
 	Logger         *slog.Logger
-	flushChannel   chan bool // Instructs to flush bw
 	pendingTasksWG sync.WaitGroup
 	Params         []map[string]string
 	Artifacts      []string // Deprecate
@@ -97,6 +97,8 @@ type Build struct {
 	// failedTask is the main task that stopped the build, exposed to the
 	// on_failed, on_aborted and finally tasks
 	failedTask *Task
+	// liveLog is the log of the task that runs now, nil between tasks
+	liveLog atomic.Pointer[taskLogWriter]
 	// abort is the abort request for the tasks that run now, guarded by mutex
 	abort *abortScope
 	// abortedWhileQueued is set by Queue.Abort for a queued build: it has no
@@ -186,7 +188,7 @@ func (b *Build) nextAbortScope() {
 
 // logAbort writes why the task was stopped to its log. The scope must be
 // aborted
-func (b *Build) logAbort(scope *abortScope, bw *bufio.Writer, task *Task) {
+func (b *Build) logAbort(scope *abortScope, bw *taskLogWriter, task *Task) {
 	switch {
 	case scope.note != "" && scope.by != "":
 		b.ProcessLogEntry("> Aborted "+scope.by+": "+scope.note+".", bw, task.ID, task.startedAt)
@@ -312,19 +314,18 @@ func (b *Build) runTask(task *Task) ItemStatus {
 
 	// Configure task logs
 	file, err := os.Create(b.taskLogPath(task.ID))
-	bw := bufio.NewWriter(file)
-	defer func() {
-		if flushErr := bw.Flush(); flushErr != nil {
-			b.Logger.Error("flush task log", "task", task.ID, "err", flushErr)
-		}
-		if closeErr := file.Close(); closeErr != nil {
-			b.Logger.Error("close task log", "task", task.ID, "err", closeErr)
-		}
-	}()
 	if err != nil {
 		b.Logger.Error("create task log", "task", task.ID, "err", err)
 		return StatusFailed
 	}
+	bw := &taskLogWriter{file: file, w: bufio.NewWriter(file)}
+	b.liveLog.Store(bw)
+	defer func() {
+		b.liveLog.CompareAndSwap(bw, nil)
+		if closeErr := bw.Close(); closeErr != nil {
+			b.Logger.Error("close task log", "task", task.ID, "err", closeErr)
+		}
+	}()
 	// wakeci exits next (Queue.stopTasks), and nothing would wait for it
 	if GlobalQueue.tasksStoppedNow() {
 		b.ProcessLogEntry("> Not started: "+stopNote+".", bw, task.ID, task.startedAt)
@@ -460,11 +461,6 @@ func (b *Build) runTask(task *Task) ItemStatus {
 					<-taskCmd.Done()
 					abortTimer.Stop()
 				}()
-			case <-b.flushChannel:
-				b.Logger.Debug("flushing task log", "task", task.ID)
-				if err := bw.Flush(); err != nil {
-					b.Logger.Error("flush task log", "task", task.ID, "err", err)
-				}
 			}
 		}
 	}()
@@ -523,7 +519,7 @@ func (b *Build) killTaskGroup(pid int, deadline time.Time, taskID int) {
 // checkCondition evaluates a task's `when` or `if` condition, with script
 // wrapping the condition into a bash command. It returns an empty status when
 // the task should run, otherwise the status the task ends with
-func (b *Build) checkCondition(task *Task, kind, expr, script string, env []string, dir string, bw *bufio.Writer, abort *abortScope) ItemStatus {
+func (b *Build) checkCondition(task *Task, kind, expr, script string, env []string, dir string, bw *taskLogWriter, abort *abortScope) ItemStatus {
 	condition, conditionSecretEnv := injectCommandSecrets(expr)
 	condCmd := conditionCommand(fmt.Sprintf(script, condition))
 	condCmd.Env = append(env, conditionSecretEnv...)
@@ -541,12 +537,7 @@ func (b *Build) checkCondition(task *Task, kind, expr, script string, env []stri
 		)
 		return StatusFailed
 	}
-	flush := func() {
-		if err := bw.Flush(); err != nil {
-			b.Logger.Error("flush task log", "task", task.ID, "err", err)
-		}
-	}
-	condTimedOut, condAborted, condErr := b.waitForCondition(condCmd, task.ID, WHEN_EVAL_TIMEOUT*time.Second, abort.c, flush)
+	condTimedOut, condAborted, condErr := b.waitForCondition(condCmd, task.ID, WHEN_EVAL_TIMEOUT*time.Second, abort.c)
 	if condAborted {
 		b.logAbort(abort, bw, task)
 		return ItemStatus(abort.stopped())
@@ -579,9 +570,8 @@ func conditionCommand(script string) *exec.Cmd {
 }
 
 // waitForCondition waits for the condition command. It kills the command
-// when timeout passes (timedOut) or abort is closed (aborted), and calls
-// flush when the log is asked to be flushed meanwhile
-func (b *Build) waitForCondition(condCmd *exec.Cmd, taskID int, timeout time.Duration, abort <-chan struct{}, flush func()) (timedOut, aborted bool, err error) {
+// when timeout passes (timedOut) or abort is closed (aborted)
+func (b *Build) waitForCondition(condCmd *exec.Cmd, taskID int, timeout time.Duration, abort <-chan struct{}) (timedOut, aborted bool, err error) {
 	waitDone := make(chan error, 1)
 	go func() {
 		waitDone <- condCmd.Wait()
@@ -597,8 +587,6 @@ func (b *Build) waitForCondition(condCmd *exec.Cmd, taskID int, timeout time.Dur
 			timedOut = true
 		case <-abort:
 			aborted = true
-		case <-b.flushChannel:
-			flush()
 		}
 	}
 	select {
@@ -848,8 +836,61 @@ func (b *Build) records() (data, queued, stats []byte, err error) {
 	return data, queued, stats, err
 }
 
+// taskLogWriter is a task's log file behind a buffer. The task writes its lines
+// and FlushLogs writes the buffer out for a request, so both lock. A flush
+// used to be a message to the task's output loop, dropped while the loop was
+// busy, which it is while output is heavy: it waits on the hub to take
+// each line.
+type taskLogWriter struct {
+	mu     sync.Mutex
+	file   *os.File
+	w      *bufio.Writer
+	closed bool
+}
+
+func (l *taskLogWriter) WriteString(s string) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.closed {
+		return 0, os.ErrClosed
+	}
+	return l.w.WriteString(s)
+}
+
+// Flush writes out the buffered lines; it does nothing once the log is
+// closed, since Close wrote them
+func (l *taskLogWriter) Flush() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.closed {
+		return nil
+	}
+	return l.w.Flush()
+}
+
+// Close writes out the buffered lines and closes the file
+func (l *taskLogWriter) Close() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.closed {
+		return nil
+	}
+	l.closed = true
+	return errors.Join(l.w.Flush(), l.file.Close())
+}
+
+// flushLiveLog writes out the log of the task that runs now, so the file
+// holds every line sent so far
+func (b *Build) flushLiveLog() {
+	if log := b.liveLog.Load(); log != nil {
+		if err := log.Flush(); err != nil {
+			b.Logger.Error("flush task log", "err", err)
+		}
+	}
+}
+
 // ProcessLogEntry handles log messages from tasks
-func (b *Build) ProcessLogEntry(line string, buffer *bufio.Writer, taskID int, startedAt time.Time) {
+func (b *Build) ProcessLogEntry(line string, buffer *taskLogWriter, taskID int, startedAt time.Time) {
 	// Some commands (e.g. progress bars) redraw a single terminal line using
 	// carriage returns instead of newlines. go-cmd only splits stdout/stderr
 	// on newlines, so all of those redraws arrive here as one "line" with
@@ -1088,13 +1129,12 @@ func createBuild(job *Job, jobPath string, untrustedParams bool, values url.Valu
 	}
 
 	build := Build{
-		Job:          job,
-		ID:           counti,
-		abort:        newAbortScope(),
-		flushChannel: make(chan bool),
-		Params:       runParams(job.DefaultParams, values),
-		ETA:          GetJobETA(job.Name),
-		queuedAt:     time.Now(),
+		Job:      job,
+		ID:       counti,
+		abort:    newAbortScope(),
+		Params:   runParams(job.DefaultParams, values),
+		ETA:      GetJobETA(job.Name),
+		queuedAt: time.Now(),
 		// Set before SetBuildStatus below starts the pending tasks
 		untrustedParams: untrustedParams,
 	}
