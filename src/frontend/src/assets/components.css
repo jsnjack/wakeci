@@ -1,0 +1,686 @@
+/* The app's own components, which replace BeerCSS page by page (S3 in
+   docs/ui-roadmap.md). A part of the app moved to them sits in an element
+   with the class ui: inside it, BeerCSS's styles of elements are rolled back
+   to the browser's, so these start from a plain element and need no
+   !important. The classes work only inside .ui, so they can't change a part
+   of the app that hasn't moved. Spacing comes from gap, not from margins. */
+
+/* -- The scope ---------------------------------------------------------- */
+
+.ui {
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  line-height: var(--line-height);
+  letter-spacing: normal;
+  color: var(--on-surface);
+}
+
+/* SVG keeps its own styles: rolling it back would also drop the fill and
+   stroke attributes that draw the charts */
+.ui :where(:not(svg, svg *)),
+.ui :where(:not(svg, svg *))::before,
+.ui :where(:not(svg, svg *))::after {
+  all: revert;
+}
+
+.ui *,
+.ui *::before,
+.ui *::after {
+  box-sizing: border-box;
+}
+
+.ui :where(h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd, pre) {
+  margin: 0;
+}
+
+.ui :where(h1, h2, h3, h4, h5, h6) {
+  font-size: var(--text-md);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.ui :where(h1) {
+  font-size: var(--text-xl);
+}
+
+.ui :where(h2) {
+  font-size: var(--text-lg);
+}
+
+.ui :where(a) {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.ui :where(a:hover) {
+  text-decoration: underline;
+}
+
+.ui :where(code, kbd, pre, samp) {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+.ui :where(:focus-visible) {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.ui :where(input[type="checkbox"], input[type="radio"]) {
+  accent-color: var(--primary);
+}
+
+/* -- Layout --------------------------------------------------------------- */
+
+/* A page's column: centred, at most 1200 px wide */
+.ui .container {
+  inline-size: 100%;
+  max-inline-size: 1200px;
+  margin-inline: auto;
+  padding: var(--space-4);
+}
+
+/* Children one under the other */
+.ui .stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap, var(--space-3));
+}
+
+/* Children side by side, wrapping */
+.ui .cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gap, var(--space-2));
+}
+
+.ui .cluster.nowrap {
+  flex-wrap: nowrap;
+}
+
+.ui .between {
+  justify-content: space-between;
+}
+
+.ui .end {
+  justify-content: flex-end;
+}
+
+/* Takes the room left in a stack or cluster */
+.ui .grow {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+/* Columns at least --min wide, as many as fit */
+.ui .cols {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(var(--min, 16rem), 100%), 1fr)
+  );
+  gap: var(--gap, var(--space-4));
+}
+
+.ui .gap-0 {
+  --gap: 0;
+}
+.ui .gap-1 {
+  --gap: var(--space-1);
+}
+.ui .gap-2 {
+  --gap: var(--space-2);
+}
+.ui .gap-3 {
+  --gap: var(--space-3);
+}
+.ui .gap-4 {
+  --gap: var(--space-4);
+}
+.ui .gap-6 {
+  --gap: var(--space-6);
+}
+
+/* -- Surfaces ------------------------------------------------------------- */
+
+.ui .panel {
+  background-color: var(--surface-container-low);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-container);
+  padding: var(--space-4);
+}
+
+/* A list whose items are divided by thin lines */
+.ui .divided > * + * {
+  border-block-start: 1px solid var(--outline-variant);
+}
+
+.ui .rule {
+  border: none;
+  border-block-start: 1px solid var(--outline-variant);
+  margin: 0;
+  inline-size: 100%;
+}
+
+/* -- Text ----------------------------------------------------------------- */
+
+.ui .muted {
+  color: var(--on-surface-variant);
+}
+
+.ui .text-sm {
+  font-size: var(--text-sm);
+}
+
+.ui .text-lg {
+  font-size: var(--text-lg);
+}
+
+.ui .title {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.ui .strong {
+  font-weight: 600;
+}
+
+.ui .mono {
+  font-family: var(--font-mono);
+}
+
+.ui .nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.ui .ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-inline-size: 0;
+}
+
+.ui .nowrap-text {
+  white-space: nowrap;
+}
+
+/* Read by screen readers, not shown */
+.ui .sr-only {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Material Symbols, by ligature name: <i class="icon">search</i> */
+.ui .icon {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  direction: ltr;
+  font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  flex: none;
+}
+
+.ui .icon.small {
+  font-size: 16px;
+}
+
+.ui .icon.large {
+  font-size: 32px;
+}
+
+/* -- Buttons -------------------------------------------------------------- */
+
+/* Kinds: .btn (tonal), .btn-primary, .btn-ghost (text only) and
+   .ui .btn-danger; sizes: the default and .btn-sm; .btn-icon for an icon alone,
+   which then needs an aria-label */
+.ui .btn {
+  --_bg: var(--secondary-container);
+  --_fg: var(--on-secondary-container);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  block-size: 32px;
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background-color: var(--_bg);
+  color: var(--_fg);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ui .btn:hover {
+  background-color: color-mix(in srgb, var(--_fg) 8%, var(--_bg));
+  text-decoration: none;
+}
+
+.ui .btn:active {
+  background-color: color-mix(in srgb, var(--_fg) 14%, var(--_bg));
+}
+
+.ui .btn-primary {
+  --_bg: var(--primary);
+  --_fg: var(--on-primary);
+}
+
+.ui .btn-ghost {
+  --_bg: transparent;
+  --_fg: var(--on-surface);
+}
+
+.ui .btn-ghost:hover {
+  background-color: color-mix(in srgb, var(--_fg) 8%, transparent);
+}
+
+.ui .btn-ghost:active {
+  background-color: color-mix(in srgb, var(--_fg) 14%, transparent);
+}
+
+.ui .btn-danger {
+  --_bg: var(--error);
+  --_fg: var(--on-error);
+}
+
+.ui .btn-outline {
+  border-color: var(--outline-variant);
+}
+
+.ui .btn-sm {
+  block-size: 26px;
+  padding: 0 var(--space-2);
+}
+
+.ui .btn-icon {
+  inline-size: 32px;
+  padding: 0;
+}
+
+.ui .btn-sm.btn-icon {
+  inline-size: 26px;
+}
+
+.ui .btn:disabled,
+.ui .btn[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* -- Fields --------------------------------------------------------------- */
+
+/* A label above its control, with an optional hint under it:
+   <label class="field"> isn't free (BeerCSS), so .form-field */
+.ui .form-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+
+.ui .form-field > .label-text {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--on-surface-variant);
+}
+
+.ui .hint {
+  font-size: var(--text-sm);
+  color: var(--on-surface-variant);
+}
+
+.ui .input,
+.ui .select,
+.ui .textarea {
+  font: inherit;
+  font-size: var(--text-md);
+  color: var(--on-surface);
+  background-color: var(--surface-container-lowest);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-control);
+  block-size: 36px;
+  padding: 0 var(--space-3);
+  min-inline-size: 0;
+  inline-size: 100%;
+}
+
+.ui .textarea {
+  block-size: auto;
+  padding: var(--space-2) var(--space-3);
+  resize: vertical;
+}
+
+.ui .input:focus,
+.ui .select:focus,
+.ui .textarea:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: -1px;
+  border-color: var(--primary);
+}
+
+.ui .input::placeholder,
+.ui .textarea::placeholder {
+  color: var(--on-surface-variant);
+  opacity: 0.8;
+}
+
+/* An input with an icon at its start, such as a search box */
+.ui .input-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-inline-size: 0;
+}
+
+.ui .input-icon > .icon {
+  position: absolute;
+  inset-inline-start: 10px;
+  color: var(--on-surface-variant);
+  pointer-events: none;
+}
+
+.ui .input-icon > .input {
+  padding-inline-start: 38px;
+}
+
+/* -- Choices -------------------------------------------------------------- */
+
+/* Buttons joined into one control, the chosen one marked with
+   aria-pressed="true" */
+.ui .segmented {
+  display: inline-flex;
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+
+.ui .segmented > * {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  block-size: 30px;
+  padding: 0 var(--space-3);
+  border: none;
+  background: none;
+  color: var(--on-surface);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.ui .segmented > * + * {
+  border-inline-start: 1px solid var(--outline-variant);
+}
+
+.ui .segmented > :hover {
+  background-color: color-mix(in srgb, var(--on-surface) 6%, transparent);
+  text-decoration: none;
+}
+
+.ui .segmented > [aria-pressed="true"] {
+  background-color: var(--secondary-container);
+  color: var(--on-secondary-container);
+  font-weight: 500;
+}
+
+/* Tabs, the open one marked with aria-selected="true" or as the current
+   page (aria-current) */
+.ui .tabbar {
+  display: flex;
+  gap: var(--space-4);
+  border-block-end: 1px solid var(--outline-variant);
+  overflow-x: auto;
+}
+
+.ui .tabbar > * {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+  border: none;
+  border-block-end: 2px solid transparent;
+  margin-block-end: -1px;
+  background: none;
+  color: var(--on-surface-variant);
+  font: inherit;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.ui .tabbar > :hover {
+  color: var(--on-surface);
+  text-decoration: none;
+}
+
+.ui .tabbar > [aria-selected="true"],
+.ui .tabbar > [aria-current="page"] {
+  color: var(--primary);
+  border-block-end-color: var(--primary);
+}
+
+/* -- Tooltips ------------------------------------------------------------- */
+
+/* data-tip="Text" shows the text under the element on hover and focus;
+   tip-start and tip-end align it with the element's edge instead of its
+   middle, for elements at the window's sides. An icon-only button also
+   needs an aria-label, since screen readers don't read the tip. */
+.ui [data-tip] {
+  position: relative;
+}
+
+.ui [data-tip]:is(:hover, :focus-visible)::after {
+  content: attr(data-tip);
+  position: absolute;
+  inset-block-start: calc(100% + 6px);
+  inset-inline-start: 50%;
+  translate: -50% 0;
+  z-index: 50;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background-color: var(--inverse-surface);
+  color: var(--inverse-on-surface);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.ui [data-tip].tip-start:is(:hover, :focus-visible)::after {
+  inset-inline-start: 0;
+  translate: none;
+}
+
+.ui [data-tip].tip-end:is(:hover, :focus-visible)::after {
+  inset-inline-start: auto;
+  inset-inline-end: 0;
+  translate: none;
+}
+
+/* -- Dialogs (UiDialog.vue, on the native <dialog>) ------------------------ */
+
+.ui .modal {
+  inline-size: min(560px, calc(100vw - 2 * var(--space-4)));
+  max-block-size: calc(100dvh - 2 * var(--space-4));
+  padding: var(--space-6);
+  border: none;
+  border-radius: var(--radius-container);
+  background-color: var(--surface-container-high);
+  color: var(--on-surface);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.3);
+  overflow: auto;
+}
+
+.ui .modal::backdrop {
+  background-color: rgb(0 0 0 / 0.4);
+}
+
+.ui .modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* -- Menus (UiMenu.vue) --------------------------------------------------- */
+
+.ui .menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.ui .menu-list {
+  position: absolute;
+  inset-block-start: calc(100% + 4px);
+  inset-inline-end: 0;
+  z-index: 40;
+  min-inline-size: 12rem;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-1) 0;
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-control);
+  background-color: var(--surface-container-high);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.2);
+}
+
+.ui .menu-list > * {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  background: none;
+  color: var(--on-surface);
+  font: inherit;
+  text-align: start;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ui .menu-list > :hover,
+.ui .menu-list > :focus-visible {
+  background-color: color-mix(in srgb, var(--on-surface) 8%, transparent);
+  text-decoration: none;
+  outline: none;
+}
+
+.ui .menu-list > [aria-current="page"] {
+  color: var(--primary);
+  font-weight: 500;
+}
+
+/* -- Status (StatusIcon.vue) --------------------------------------------- */
+
+.ui .status-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 20px;
+  block-size: 20px;
+  flex: none;
+  color: var(--_c, var(--status-pending));
+}
+
+.ui .status-icon > .icon {
+  font-size: 20px;
+  font-variation-settings: "FILL" 1;
+}
+
+.ui .status-icon.small,
+.ui .status-icon.small > .icon {
+  inline-size: 16px;
+  block-size: 16px;
+  font-size: 16px;
+}
+
+/* Queued and not run: a grey outline, no fill */
+.ui .status-icon[data-cy-status="pending"] > .icon,
+.ui .status-icon[data-cy-status="skipped"] > .icon {
+  font-variation-settings: "FILL" 0;
+}
+
+/* Running: a turning ring */
+.ui .status-ring {
+  inline-size: 80%;
+  block-size: 80%;
+  border: 2.5px solid color-mix(in srgb, var(--_c) 25%, transparent);
+  border-block-start-color: var(--_c);
+  border-radius: 50%;
+  animation: status-turn 0.9s linear infinite;
+}
+
+@keyframes status-turn {
+  to {
+    rotate: 1turn;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui .status-ring {
+    animation: none;
+  }
+}
+
+/* -- Notifications (vue3-notification, classes="toast") ------------------ */
+
+.vue-notification-group {
+  z-index: 100;
+}
+
+.toast {
+  display: flex;
+  gap: var(--space-2);
+  margin: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-control);
+  background-color: var(--inverse-surface);
+  color: var(--inverse-on-surface);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.25);
+}
+
+.toast.error {
+  background-color: var(--error-container);
+  color: var(--on-error-container);
+}
+
+.toast .notification-title {
+  font-weight: 600;
+}
+
+.toast a {
+  color: var(--inverse-primary);
+  text-decoration: underline;
+}
+
+.toast.error a {
+  color: inherit;
+}

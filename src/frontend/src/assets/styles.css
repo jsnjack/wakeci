@@ -8,3 +8,4 @@
 @import "./base.css" layer(base);
 @import "./tokens.css" layer(app);
 @import "./main.css" layer(app);
+@import "./components.css" layer(app);

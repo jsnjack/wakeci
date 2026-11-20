@@ -15,11 +15,6 @@ body {
   background: var(--background);
 }
 
-pre,
-code {
-  font-family: var(--font-mono);
-}
-
 button,
 input,
 select,
