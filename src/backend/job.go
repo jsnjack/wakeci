@@ -51,6 +51,9 @@ type Job struct {
 	// ParamInfo explains params to the run form, apart from params so
 	// existing files don't change
 	ParamInfo map[string]ParamInfo `yaml:"param_info" json:"param_info"`
+	// Group puts the job under a heading on the jobs page; without it, the
+	// page can group jobs by the start of their names
+	Group string `yaml:"group" json:"group"`
 }
 
 // ParamInfo is what the run form says about a param: what it is for, the
@@ -330,6 +333,10 @@ func RegisterJob(filename string) error {
 			return err
 		}
 		err = jb.Put([]byte("labels"), labelsB)
+		if err != nil {
+			return err
+		}
+		err = jb.Put([]byte("group"), []byte(job.Group))
 		if err != nil {
 			return err
 		}

@@ -28,13 +28,14 @@ test("should load the job editor's code only when the editor opens", async ({ pa
 });
 
 // failJobsChunk makes the Jobs page's chunk answer 404, after delay, the first
-// `times` times, as a chunk that only the build before an update had, and
-// returns how often it was asked for
-async function failJobsChunk(page, times, delay = 0) {
+// `times` times and while stillOld says so, as a chunk that only the build
+// before an update had, and returns how often it was asked for. The build's
+// preload asks for a chunk too, so a page asks more than once a load.
+async function failJobsChunk(page, times, delay = 0, stillOld = () => true) {
     const asked = { count: 0 };
     await page.route(/\/assets\/JobsView-[\w-]+\.js$/, async (route) => {
         asked.count++;
-        if (asked.count > times) {
+        if (asked.count > times || !stillOld()) {
             return route.continue();
         }
         if (delay > 0) {
@@ -72,7 +73,8 @@ async function openFeed(page) {
 
 test("should load a page in full when its code fails to load after an update", async ({ page }) => {
     const counter = await openFeed(page);
-    await failJobsChunk(page, 1);
+    // Gone until the page loads in full
+    await failJobsChunk(page, Infinity, 0, () => counter.loads === 0);
     await updateServer(page);
 
     await page.getByTestId("nav-jobs").click();

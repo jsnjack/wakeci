@@ -70,6 +70,7 @@ func HandleJobsView(w http.ResponseWriter, r *http.Request) {
 				job.Interval = string(interval)
 				active := jb.Get([]byte("active"))
 				job.Active = string(active)
+				job.Group = string(jb.Get([]byte("group")))
 			}
 			data = append(data, &job)
 		}

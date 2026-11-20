@@ -137,7 +137,7 @@ const pages = [
     {
         name: "run-form",
         path: "/jobs",
-        ready: (page) => page.getByTestId("deploy").getByTestId("start-job-confirm"),
+        ready: (page) => page.getByTestId("start-job-confirm"),
         open: (page) => page.getByTestId("deploy").getByTestId("run-job-button").click(),
         // The dialog covers the window; the page under it scrolls
         fullPage: false,
