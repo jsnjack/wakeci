@@ -150,7 +150,7 @@ type mcpReadLogInput struct {
 	Build int    `json:"build" jsonschema:"build ID"`
 	Task  int    `json:"task" jsonschema:"task ID, from the build's tasks"`
 	Tail  int    `json:"tail,omitempty" jsonschema:"only the last lines, 1 to 10000; 200 if neither tail nor grep is set"`
-	Grep  string `json:"grep,omitempty" jsonschema:"only lines that contain this text, ignoring case, with their line numbers"`
+	Grep  string `json:"grep,omitempty" jsonschema:"only lines whose text contains this, ignoring case and the time each line starts with; with their line numbers"`
 }
 
 type mcpReadArtifactInput struct {

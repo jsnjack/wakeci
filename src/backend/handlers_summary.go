@@ -170,13 +170,13 @@ func HandleBuildSummary(w http.ResponseWriter, r *http.Request) {
 // HandleTaskLog returns a task's log, its end, or the lines that contain a
 // text
 // @Summary      Read a task's log, its last lines, or the lines that contain a text
-// @Description  Without tail or grep, the whole log (Range works). grep returns matching lines, ignoring case, each after its line number and a colon, at most 1000. With both, the last tail matching lines. API key scope: read
+// @Description  Without tail or grep, the whole log (Range works). grep returns the lines whose text contains it, ignoring case and the time each line starts with, each after its line number and a colon, at most 1000. With both, the last tail matching lines. API key scope: read
 // @Tags         build
 // @Produce      plain
 // @Param        id       path    integer   true   "Build ID"
 // @Param        task     path    integer   true   "Task ID, from status_update.tasks"
 // @Param        tail     query   integer   false  "Only the last lines, 1 to 10000"
-// @Param        grep     query   string    false  "Only lines that contain this text, ignoring case"
+// @Param        grep     query   string    false  "Only lines whose text contains this, ignoring case and the time each line starts with"
 // @Success      200      {string}   string
 // @Failure      400      {string}   string
 // @Failure      401      {string}   string
@@ -282,9 +282,9 @@ func tailLines(path string, n int) (string, error) {
 	return cutExcerpt(strings.Join(lines, "\n")), nil
 }
 
-// grepLines returns the lines of the file at path that contain text,
-// ignoring case, after their line numbers: the first maxGrepMatches, or the
-// last tail if tail is set
+// grepLines returns the lines of the file at path whose text contains
+// text, ignoring case, after their line numbers: the first maxGrepMatches,
+// or the last tail if tail is set
 func grepLines(path, text string, tail int) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -301,7 +301,7 @@ func grepLines(path, text string, tail int) (string, error) {
 	reader := bufio.NewReader(f)
 	for number := 1; ; number++ {
 		line, err := reader.ReadString('\n')
-		if line != "" && strings.Contains(strings.ToLower(line), wanted) {
+		if line != "" && strings.Contains(strings.ToLower(logText(line)), wanted) {
 			match := strconv.Itoa(number) + ": " + strings.TrimRight(line, "\n")
 			switch {
 			case tail > 0:
@@ -329,6 +329,18 @@ func grepLines(path, text string, tail int) (string, error) {
 		result += fmt.Sprintf("\n... %d more matching lines", more)
 	}
 	return cutExcerpt(result), nil
+}
+
+// logText is a task log line without the time it starts with
+// ("[    1.200s] "), so a search for 200 doesn't find every line written at
+// 1.200 s. ProcessLogEntry starts every line with it.
+func logText(line string) string {
+	if strings.HasPrefix(line, "[") {
+		if end := strings.Index(line, "] "); end != -1 {
+			return line[end+2:]
+		}
+	}
+	return line
 }
 
 // cutExcerpt keeps the end of text within maxExcerptBytes

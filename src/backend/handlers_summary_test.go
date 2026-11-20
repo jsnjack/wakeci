@@ -94,6 +94,34 @@ func TestGrepLines(t *testing.T) {
 	}
 }
 
+// TestGrepLinesSkipsTheTimePrefix is a regression test: grep matched the
+// time each line starts with, so a search for an HTTP status such as 200
+// also found every line written at x.200 s
+func TestGrepLinesSkipsTheTimePrefix(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "task.log")
+	content := "[    1.200s] > Running command: npm test\n" +
+		"[   48.307s] GET /api/cart 200 OK\n" +
+		"[ 1m12.200s] PASS cart.spec.ts\n" +
+		"[ 1m13.004s] [warn] retrying\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatalf("write log: %v", err)
+	}
+	tests := []struct{ text, want string }{
+		{"200", "2: [   48.307s] GET /api/cart 200 OK"},
+		{"s]", ""},
+		{"[warn]", "4: [ 1m13.004s] [warn] retrying"},
+	}
+	for _, tt := range tests {
+		got, err := grepLines(path, tt.text, 0)
+		if err != nil {
+			t.Fatalf("grepLines: %v", err)
+		}
+		if got != tt.want {
+			t.Errorf("grepLines(%q) = %q, want %q", tt.text, got, tt.want)
+		}
+	}
+}
+
 // addFailedTestBuild adds build 7 of deploy: task 0 finished, task 1 failed
 // with a 300-line log, task 2 skipped without a log
 func addFailedTestBuild(t *testing.T) {
