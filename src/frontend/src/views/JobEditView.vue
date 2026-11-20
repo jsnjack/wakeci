@@ -1,50 +1,45 @@
 <template>
-    <div class="tabs left-align">
-        <a
-            class="active"
-            data-cy="job-file-tab"
-        >
-            <i>description</i>
-            <span>{{ canAny("write") ? "Edit" : "View" }}</span>
-        </a>
-        <router-link
-            :to="{ name: 'jobInsights', params: { name } }"
-            data-cy="job-insights-tab"
-        >
-            <i>insights</i>
-            <span>Insights</span>
-        </router-link>
-    </div>
-    <div class="space"></div>
-    <div>
-        <Codemirror
-            v-model="job.fileContent"
-            data-cy="editor"
-            :autofocus="true"
-            :indent-with-tab="true"
-            :tab-size="2"
-            :extensions="extensions"
+    <div class="ui job-edit stack gap-3">
+        <JobTabs
+            :name="name"
+            current="edit"
         />
+        <div class="editor-box">
+            <Codemirror
+                v-model="job.fileContent"
+                data-cy="editor"
+                :autofocus="true"
+                :indent-with-tab="true"
+                :tab-size="2"
+                :extensions="extensions"
+            />
+        </div>
+        <div
+            v-if="canAny('write')"
+            class="cluster end gap-2"
+        >
+            <button
+                type="button"
+                class="btn"
+                data-cy="save-button"
+                @click="save"
+            >
+                Save
+            </button>
+            <button
+                type="button"
+                class="btn btn-primary"
+                data-cy="save-and-close-button"
+                @click="saveAndClose"
+            >
+                Save & Close
+            </button>
+        </div>
     </div>
-    <nav v-if="canAny('write')">
-        <div class="max"></div>
-        <button
-            data-cy="save-button"
-            @click.prevent="save"
-        >
-            Save
-        </button>
-        <button
-            class="secondary"
-            data-cy="save-and-close-button"
-            @click.prevent="saveAndClose"
-        >
-            Save & Close
-        </button>
-    </nav>
 </template>
 
 <script>
+import JobTabs from "@/components/JobTabs.vue";
 import { yaml } from "@codemirror/lang-yaml";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView } from "@codemirror/view";
@@ -55,6 +50,7 @@ import vuex from "vuex";
 export default {
     components: {
         Codemirror,
+        JobTabs,
     },
     props: {
         name: {
@@ -128,4 +124,10 @@ export default {
 };
 </script>
 
-<style scoped></style>
+<style scoped>
+.editor-box {
+    border: 1px solid var(--outline-variant);
+    border-radius: var(--radius-control);
+    overflow: hidden;
+}
+</style>

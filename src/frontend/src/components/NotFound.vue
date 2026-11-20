@@ -1,22 +1,21 @@
 <template>
-    <div class="fill medium-height middle-align center-align">
-        <div class="center-align">
-            <i class="extra">celebration</i>
-            <h5>Well, a fine little mess. Easy in, easy out. Another triumph.</h5>
-            <p>...or simply put it, everything went hilariously sideways!</p>
-            <nav class="center-align">
-                <button
-                    class="border round"
-                    @click.prevent="back"
-                >
-                    Go back
-                </button>
-                <router-link
-                    to="/"
-                    class="button"
-                    >Feed
-                </router-link>
-            </nav>
+    <div class="ui not-found stack gap-3">
+        <i class="icon large">celebration</i>
+        <h1>Well, a fine little mess. Easy in, easy out. Another triumph.</h1>
+        <p class="muted">...or simply put it, everything went hilariously sideways!</p>
+        <div class="cluster gap-2">
+            <button
+                type="button"
+                class="btn btn-outline btn-ghost"
+                @click="back"
+            >
+                Go back
+            </button>
+            <router-link
+                to="/"
+                class="btn btn-primary"
+                >Feed</router-link
+            >
         </div>
     </div>
 </template>

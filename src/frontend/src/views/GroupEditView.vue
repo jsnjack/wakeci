@@ -1,33 +1,37 @@
 <template>
     <form
         v-if="ready"
+        class="ui group-edit stack gap-4"
         novalidate
         @submit.prevent="save"
     >
-        <div
+        <label
             v-if="isNew"
-            class="field label border"
-            :class="{ invalid: nameError !== '' }"
+            class="form-field"
         >
+            <span class="label-text">Group name</span>
             <input
                 id="group-name"
                 ref="nameInput"
                 v-model="name"
+                class="input"
+                :class="{ invalid: nameError !== '' }"
                 type="text"
                 maxlength="200"
-                placeholder=" "
                 data-cy="group-name"
                 @input="nameError = ''"
             />
-            <label for="group-name">Group name</label>
-            <output
+            <span
                 v-if="nameError"
-                class="invalid"
+                class="hint error-text"
+                >{{ nameError }}</span
             >
-                {{ nameError }}
-            </output>
-            <output v-else>As the identity provider names it, for example Service Team. Case doesn't matter.</output>
-        </div>
+            <span
+                v-else
+                class="hint"
+                >As the identity provider names it, for example Service Team. Case doesn't matter.</span
+            >
+        </label>
         <p v-else-if="noGroup">
             What people in <b data-cy="group-title">none of the groups</b> may do when they sign in with single sign-on. Members of a group get only their
             groups' permissions. A change applies to their next request.
@@ -44,27 +48,28 @@
 
         <p
             v-if="noGroup && grant.scopes.includes('write')"
-            class="warning small-padding small-round"
+            class="warning"
             data-cy="no-group-write-warning"
         >
             With write, anyone the identity provider lets in who is in none of the groups can change jobs, and so run commands on this server.
         </p>
 
-        <nav class="right-align">
+        <div class="cluster end gap-2">
             <router-link
                 to="/settings"
-                class="button border"
+                class="btn btn-ghost"
             >
                 Cancel
             </router-link>
             <button
                 type="submit"
+                class="btn btn-primary"
                 data-cy="save-group"
                 :disabled="saving"
             >
                 {{ isNew ? "Add group" : noGroup && !existed ? "Allow" : "Save" }}
             </button>
-        </nav>
+        </div>
     </form>
 </template>
 
@@ -186,7 +191,17 @@ export default {
 
 <style scoped>
 .warning {
-    border-left: 3px solid var(--error);
+    padding: var(--space-3);
+    border-inline-start: 3px solid var(--error);
+    border-radius: var(--radius-control);
     background-color: var(--surface-container);
+}
+
+.input.invalid {
+    border-color: var(--error);
+}
+
+.error-text {
+    color: var(--error);
 }
 </style>
