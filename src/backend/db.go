@@ -24,6 +24,7 @@ import (
 // JobsBucket contains all registered jobs
 // Schema (key is the name of the file):
 // | defaultParams | null    |
+// | labels        | []      | names of the params shown first, Job.labelNames
 // | desc          | New job |
 // | interval      |         |
 // | active        | true    |

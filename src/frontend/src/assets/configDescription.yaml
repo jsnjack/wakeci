@@ -1,8 +1,14 @@
 desc: Ask a cow to say something smart
 # 'params' are injected as environmetal variables
-# Note: The very first 'param' is visible on the Feed page
+# The feed shows the params a build changed from these defaults, labels first
 params:
   - SLEEP: 5
+  - BRANCH_LABEL: main
+# Labels are the params that say what a build is about: the feed shows their
+# values first, and a search finds them by name, e.g. `branch=main`. Without
+# `labels`, the params named *_LABEL are the labels. Values at their default
+# aren't shown
+labels: [BRANCH_LABEL]
 
 tasks:
   - name: Waking up a cow
