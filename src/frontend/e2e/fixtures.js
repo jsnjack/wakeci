@@ -308,7 +308,7 @@ export const test = base.extend({
             async openBuild(id, status = "finished") {
                 await wake.waitForBuild(id, status);
                 await page.goto(`/build/${id}`);
-                await expect(page.getByTestId("reload").first()).toBeVisible();
+                await expect(page.getByTestId("task-title").first()).toBeVisible();
             },
             async livePage(path) {
                 const subscribed = page.waitForEvent("websocket").then((socket) =>
@@ -359,6 +359,15 @@ export const test = base.extend({
         }
     },
 });
+
+// openLog opens the log of the build page's task row n, unless it is open:
+// a running task's opens by itself, and a click would close it
+export async function openLog(page, n = 0) {
+    const row = page.getByTestId("task-title").nth(n);
+    if ((await row.getAttribute("aria-expanded")) !== "true") {
+        await row.click();
+    }
+}
 
 export async function login(page, password = "admin") {
     await page.locator("#password").fill(password);

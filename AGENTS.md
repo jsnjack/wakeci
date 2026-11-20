@@ -46,6 +46,7 @@ src/backend/                 Go server (package main, module "wakeci")
   auth_limiter.go            Per-client failed-auth limiter and retry/reset response headers
   audit.go                   Audit log: who did what, AuditMi and the table of audited routes
   middleware.go               chi middleware: per-request logger, auth, CORS, security headers
+  colors.go                  Colour log of task output: SGR codes and hyperlinks kept, secrets redacted (docs/logs.md)
   handlers_*.go              HTTP handlers per resource (auth incl. SSO, jobs, job, build, feed, queue, settings, static, docs)
   wsclient.go, wshub.go      WebSocket hub: pushes build/feed updates to connected browsers
   query_parser.go            Feed search query parser (`+must -exclude "phrase" key:value`)
@@ -70,6 +71,7 @@ src/frontend/                Vue 3 + Vite SPA
 | [docs/deprecations.md](docs/deprecations.md) | Old parameters and fields that still work, their users and their removal |
 | [docs/settings.md](docs/settings.md) | Wakefile.yaml or the settings page, the settings file, `--import-settings` |
 | [docs/analytics.md](docs/analytics.md) | Build stats, who started a build, the analytics page, job insights |
+| [docs/logs.md](docs/logs.md) | Task log files, colours, log messages, the log route, the log viewer and its search |
 | [docs/ui-roadmap.md](docs/ui-roadmap.md) | The feed, labels, live updates, the build page, task logs, the jobs page, the run form or the styles (replacing BeerCSS): the planned changes and their evidence |
 
 ---

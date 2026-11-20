@@ -101,7 +101,7 @@ here and name it (e.g. "F1") in the commit message.
   the next build, Esc closes, and a button opens the build as its own page.
   The address names both, so a reload or a shared link restores them. Below
   the wide breakpoint a click opens the build page as today. The right half
-  is the build page (B1–B3). Effort M.
+  is the build page. Effort M.
 - Not planned: labels added to a build after it ran ("flaky"). They would
   need storage per build, an audited route and access rules.
 
@@ -112,17 +112,6 @@ here and name it (e.g. "F1") in the commit message.
   or hovers a row, collect new builds behind a "3 new builds" pill; insert
   them on click or at the top. Today `FeedView.applyUpdate` adds and
   re-sorts at once. Effort S.
-- **L2. Load, then stream.** A running task opened mid-way shows only what
-  arrives after the page subscribed: `wsclient.go` sends no earlier lines and
-  `TaskItem` starts empty. Fetch what is written, then append streamed lines.
-  Each `build:log:` message carries the line's number so the page can drop
-  what it already has; this also fills the gap after a reconnect. Today a
-  reload of a running task replaces the text with the file, so lines waiting
-  in the 500 ms buffer appear twice. The server sends a task's lines in
-  batches (about every 100 ms), numbered from the first, in
-  `CommandLogData.ID`, which nothing sets today: one message per line
-  through the unbuffered hub disconnects a browser with 1,024 messages
-  queued during a burst. Effort M.
 - **L3. Progress against the usual duration.** A bar from `eta` on running
   rows and in the build header ("4m 12s of about 9m"); mark builds far over
   it, and flag a build past its usual duration that printed nothing for a
@@ -138,179 +127,18 @@ here and name it (e.g. "F1") in the commit message.
 
 ## Build page
 
-Decided: one header, then the failure, then a plain task list (B1–B3). A
-header with more in it (a status band, strips, counts) and folded task
-groups were tried and read as overloaded.
+The page has one header, then the failure, then a plain task list, with
+logs in the viewer (docs/logs.md). A header with more in it (a status
+band, strips, counts) and folded task groups were tried and read as
+overloaded.
 
-- **B1. One header of three lines.** The status icon, the job name and its
-  description, with labelled actions on the right: Run again, Abort while
-  running, a bell to notify, and "⋯" for start now, hide logs and raw logs.
-  Under it "#1204 · Failed after 7 min 46 s · started 11 min ago, 11:20
-  UTC", then the labels and changed values, as the feed shows them
-  (`src/feed.js`), and "All 11 parameters", which opens the full
-  list (B6). No second card for the parameters. Who started the build, the
-  usual duration and the F2 strip can join the second line later. Effort M.
-- **B2. Failure first.** The failed task's log sits right under the header,
-  in a box about 420 px high, opened at its end; its row in the list scrolls
-  to it. A running task opens in its place, in the list, following its end.
-  Jenkins Blue Ocean auto-opened whole failed logs and users complained
-  that they pushed everything else away; a box opened at the end avoids
-  that. "First error" heuristics don't work: in the logs looked at, the first
-  line matching `Error` was harmless noise near the top, and the failing
-  test was named about 40 lines above the end. Search in the log (B4) finds
-  it. Effort S with the log viewer.
-- **B3. A plain task list.** Every task that ran, and every main task, as a
-  row of about 34 px: status, name, duration, no buttons; a click opens its
-  log under the row, with raw log and reload in the log's bar. Hooks sit
-  under small headings: Before start, After failure, After abort, After
-  success, Always. Main tasks that never ran say "not run" in grey instead
-  of showing the pending icon. Effort S.
-- **B4. Log viewer.** See [Task logs](#task-logs).
 - **B5. Summary first.** `$WAKE_SUMMARY` already shows above the tasks; the
   docs should show how a test task writes its failed tests and the value to
   re-run only them. Later: a "Re-run with these values" link, and Markdown
   rendered without raw HTML. Effort S, then M.
-- **B6. All parameters on demand.** "All 11 parameters" opens a list of
-  names and values, the changed ones first. Re-run with changes opens the
-  run form with this build's values. Effort S.
 - **B7. History in reach.** The job's last 20 builds as a strip next to the
   title (`OutcomeStrip` from the analytics page), keys for previous and next
   build. Effort S.
-
-## Task logs
-
-Wanted: colours, links, search over the whole log, and no trouble at 10 MB
-and above.
-
-### Measurements
-
-A generated log of 10 MB (129,455 lines, wakeci's time prefix, colour codes
-on 17% of lines, URLs on 5%), in Chrome 1440×900 on a desktop. A blank page's
-renderer uses 134 MB.
-
-| 10 MB | One `<pre>` (finished task today) | Colours and links as HTML (a div per line) | Streaming today (running task) | CodeMirror 6, read-only |
-|---|---|---|---|---|
-| First paint | 0.4–1.2 s | 1.7–2.3 s | | 0.03 s, after 0.06 s to parse colours |
-| Renderer memory | 533 MB | 886 MB | 1.2 GB | 321 MB |
-| Elements | 8 | 322,532 | 8 | about 230 |
-| Scroll to the middle | 25 ms | 80–150 ms | | 20 ms |
-| Wrap on/off | 0.5–0.8 s | | | 34 ms |
-| One 500 ms update | | | 50 ms at 1 MB, 387 ms at 10 MB | 33 ms for 100 lines, flat |
-
-At 50 MB (644,310 lines): one `<pre>` paints in 2.9 s with 2 GB; CodeMirror
-in 0.1 s after 0.4 s of parsing, with 529 MB.
-
-Search over the 10 MB text: `indexOf` under 1 ms, a case-insensitive regex
-5 ms (22 ms at 50 MB). CodeMirror's `SearchCursor` takes 0.4–0.6 s to count
-all matches (2.3–2.8 s at 50 MB), so the viewer counts matches itself.
-
-So the risk is not a finished plain log: Chrome draws 10 MB in one `<pre>`.
-It is colours and links as ordinary elements (half a million nodes), and
-streaming as `TaskItem` does it, which copies and lays out the whole log on
-every update: at 10 MB 387 ms of every 500 ms, 1.2 GB and rising.
-
-A hand-written viewer in the prototype kept the text in 256 KB pieces with
-a typed-array line index, drew 200-line chunks only near the visible part,
-and worked out colours, links and search hits only for drawn lines. An 8 MB
-coloured log was indexed in 5 ms and its end drawn in about 40 ms, with 400
-lines in the page; scrolling it top to bottom held 60 frames a second;
-searching all of it took 12–22 ms; 10 MB streamed at 1 MB/s (7,000 lines a
-second) averaged 17–18 ms a frame, the worst 33–50 ms. It is about 10 kB
-instead of CodeMirror's 250 kB, but a selection dragged past the drawn
-chunks loses its text, so CodeMirror stays the engine and the prototype
-fixes the look and behaviour.
-
-### Design
-
-- **CodeMirror 6, read-only, as the viewer.** It renders only the visible
-  lines, keeps selection and copy across lines that are off screen (a
-  hand-written virtual list loses them), and has line numbers, wrapping and
-  scrolling to a position. The job editor already ships it: the log viewer
-  needs `@codemirror/view`, `state` and `search`, about 250 kB minified,
-  shared with the editor's chunk, under the 500 kB limit. Import them
-  directly, not through `vue-codemirror`'s `basicSetup` (a 428 kB chunk with
-  autocompletion and lint), and add `state` and `search` to `package.json`;
-  today they come only through other packages. The editor view stays out of
-  Vue's reactivity, and streamed lines are appended in one transaction per
-  animation frame, never by rebuilding the text.
-- **The document is the visible text.** Colour codes are parsed once (60 ms
-  for 10 MB) into spans per line; a view plugin turns the spans of the
-  visible lines into decorations, so the cost does not grow with the log.
-  Links come from a `MatchDecorator`, also only for visible lines: `http`
-  and `https` only, opened with `rel="noopener noreferrer"`. Terminal
-  hyperlinks (OSC 8, printed by test reporters and `ls --hyperlink`) become
-  links too, under the same rule. A line redrawn with carriage returns (a
-  progress bar) shows only its last state; cursor movement and other escape
-  sequences are dropped. Nothing from a log is ever inserted as HTML.
-- **Search.** A search box of our own (Ctrl+F and `/` inside the viewer open
-  it, as the browser can't find text that isn't drawn) with the rules of
-  `GET /api/build/{id}/log/{task}?grep=`: text, not a regex, ignoring case
-  (an Aa toggle, and `case=1` for `grep`), in each line after its time
-  prefix. A regex would run on every streamed batch in the page, and a slow
-  one freezes it. "37 of 2,633", next and previous via the editor's
-  selection, and highlights as decorations of the visible matches only.
-  - **While the task runs (decided).** A line never changes once it appears:
-    go-cmd hands a line over at its line break, and `ProcessLogEntry` keeps
-    the last state of a `\r` redraw. So each streamed batch is searched on
-    its own; the count grows and the current match stays. A jump to a match
-    pauses following, which today only a wheel or key scroll does (it sets
-    `readingAbove`); new lines and matches wait behind the pill ("214 new
-    lines · 2 new matches").
-  - **Only matching lines (decided),** a toggle, like `tail -f | grep`: the
-    matching lines with their own line numbers and "⋯ 245 lines" between
-    them, new matches appended as they arrive. A click on a line number
-    opens the full log at that line.
-  - **Search all tasks** lists the matches per task: finished tasks from
-    `grep`, the running task from the viewer's own text with new matches
-    added as they arrive, later tasks as "not started". `grep` stops at
-    1,000 matches, shown as "1,000+".
-  - **After a reconnect** the page fetches the log again; the search keeps
-    its query, counts again and keeps the current match by its line number.
-- **Line links and the time prefix.** Click a line number to put the task
-  and the line in the address (`#t13-L120`), shift-click for a range
-  (`#t13-L120-L125`), with Copy lines; opening such a link opens that task
-  scrolled to the lines, marked. The `[ 9m46.704s] ` prefix is drawn in grey,
-  and can move to its own gutter that can be hidden.
-- **Wrapping.** On by default, as today; off keeps each line on one row and
-  the line numbers in place while scrolling sideways.
-- **Loading.** A finished task's log is fetched whole: full fetches are
-  gzipped, and a real log compressed 5.7 times, so 10 MB is about 1.8 MB on
-  the wire. Above 50 MB the viewer opens the last 10,000 lines (`?tail=`)
-  and offers the full log; search then uses `grep`. A running task loads
-  what is written, then appends streamed lines (L2), and follows the end
-  only while the user is at the bottom; otherwise a "N new lines" pill. A
-  running task that grows past 50 MB while open drops its oldest lines and
-  says so; the search then covers what it keeps and offers the whole log
-  through `grep`.
-- **Colours on the server.** Tasks run without a terminal, so most tools
-  print no colours, and `ProcessLogEntry` strips the codes anyway.
-  - Keep `task_N.log` plain: `WAKE_FAILED_TASK_LOG`, the raw log link, the
-    `tail` and `grep` API, MCP and agents read it.
-  - Write `task_N.ansi.log` beside it, line for line, keeping only SGR
-    codes (colour and style), once a line of the task has any; before that
-    the plain lines are the same. Other escape sequences are still removed.
-  - Jobs opt in (decided): `color: true` on the job or task sets
-    `FORCE_COLOR=1`, `CLICOLOR_FORCE=1` and `PY_COLORS=1`, and a job may set
-    them, or a tool's `--color=always`, itself. Not on by default, since a
-    script that parses a tool's output would get codes; not a PTY, which
-    would merge stdout and stderr and change line endings.
-  - Redact secrets in the visible text: today `redactSecrets` runs before
-    `StripColor`, so a secret split by colour codes isn't matched, and
-    stripping joins it again in the plain log. For the colour file, redact
-    the visible text and keep the codes around it.
-  - The 16 basic colours map to CSS variables, one palette for light and
-    one for dark, each readable on its log background. 256 and 24-bit
-    colours keep the program's colour, moved toward the text colour until
-    it has 4.5:1 contrast with the background (white text on the light
-    theme turns grey), cached per colour. Background colours are drawn at
-    about a quarter strength, so text on them stays readable in both
-    themes.
-- **Tests.** `secrets.spec.js` matches the `.log-line` text with the time
-  prefix inline; with the prefix in a gutter it reads the viewer's text
-  instead. Tests that look for a line in the page text pass while short logs
-  are drawn whole.
-- **Effort.** The viewer with search and links M–L; colours on the server M;
-  line numbers in log messages S.
 
 ## Jobs page and run form
 
@@ -373,8 +201,7 @@ inside an element with the class `ui`, where BeerCSS's styles of elements
 are rolled back, so a page moves by putting `ui` on its root.
 
 - **S3. Page by page,** each with that page's items so it changes once: the
-  build page with B1–B4 and B6; the jobs page
-  with J1; the run form with J2; then settings, keys and groups, analytics,
+  jobs page with J1; the run form with J2; then settings, keys and groups, analytics,
   help and login. Effort M per page.
 - **S4. Remove BeerCSS** once no page uses it, and ship an icon font with
   only the icons in use, generated by a script, with a test that every icon
@@ -409,7 +236,7 @@ The look (decided): Material's colours at the density of a developer tool.
 
 | Phase | Items |
 |---|---|
-| 2 | The log viewer (B4) with L2, colours on the server; the build page on the new styles with B1–B3 and B6; then the build beside the feed (F9) |
+| 2 | The build beside the feed (F9) |
 | 3 | F4 and F8, J1, J2 |
 | 4 | The other pages on the new styles, S4 |
 | Later | F2, L1, L3–L6, B5, B7 |

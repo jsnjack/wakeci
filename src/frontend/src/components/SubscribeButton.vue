@@ -1,18 +1,15 @@
 <template>
     <button
+        type="button"
         data-cy="subscribe-button"
-        class="circle transparent"
+        class="btn btn-ghost btn-icon"
         :disabled="disabled"
-        @click.prevent="toggleSubscription"
+        :aria-label="label"
+        :aria-pressed="isSubscribed ? 'true' : 'false'"
+        :data-tip="disabled ? null : label"
+        @click="toggleSubscription"
     >
-        <i v-if="!isSubscribed">notifications_none</i>
-        <i v-else>notifications_active</i>
-        <div
-            v-if="!disabled"
-            class="tooltip bottom"
-        >
-            {{ isSubscribed ? "Unsubscribe from notifications" : "Subscribe to notifications" }}
-        </div>
+        <i class="icon">{{ isSubscribed ? "notifications_active" : "notifications_none" }}</i>
     </button>
 </template>
 
@@ -33,6 +30,9 @@ export default {
     },
     computed: {
         ...vuex.mapState(["notifyOnBuildStatusUpdate"]),
+        label() {
+            return this.isSubscribed ? "Don't notify me" : "Notify me when it ends";
+        },
         isSubscribed() {
             return !this.disabled && this.notifyOnBuildStatusUpdate.includes(this.buildId);
         },

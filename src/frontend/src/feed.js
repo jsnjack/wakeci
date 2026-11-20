@@ -11,10 +11,11 @@ const MAX_VALUE_LENGTH = 32;
 // other params the build changed. Empty values and values at the job's
 // default say nothing about the build and are left out, labels too. job is
 // { defaults: { NAME: value }, labels: [NAME] }, or null while unknown:
-// then every value counts as changed and the *_LABEL params are the labels.
+// then every value counts as changed. Without labels, the *_LABEL params
+// are the labels, as on the server (Job.labelNames).
 export function rowValues(params, job) {
     const defaults = job?.defaults || {};
-    const labels = job?.labels || (params || []).map((param) => Object.keys(param)[0]).filter((name) => name.endsWith(LABEL_SUFFIX));
+    const labels = job?.labels?.length ? job.labels : (params || []).map((param) => Object.keys(param)[0]).filter((name) => name.endsWith(LABEL_SUFFIX));
     const shown = [];
     for (const param of params || []) {
         const [name, value] = Object.entries(param)[0] || [];
