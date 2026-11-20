@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { test, expect } from "./fixtures.js";
+import { test, expect, openLog } from "./fixtures.js";
 
 test("should abort build when a user asks from the feed page", async ({ page, wake }) => {
     const gate = await wake.gate();
@@ -18,7 +18,7 @@ tasks:
     await expect(page).toHaveURL(`${wake.url}/build/${id}`);
     await expect(page.locator("[data-cy-status]")).toHaveCount(2);
     await expect(page.locator("[data-cy-status]").nth(1)).toHaveAttribute("data-cy-status", "aborted");
-    await page.getByTestId("reload").click();
+    await openLog(page);
     await expect(page.locator("body")).toContainText("Aborted with the admin password.");
 });
 
@@ -39,8 +39,8 @@ on_aborted:
     await page.getByTestId("abort-build-button").click();
     await expect(page.locator("[data-cy-status]").first()).toHaveAttribute("data-cy-status", "aborted");
     await expect(page.locator("[data-cy-status]")).toHaveCount(3);
-    await page.getByTestId("reload").nth(0).click();
-    await page.getByTestId("reload").nth(1).click();
+    await openLog(page, 0);
+    await openLog(page, 1);
     await expect(page.locator("body")).toContainText("Aborted with the admin password.");
     await expect(page.locator("body")).toContainText("BINGO");
 });
@@ -68,7 +68,7 @@ tasks:
     await keyAPI.dispose();
     await wake.waitForBuild(id, "aborted");
     await wake.livePage(`/build/${id}`);
-    await page.getByTestId("reload").click();
+    await openLog(page);
     await expect(page.locator("body")).toContainText(`Aborted with API key "${keyName}" (${key.id}).`);
 });
 
@@ -91,8 +91,8 @@ timeout: 1s
     await expect(page).toHaveURL(`${wake.url}/build/${id}`);
     await expect(page.locator("[data-cy-status]")).toHaveCount(3);
     await expect(page.locator("[data-cy-status]").first()).toHaveAttribute("data-cy-status", "timed out");
-    await page.getByTestId("reload").nth(0).click();
-    await page.getByTestId("reload").nth(1).click();
+    await openLog(page, 0);
+    await openLog(page, 1);
     await expect(page.locator("body")).toContainText("BONGO");
 });
 
@@ -116,8 +116,8 @@ timeout: 1s
     await expect(page.locator("[data-cy-status]").first()).toHaveAttribute("data-cy-status", "timed out");
     await expect(page.locator("[data-cy-status]")).toHaveCount(4);
     await expect(page.locator("[data-cy-status]").nth(2)).toHaveAttribute("data-cy-status", "timed out");
-    await page.getByTestId("reload").nth(1).click();
-    await page.getByTestId("reload").nth(2).click();
+    await openLog(page, 1);
+    await openLog(page, 2);
     await expect(page.locator("body")).toContainText("> Timed out.");
     await expect(page.locator("body")).toContainText("BONGO");
     await expect(page.locator("body")).not.toContainText("SHOULD-NOT-RUN");

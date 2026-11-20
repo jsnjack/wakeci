@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures.js";
+import { test, expect, openLog } from "./fixtures.js";
 
 test("should not ignore errors if task fails", async ({ page, wake }) => {
     const jobContent = `
@@ -11,7 +11,7 @@ tasks:
     const id = await wake.runJob(jobName);
     await wake.openBuild(id, "failed");
     await expect(page).toHaveURL(`${wake.url}/build/${id}`);
-    await page.locator("[data-cy=reload]").click();
+    await openLog(page);
     await expect(page.locator("body")).toContainText("> Exit code: 1");
     await expect(page.locator("body")).toContainText("failed");
 });
@@ -28,7 +28,7 @@ tasks:
     const id = await wake.runJob(jobName);
     await wake.openBuild(id);
     await expect(page).toHaveURL(`${wake.url}/build/${id}`);
-    await page.locator("[data-cy=reload]").click();
+    await openLog(page);
     await expect(page.locator("body")).toContainText("> Exit code: 1");
     await expect(page.locator("body")).toContainText("> Ignorring exit code");
     await expect(page.locator("body")).not.toContainText("failed");
