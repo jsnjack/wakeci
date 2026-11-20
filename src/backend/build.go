@@ -99,6 +99,8 @@ type Build struct {
 	failedTask *Task
 	// liveLog is the log of the task that runs now, nil between tasks
 	liveLog atomic.Pointer[taskLogWriter]
+	// logBatch holds the log lines that wait to be sent to the browsers
+	logBatch logBatch
 	// abort is the abort request for the tasks that run now, guarded by mutex
 	abort *abortScope
 	// abortedWhileQueued is set by Queue.Abort for a queued build: it has no
@@ -321,6 +323,8 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	bw := &taskLogWriter{file: file, w: bufio.NewWriter(file)}
 	b.liveLog.Store(bw)
 	defer func() {
+		// The task's last lines go out before its status changes
+		b.flushLog()
 		b.liveLog.CompareAndSwap(bw, nil)
 		if closeErr := bw.Close(); closeErr != nil {
 			b.Logger.Error("close task log", "task", task.ID, "err", closeErr)
@@ -847,15 +851,23 @@ type taskLogWriter struct {
 	file   *os.File
 	w      *bufio.Writer
 	closed bool
+	// lines counts the lines written, so each write knows its line number
+	lines int
 }
 
-func (l *taskLogWriter) WriteString(s string) (int, error) {
+// writeLines writes s, whole lines, and returns the number of its first
+// line in the log, counting from 1. One entry can be several lines, such as
+// a command of several lines that the log repeats.
+func (l *taskLogWriter) writeLines(s string) (int, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.closed {
 		return 0, os.ErrClosed
 	}
-	return l.w.WriteString(s)
+	first := l.lines + 1
+	l.lines += strings.Count(s, "\n")
+	_, err := l.w.WriteString(s)
+	return first, err
 }
 
 // Flush writes out the buffered lines; it does nothing once the log is
@@ -915,21 +927,85 @@ func (b *Build) ProcessLogEntry(line string, buffer *taskLogWriter, taskID int, 
 	// Note: Internal logs start with `>`
 	pline := fmt.Sprintf("[%10s] ", time.Since(startedAt).Truncate(time.Millisecond).String()) + StripColor(redactSecrets(line)) + "\n"
 	// Write to the task's log file
-	_, err := buffer.WriteString(pline)
+	first, err := buffer.writeLines(pline)
 	if err != nil {
 		b.Logger.Error("write task log", "task", taskID, "err", err)
+		return
 	}
-
 	// Send the log to all subscribed users
-	msg := MsgBroadcast{
-		Type: "build:log:" + strconv.Itoa(b.ID),
-		Data: &CommandLogData{
-			TaskID: taskID,
-			Data:   pline,
-		},
-		Job: b.Job.Name,
+	b.queueLog(taskID, first, pline)
+}
+
+// logBatchDelay is how long a task's log lines wait to be sent together,
+// and logBatchMax how much text a message holds at most
+const (
+	logBatchDelay = 100 * time.Millisecond
+	logBatchMax   = 64 << 10
+)
+
+// logBatch collects a task's log lines for logBatchDelay, so a burst of
+// output reaches the browsers in a few messages instead of one a line, which
+// filled a client's queue of 1024 and disconnected it
+type logBatch struct {
+	mu    sync.Mutex
+	task  int
+	first int // the number of the batch's first line in the task's log
+	text  strings.Builder
+	timer *time.Timer
+}
+
+// queueLog adds whole lines of task's log, the first numbered first, to the
+// lines that wait to be sent
+func (b *Build) queueLog(task, first int, text string) {
+	batch := &b.logBatch
+	var ready []*MsgBroadcast
+	batch.mu.Lock()
+	if batch.text.Len() > 0 && batch.task != task {
+		ready = append(ready, b.takeLogBatchLocked())
 	}
-	WSHub.broadcast <- &msg
+	if batch.text.Len() == 0 {
+		batch.task, batch.first = task, first
+	}
+	batch.text.WriteString(text)
+	if batch.text.Len() >= logBatchMax {
+		ready = append(ready, b.takeLogBatchLocked())
+	} else if batch.timer == nil {
+		batch.timer = time.AfterFunc(logBatchDelay, b.flushLog)
+	}
+	batch.mu.Unlock()
+	for _, msg := range ready {
+		WSHub.broadcast <- msg
+	}
+}
+
+// flushLog sends the lines that wait, at once
+func (b *Build) flushLog() {
+	batch := &b.logBatch
+	batch.mu.Lock()
+	if batch.text.Len() == 0 {
+		batch.timer = nil
+		batch.mu.Unlock()
+		return
+	}
+	msg := b.takeLogBatchLocked()
+	batch.mu.Unlock()
+	WSHub.broadcast <- msg
+}
+
+// takeLogBatchLocked empties the batch into a message; batch.mu is held
+func (b *Build) takeLogBatchLocked() *MsgBroadcast {
+	batch := &b.logBatch
+	if batch.timer != nil {
+		batch.timer.Stop()
+		batch.timer = nil
+	}
+	msg := &MsgBroadcast{
+		Type: "build:log:" + strconv.Itoa(b.ID),
+		Data: &CommandLogData{TaskID: batch.task, ID: batch.first, Data: batch.text.String()},
+		Job:  b.Job.Name,
+	}
+	batch.text.Reset()
+	return msg
 }
 
 // GetWorkspaceDir returns path to the workspace, where all user created files
