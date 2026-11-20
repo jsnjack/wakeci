@@ -320,7 +320,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 		b.Logger.Error("create task log", "task", task.ID, "err", err)
 		return StatusFailed
 	}
-	bw := &taskLogWriter{file: file, w: bufio.NewWriter(file)}
+	bw := &taskLogWriter{file: file, w: bufio.NewWriter(file), path: b.taskLogPath(task.ID), ansiPath: b.taskANSILogPath(task.ID)}
 	b.liveLog.Store(bw)
 	defer func() {
 		// The task's last lines go out before its status changes
@@ -340,6 +340,10 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	taskCmd.Env = os.Environ()
 	taskCmd.Dir = b.GetWorkspaceDir()
 	taskCmd.Env = append(taskCmd.Env, b.generateDefaultEnvVariables()...)
+	// Before the params and the task's env, which may set them otherwise
+	if b.Job.Color || task.Color {
+		taskCmd.Env = append(taskCmd.Env, colorEnv...)
+	}
 	b.mutex.Lock()
 	for idx := range b.Params {
 		for pkey, pval := range b.Params[idx] {
@@ -853,21 +857,62 @@ type taskLogWriter struct {
 	closed bool
 	// lines counts the lines written, so each write knows its line number
 	lines int
+	// path is the log's, and ansiPath the colour log's, which ansi writes
+	// once a line has colours; empty ansiPath writes none
+	path      string
+	ansiPath  string
+	ansiFile  *os.File
+	ansi      *bufio.Writer
+	ansiFails bool
 }
 
-// writeLines writes s, whole lines, and returns the number of its first
-// line in the log, counting from 1. One entry can be several lines, such as
-// a command of several lines that the log repeats.
-func (l *taskLogWriter) writeLines(s string) (int, error) {
+// writeLines writes plain, whole lines, to the log, and ansi, the same
+// lines with their colours, to the colour log, which starts at the first
+// line that has any (colored) with the lines before it. It returns the
+// number of plain's first line, counting from 1: one entry can be several
+// lines, such as a command of several lines that the log repeats.
+func (l *taskLogWriter) writeLines(plain, ansi string, colored bool) (int, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.closed {
 		return 0, os.ErrClosed
 	}
+	if colored && l.ansi == nil && l.ansiPath != "" && !l.ansiFails {
+		if err := l.startANSILocked(); err != nil {
+			// The plain log goes on; the page shows it without colours
+			l.ansiFails = true
+			L.Error("start colour log", "path", l.ansiPath, "err", err)
+		}
+	}
 	first := l.lines + 1
-	l.lines += strings.Count(s, "\n")
-	_, err := l.w.WriteString(s)
-	return first, err
+	l.lines += strings.Count(plain, "\n")
+	if _, err := l.w.WriteString(plain); err != nil {
+		return first, err
+	}
+	if l.ansi != nil {
+		if _, err := l.ansi.WriteString(ansi); err != nil {
+			return first, err
+		}
+	}
+	return first, nil
+}
+
+// startANSILocked creates the colour log with the lines the log has so far
+func (l *taskLogWriter) startANSILocked() error {
+	if err := l.w.Flush(); err != nil {
+		return err
+	}
+	before, err := os.ReadFile(l.path)
+	if err != nil {
+		return err
+	}
+	file, err := os.OpenFile(l.ansiPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, privateBuildFileMode)
+	if err != nil {
+		return err
+	}
+	l.ansiFile, l.ansi = file, bufio.NewWriter(file)
+	_, err = l.ansi.Write(before)
+	return err
 }
 
 // Flush writes out the buffered lines; it does nothing once the log is
@@ -877,6 +922,11 @@ func (l *taskLogWriter) Flush() error {
 	defer l.mu.Unlock()
 	if l.closed {
 		return nil
+	}
+	if l.ansi != nil {
+		if err := l.ansi.Flush(); err != nil {
+			return err
+		}
 	}
 	return l.w.Flush()
 }
@@ -889,7 +939,11 @@ func (l *taskLogWriter) Close() error {
 		return nil
 	}
 	l.closed = true
-	return errors.Join(l.w.Flush(), l.file.Close())
+	err := errors.Join(l.w.Flush(), l.file.Close())
+	if l.ansi != nil {
+		err = errors.Join(err, l.ansi.Flush(), l.ansiFile.Close())
+	}
+	return err
 }
 
 // flushLiveLog writes out the log of the task that runs now, so the file
@@ -925,15 +979,17 @@ func (b *Build) ProcessLogEntry(line string, buffer *taskLogWriter, taskID int, 
 	// - redact servers from the log
 	//
 	// Note: Internal logs start with `>`
-	pline := fmt.Sprintf("[%10s] ", time.Since(startedAt).Truncate(time.Millisecond).String()) + StripColor(redactSecrets(line)) + "\n"
-	// Write to the task's log file
-	first, err := buffer.writeLines(pline)
+	prefix := fmt.Sprintf("[%10s] ", time.Since(startedAt).Truncate(time.Millisecond).String())
+	plain, ansi, colored := colorLine(line)
+	pline, aline := prefix+plain+"\n", prefix+ansi+"\n"
+	// Write to the task's log files
+	first, err := buffer.writeLines(pline, aline, colored)
 	if err != nil {
 		b.Logger.Error("write task log", "task", taskID, "err", err)
 		return
 	}
 	// Send the log to all subscribed users
-	b.queueLog(taskID, first, pline)
+	b.queueLog(taskID, first, pline, aline, colored)
 }
 
 // logBatchDelay is how long a task's log lines wait to be sent together,
@@ -951,12 +1007,15 @@ type logBatch struct {
 	task  int
 	first int // the number of the batch's first line in the task's log
 	text  strings.Builder
-	timer *time.Timer
+	// ansi is text with its colours, sent only if a line had any (colored)
+	ansi    strings.Builder
+	colored bool
+	timer   *time.Timer
 }
 
 // queueLog adds whole lines of task's log, the first numbered first, to the
-// lines that wait to be sent
-func (b *Build) queueLog(task, first int, text string) {
+// lines that wait to be sent: text, and ansi with their colours if colored
+func (b *Build) queueLog(task, first int, text, ansi string, colored bool) {
 	batch := &b.logBatch
 	var ready []*MsgBroadcast
 	batch.mu.Lock()
@@ -967,6 +1026,8 @@ func (b *Build) queueLog(task, first int, text string) {
 		batch.task, batch.first = task, first
 	}
 	batch.text.WriteString(text)
+	batch.ansi.WriteString(ansi)
+	batch.colored = batch.colored || colored
 	if batch.text.Len() >= logBatchMax {
 		ready = append(ready, b.takeLogBatchLocked())
 	} else if batch.timer == nil {
@@ -999,12 +1060,14 @@ func (b *Build) takeLogBatchLocked() *MsgBroadcast {
 		batch.timer.Stop()
 		batch.timer = nil
 	}
-	msg := &MsgBroadcast{
-		Type: "build:log:" + strconv.Itoa(b.ID),
-		Data: &CommandLogData{TaskID: batch.task, ID: batch.first, Data: batch.text.String()},
-		Job:  b.Job.Name,
+	data := &CommandLogData{TaskID: batch.task, ID: batch.first, Data: batch.text.String()}
+	if batch.colored {
+		data.ANSI = batch.ansi.String()
 	}
+	msg := &MsgBroadcast{Type: "build:log:" + strconv.Itoa(b.ID), Data: data, Job: b.Job.Name}
 	batch.text.Reset()
+	batch.ansi.Reset()
+	batch.colored = false
 	return msg
 }
 
@@ -1034,6 +1097,17 @@ func (b *Build) GetWakespaceDir() string {
 // taskLogPath returns the path to the output log of the task
 func (b *Build) taskLogPath(taskID int) string {
 	return wakespaceDir(b.ID) + taskLogName(taskID)
+}
+
+// taskANSILogName is the task's colour log, task_N.ansi.log: task_N.log line
+// for line, with the colour codes and hyperlinks of the task's output. Only
+// tasks that printed colours have one.
+func taskANSILogName(taskID int) string {
+	return fmt.Sprintf("task_%d.ansi.log", taskID)
+}
+
+func (b *Build) taskANSILogPath(taskID int) string {
+	return wakespaceDir(b.ID) + taskANSILogName(taskID)
 }
 
 // GetArtifactsDir returns location of artifacts folder
