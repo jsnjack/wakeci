@@ -153,6 +153,10 @@ func addFailedTestBuild(t *testing.T) {
 	}
 	writeLog(t, filepath.Join(dir, "task_0.log"), 3, "")
 	writeLog(t, filepath.Join(dir, "task_1.log"), 299, "FAILED test_login\n")
+	// Task 1 printed colours
+	if err := os.WriteFile(filepath.Join(dir, "task_1.ansi.log"), []byte("\x1b[31mFAILED\x1b[0m test_login\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestBuildSummary(t *testing.T) {
@@ -241,6 +245,9 @@ func TestTaskLogRoute(t *testing.T) {
 		{"/api/build/7/log/1?grep=failed", http.StatusOK, "300: FAILED test_login"},
 		{"/api/build/7/log/1?grep=line+29&tail=1", http.StatusOK, "299: line 299"},
 		{"/api/build/7/log/0", http.StatusOK, "line 1\nline 2\nline 3\n"},
+		{"/api/build/7/log/1?ansi=1", http.StatusOK, "\x1b[31mFAILED\x1b[0m test_login"},
+		{"/api/build/7/log/0?ansi=1", http.StatusOK, "line 1\nline 2\nline 3\n"},
+		{"/api/build/7/log/1?ansi=1&grep=failed", http.StatusOK, "300: FAILED test_login"},
 		{"/api/build/7/log/2", http.StatusNotFound, "task 2 of build 7 wrote no log"},
 		{"/api/build/99/log/0", http.StatusNotFound, "build 99 not found"},
 		{"/api/build/7/log/x", http.StatusBadRequest, `invalid task ID "x"`},

@@ -46,7 +46,14 @@ type Job struct {
 	// Labels are the params that say what a build is about, shown first in
 	// the feed, in this order; without it, the params named *_LABEL
 	Labels []string `yaml:"labels" json:"labels"`
+	// Color asks the tools of every task to print colours (colorEnv)
+	Color bool `yaml:"color" json:"color"`
 }
+
+// colorEnv asks tools that see no terminal to print colours anyway: a job
+// or task with color: true gets it. Off by default, since a script that
+// parses a tool's output would get the codes.
+var colorEnv = []string{"FORCE_COLOR=1", "CLICOLOR_FORCE=1", "PY_COLORS=1"}
 
 // labelSuffix marks a param as a label when the job lists no labels
 const labelSuffix = "_LABEL"
@@ -139,6 +146,8 @@ type Task struct {
 	IgnoreErrors bool    `yaml:"ignore_errors" json:"ignore_errors"`
 	startedAt    time.Time
 	duration     time.Duration
+	// Color asks the task's tools to print colours (colorEnv)
+	Color bool `yaml:"color" json:"color"`
 }
 
 // OnTasks is a list of tasks that should be ran on status change

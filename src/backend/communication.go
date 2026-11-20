@@ -177,6 +177,9 @@ type CommandLogData struct {
 	// from 1, so a page that read the log can drop what it already has
 	ID   int    `json:"id"`
 	Data string `json:"data"`
+	// ANSI is Data with the colour codes and hyperlinks of the task's
+	// output, only if a line of Data had any
+	ANSI string `json:"ansi,omitempty"`
 }
 
 // SettingsData used for Settings view to allow user to modify settings

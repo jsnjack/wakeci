@@ -88,6 +88,13 @@ priority: 10
 # 0 - unlimited
 concurrency: 0
 
+# Asks the tools of every task to print colours, which the build page shows:
+# sets FORCE_COLOR=1, CLICOLOR_FORCE=1 and PY_COLORS=1, before the params and
+# the task's `env`, which can set them otherwise. A task can set `color: true`
+# on its own. Off by default, since a script that parses a tool's output
+# would get the colour codes; task_N.log stays plain either way
+color: true
+
 # List of tasks executed on build's status change
 # Available handlers:
 #  - `on_pending` - when the status of the build changes to `pending`

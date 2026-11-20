@@ -177,6 +177,7 @@ func HandleBuildSummary(w http.ResponseWriter, r *http.Request) {
 // @Param        task     path    integer   true   "Task ID, from status_update.tasks"
 // @Param        tail     query   integer   false  "Only the last lines, 1 to 10000"
 // @Param        grep     query   string    false  "Only lines whose text contains this, ignoring case and the time each line starts with"
+// @Param        ansi     query   boolean   false  "The whole log with the colour codes and hyperlinks of the task's output (ESC sequences), line for line, if it printed any; else the plain log. Not with tail or grep"
 // @Success      200      {string}   string
 // @Failure      400      {string}   string
 // @Failure      401      {string}   string
@@ -236,6 +237,11 @@ func HandleTaskLog(w http.ResponseWriter, r *http.Request) {
 	case tail > 0:
 		text, err = tailLines(path, tail)
 	default:
+		if query.Get("ansi") == "1" || query.Get("ansi") == "true" {
+			if ansiPath := wakespaceDir(id) + taskANSILogName(task); isFile(ansiPath) {
+				path = ansiPath
+			}
+		}
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		http.ServeFile(w, r, path)
 		return
@@ -361,4 +367,10 @@ func closeLog(f *os.File, path string) {
 	if err := f.Close(); err != nil {
 		L.Log(context.Background(), LevelTrace, "close log", "path", path, "err", err)
 	}
+}
+
+// isFile reports whether path is a regular file
+func isFile(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.Mode().IsRegular()
 }
