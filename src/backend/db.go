@@ -25,6 +25,7 @@ import (
 // Schema (key is the name of the file):
 // | defaultParams | null    |
 // | labels        | []      | names of the params shown first, Job.labelNames
+// | paramInfo     | {}      | what the run form says about params, Job.paramInfo
 // | desc          | New job |
 // | interval      |         |
 // | active        | true    |

@@ -149,11 +149,12 @@ func TestJobLabels(t *testing.T) {
 	}
 }
 
-// The jobs list sends each job's labels, as registering its file found them
+// The jobs list sends each job's labels and param_info, as registering its
+// file found them
 func TestJobListSendsLabels(t *testing.T) {
 	newAPIKeyTestEnv(t)
 	path := Config.JobDir + "labelled" + Config.jobsExt
-	content := "labels: [BRANCH, AUTHOR]\nparams:\n  - AUTHOR: unknown\n  - BRANCH: main\ntasks: []\n"
+	content := "labels: [BRANCH, AUTHOR]\nparams:\n  - AUTHOR: unknown\n  - BRANCH: main\nparam_info:\n  BRANCH: {desc: Branch to test, options: [main, dev]}\n  GONE: {type: bool}\ntasks: []\n"
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -167,5 +168,59 @@ func TestJobListSendsLabels(t *testing.T) {
 	i := slices.IndexFunc(jobs, func(job JobsListData) bool { return job.Name == "labelled" })
 	if i < 0 || !slices.Equal(jobs[i].Labels, []string{"BRANCH", "AUTHOR"}) {
 		t.Errorf("jobs = %+v, want labelled with labels [BRANCH AUTHOR]", jobs)
+	}
+	// What the run form says about params, for params only
+	if info := jobs[i].ParamInfo; len(info) != 1 || info["BRANCH"].Desc != "Branch to test" || !slices.Equal(info["BRANCH"].Options, []string{"main", "dev"}) {
+		t.Errorf("paramInfo = %+v, want BRANCH's only", info)
+	}
+}
+
+// With board=1 the jobs list adds each job's last builds, oldest first, its
+// failing streak and its next scheduled run (J1)
+func TestJobListBoard(t *testing.T) {
+	newAPIKeyTestEnv(t)
+	err := DB.Update(func(tx *bolt.Tx) error {
+		b, err := tx.CreateBucketIfNotExists(BuildStatsBucket)
+		if err != nil {
+			return err
+		}
+		for i, status := range []ItemStatus{StatusFinished, StatusFailed, StatusAborted, StatusFailed} {
+			record, _ := json.Marshal(buildStats{ID: 100 + i, Job: "deploy", Status: status})
+			if err := b.Put(Itob(100+i), record); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var jobs []JobsListData
+	if err := json.Unmarshal(adminRequest("GET", "/api/jobs/?board=1", nil).Body.Bytes(), &jobs); err != nil {
+		t.Fatal(err)
+	}
+	i := slices.IndexFunc(jobs, func(job JobsListData) bool { return job.Name == "deploy" })
+	if i < 0 {
+		t.Fatalf("no deploy in %+v", jobs)
+	}
+	ids := []int{}
+	for _, b := range jobs[i].Recent {
+		ids = append(ids, b.ID)
+	}
+	if !slices.Equal(ids, []int{100, 101, 102, 103}) {
+		t.Errorf("recent = %v, want 100..103 oldest first", ids)
+	}
+	if f := jobs[i].Failing; f == nil || f.Builds != 2 || f.First.ID != 101 || f.Last.ID != 103 {
+		t.Errorf("failing = %+v, want 2 builds from 101 to 103", f)
+	}
+	// Without board the list stays as it was
+	var plain []map[string]any
+	if err := json.Unmarshal(adminRequest("GET", "/api/jobs/", nil).Body.Bytes(), &plain); err != nil {
+		t.Fatal(err)
+	}
+	for _, job := range plain {
+		if _, ok := job["recent"]; ok {
+			t.Errorf("recent without board: %v", job)
+		}
 	}
 }

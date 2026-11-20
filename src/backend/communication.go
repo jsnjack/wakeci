@@ -43,9 +43,20 @@ type JobsListData struct {
 	// Labels are the names of the params that say what a build is about, in
 	// the order the feed shows them: the job's labels list, or else its
 	// params named *_LABEL
-	Labels   []string `json:"labels"`
-	Interval string   `json:"interval"`
-	Active   string   `json:"active"`
+	Labels []string `json:"labels"`
+	// ParamInfo explains params to the run form: their description, the
+	// values they suggest, and whether they are true or false
+	ParamInfo map[string]ParamInfo `json:"paramInfo"`
+	Interval  string               `json:"interval"`
+	Active    string               `json:"active"`
+	// Recent, with board=1, are the job's last builds, oldest first, at
+	// most boardBuilds
+	Recent []BuildOutcome `json:"recent,omitempty"`
+	// Failing, with board=1, is the job's failing streak up to its last
+	// build, if it fails
+	Failing *FailingStreak `json:"failing,omitempty" extensions:"x-nullable"`
+	// NextRun, with board=1, is when the job's interval starts it next
+	NextRun *time.Time `json:"nextRun,omitempty" extensions:"x-nullable"`
 }
 
 // TaskStatus contains basic info about a task, used for status updates
