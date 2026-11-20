@@ -1,5 +1,8 @@
 <template>
-    <div class="row">
+    <div
+        class="row"
+        data-cy="started-ago"
+    >
         <i class="small">schedule</i>
         <div>{{ startedAgoText }}</div>
         <div

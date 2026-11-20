@@ -1,0 +1,693 @@
+{
+  "now": "2026-11-20T15:09:44.932Z",
+  "data": {
+    "days": 30,
+    "from": "2026-10-22",
+    "today": "2026-11-20",
+    "since": "2026-10-22T00:00:00Z",
+    "totals": {
+      "builds": 749,
+      "finished": 698,
+      "failed": 43,
+      "timedOut": 3,
+      "aborted": 5,
+      "successRate": 0.9382,
+      "duration": {
+        "count": 698,
+        "p50": 312000000000,
+        "p95": 640000000000
+      },
+      "wait": {
+        "count": 749,
+        "p50": 4000000000,
+        "p95": 38000000000
+      }
+    },
+    "previousSuccessRate": 0.9012,
+    "byDay": [
+      {
+        "day": "2026-10-22",
+        "finished": 24,
+        "failed": 0,
+        "timedOut": 0,
+        "aborted": 0,
+        "successRate": 1.0,
+        "duration": {
+          "count": 24,
+          "p50": 240000000000,
+          "p95": 540000000000
+        },
+        "wait": {
+          "count": 24,
+          "p50": 2000000000,
+          "p95": 20000000000
+        }
+      },
+      {
+        "day": "2026-10-23",
+        "finished": 31,
+        "failed": 3,
+        "timedOut": 0,
+        "aborted": 1,
+        "successRate": 0.9118,
+        "duration": {
+          "count": 31,
+          "p50": 277000000000,
+          "p95": 593000000000
+        },
+        "wait": {
+          "count": 35,
+          "p50": 3000000000,
+          "p95": 27000000000
+        }
+      },
+      {
+        "day": "2026-10-24",
+        "finished": 9,
+        "failed": 0,
+        "timedOut": 0,
+        "aborted": 0,
+        "successRate": 1.0,
+        "duration": {
+          "count": 9,
+          "p50": 314000000000,
+          "p95": 646000000000
+        },
+        "wait": {
+          "count": 9,
+          "p50": 4000000000,
+          "p95": 34000000000
+        }
+      },
+      {
+        "day": "2026-10-25",
+        "finished": 7,
+        "failed": 0,
+        "timedOut": 0,
+        "aborted": 0,
+        "successRate": 1.0,
+        "duration": {
+          "count": 7,
+          "p50": 261000000000,
+          "p95": 579000000000
+        },
+        "wait": {
+          "count": 7,
+          "p50": 5000000000,
+          "p95": 41000000000
+        }
+      },
+      {
+        "day": "2026-10-26",
+        "finished": 30,
+        "failed": 2,
+        "timedOut": 1,
+        "aborted": 0,
+        "successRate": 0.9091,
+        "duration": {
+          "count": 30,
+          "p50": 298000000000,
+          "p95": 632000000000
+        },
+        "wait": {
+          "count": 33,
+          "p50": 6000000000,
+          "p95": 48000000000
+        }
+      },
+      {
+        "day": "2026-10-27",
+        "finished": 26,
+        "failed": 0,
+        "timedOut": 0,
+        "aborted": 0,
+        "successRate": 1.0,
+        "duration": {
+          "count": 26,
+          "p50": 245000000000,
+          "p95": 565000000000
+        },
+        "wait": {
+          "count": 26,
+          "p50": 2000000000,
+          "p95": 55000000000
+        }
+      },
+      {
+        "day": "2026-10-28",
+        "finished": 33,
+        "failed": 3,
+        "timedOut": 0,
+        "aborted": 0,
+        "successRate": 0.9167,
+        "duration": {
+          "count": 33,
+          "p50": 282000000000,
+          "p95": 618000000000
+        },
+        "wait": {
+          "count": 36,
+          "p50": 3000000000,
+          "p95": 22000000000
+        }
+      },
+      {
+        "day": "2026-10-29",
+        "finished": 29,
+        "failed": 1,
+        "timedOut": 0,
+        "aborted": 1,
+        "successRate": 0.9667,
+        "duration": {
+          "count": 29,
+          "p50": 319000000000,
+          "p95": 551000000000
+        },
+        "wait": {
+          "count": 31,
+          "p50": 4000000000,
+          "p95": 29000000000
+        }
+      },
+      {
+        "day": "2026-10-30",
+        "finished": 25,
+        "failed": 4,
+        "timedOut": 0,
+        "aborted": 0,
+        "successRate": 0.8621,
+        "duration": {
+          "count": 25,
+          "p50": 266000000000,
+          "p95": 604000000000
+        },
+        "wait": {
+          "count": 29,
+          "p50": 5000000000,
+          "p95": 36000000000
+        }
+      },
+      {
+        "day": "2026-10-31",
+        "finished": 9,
+        "failed": 0,
+        "timedOut": 0,
+        "aborted": 0,
+        "successRate": 1.0,
+        "duration": {
+          "count": 9,
+          "p50": 303000000000,
+          "p95": 657000000000
+        },
+        "wait": {
+          "count": 9,
+          "p50": 6000000000,
+          "p95": 43000000000
+        }
+      },
+      {
+        "day": "2026-11-01",
+        "finished": 7,
+        "failed": 0,
+        "timedOut": 0,
+        "aborted": 0,
+        "successRate": 1.0,
+        "duration": {
+          "count": 7,
+          "p50": 250000000000,
+          "p95": 590000000000
+        },
+        "wait": {
+          "count": 7,
+          "p50": 2000000000,
+          "p95": 50000000000
+        }
+      },
+      {
+        "day": "2026-11-02",
+        "finished": 24,
+        "failed": 3,
+        "timedOut": 0,
+        "aborted": 0,
+        "successRate": 0.8889,
+        "duration": {
+          "count": 24,
+          "p50": 287000000000,
+          "p95": 643000000000
+        },
+        "wait": {
+          "count": 27,
+          "p50": 3000000000,
+          "p95": 57000000000
+        }
+      },
+      {
+        "day": "2026-11-03",
+        "finished": 31,
+        "failed": 1,
+        "timedOut": 0,
+        "aborted": 0,
+        "successRate": 0.9688,
+        "duration": {
+          "count": 31,
+          "p50": 324000000000,
+          "p95": 576000000000
+        },
+        "wait": {
+          "count": 32,
+          "p50": 4000000000,
+          "p95": 24000000000
+        }
+      },
+      {
+        "day": "2026-11-04",
+        "finished": 27,
+        "failed": 4,
+        "timedOut": 1,
+        "aborted": 1,
+        "successRate": 0.8438,
+        "duration": {
+          "count": 27,
+          "p50": 271000000000,
+          "p95": 629000000000
+        },
+        "wait": {
+          "count": 33,
+          "p50": 5000000000,
+          "p95": 31000000000
+        }
+      },
+      {
+        "day": "2026-11-05",
+        "finished": 34,
+        "failed": 2,
+        "timedOut": 0,
+        "aborted": 0,
+        "successRate": 0.9444,
+        "duration": {
+          "count": 34,
+          "p50": 308000000000,
+          "p95": 562000000000
+        },
+        "wait": {
+          "count": 36,
+          "p50": 6000000000,
+          "p95": 38000000000
+        }
+      },
+      {
+        "day": "2026-11-06",
+        "finished": 30,
+        "failed": 0,
+        "timedOut": 0,
+        "aborted": 0,
+        "successRate": 1.0,
+        "duration": {
+          "count": 30,
+          "p50": 255000000000,
+          "p95": 615000000000
+        },
+        "wait": {
+          "count": 30,
+          "p50": 2000000000,
+          "p95": 45000000000
+        }
+      },
+      {
+        "day": "2026-11-07",
+        "finished": 9,
+        "failed": 0,
+        "timedOut": 0,
+        "aborted": 0,
+        "successRate": 1.0,
+        "duration": {
+          "count": 9,
+          "p50": 292000000000,
+          "p95": 548000000000
+        },
+        "wait": {
+          "count": 9,
+          "p50": 3000000000,
+          "p95": 52000000000
+        }
+      },
+      {
+        "day": "2026-11-08",
+        "finished": 7,
+        "failed": 0,
+        "timedOut": 0,
+        "aborted": 0,
+        "successRate": 1.0,
+        "duration": {
+          "count": 7,
+          "p50": 329000000000,
+          "p95": 601000000000
+        },
+        "wait": {
+          "count": 7,
+          "p50": 4000000000,
+          "p95": 59000000000
+        }
+      },
+      {
+        "day": "2026-11-09",
+        "finished": 29,
+        "failed": 4,
+        "timedOut": 0,
+        "aborted": 0,
+        "successRate": 0.8788,
+        "duration": {
+          "count": 29,
+          "p50": 276000000000,
+          "p95": 654000000000
+        },
+        "wait": {
+          "count": 33,
+          "p50": 5000000000,
+          "p95": 26000000000
+        }
+      },
+      {
+        "day": "2026-11-10",
+        "finished": 25,
+        "failed": 2,
+        "timedOut": 0,
+        "aborted": 1,
+        "successRate": 0.9259,
+        "duration": {
+          "count": 25,
+          "p50": 313000000000,
+          "p95": 587000000000
+        },
+        "wait": {
+          "count": 28,
+          "p50": 6000000000,
+          "p95": 33000000000
+        }
+      },
+      {
+        "day": "2026-11-11",
+        "finished": 32,
+        "failed": 0,
+        "timedOut": 0,
+        "aborted": 0,
+        "successRate": 1.0,
+        "duration": {
+          "count": 32,
+          "p50": 260000000000,
+          "p95": 640000000000
+        },
+        "wait": {
+          "count": 32,
+          "p50": 2000000000,
+          "p95": 40000000000
+        }
+      },
+      {
+        "day": "2026-11-12",
+        "finished": 28,
+        "failed": 3,
+        "timedOut": 0,
+        "aborted": 0,
+        "successRate": 0.9032,
+        "duration": {
+          "count": 28,
+          "p50": 297000000000,
+          "p95": 573000000000
+        },
+        "wait": {
+          "count": 31,
+          "p50": 3000000000,
+          "p95": 47000000000
+        }
+      },
+      {
+        "day": "2026-11-13",
+        "finished": 24,
+        "failed": 1,
+        "timedOut": 1,
+        "aborted": 0,
+        "successRate": 0.9231,
+        "duration": {
+          "count": 24,
+          "p50": 244000000000,
+          "p95": 626000000000
+        },
+        "wait": {
+          "count": 26,
+          "p50": 4000000000,
+          "p95": 54000000000
+        }
+      },
+      {
+        "day": "2026-11-14",
+        "finished": 9,
+        "failed": 0,
+        "timedOut": 0,
+        "aborted": 0,
+        "successRate": 1.0,
+        "duration": {
+          "count": 9,
+          "p50": 281000000000,
+          "p95": 559000000000
+        },
+        "wait": {
+          "count": 9,
+          "p50": 5000000000,
+          "p95": 21000000000
+        }
+      },
+      {
+        "day": "2026-11-15",
+        "finished": 7,
+        "failed": 0,
+        "timedOut": 0,
+        "aborted": 0,
+        "successRate": 1.0,
+        "duration": {
+          "count": 7,
+          "p50": 318000000000,
+          "p95": 612000000000
+        },
+        "wait": {
+          "count": 7,
+          "p50": 6000000000,
+          "p95": 28000000000
+        }
+      },
+      {
+        "day": "2026-11-16",
+        "finished": 34,
+        "failed": 0,
+        "timedOut": 0,
+        "aborted": 1,
+        "successRate": 1.0,
+        "duration": {
+          "count": 34,
+          "p50": 265000000000,
+          "p95": 545000000000
+        },
+        "wait": {
+          "count": 35,
+          "p50": 2000000000,
+          "p95": 35000000000
+        }
+      },
+      {
+        "day": "2026-11-17",
+        "finished": 30,
+        "failed": 3,
+        "timedOut": 0,
+        "aborted": 0,
+        "successRate": 0.9091,
+        "duration": {
+          "count": 30,
+          "p50": 302000000000,
+          "p95": 598000000000
+        },
+        "wait": {
+          "count": 33,
+          "p50": 3000000000,
+          "p95": 42000000000
+        }
+      },
+      {
+        "day": "2026-11-18",
+        "finished": 26,
+        "failed": 1,
+        "timedOut": 0,
+        "aborted": 0,
+        "successRate": 0.963,
+        "duration": {
+          "count": 26,
+          "p50": 249000000000,
+          "p95": 651000000000
+        },
+        "wait": {
+          "count": 27,
+          "p50": 4000000000,
+          "p95": 49000000000
+        }
+      },
+      {
+        "day": "2026-11-19",
+        "finished": 33,
+        "failed": 4,
+        "timedOut": 0,
+        "aborted": 0,
+        "successRate": 0.8919,
+        "duration": {
+          "count": 33,
+          "p50": 286000000000,
+          "p95": 584000000000
+        },
+        "wait": {
+          "count": 37,
+          "p50": 5000000000,
+          "p95": 56000000000
+        }
+      },
+      {
+        "day": "2026-11-20",
+        "finished": 29,
+        "failed": 2,
+        "timedOut": 0,
+        "aborted": 0,
+        "successRate": 0.9355,
+        "duration": {
+          "count": 29,
+          "p50": 323000000000,
+          "p95": 637000000000
+        },
+        "wait": {
+          "count": 31,
+          "p50": 6000000000,
+          "p95": 23000000000
+        }
+      }
+    ],
+    "starts": [
+      [
+        0, 0, 1, 0, 0, 0, 0, 0, 14, 12, 19, 17, 15, 13, 20, 18, 16, 14, 12, 0,
+        0, 0, 0, 0
+      ],
+      [
+        0, 0, 2, 1, 0, 0, 0, 0, 17, 15, 13, 20, 18, 16, 14, 12, 19, 17, 15, 0,
+        0, 0, 0, 0
+      ],
+      [
+        0, 0, 0, 2, 0, 0, 0, 0, 20, 18, 16, 14, 12, 19, 17, 15, 13, 20, 18, 0,
+        0, 0, 0, 0
+      ],
+      [
+        0, 0, 1, 0, 0, 0, 0, 0, 14, 12, 19, 17, 15, 13, 20, 18, 16, 14, 12, 0,
+        0, 0, 0, 0
+      ],
+      [
+        0, 0, 2, 1, 0, 0, 0, 0, 17, 15, 13, 20, 18, 16, 14, 12, 19, 17, 15, 0,
+        0, 0, 0, 0
+      ],
+      [0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    ],
+    "triggers": [
+      {
+        "kind": "apikey",
+        "builds": 562
+      },
+      {
+        "kind": "interval",
+        "builds": 112
+      },
+      {
+        "kind": "password",
+        "builds": 75
+      }
+    ],
+    "people": [],
+    "showsPeople": true,
+    "jobs": [
+      {
+        "name": "deploy",
+        "builds": 2,
+        "finished": 1,
+        "failed": 1,
+        "timedOut": 0,
+        "aborted": 0,
+        "successRate": 0.5,
+        "duration": {
+          "count": 1,
+          "p50": 4083728,
+          "p95": 4083728
+        },
+        "buildTime": 9576402,
+        "wait": {
+          "count": 2,
+          "p50": 782880,
+          "p95": 884035
+        },
+        "recent": [
+          {
+            "id": 1,
+            "status": "finished",
+            "startedAt": "2026-11-20T16:09:44.55892794+01:00",
+            "duration": 4083728
+          },
+          {
+            "id": 2,
+            "status": "failed",
+            "startedAt": "2026-11-20T16:09:44.572281507+01:00",
+            "duration": 5492674,
+            "failedTask": "Deploy"
+          }
+        ],
+        "failing": {
+          "builds": 1,
+          "first": {
+            "id": 2,
+            "status": "failed",
+            "startedAt": "2026-11-20T16:09:44.572281507+01:00",
+            "duration": 5492674,
+            "failedTask": "Deploy"
+          },
+          "last": {
+            "id": 2,
+            "status": "failed",
+            "startedAt": "2026-11-20T16:09:44.572281507+01:00",
+            "duration": 5492674,
+            "failedTask": "Deploy"
+          }
+        }
+      },
+      {
+        "name": "nightly-backup",
+        "builds": 1,
+        "finished": 1,
+        "failed": 0,
+        "timedOut": 0,
+        "aborted": 0,
+        "successRate": 1,
+        "duration": {
+          "count": 1,
+          "p50": 2895867,
+          "p95": 2895867
+        },
+        "buildTime": 2895867,
+        "wait": {
+          "count": 1,
+          "p50": 572160,
+          "p95": 572160
+        },
+        "recent": [
+          {
+            "id": 3,
+            "status": "finished",
+            "startedAt": "2026-11-20T16:09:44.642728404+01:00",
+            "duration": 2895867
+          }
+        ],
+        "failing": null
+      }
+    ]
+  }
+}

@@ -1,5 +1,8 @@
 <template>
-    <div class="row">
+    <div
+        class="row"
+        data-cy="duration"
+    >
         <i
             v-if="!minimalisticMode"
             class="small"

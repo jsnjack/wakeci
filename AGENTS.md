@@ -153,6 +153,7 @@ make check      # fmt, vet, build, test, lint, lintf, isolated parallel producti
 make testprod   # build once, then run Playwright E2E tests in parallel
 make testdev    # build once, then run the isolated E2E suite with visible browsers
 make testreport # open the last E2E HTML report from the repository root
+make screens    # screenshots of every page vs master's (BASE=<commit>); diffs in testreport
 make release    # test + testprod, then publish bin/wakeci as a GitHub release
 ```
 
