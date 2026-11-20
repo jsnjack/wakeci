@@ -1,6 +1,7 @@
 package main
 
 import (
+	"slices"
 	"testing"
 	"time"
 )
@@ -132,4 +133,23 @@ func TestQueueTakeWhileAborting(t *testing.T) {
 		GlobalQueue.Remove(i)
 	}
 	<-done
+}
+
+// The status lists the queued builds in the order they start: a job with a
+// higher priority goes before those queued earlier
+func TestQueueStatusListsQueuedBuildsInOrder(t *testing.T) {
+	q := &Queue{}
+	for _, b := range []*Build{
+		{ID: 1, Job: &Job{Name: "a"}},
+		{ID: 2, Job: &Job{Name: "b"}},
+		{ID: 3, Job: &Job{Name: "urgent", Priority: 5}},
+	} {
+		q.Add(b)
+	}
+	if got := q.Status().QueuedIDs; !slices.Equal(got, []int{3, 1, 2}) {
+		t.Errorf("QueuedIDs = %v, want [3 1 2]", got)
+	}
+	if got := (&Queue{}).Status().QueuedIDs; got == nil || len(got) != 0 {
+		t.Errorf("empty queue: QueuedIDs = %#v, want []", got)
+	}
 }

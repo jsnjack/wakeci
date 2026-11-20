@@ -125,6 +125,9 @@ type BuildUpdateData struct {
 	// average duration of the job's last 5 finished builds when this build
 	// was created; 0 until the job has 5
 	ETA int `json:"eta"`
+	// QueuedAt is when the build was created and queued;
+	// 0001-01-01T00:00:00Z for builds from before wakeci recorded it
+	QueuedAt time.Time `json:"queuedAt"`
 }
 
 // When StartedAt field is serialized to JSON, it has fixed second's precision
@@ -204,6 +207,9 @@ type QueueStatusData struct {
 	// builds aborted while queued
 	Running int `json:"running"`
 	Queued  int `json:"queued"`
+	// QueuedIDs are the queued builds' IDs in the order they will start, so
+	// a page can say where a build waits; IDs only, no job names
+	QueuedIDs []int `json:"queuedIDs"`
 	// Version is the running wakeci version, so pages opened before an
 	// update can reload
 	Version string `json:"version"`

@@ -827,6 +827,7 @@ func (b *Build) records() (data, queued, started, stats []byte, err error) {
 		StartedAt:      b.StartedAt,
 		Duration:       b.Duration,
 		ETA:            b.ETA,
+		QueuedAt:       b.queuedAt,
 	})
 	if err != nil {
 		return nil, nil, nil, nil, err

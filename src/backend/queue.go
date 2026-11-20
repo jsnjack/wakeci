@@ -104,6 +104,7 @@ func (q *Queue) Take() {
 	running, queued := len(q.running), len(q.queued)
 	q.mutex.Unlock()
 	if toRun && foundItem {
+		q.queueChanged()
 		q.Take()
 		return
 	}
@@ -132,6 +133,9 @@ func (q *Queue) TakeNow(buildID int) error {
 		}
 	}
 	q.mutex.Unlock()
+	if foundItem {
+		q.queueChanged()
+	}
 
 	// Take logs the queue lengths
 	q.Take()
@@ -160,6 +164,7 @@ func (q *Queue) Add(b *Build) {
 		}
 	}
 	L.Info("new build queued", "job", b.Job.Name, "build", b.ID)
+	q.queueChanged()
 }
 
 // addInterrupted adds an interrupted build (FinishInterruptedBuilds) next to
@@ -184,6 +189,7 @@ func (q *Queue) Remove(id int) {
 	for i, ex := range q.queued {
 		if ex.ID == id {
 			q.queued = append(q.queued[:i], q.queued[i+1:]...)
+			q.queueChanged()
 			return
 		}
 	}
@@ -237,6 +243,9 @@ func (q *Queue) AbortBy(id int, reason, by string) error {
 	q.mutex.Unlock()
 	if build == nil {
 		return fmt.Errorf("Build %d not found in Q", id)
+	}
+	if dequeued {
+		q.queueChanged()
 	}
 
 	// Stops on_pending tasks of a queued build, too
@@ -418,10 +427,14 @@ func (q *Queue) Status() QueueStatusData {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 	status := QueueStatusData{
-		Stopping: q.isStoppingLocked(),
-		Running:  len(q.running) + len(q.aborting),
-		Queued:   len(q.queued),
-		Version:  Version,
+		Stopping:  q.isStoppingLocked(),
+		Running:   len(q.running) + len(q.aborting),
+		Queued:    len(q.queued),
+		QueuedIDs: make([]int, 0, len(q.queued)),
+		Version:   Version,
+	}
+	for _, build := range q.queued {
+		status.QueuedIDs = append(status.QueuedIDs, build.ID)
 	}
 	if status.Stopping {
 		abortAt := q.abortAt
@@ -432,11 +445,27 @@ func (q *Queue) Status() QueueStatusData {
 	return status
 }
 
+// queueChanged tells the clients that builds joined or left the queue,
+// without waiting for the hub: callers may hold locks the hub's clients
+// need. Each status is taken when it is sent (broadcastStatus), so the last
+// one sent is the queue as it is.
+func (q *Queue) queueChanged() {
+	hub := WSHub
+	if hub == nil {
+		return
+	}
+	go q.sendStatus(hub)
+}
+
 // broadcastStatus sends Status to the subscribed clients
 func (q *Queue) broadcastStatus() {
+	q.sendStatus(WSHub)
+}
+
+func (q *Queue) sendStatus(hub *Hub) {
 	q.statusMu.Lock()
 	defer q.statusMu.Unlock()
-	WSHub.broadcast <- &MsgBroadcast{Type: MsgTypeQueueStatus, Data: q.Status()}
+	hub.broadcast <- &MsgBroadcast{Type: MsgTypeQueueStatus, Data: q.Status()}
 }
 
 // idle reports whether no build runs, not counting the on_pending tasks of
