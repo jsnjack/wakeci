@@ -36,11 +36,8 @@ const state = {
     // the page asked
     serverVersion: "",
     currentPage: "",
-    theme: "light",
+    // The theme the user picked, or else the system's (App.vue follows it)
+    theme: window.localStorage.getItem("theme") || (window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light"),
 };
-
-if (window.localStorage.getItem("theme")) {
-    state.theme = window.localStorage.getItem("theme");
-}
 
 export default state;
