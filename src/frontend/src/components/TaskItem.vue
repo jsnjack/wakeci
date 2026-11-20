@@ -40,7 +40,10 @@
                 class="log-container no-padding border"
                 :class="{ running: task.status === 'running' }"
             >
-                <pre class="log-line small-padding">{{ content }}</pre>
+                <pre
+                    class="log-line small-padding"
+                    data-cy="task-log"
+                    >{{ content }}</pre>
                 <TextSpinner v-show="task.status === 'running' && !hideAllLogs" />
             </article>
         </div>

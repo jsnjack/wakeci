@@ -48,10 +48,14 @@ async function writeWakefile(root, port, extra = []) {
     );
 }
 
+// WAKECI_BIN runs another build, as `make screens` does with the base
+// commit's
+const wakeciBinary = process.env.WAKECI_BIN || resolve(import.meta.dirname, "../../../bin/wakeci");
+
 // startWakeci starts bin/wakeci with the Wakefile in root, logging to log,
 // and waits until api reaches it
 async function startWakeci(root, api, log) {
-    const child = spawn(resolve(import.meta.dirname, "../../../bin/wakeci"), ["--config", join(root, "Wakefile.yaml"), "--debug"], {
+    const child = spawn(wakeciBinary, ["--config", join(root, "Wakefile.yaml"), "--debug"], {
         detached: true,
         stdio: ["ignore", log.fd, log.fd],
     });
@@ -81,36 +85,51 @@ async function startWakeci(root, api, log) {
     return { child, exited };
 }
 
+// launchBackend starts wakeci in a directory of its own and logs in. Its
+// stop stops wakeci and removes the directory.
+export async function launchBackend(playwright) {
+    const root = await mkdtemp(join(tmpdir(), "wakeci-e2e-"));
+    let child;
+    let exited;
+    let api;
+    const log = await open(join(root, "backend.log"), "w");
+    const stop = async () => {
+        if (child?.pid) await stopServer(child, exited);
+        if (api) await api.dispose();
+        await log.close();
+        await rm(root, { recursive: true, force: true });
+    };
+    try {
+        const port = await unusedPort();
+        const url = `http://127.0.0.1:${port}`;
+        await prepareRoot(root);
+        await writeWakefile(root, port);
+        api = await playwright.request.newContext({ baseURL: url });
+        ({ child, exited } = await startWakeci(root, api, log));
+        const backend = { root, url, api, stop };
+        // A password change ends the other password sessions, this one too
+        backend.logIn = async () => {
+            await expect(await api.post("/auth/login", { form: { password: "admin" } })).toBeOK();
+            backend.storageState = await api.storageState();
+        };
+        await backend.logIn();
+        return backend;
+    } catch (error) {
+        await stop();
+        throw error;
+    }
+}
+
 export const test = base.extend({
     authenticated: [true, { option: true }],
 
     backend: [
         async ({ playwright }, use) => {
-            const root = await mkdtemp(join(tmpdir(), "wakeci-e2e-"));
-            let child;
-            let exited;
-            let api;
-            const log = await open(join(root, "backend.log"), "w");
+            const backend = await launchBackend(playwright);
             try {
-                const port = await unusedPort();
-                const url = `http://127.0.0.1:${port}`;
-                await prepareRoot(root);
-                await writeWakefile(root, port);
-                api = await playwright.request.newContext({ baseURL: url });
-                ({ child, exited } = await startWakeci(root, api, log));
-                const backend = { root, url, api };
-                // A password change ends the other password sessions, this one too
-                backend.logIn = async () => {
-                    await expect(await api.post("/auth/login", { form: { password: "admin" } })).toBeOK();
-                    backend.storageState = await api.storageState();
-                };
-                await backend.logIn();
                 await use(backend);
             } finally {
-                if (child?.pid) await stopServer(child, exited);
-                if (api) await api.dispose();
-                await log.close();
-                await rm(root, { recursive: true, force: true });
+                await backend.stop();
             }
         },
         { scope: "worker" },

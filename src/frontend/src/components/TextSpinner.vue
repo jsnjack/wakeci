@@ -1,5 +1,8 @@
 <template>
-    <div class="center-align no-round no-padding">
+    <div
+        class="center-align no-round no-padding"
+        data-cy="spinner"
+    >
         {{ getText }}
     </div>
 </template>
