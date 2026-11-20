@@ -5,20 +5,24 @@
     >
         <button
             type="button"
-            class="btn btn-ghost btn-icon"
-            :class="buttonClass"
+            :class="buttonClass || 'btn btn-ghost btn-icon'"
             :aria-label="label"
             :aria-expanded="open ? 'true' : 'false'"
             :data-cy="cy"
             @click="open = !open"
         >
-            <i class="icon">{{ icon }}</i>
+            <i
+                v-if="icon"
+                class="icon"
+                >{{ icon }}</i
+            >
+            <slot name="button" />
         </button>
         <div
             v-if="open"
             class="menu-list"
             role="menu"
-            @click="open = false"
+            @click="closeOnClick && (open = false)"
         >
             <slot />
         </div>
@@ -38,6 +42,7 @@ export default {
             type: String,
             default: "more_horiz",
         },
+        // The button's classes, an icon button's by default
         buttonClass: {
             type: String,
             default: "",
@@ -45,6 +50,11 @@ export default {
         cy: {
             type: String,
             default: null,
+        },
+        // Off for a list of choices, such as checkboxes, that stays open
+        closeOnClick: {
+            type: Boolean,
+            default: true,
         },
     },
     data() {

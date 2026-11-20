@@ -82,18 +82,10 @@ here and name it (e.g. "F1") in the commit message.
     merge re-runs and deploys and miss jobs without one. Effort M to record
     the parent and show it on the build page, which jobs can adopt first;
     M–L for the feed.
-- **F4. Quick filters and saved searches.** A row of chips above the feed
-  that write the existing `q`: Failed, Running and queued, Hide scheduled,
-  several jobs, and the user's saved searches. "Save this search" names the
-  current one. Where builds are started by another job or a shared
-  credential, only a label says whose they are, so Mine is a saved search
-  each person sets once (e.g. `+author=alice`). Kept in the browser first;
-  per SSO user on the server later, so they follow the user between
-  browsers. "Started by me" from the recorded trigger can come later; the
-  feed doesn't send the trigger today. Effort M.
-- **F8. Help while typing.** The search box suggests label names, then
-  values seen in the loaded builds; the active terms show as chips that can
-  be removed one by one. Effort M.
+- **F4, later.** Saved searches are kept in the browser (`FeedSearch.vue`);
+  per SSO user on the server they would follow the user between browsers.
+  "Started by me" could come from the recorded trigger, which the feed
+  doesn't send. Effort M.
 - Not planned: labels added to a build after it ran ("flaky"). They would
   need storage per build, an audited route and access rules.
 
@@ -228,9 +220,9 @@ The look (decided): Material's colours at the density of a developer tool.
 
 | Phase | Items |
 |---|---|
-| 3 | F4 and F8, J1, J2 |
+| 3 | J1, J2 |
 | 4 | The other pages on the new styles, S4 |
-| Later | F2, L1, L3–L6, B5, B7 |
+| Later | F2, F4 later, L1, L3–L6, B5, B7 |
 
 ## Sources
 
