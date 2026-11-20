@@ -99,8 +99,9 @@
 </template>
 
 <script>
-import "@/assets/main.css";
-import "beercss";
+import "@/assets/styles.css";
+// BeerCSS's script: dialogs, fields and window.ui. Its CSS is in styles.css
+import "beercss/dist/cdn/beer.min.js";
 
 import QueueBanner from "@/components/QueueBanner.vue";
 import { getWSURL } from "@/store/communication.js";

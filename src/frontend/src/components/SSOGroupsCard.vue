@@ -316,7 +316,7 @@ export default {
 
 <style scoped>
 .description {
-    margin: 0.5rem 0;
+    margin: 1rem 0 0.5rem;
 }
 .notice {
     border-left: 3px solid var(--primary);

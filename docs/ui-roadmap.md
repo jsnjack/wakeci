@@ -395,14 +395,14 @@ It goes in favour of a stylesheet of our own, one page at a time. Not
 Tailwind, which rewrites every class use and adds a build plugin, nor a
 component kit, which is another lock-in with larger chunks.
 
-- **S1. Groundwork.** Screenshot baselines (`toHaveScreenshot`) of the feed,
-  a failed and a running build, the jobs page, the run form, settings and
-  analytics, at 1440, 1024 and 390 px, light and dark, times masked: each
-  later PR shows what it changed on screen. The 24 E2E selectors that depend
-  on markup (`nav a[href=…]`, `header h6`, `dialog.active`, `progress`,
-  `.row`) move to test IDs. `tokens.css` (colours, spacing, radius, type
-  scale) and `base.css`; BeerCSS imported into `@layer beer` under our
-  `@layer app`, so our rules win without `!important`. Effort S–M.
+The groundwork is in place. `src/assets/styles.css` puts BeerCSS in a
+layer below the app's, so the app's rules win without `!important`; a
+component's `<style>` is in no layer and wins over both. `tokens.css` has
+the colours, spacing, corners and type scale, and `base.css` the element
+defaults, in a layer below BeerCSS that takes over once it is gone.
+`make screens` compares screenshots of every page with master's, and E2E
+tests find elements by test ID, not by BeerCSS's markup.
+
 - **S2. Components.** About 40 styles replace what the app uses: rows and
   grids with `gap` (no 12-column classes, no automatic margins); `.btn` in
   four kinds and two sizes; one dialog component on the native `<dialog>`
@@ -450,7 +450,7 @@ The look (decided): Material's colours at the density of a developer tool.
 
 | Phase | Items |
 |---|---|
-| 1 | S1 and S2; the feed on the new styles (S3) with F1, F7 and F3; phone menu |
+| 1 | S2; the feed on the new styles (S3) with F1, F7 and F3; phone menu |
 | 2 | The log viewer (B4) with L2, colours on the server; the build page on the new styles with B1–B3 and B6; then the build beside the feed (F9) |
 | 3 | F4 and F8, J1, J2 |
 | 4 | The other pages on the new styles, S4 |

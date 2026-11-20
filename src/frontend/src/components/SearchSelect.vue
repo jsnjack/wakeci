@@ -316,7 +316,7 @@ export default {
     z-index: 20;
     max-block-size: 18rem;
     overflow-y: auto;
-    margin: 0;
+    margin: 1rem 0 0;
     padding: 0.25rem 0;
     list-style: none;
     background-color: var(--surface-container);

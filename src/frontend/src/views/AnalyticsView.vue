@@ -801,7 +801,7 @@ th.sortable {
     gap: 1rem;
 }
 .analytics-page > .grid {
-    margin: 0;
+    margin: 1rem 0 0;
 }
 .chart-loading {
     block-size: 160px;
