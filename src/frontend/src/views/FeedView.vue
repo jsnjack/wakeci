@@ -1,125 +1,166 @@
 <template>
-    <div class="ui feed-page stack gap-3">
-        <UiDialog
-            v-model:open="isHelpDialogOpen"
-            title="Search examples"
-        >
-            <ul class="search-examples stack gap-2">
-                <li><code>status:failed</code> Failed builds</li>
-                <li><code>status:failed "status:timed out"</code> Failed or timed out builds</li>
-                <li><code>+status:failed -name:test_</code> Failed builds, excluding builds with names containing "test_"</li>
-                <li><code>env=prod</code> Builds whose parameter "ENV" (or label "ENV_LABEL") is exactly "prod"</li>
-                <li><code>+status:failed env=prod env=uat</code> Failed builds with "ENV" equal to "prod" or "uat"</li>
-                <li><code>env:prod</code> "env:prod" anywhere, so also "env:production"</li>
-            </ul>
-            <p class="muted text-sm">A click on a value in a row searches for it; Ctrl+click adds it to the search.</p>
-            <template #actions>
+    <div
+        class="ui feed-page"
+        :class="{ split }"
+    >
+        <div class="feed-column stack gap-3">
+            <UiDialog
+                v-model:open="isHelpDialogOpen"
+                title="Search examples"
+            >
+                <ul class="search-examples stack gap-2">
+                    <li><code>status:failed</code> Failed builds</li>
+                    <li><code>status:failed "status:timed out"</code> Failed or timed out builds</li>
+                    <li><code>+status:failed -name:test_</code> Failed builds, excluding builds with names containing "test_"</li>
+                    <li><code>env=prod</code> Builds whose parameter "ENV" (or label "ENV_LABEL") is exactly "prod"</li>
+                    <li><code>+status:failed env=prod env=uat</code> Failed builds with "ENV" equal to "prod" or "uat"</li>
+                    <li><code>env:prod</code> "env:prod" anywhere, so also "env:production"</li>
+                </ul>
+                <p class="muted text-sm">A click on a value in a row searches for it; Ctrl+click adds it to the search.</p>
+                <template #actions>
+                    <button
+                        type="button"
+                        class="btn"
+                        @click="isHelpDialogOpen = false"
+                    >
+                        Close
+                    </button>
+                </template>
+            </UiDialog>
+
+            <div class="cluster nowrap gap-1">
+                <label class="input-icon grow">
+                    <i class="icon">search</i>
+                    <input
+                        type="search"
+                        class="input"
+                        data-cy="filter"
+                        aria-label="Search builds"
+                        placeholder="Search by id, job, status, branch=main…"
+                        :value="filter"
+                        @input="(evt) => (filter = evt.target.value)"
+                    />
+                    <span
+                        v-show="isFetching"
+                        class="feed-spinner status-ring"
+                        aria-hidden="true"
+                    ></span>
+                </label>
+                <button
+                    type="button"
+                    class="btn btn-ghost btn-icon"
+                    aria-label="Clear the search"
+                    data-tip="Clear the search"
+                    :disabled="filter === ''"
+                    @click="clearFilter"
+                >
+                    <i class="icon">backspace</i>
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-ghost btn-icon tip-end"
+                    aria-label="Search examples"
+                    data-tip="Search examples"
+                    @click="isHelpDialogOpen = true"
+                >
+                    <i class="icon">help</i>
+                </button>
+            </div>
+
+            <div
+                v-if="filteredUpdates !== 0"
+                class="panel cluster between text-sm"
+                data-cy="filtered-updates"
+            >
+                <span>{{ filteredUpdates }} new {{ filteredUpdates === 1 ? "build doesn't" : "builds don't" }} match the search</span>
+                <button
+                    type="button"
+                    class="btn btn-sm"
+                    @click="clearFilter"
+                >
+                    Clear the search
+                </button>
+            </div>
+
+            <div
+                class="feed-list"
+                data-cy="feed-container"
+            >
+                <FeedItem
+                    v-for="item in sortedBuilds"
+                    :key="item.id"
+                    :build="item"
+                    :job="jobs.get(item.name) || null"
+                    :now="now"
+                    :selectable="wide"
+                    :selected="item.id === selected"
+                    :compact="split"
+                    @set-filter="handleSetFilter"
+                    @select="selectBuild"
+                />
+            </div>
+
+            <div
+                v-if="sortedBuilds.length === 0 && !isFetching && !filterIsDirty"
+                class="feed-empty stack muted"
+                data-cy="no-builds-found"
+            >
+                <i class="icon large">water</i>
+                <span>No builds found</span>
+            </div>
+
+            <div
+                v-show="moreEnabled && !isFetching && !filterIsDirty"
+                class="cluster end"
+            >
                 <button
                     type="button"
                     class="btn"
-                    @click="isHelpDialogOpen = false"
+                    data-cy="more"
+                    @click="fetchNow(true)"
                 >
-                    Close
+                    Load older builds
                 </button>
-            </template>
-        </UiDialog>
-
-        <div class="cluster nowrap gap-1">
-            <label class="input-icon grow">
-                <i class="icon">search</i>
-                <input
-                    type="search"
-                    class="input"
-                    data-cy="filter"
-                    aria-label="Search builds"
-                    placeholder="Search by id, job, status, branch=main…"
-                    :value="filter"
-                    @input="(evt) => (filter = evt.target.value)"
-                />
-                <span
-                    v-show="isFetching"
-                    class="feed-spinner status-ring"
-                    aria-hidden="true"
-                ></span>
-            </label>
-            <button
-                type="button"
-                class="btn btn-ghost btn-icon"
-                aria-label="Clear the search"
-                data-tip="Clear the search"
-                :disabled="filter === ''"
-                @click="clearFilter"
-            >
-                <i class="icon">backspace</i>
-            </button>
-            <button
-                type="button"
-                class="btn btn-ghost btn-icon tip-end"
-                aria-label="Search examples"
-                data-tip="Search examples"
-                @click="isHelpDialogOpen = true"
-            >
-                <i class="icon">help</i>
-            </button>
+            </div>
         </div>
-
-        <div
-            v-if="filteredUpdates !== 0"
-            class="panel cluster between text-sm"
-            data-cy="filtered-updates"
+        <aside
+            v-if="split"
+            class="feed-pane stack gap-2"
+            data-cy="build-pane"
+            :aria-label="`Build ${selected}`"
         >
-            <span>{{ filteredUpdates }} new {{ filteredUpdates === 1 ? "build doesn't" : "builds don't" }} match the search</span>
-            <button
-                type="button"
-                class="btn btn-sm"
-                @click="clearFilter"
-            >
-                Clear the search
-            </button>
-        </div>
-
-        <div
-            class="feed-list"
-            data-cy="feed-container"
-        >
-            <FeedItem
-                v-for="item in sortedBuilds"
-                :key="item.id"
-                :build="item"
-                :job="jobs.get(item.name) || null"
-                :now="now"
-                @set-filter="handleSetFilter"
+            <div class="cluster end gap-1">
+                <router-link
+                    :to="`/build/${selected}`"
+                    class="btn btn-ghost btn-sm"
+                    data-cy="pane-open-page"
+                >
+                    <i class="icon small">open_in_full</i> Open as a page
+                </router-link>
+                <button
+                    type="button"
+                    class="btn btn-ghost btn-icon btn-sm tip-end"
+                    aria-label="Close"
+                    data-tip="Close (Esc)"
+                    data-cy="pane-close"
+                    @click="closeBuild"
+                >
+                    <i class="icon small">close</i>
+                </button>
+            </div>
+            <BuildView
+                :id="selected"
+                :key="selected"
+                embedded
             />
-        </div>
-
-        <div
-            v-if="sortedBuilds.length === 0 && !isFetching && !filterIsDirty"
-            class="feed-empty stack muted"
-            data-cy="no-builds-found"
-        >
-            <i class="icon large">water</i>
-            <span>No builds found</span>
-        </div>
-
-        <div
-            v-show="moreEnabled && !isFetching && !filterIsDirty"
-            class="cluster end"
-        >
-            <button
-                type="button"
-                class="btn"
-                data-cy="more"
-                @click="fetchNow(true)"
-            >
-                Load older builds
-            </button>
-        </div>
+        </aside>
     </div>
 </template>
 
 <script>
 import FeedItem from "@/components/FeedItem.vue";
 import UiDialog from "@/components/ui/UiDialog.vue";
+import { defineAsyncComponent } from "vue";
 import { createFilterObj, findInContainer, isFilteredUpdate } from "@/store/utils.js";
 import axios from "axios";
 import debounce from "lodash/debounce";
@@ -127,8 +168,17 @@ import vuex from "vuex";
 
 const FetchItemsSize = 10;
 
+// From this width a click on a row shows the build beside the feed (F9);
+// below, it opens the build's page
+const WIDE = "(min-width: 1440px)";
+
 export default {
-    components: { FeedItem, UiDialog },
+    components: {
+        FeedItem,
+        UiDialog,
+        // Loaded with the first build shown beside the feed
+        BuildView: defineAsyncComponent(() => import("@/views/BuildView.vue")),
+    },
     data: function () {
         return {
             builds: [],
@@ -145,10 +195,17 @@ export default {
             jobs: new Map(),
             // The time the rows show durations against, moved on every second
             now: Date.now(),
+            // The build shown beside the feed (F9), from the address's build
+            selected: null,
+            // Whether the window is wide enough for it
+            wide: false,
         };
     },
     computed: {
         ...vuex.mapState(["ws"]),
+        split() {
+            return this.wide && this.selected !== null;
+        },
         sortedBuilds: function () {
             return [...this.builds].sort((a, b) => {
                 if (a.id < b.id) {
@@ -171,6 +228,7 @@ export default {
             this.fetch();
         },
         "ws.connected": "onWSChange",
+        "$route.query.build": "readSelected",
         // Builds of jobs the user may now read, and those sent while
         // disconnected. Not fetchNow itself: it would take the count for
         // `more` and load older builds instead.
@@ -203,11 +261,24 @@ export default {
         this.subscribe();
         this.emitter.on(this.subscription, this.applyUpdate);
         this.clock = setInterval(() => (this.now = Date.now()), 1000);
+
+        this.wideQuery = window.matchMedia(WIDE);
+        this.wide = this.wideQuery.matches;
+        this.wideQuery.addEventListener("change", this.onWideChange);
+        document.addEventListener("keydown", this.onKeyDown);
+        this.readSelected();
+        // A shared address with a build opens its page where the window is
+        // too narrow to show it beside the feed
+        if (this.selected !== null && !this.wide) {
+            this.$router.replace(`/build/${this.selected}`);
+        }
     },
     unmounted() {
         this.unsubscribe();
         this.emitter.off(this.subscription, this.applyUpdate);
         clearInterval(this.clock);
+        this.wideQuery.removeEventListener("change", this.onWideChange);
+        document.removeEventListener("keydown", this.onKeyDown);
     },
     created() {
         this.fetch = debounce((more = false) => {
@@ -325,6 +396,44 @@ export default {
                 this.unsubscribe();
             }
         },
+        readSelected() {
+            const id = Number(this.$route.query.build);
+            this.selected = Number.isInteger(id) && id > 0 ? id : null;
+        },
+        onWideChange(event) {
+            this.wide = event.matches;
+        },
+        // selectBuild shows a build beside the feed; the address names it,
+        // so a reload or a shared link shows it again
+        selectBuild(id) {
+            this.$router.replace({ query: { ...this.$route.query, build: String(id) } });
+        },
+        closeBuild() {
+            const query = { ...this.$route.query };
+            delete query.build;
+            this.$router.replace({ query });
+        },
+        // Up and down move to the next build, Esc closes, while a build
+        // shows beside the feed and the user isn't typing or in a dialog
+        onKeyDown(event) {
+            if (!this.split || event.target.closest?.("input, textarea, select, [contenteditable], .cm-editor") || document.querySelector("dialog[open]")) {
+                return;
+            }
+            if (event.key === "Escape") {
+                this.closeBuild();
+                return;
+            }
+            if (event.key !== "ArrowDown" && event.key !== "ArrowUp") {
+                return;
+            }
+            const i = this.sortedBuilds.findIndex((build) => build.id === this.selected);
+            const next = this.sortedBuilds[i + (event.key === "ArrowDown" ? 1 : -1)];
+            if (next) {
+                event.preventDefault();
+                this.selectBuild(next.id);
+                this.$nextTick(() => document.querySelector(`[data-cy-build="${next.id}"]`)?.scrollIntoView({ block: "nearest" }));
+            }
+        },
         // handleSetFilter searches for a term, e.g. branch=main, required
         // with +: alone, or added to the search with Ctrl/Cmd+click, since
         // plain terms mean "any of"
@@ -345,6 +454,23 @@ export default {
 </script>
 
 <style scoped>
+/* The list beside the build, which takes the rest */
+.feed-page.split {
+    display: grid;
+    grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
+    gap: var(--space-4);
+    align-items: start;
+}
+
+.feed-pane {
+    position: sticky;
+    inset-block-start: 64px;
+    max-block-size: calc(100dvh - 80px);
+    overflow-y: auto;
+    padding-inline-start: var(--space-4);
+    border-inline-start: 1px solid var(--outline-variant);
+}
+
 .feed-list {
     border-block-start: 1px solid var(--outline-variant);
 }

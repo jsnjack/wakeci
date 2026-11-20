@@ -353,6 +353,11 @@ export default {
             type: Number,
             required: true,
         },
+        // Shown beside the feed (F9): the page's title stays the feed's
+        embedded: {
+            type: Boolean,
+            default: false,
+        },
     },
     data: function () {
         return {
@@ -480,7 +485,9 @@ export default {
         },
     },
     mounted() {
-        this.$store.commit("SET_CURRENT_PAGE", `#${this.id}`);
+        if (!this.embedded) {
+            this.$store.commit("SET_CURRENT_PAGE", `#${this.id}`);
+        }
         document.addEventListener("keyup", this.onKeyUp);
         this.mark = this.parseMark(this.$route.hash);
         if (this.mark) {
@@ -563,6 +570,9 @@ export default {
             }
         },
         updateTitle() {
+            if (this.embedded) {
+                return;
+            }
             const icons = { failed: "❌", finished: "✅", aborted: "🛑", "timed out": "⏱️", skipped: "⤵️", pending: "⏳", running: "▶️" };
             this.$store.commit("SET_CURRENT_PAGE", { title: `#${this.id} - ${this.statusUpdate.status}`, icon: icons[this.statusUpdate.status] || "" });
         },
@@ -603,7 +613,7 @@ export default {
         setMark(task, lines) {
             this.mark = { task: task.id, ...lines };
             const hash = `#t${task.id}-L${lines.from}${lines.to > lines.from ? `-L${lines.to}` : ""}`;
-            this.$router.replace({ hash });
+            this.$router.replace({ query: this.$route.query, hash });
         },
         // searchAll finds a text in every task's log with the server's
         // grep, as the log's own search does: ignoring case and the time

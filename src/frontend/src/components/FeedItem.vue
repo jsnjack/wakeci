@@ -1,7 +1,9 @@
 <template>
     <div
         class="feed-row"
+        :class="{ compact }"
         :data-cy-build="build.id"
+        :aria-current="selected ? 'true' : null"
         @click="openFromRow"
     >
         <StatusIcon
@@ -14,6 +16,7 @@
                 :to="buildPath"
                 class="feed-name ellipsis"
                 data-cy="open-build-button"
+                @click="onNameClick"
             >
                 <span class="muted nums">#{{ build.id }}</span> {{ build.name }}
             </router-link>
@@ -44,7 +47,10 @@
                 <span v-if="values.length > shownValues.length">· +{{ values.length - shownValues.length }}</span>
             </div>
         </div>
-        <div class="feed-meta muted text-sm nums">
+        <div
+            v-if="!compact"
+            class="feed-meta muted text-sm nums"
+        >
             <template v-if="build.status === 'pending'">
                 <span data-cy="queue-place">{{ queuePlace }}</span>
                 <span data-cy="started-ago">{{ waited }}</span>
@@ -59,7 +65,10 @@
                 >
             </template>
         </div>
-        <div class="feed-actions">
+        <div
+            v-if="!compact"
+            class="feed-actions"
+        >
             <button
                 v-if="canAbort"
                 type="button"
@@ -106,6 +115,7 @@
             </a>
         </div>
         <UiMenu
+            v-if="!compact"
             class="feed-menu"
             label="Build actions"
         >
@@ -189,8 +199,23 @@ export default {
             type: Number,
             required: true,
         },
+        // A click selects the build, to show it beside the feed (F9),
+        // instead of opening its page
+        selectable: {
+            type: Boolean,
+            default: false,
+        },
+        selected: {
+            type: Boolean,
+            default: false,
+        },
+        // Two short lines, for the list beside a build
+        compact: {
+            type: Boolean,
+            default: false,
+        },
     },
-    emits: ["setFilter"],
+    emits: ["setFilter", "select"],
     computed: {
         ...vuex.mapGetters(["can"]),
         ...vuex.mapState(["queue"]),
@@ -268,7 +293,19 @@ export default {
                 window.open(this.buildPath, "_blank", "noopener");
                 return;
             }
+            if (this.selectable) {
+                this.$emit("select", this.build.id);
+                return;
+            }
             this.$router.push(this.buildPath);
+        },
+        // The name is a link, so it opens in a new tab as links do; a plain
+        // click selects the build where the feed shows builds beside it
+        onNameClick(event) {
+            if (this.selectable && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.button === 0) {
+                event.preventDefault();
+                this.$emit("select", this.build.id);
+            }
         },
         search(item, event) {
             this.$emit("setFilter", { term: searchTerm(item.name, item.value), append: event.ctrlKey || event.metaKey });
@@ -318,6 +355,15 @@ export default {
 
 .feed-row:hover {
     background-color: color-mix(in srgb, var(--on-surface) 4%, transparent);
+}
+
+.feed-row[aria-current="true"] {
+    background-color: var(--secondary-container);
+}
+
+.feed-row.compact {
+    grid-template-columns: auto minmax(0, 1fr);
+    min-block-size: 48px;
 }
 
 .feed-main {
