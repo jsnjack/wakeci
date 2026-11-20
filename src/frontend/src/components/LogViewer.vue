@@ -345,7 +345,7 @@ export default {
         // Following the end stops when the user scrolls up and starts again
         // at the end; the page's own scrolls don't count (onScroll)
         this.following = this.openAtEnd || this.running;
-        this.userScrolledAt = 0;
+        this.userScrolledDownAt = 0;
         const scroller = this.view.scrollDOM;
         scroller.addEventListener("wheel", this.onUserScroll, { passive: true });
         scroller.addEventListener("touchmove", this.onUserScroll, { passive: true });
@@ -572,17 +572,22 @@ export default {
                 this.newMatches += added;
             }
         },
-        // onUserScroll: scrolling up means reading, so following stops at once
+        // onUserScroll: scrolling up means reading, so following stops at once.
+        // Only a scroll down by the user can start it again (onScroll): a
+        // scroll to the end the viewer asked for before can land after it.
         onUserScroll(event) {
-            this.userScrolledAt = performance.now();
             const up = event.type === "wheel" ? event.deltaY < 0 : event.type === "touchmove" || ["ArrowUp", "PageUp", "Home"].includes(event.key);
+            const down = event.type === "wheel" ? event.deltaY > 0 : ["ArrowDown", "PageDown", "End", " "].includes(event.key);
             if (up) {
                 this.following = false;
+                this.userScrolledDownAt = 0;
+            } else if (down) {
+                this.userScrolledDownAt = performance.now();
             }
         },
-        // onScroll: a user who scrolls back to the end follows it again
+        // onScroll: a user who scrolls back down to the end follows it again
         onScroll() {
-            if (!this.following && performance.now() - this.userScrolledAt < 1000 && this.isAtEnd()) {
+            if (!this.following && performance.now() - this.userScrolledDownAt < 1000 && this.isAtEnd()) {
                 this.following = true;
                 this.newLines = 0;
                 this.newMatches = 0;
