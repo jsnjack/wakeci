@@ -95,15 +95,39 @@
   --radius-control: 8px;
   --radius-pill: 999px;
 
-  /* Type: text about 15 px. The font is BeerCSS's until the type is
-     decided (docs/ui-roadmap.md, Styles) */
+  /* Type: text about 15 px, in the system's own font */
   --font-sans:
-    Inter, Roboto, "Helvetica Neue", "Arial Nova", "Nimbus Sans", "Noto Sans",
-    Arial, sans-serif;
-  --font-mono: monospace;
+    system-ui, Inter, Roboto, "Helvetica Neue", "Noto Sans", Arial, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   --text-sm: 0.8125rem;
   --text-md: 0.9375rem;
   --text-lg: 1.125rem;
   --text-xl: 1.375rem;
   --line-height: 1.5;
+
+  /* Breakpoints, in @media rules as numbers since CSS can't use variables
+     there: phone up to 600px, tablet up to 1024px, wide from 1280px */
+}
+
+/* Statuses, each also drawn with its own shape (StatusIcon.vue, the charts)
+   so colour never carries the meaning alone */
+:root body.light {
+  --status-finished: #0ca30c;
+  --status-failed: var(--error);
+  --status-running: #2a78d6;
+  --status-timed-out: #7e57c2;
+  --status-aborted: var(--outline);
+  --status-pending: var(--outline);
+  --status-skipped: var(--outline);
+}
+
+:root body.dark {
+  --status-finished: #0ca30c;
+  --status-failed: var(--error);
+  --status-running: #3987e5;
+  --status-timed-out: #9575cd;
+  --status-aborted: var(--outline);
+  --status-pending: var(--outline);
+  --status-skipped: var(--outline);
 }

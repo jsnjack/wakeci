@@ -1,17 +1,15 @@
 /* In the app layer of styles.css, above BeerCSS */
 @layer app {
   /* Colours of the analytics charts. Series take the slots in order; statuses
-     have their own colours, and every chart also names them in a legend and
-     in each mark's tooltip, and hatches failures, so colour never carries
-     meaning alone. */
+     have their own colours (tokens.css), and every chart also names them in
+     a legend and in each mark's tooltip, and hatches failures, so colour
+     never carries meaning alone. */
   body.light {
     --chart-1: #2a78d6;
     --chart-2: #eb6834;
     --chart-3: #1baf7a;
     --chart-4: #eda100;
     --chart-5: #e87ba4;
-    --status-finished: #0ca30c;
-    --status-timed-out: #7e57c2;
   }
 
   body.dark {
@@ -20,8 +18,6 @@
     --chart-3: #199e70;
     --chart-4: #c98500;
     --chart-5: #d55181;
-    --status-finished: #0ca30c;
-    --status-timed-out: #9575cd;
   }
 
   .chart {

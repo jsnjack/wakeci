@@ -392,14 +392,12 @@ component's `<style>` is in no layer and wins over both. `tokens.css` has
 the colours, spacing, corners and type scale, and `base.css` the element
 defaults, in a layer below BeerCSS that takes over once it is gone.
 `make screens` compares screenshots of every page with master's, and E2E
-tests find elements by test ID, not by BeerCSS's markup.
+tests find elements by test ID, not by BeerCSS's markup. `components.css`
+has the app's own components (layout, buttons, fields, segmented control,
+tabs, tooltips, dialogs, menus, status icons, notifications); they work
+inside an element with the class `ui`, where BeerCSS's styles of elements
+are rolled back, so a page moves by putting `ui` on its root.
 
-- **S2. Components.** About 40 styles replace what the app uses: rows and
-  grids with `gap` (no 12-column classes, no automatic margins); `.btn` in
-  four kinds and two sizes; one dialog component on the native `<dialog>`
-  with `showModal()`; labels above fields, which need no script; a segmented
-  control and tabs; tooltips in our CSS, with `aria-label` on icon-only
-  buttons; notifications; three named breakpoints. Effort M.
 - **S3. Page by page,** each with that page's items so it changes once: the
   feed with F1 and F3; the build page with B1–B4 and B6; the jobs page
   with J1; the run form with J2; then settings, keys and groups, analytics,
@@ -441,7 +439,7 @@ The look (decided): Material's colours at the density of a developer tool.
 
 | Phase | Items |
 |---|---|
-| 1 | S2; the feed on the new styles (S3) with F1 and F3; phone menu |
+| 1 | The feed on the new styles (S3) with F1 and F3; phone menu |
 | 2 | The log viewer (B4) with L2, colours on the server; the build page on the new styles with B1–B3 and B6; then the build beside the feed (F9) |
 | 3 | F4 and F8, J1, J2 |
 | 4 | The other pages on the new styles, S4 |
