@@ -31,8 +31,11 @@
                 <p>Specific attributes can be targeted using <code>key:value</code> syntax, e.g., <code>status:failed</code> or <code>name:myjob</code>.</p>
 
                 <p>
-                    Words match anywhere in a value: <code>name:test_unit</code> also finds <code>test_unit_js</code>. The API's feed also takes exact
-                    <code>job</code> and <code>status</code> filters; see REST API.
+                    Words match anywhere in a value: <code>name:test_unit</code> also finds <code>test_unit_js</code>. <code>NAME=value</code> matches only an
+                    equal value: a parameter named NAME, ignoring case, or the build's <code>id</code>, <code>name</code> or <code>status</code>. A label is
+                    found by its name without <code>_LABEL</code>: <code>branch=main</code> finds <code>BRANCH_LABEL=main</code>, but not <code>main-fix</code>.
+                    Quote a term with spaces: <code>"status=timed out"</code>. The API's feed also takes exact <code>job</code> and <code>status</code> filters;
+                    see REST API.
                 </p>
 
                 <h6>Examples</h6>
@@ -46,8 +49,11 @@
                 <p>Failed builds excluding "test_"</p>
                 <code>+status:failed -name:test_</code>
 
-                <p>Builds with parameter "env=prod"</p>
-                <code>+env:prod</code>
+                <p>Builds whose parameter "ENV" is "prod"</p>
+                <code>+env=prod</code>
+
+                <p>Failed builds of the branch "main", not "main-fix"</p>
+                <code>+status=failed +branch=main</code>
             </article>
         </div>
         <div

@@ -28,6 +28,8 @@
 </template>
 
 <script>
+import { searchTerm } from "@/store/utils.js";
+
 const LENGTH_LIMIT = 30;
 
 export default {
@@ -90,7 +92,7 @@ export default {
         },
         setFilter(event) {
             this.$emit("setFilter", {
-                value: this.getName + ":" + this.getValue,
+                term: searchTerm(this.getName, this.getValue),
                 append: event.ctrlKey || event.metaKey,
             });
         },

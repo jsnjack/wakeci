@@ -6,8 +6,9 @@
             <li><code>status:failed</code> - Failed builds</li>
             <li><code>status:failed "status:timed out"</code> - Failed or timed out builds</li>
             <li><code>+status:failed -name:test_</code> - Failed builds, excluding builds with names containing "test_"</li>
-            <li><code>env:prod</code> - Builds with parameter "env=prod"</li>
-            <li><code>+status:failed env:prod env:uat</code> - Failed builds with "env" parameter equal to "prod" or "uat"</li>
+            <li><code>env=prod</code> - Builds whose parameter "ENV" (or label "ENV_LABEL") is exactly "prod"</li>
+            <li><code>+status:failed env=prod env=uat</code> - Failed builds with "ENV" equal to "prod" or "uat"</li>
+            <li><code>env:prod</code> - "env:prod" anywhere, so also "env:production"</li>
         </ul>
         <nav class="right-align">
             <button
@@ -292,34 +293,19 @@ export default {
                 this.unsubscribe();
             }
         },
-        handleSetFilter(event) {
-            let filterText = event;
-            let append = false;
-            if (typeof event === "object" && event.value) {
-                filterText = event.value;
-                append = event.append;
-            }
-
-            const hasDouble = filterText.includes('"');
-            const hasSingle = filterText.includes("'");
-            let wrapped = filterText;
-            if (hasDouble && !hasSingle) {
-                wrapped = `'${filterText}'`;
-            } else if (hasSingle && !hasDouble) {
-                wrapped = `"${filterText}"`;
-            } else if (!hasDouble && !hasSingle) {
-                wrapped = `"${filterText}"`;
-            }
-
+        // handleSetFilter searches for a term, e.g. branch=main, required
+        // with +: alone, or added to the search with Ctrl/Cmd+click, since
+        // plain terms mean "any of"
+        handleSetFilter({ term, append }) {
             if (append && this.filter) {
                 // Avoid adding duplicates by comparing unquoted values
                 const clean = (t) => t.replace(/^[+-]/, "").replace(/^["']/, "").replace(/["']$/, "");
                 const existingTerms = this.filter.split(/\s+/).map(clean);
-                if (!existingTerms.includes(filterText)) {
-                    this.filter += " +" + wrapped;
+                if (!existingTerms.includes(clean(term))) {
+                    this.filter += " +" + term;
                 }
             } else {
-                this.filter = "+" + wrapped;
+                this.filter = "+" + term;
             }
         },
     },
