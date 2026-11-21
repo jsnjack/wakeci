@@ -25,7 +25,10 @@ async function deleteJob(page, name) {
 }
 
 test("should handle API network errors without crashing", async ({ page }) => {
-    await page.route((url) => url.pathname === "/api/jobs/", (route) => route.abort());
+    await page.route(
+        (url) => url.pathname === "/api/jobs/",
+        (route) => route.abort(),
+    );
     await page.goto("/jobs");
     await expect(page).toHaveURL(/\/jobs$/);
     await expect(page.locator(".notification-content")).toContainText("Network Error");
