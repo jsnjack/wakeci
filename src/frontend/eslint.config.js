@@ -12,8 +12,8 @@ export default [
         languageOptions: { globals: globals.browser },
     },
     {
-        // Build configs and the Playwright tests run in Node
-        files: ["*.js", "e2e/**/*.js"],
+        // Build configs, scripts and the Playwright tests run in Node
+        files: ["*.js", "scripts/**/*.mjs", "e2e/**/*.js"],
         languageOptions: { globals: globals.node },
     },
     // Prettier formats the code (`npm run format`), so this turns off the

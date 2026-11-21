@@ -82,7 +82,7 @@
             </UiMenu>
         </div>
     </header>
-    <main class="responsive no-scroll medium-padding">
+    <main class="app-main">
         <QueueBanner v-if="auth.isLoggedIn" />
         <router-view />
     </main>
@@ -98,8 +98,6 @@
 
 <script>
 import "@/assets/styles.css";
-// BeerCSS's script: dialogs, fields and window.ui. Its CSS is in styles.css
-import "beercss/dist/cdn/beer.min.js";
 
 import QueueBanner from "@/components/QueueBanner.vue";
 import UiMenu from "@/components/ui/UiMenu.vue";
@@ -276,6 +274,23 @@ export default {
 </script>
 
 <style>
+/* The header on top, the page below it filling the window */
+#app {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    min-block-size: 100dvh;
+}
+
+.app-main {
+    position: relative;
+    inline-size: 100%;
+    max-inline-size: 75rem;
+    margin-inline: auto;
+    padding: var(--space-4);
+    /* Nothing on a page makes it wider than the window */
+    overflow: hidden;
+}
+
 .app-header {
     position: sticky;
     inset-block-start: 0;
@@ -283,7 +298,7 @@ export default {
     display: flex;
     align-items: center;
     gap: var(--space-3);
-    block-size: 52px;
+    block-size: 4rem;
     padding: 0 var(--space-4);
     background-color: var(--surface-container);
     border-block-end: 1px solid var(--outline-variant);

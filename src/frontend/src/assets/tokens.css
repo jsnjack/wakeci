@@ -1,8 +1,8 @@
 /* Design tokens: the values the app's styles are made of.
 
    Colours: Material's tonal palette from wakeci's purple, light and dark.
-   The names are BeerCSS's, whose defaults these equal, so its components
-   and ours share them. Colour means status only, always with a shape. */
+   The names are Material's roles (primary, on-primary, surface-container
+   and so on). Colour means status only, always with a shape. */
 :root body.light {
   --primary: #6750a4;
   --on-primary: #ffffff;

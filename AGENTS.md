@@ -73,7 +73,8 @@ src/frontend/                Vue 3 + Vite SPA
 | [docs/settings.md](docs/settings.md) | Wakefile.yaml or the settings page, the settings file, `--import-settings` |
 | [docs/analytics.md](docs/analytics.md) | Build stats, who started a build, request stats (web UI, API, MCP), the analytics page, job insights |
 | [docs/logs.md](docs/logs.md) | Task log files, colours, log messages, the log route, the log viewer and its search |
-| [docs/ui-roadmap.md](docs/ui-roadmap.md) | The feed, labels, live updates, the build page, task logs, the jobs page, the run form or the styles (replacing BeerCSS): the planned changes and their evidence |
+| [docs/ui-roadmap.md](docs/ui-roadmap.md) | The feed, labels, live updates, the build page or task logs: the planned changes and their evidence |
+| [docs/styles.md](docs/styles.md) | The frontend's styles: layers, the `.ui` scope, components, icons and `npm run icons`, the look |
 
 ---
 
