@@ -50,6 +50,9 @@ type queuedBuild struct {
 	// of older versions
 	QueuedAt time.Time    `json:"queuedAt,omitzero"`
 	Trigger  buildTrigger `json:"trigger,omitzero"`
+	// Parent and Root are the build's group, 0 if no build started it
+	Parent int `json:"parent,omitempty"`
+	Root   int `json:"root,omitempty"`
 }
 
 // RestoreQueue queues the builds that were queued when wakeci stopped, in
@@ -117,6 +120,7 @@ func newRestoredBuild(id int, saved *queuedBuild) (*Build, error) {
 		untrustedParams: saved.UntrustedParams || saved.StartedWithAPIKey,
 		queuedAt:        saved.QueuedAt,
 		trigger:         saved.Trigger,
+		group:           buildGroup{Parent: saved.Parent, Root: saved.Root},
 	}
 	build.Logger = L.With("build", id)
 	ran := map[int]*TaskStatus{}

@@ -111,6 +111,9 @@ type Build struct {
 	// which FinishInterruptedBuilds restored to run the tasks it has left.
 	// Set before the build is shared, never changed
 	interrupted bool
+	// group is the build that started this one and the root of its chain,
+	// set before the build's tasks start. Guarded by mutex
+	group buildGroup
 	// updateMu is held by BroadcastUpdate from taking the build's state until
 	// it is saved, so updates are saved in the order they were taken: an
 	// update taken while queued, saved after a later one, would queue the
@@ -646,6 +649,9 @@ func (b *Build) generateDefaultEnvVariables() []string {
 		fmt.Sprintf("WAKE_CONFIG_DIR=%s", Config.JobDir),
 		fmt.Sprintf("WAKE_SUMMARY=%s", b.GetWakespaceDir()+jobSummaryFile),
 	}
+	if parent := b.Group().Parent; parent != 0 {
+		evs = append(evs, fmt.Sprintf("WAKE_PARENT_ID=%d", parent))
+	}
 	if Config.Port == "443" {
 		evs = append(evs, fmt.Sprintf("WAKE_URL=https://%s/", Config.Hostname))
 	} else {
@@ -780,6 +786,7 @@ func (b *Build) BroadcastUpdate() {
 		b.Logger.Error("generate build update", "err", err)
 		return
 	}
+	root := b.Group().Root
 	msg := MsgBroadcast{
 		Type: "build:update:" + strconv.Itoa(bID),
 		Data: json.RawMessage(data),
@@ -793,6 +800,9 @@ func (b *Build) BroadcastUpdate() {
 			return err
 		}
 		if err := putBuildStats(tx, stats, bID); err != nil {
+			return err
+		}
+		if err := putGroupMember(tx, root, bID); err != nil {
 			return err
 		}
 		if err := putOrDelete(tx.Bucket(QueueBucket), bID, queued); err != nil {
@@ -836,6 +846,8 @@ func (b *Build) records() (data, queued, started, stats []byte, err error) {
 		Duration:       b.Duration,
 		ETA:            b.ETA,
 		QueuedAt:       b.queuedAt,
+		Parent:         b.group.Parent,
+		Root:           b.group.Root,
 	})
 	if err != nil {
 		return nil, nil, nil, nil, err
@@ -854,6 +866,8 @@ func (b *Build) records() (data, queued, started, stats []byte, err error) {
 		Ended:      b.ended,
 		Trigger:    b.trigger,
 		FailedTask: failedTask,
+		Parent:     b.group.Parent,
+		Root:       b.group.Root,
 	})
 	if err != nil {
 		return data, nil, nil, stats, err
@@ -867,6 +881,8 @@ func (b *Build) records() (data, queued, started, stats []byte, err error) {
 		// So a rollback to wakeci 2.41, which reads only this name, keeps it
 		StartedWithAPIKey: b.untrustedParams,
 		Tasks:             b.GetTasksStatus(),
+		Parent:            b.group.Parent,
+		Root:              b.group.Root,
 	}
 	switch {
 	case b.Status == StatusPending && !b.abortedWhileQueued:
@@ -1272,7 +1288,7 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 // CreateBuild creates Build instance and all necessary files and folders in
 // wakespace, with the job's default params
 func CreateBuild(job *Job, jobPath string, untrustedParams bool) (*Build, error) {
-	return createBuild(job, jobPath, untrustedParams, nil)
+	return createBuild(job, jobPath, untrustedParams, nil, buildGroup{})
 }
 
 // runParams returns a copy of the job's default params with the run's
@@ -1300,7 +1316,7 @@ func runParams(defaults []map[string]string, values url.Values) []map[string]str
 // build's first update and starts its on_pending tasks: both must see the
 // values the build runs with. RunJob used to set them afterwards, so the
 // feed got the defaults first and an on_pending task could run with them.
-func createBuild(job *Job, jobPath string, untrustedParams bool, values url.Values) (*Build, error) {
+func createBuild(job *Job, jobPath string, untrustedParams bool, values url.Values, group buildGroup) (*Build, error) {
 	var counti int
 	err := DB.Update(func(tx *bolt.Tx) error {
 		var err error
@@ -1330,6 +1346,7 @@ func createBuild(job *Job, jobPath string, untrustedParams bool, values url.Valu
 		queuedAt: time.Now(),
 		// Set before SetBuildStatus below starts the pending tasks
 		untrustedParams: untrustedParams,
+		group:           group,
 	}
 	build.Logger = L.With("build", build.ID)
 

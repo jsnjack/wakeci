@@ -313,6 +313,7 @@
             v-model:open="runOpen"
             :job-name="statusUpdate.name"
             :params="statusUpdate.params || []"
+            :again="statusUpdate.parent ? statusUpdate.id : 0"
             :defaults="jobInfo.defaults"
             :labels="job.labels || []"
             :param-info="job.param_info || {}"

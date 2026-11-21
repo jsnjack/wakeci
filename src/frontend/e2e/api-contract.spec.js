@@ -119,11 +119,16 @@ test("should answer every documented operation as the spec says", async ({ wake,
     };
 
     // Fixtures: a job with a failed build that wrote a log, an artifact and
-    // a summary, and jobs to delete
+    // a summary, started by another build so it has a parent, and jobs to
+    // delete
     const uid = randomUUID().slice(0, 8);
     const job = await wake.createJob(contractJob(uid), `contract-${uid}`);
-    const build = await wake.runJob(job);
+    const gate = await wake.gate();
+    const parent = await wake.runJob(await wake.createJob(`tasks:\n  - name: wait\n    run: ${gate.command}\n`));
+    await wake.waitForBuild(parent, "running");
+    const build = await wake.runJob(job, { WAKE_PARENT: String(parent) });
     await wake.waitForBuild(build, "failed");
+    await gate.release();
     const deletable = async () => wake.createJob(contractJob(randomUUID()), `contract-delete-${randomUUID().slice(0, 8)}`);
     const settings = await (await backend.api.get("/api/settings")).json();
 

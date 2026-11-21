@@ -258,7 +258,7 @@ func TestRunJobGivesTheFirstUpdateAndPendingTasksTheRunParams(t *testing.T) {
 		t.Fatalf("register job: %v", err)
 	}
 
-	build, err := RunJob("pending-params", url.Values{"CITY": {"minsk"}}, false, buildTrigger{Kind: TriggerPassword})
+	build, err := RunJob("pending-params", url.Values{"CITY": {"minsk"}}, false, buildTrigger{Kind: TriggerPassword}, buildGroup{})
 	if err != nil {
 		t.Fatalf("RunJob: %v", err)
 	}

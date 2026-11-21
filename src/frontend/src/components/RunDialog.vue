@@ -193,6 +193,12 @@ export default {
             type: Boolean,
             default: false,
         },
+        // The build this run runs again, if another build started it: the
+        // new build stays under the same parent
+        again: {
+            type: Number,
+            default: 0,
+        },
     },
     emits: ["update:open"],
     data() {
@@ -258,8 +264,12 @@ export default {
                 // A browser that keeps nothing doesn't remember them
             }
             this.$emit("update:open", false);
+            const query = new URLSearchParams(Object.entries(values));
+            if (this.again) {
+                query.set("WAKE_AGAIN", this.again);
+            }
             axios
-                .post(`/api/job/${encodeURIComponent(this.jobName)}/run?${new URLSearchParams(Object.entries(values))}`)
+                .post(`/api/job/${encodeURIComponent(this.jobName)}/run?${query}`)
                 .then((response) => {
                     const id = escapeHtml(response.data);
                     this.$notify({

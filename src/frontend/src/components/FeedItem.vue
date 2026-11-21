@@ -324,6 +324,10 @@ export default {
         },
         runAgain() {
             const params = new URLSearchParams((this.build.params || []).map((param) => Object.entries(param)[0]));
+            // A build that another build started stays under its parent
+            if (this.build.parent) {
+                params.set("WAKE_AGAIN", this.build.id);
+            }
             axios
                 .post(`/api/job/${encodeURIComponent(this.build.name)}/run?${params}`)
                 .then((response) => {

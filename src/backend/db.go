@@ -204,7 +204,7 @@ func bootstrapDB(tx *bolt.Tx) error {
 			}
 		}
 	}
-	for _, bucket := range [][]byte{JobsBucket, HistoryBucket, APIKeysBucket, QueueBucket, StartedBucket, SessionsBucket, SSOGroupsBucket, BuildStatsBucket, RequestStatsBucket} {
+	for _, bucket := range [][]byte{JobsBucket, HistoryBucket, APIKeysBucket, QueueBucket, StartedBucket, SessionsBucket, SSOGroupsBucket, BuildStatsBucket, RequestStatsBucket, GroupsBucket} {
 		if _, err := tx.CreateBucketIfNotExists(bucket); err != nil {
 			return err
 		}

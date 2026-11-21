@@ -149,6 +149,11 @@ finally:
 #                  echo "Failed: test_login" >> "$WAKE_SUMMARY"
 # "WAKE_INTERRUPTED" - `true` in the tasks a build runs after wakeci stopped
 #                      without ending it (see on_aborted above), else `false`
+# "WAKE_PARENT_ID" - id of the build that started this one, set only then. A
+#                    task starts another job under its build, shown below it
+#                    in the feed, with WAKE_PARENT, while its build runs:
+#                    curl -X POST -H "Authorization: Bearer {{ secrets.WAKE_KEY }}" \
+#                      "${WAKE_URL}api/job/deploy/run?WAKE_PARENT=${WAKE_BUILD_ID}"
 #
 # Set only after a main task failed, timed out or was aborted, so they reach
 # the `on_failed`, `on_aborted` and `finally` tasks:

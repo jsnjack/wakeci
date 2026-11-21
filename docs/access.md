@@ -100,6 +100,11 @@ on the page's own requests.
 
 The feed and the job list filter themselves with `Access.Reads`.
 
+A run that names a build (`WAKE_PARENT`, `WAKE_AGAIN`, `groupOf` in
+`group.go`) needs read on that build's job too; otherwise it gets the same
+400 as a build that doesn't exist, so a run can't tell which build IDs
+exist in jobs the caller can't see.
+
 Each API key may send a burst of requests, refilled at a steady rate
 (`apiKeyRequestLimiter`, after the key is verified); beyond that it gets
 429 with `Retry-After`. Both are settings (`apiKeyBurst`, `apiKeyRate`;

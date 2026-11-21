@@ -49,10 +49,12 @@ func requireJobName(w http.ResponseWriter, r *http.Request, logger *slog.Logger)
 
 // HandleRunJob adds job to queue
 // @Summary      Start a job
-// @Description  Creates a build of the job and adds it to the queue; returns the build ID. Send the job's parameters as form fields or query parameters with their names; others are ignored. API key scope: run. An API key, and a single sign-on user who may not edit jobs (write), can't send parameters that reference a secret or contain quotes, line breaks or NUL.
+// @Description  Creates a build of the job and adds it to the queue; returns the build ID. Send the job's parameters as form fields or query parameters with their names; others are ignored. A build that starts another sends WAKE_PARENT=$WAKE_BUILD_ID: the new build is shown under it, and its tasks get WAKE_PARENT_ID. The parent must still be pending or running. Run again sends WAKE_AGAIN with the ID of the build it runs again, of the same job, and the new build keeps that build's parent. API key scope: run. An API key, and a single sign-on user who may not edit jobs (write), can't send parameters that reference a secret or contain quotes, line breaks or NUL.
 // @Tags         job
 // @Produce      plain
-// @Param        name     path       string   true   "Name of the job"
+// @Param        name         path       string   true    "Name of the job"
+// @Param        WAKE_PARENT  query      integer  false   "ID of the pending or running build that starts this one"
+// @Param        WAKE_AGAIN   query      integer  false   "ID of the build of this job that this run runs again, whose parent the new build keeps"
 // @Success      200      {integer}  integer
 // @Failure      400      {string}   string
 // @Failure      401      {string}   string
@@ -74,7 +76,16 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request) {
 		logger.Error("parse form", "err", err)
 	}
 
-	build, err := RunJob(name, r.Form, paramsUntrusted(r), triggerOf(r))
+	group, err := groupOf(r, name)
+	if err != nil {
+		logger.Warn("run job", "job", name, "err", err)
+		writePlainText(w, logger, http.StatusBadRequest, err.Error())
+		return
+	}
+	if group.Parent != 0 {
+		addAuditAttrs(r, "parent", group.Parent)
+	}
+	build, err := RunJob(name, r.Form, paramsUntrusted(r), triggerOf(r), group)
 	if err != nil {
 		logger.Error("run job", "job", name, "err", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -112,7 +123,13 @@ func usedParams(build *Build, params url.Values) ([]string, int) {
 	}
 	slices.Sort(used)
 	used = slices.Compact(used)
-	return used, len(params) - len(used)
+	ignored := len(params) - len(used)
+	for _, name := range []string{parentParam, againParam} {
+		if params.Has(name) {
+			ignored--
+		}
+	}
+	return used, ignored
 }
 
 // HandleJobGet returns content of a specific job file
