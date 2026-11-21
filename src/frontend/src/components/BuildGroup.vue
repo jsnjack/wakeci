@@ -83,12 +83,12 @@
 <script>
 import { formatDuration } from "@/analytics.js";
 import StatusIcon from "@/components/StatusIcon.vue";
+import { groupTree, MAX_DEPTH } from "@/groups.js";
 import axios from "axios";
 import vuex from "vuex";
 
 // Every build's updates, which the group's come with
 const TOPIC = "build:update:";
-const MAX_DEPTH = 4;
 
 // BuildGroup shows the builds started under the same first build (F2 in
 // docs/ui-roadmap.md): on a member's page "Part of #5115 push" with the
@@ -131,28 +131,8 @@ export default {
         root() {
             return this.group.builds.find((build) => build.id === this.group.root);
         },
-        // The builds under the root as a tree: each build's builds right
-        // under it, in the order they started, with its level, 1 for those
-        // the root started. A build whose parent can't be seen sits at level 1
         members() {
-            const shown = new Set(this.group.builds.map((build) => build.id));
-            const children = new Map();
-            for (const build of this.group.builds) {
-                if (build.id === this.group.root) {
-                    continue;
-                }
-                const parent = shown.has(build.parent) ? build.parent : this.group.root;
-                children.set(parent, [...(children.get(parent) || []), build]);
-            }
-            const tree = [];
-            const walk = (id, depth) => {
-                for (const build of children.get(id) || []) {
-                    tree.push({ ...build, depth });
-                    walk(build.id, depth + 1);
-                }
-            };
-            walk(this.group.root, 1);
-            return tree;
+            return groupTree(this.group.root, this.group.builds);
         },
         siblings() {
             return this.group.builds.filter((build) => build.id !== this.group.root && build.parent === this.parent);

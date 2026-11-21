@@ -48,31 +48,6 @@ the commit message. How the styles work: [styles.md](styles.md).
 
 ## Feed
 
-- **F2. Builds under the build that started them (decided).** The server
-  records them: a run with `WAKE_PARENT=$WAKE_BUILD_ID` stores `parent` and
-  `root` in the build's records and in the `groups` bucket (`group.go`), and
-  Run again keeps them (`WAKE_AGAIN`). The build page shows the group
-  (`BuildGroup.vue`, from `GET /api/build/{id}/group`). The feed answers
-  groups with `groups=1` and abort takes `group=1`; what is left is the feed
-  page.
-  - **The feed** shows the root's row, then every build of the group on a
-    short line below it, always, so the failure needs no click. The lines
-    form a tree in the order the builds started, indented 22 px per level,
-    up to 4 levels (2 on phones); deeper builds stay at the last level with
-    "via #5210". The root row is running while builds run, with "1 failed"
-    as soon as one fails, and at the end shows the worst of them. A build
-    that started more than 10 lists its failed, running and queued ones,
-    then a "+26 passed" line that opens the rest. The group sits at the
-    root's place: the feed pages by the root's ID, and a bucket from each
-    root to its members reads them without scanning the history.
-  - The tree shows each job's latest attempt ("2 attempts" on hover). Abort
-    on the root row aborts the whole group: 6% of builds were aborted one by
-    one when a newer push superseded them. A search shows a group when any
-    of its builds matches. An SSO user sees the members they may read and
-    "+3 you can't see"; members whose root they can't read, or whose root
-    was cleaned up, show as their own rows.
-  - Explicit rather than guessed: grouping by an equal commit value would
-    merge re-runs and deploys and miss jobs without one. Effort M–L.
 - **F4, later.** Saved searches are kept in the browser (`FeedSearch.vue`);
   per SSO user on the server they would follow the user between browsers.
   "Started by me" could come from the recorded trigger, which the feed
@@ -119,7 +94,7 @@ overloaded.
 
 | Phase | Items |
 |---|---|
-| Later | F2, F4 later, L1, L3–L6, B5, B7 |
+| Later | F4 later, L1, L3–L6, B5, B7 |
 
 ## Sources
 

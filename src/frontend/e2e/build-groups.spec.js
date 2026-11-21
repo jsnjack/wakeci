@@ -22,9 +22,11 @@ test("a build started by another gets its parent, and run again keeps it", async
     expect(late.status()).toBe(400);
     expect(await late.text()).toContain(`build ${parent} has ended`);
 
-    await wake.showFeed(childJob);
+    // From the build page, through the run form
+    await wake.openBuild(child);
+    await page.getByTestId("run-again-button").click();
     const scheduled = page.waitForResponse((response) => new URL(response.url()).pathname === `/api/job/${childJob}/run`);
-    await page.locator(`[data-cy-build="${child}"]`).getByTestId("run-again-button").click();
+    await page.getByTestId("start-job-confirm").click();
     const again = await (await scheduled).json();
     await wake.waitForBuild(again);
     const rerun = (await (await backend.api.get(`/api/build/${again}`)).json()).status_update;
@@ -78,4 +80,48 @@ test("the build page shows the group: the tree on the root, the strip on a membe
     await strip.getByTestId("group-root").click();
     await expect(page).toHaveURL(`/build/${root}`);
     await expect(page.getByTestId("build-group").getByRole("heading")).toHaveText("Started 4 builds");
+});
+
+test("the feed shows a group under its root, live, and aborts it all", async ({ page, wake }) => {
+    const rootGate = await wake.gate();
+    const lastGate = await wake.gate();
+    const rootJob = await wake.createJob(`tasks:\n  - name: wait\n    run: ${rootGate.command}\n`);
+    const passJob = await wake.createJob("tasks:\n  - name: pass\n    run: echo ok\n");
+    const failJob = await wake.createJob("tasks:\n  - name: fail\n    run: exit 1\n");
+    const waitJob = await wake.createJob(`tasks:\n  - name: wait\n    run: ${lastGate.command}\n`);
+    const root = await wake.runJob(rootJob);
+    await wake.waitForBuild(root, "running");
+    const passed = await wake.runJob(passJob, { WAKE_PARENT: String(root) });
+    await wake.waitForBuild(passed);
+
+    // A search for the root's job shows the group
+    await wake.showFeed(rootJob);
+    const row = page.locator(`.feed-row[data-cy-build="${root}"]`);
+    const lines = page.locator(`[data-cy-group="${root}"]`).getByTestId("group-line");
+    await expect(row.locator("[data-cy-status]")).toHaveAttribute("data-cy-status", "running");
+    await expect(lines).toHaveCount(1);
+    await expect(lines.first()).toContainText(`#${passed}`);
+
+    // New builds join it live; a failure shows on the root's row at once
+    const failed = await wake.runJob(failJob, { WAKE_PARENT: String(root) });
+    await wake.waitForBuild(failed, "failed");
+    await expect(lines).toHaveCount(2);
+    await expect(row.getByTestId("group-failed")).toHaveText("1 failed");
+
+    // Run again shows the latest attempt only
+    const again = await wake.runJob(failJob, { WAKE_AGAIN: String(failed) });
+    await wake.waitForBuild(again, "failed");
+    await expect(lines).toHaveCount(2);
+    await expect(page.locator(`[data-cy-group="${root}"] [data-cy-build="${again}"]`)).toHaveAttribute("data-tip", "2 attempts");
+
+    const last = await wake.runJob(waitJob, { WAKE_PARENT: String(root) });
+    await wake.waitForBuild(last, "running");
+    await row.getByTestId("abort-build-button").click();
+    await wake.waitForBuild(root, "aborted");
+    await wake.waitForBuild(last, "aborted");
+    // Ended: the root shows the worst of all
+    await expect(row.locator("[data-cy-status]")).toHaveAttribute("data-cy-status", "failed");
+    await expect(row.getByTestId("group-failed")).toHaveCount(0);
+    await rootGate.release();
+    await lastGate.release();
 });
