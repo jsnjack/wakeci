@@ -551,6 +551,7 @@ func apiRoutes(router chi.Router) {
 	router.Route("/build", func(router chi.Router) {
 		router.With(requireAccess(ScopeRead, jobFromBuild)).Get("/{id}", HandleGetBuild)
 		router.With(requireAccess(ScopeRead, jobFromBuild)).Get("/{id}/summary", HandleBuildSummary)
+		router.With(requireAccess(ScopeRead, jobFromBuild)).Get("/{id}/group", HandleBuildGroup)
 		router.With(requireAccess(ScopeRead, jobFromBuild)).Get("/{id}/log/{task}", HandleTaskLog)
 		router.With(requireAccess(ScopeRun, jobFromBuild)).Post("/{id}/abort", HandleAbortBuild)
 		router.With(requireAccess(ScopeRun, jobFromBuild)).Post("/{id}/flush", HandleFlushTaskLogs)

@@ -30,3 +30,52 @@ test("a build started by another gets its parent, and run again keeps it", async
     const rerun = (await (await backend.api.get(`/api/build/${again}`)).json()).status_update;
     expect([rerun.parent, rerun.root]).toEqual([parent, parent]);
 });
+
+test("the build page shows the group: the tree on the root, the strip on a member", async ({ page, wake }) => {
+    const rootGate = await wake.gate();
+    const childGate = await wake.gate();
+    const rootJob = await wake.createJob(`tasks:\n  - name: wait\n    run: ${rootGate.command}\n`);
+    const waitJob = await wake.createJob(`tasks:\n  - name: wait\n    run: ${childGate.command}\n`);
+    const quickJob = await wake.createJob("tasks:\n  - name: hello\n    run: echo hello\n");
+    const root = await wake.runJob(rootJob);
+    await wake.waitForBuild(root, "running");
+    const first = await wake.runJob(waitJob, { WAKE_PARENT: String(root) });
+    await wake.waitForBuild(first, "running");
+    // Queued: the gated builds take both slots
+    const second = await wake.runJob(quickJob, { WAKE_PARENT: String(root) });
+    const grandchild = await wake.runJob(quickJob, { WAKE_PARENT: String(first) });
+
+    // The root lists them as a tree, and a new one as soon as it starts
+    await wake.livePage(`/build/${root}`);
+    const group = page.getByTestId("build-group");
+    await expect(group.getByRole("heading")).toHaveText("Started 3 builds");
+    await expect(group.getByTestId("group-build")).toHaveText([
+        new RegExp(`#${first}${waitJob}`),
+        new RegExp(`#${grandchild}${quickJob}`),
+        new RegExp(`#${second}${quickJob}`),
+    ]);
+    const third = await wake.runJob(quickJob, { WAKE_PARENT: String(root) });
+    await expect(group.getByRole("heading")).toHaveText("Started 4 builds");
+    await expect(group.getByTestId("group-build").last()).toContainText(`#${third}`);
+
+    // A member says what it is part of; [ and ] move between the builds its
+    // parent started
+    await childGate.release();
+    await rootGate.release();
+    for (const id of [root, first, grandchild, third]) {
+        await wake.waitForBuild(id);
+    }
+    await wake.openBuild(second);
+    const strip = page.getByTestId("build-group");
+    await expect(strip.getByTestId("group-root")).toHaveText(`#${root} ${rootJob}`);
+    await expect(strip.getByTestId("group-build")).toHaveCount(5);
+    await expect(strip.locator('[aria-current="page"]')).toHaveAttribute("aria-label", new RegExp(`^#${second} `));
+    await page.keyboard.press("[");
+    await expect(page).toHaveURL(`/build/${first}`);
+    await expect(page.getByTestId("page-title")).toContainText(`#${first}`);
+    await page.keyboard.press("]");
+    await expect(page).toHaveURL(`/build/${second}`);
+    await strip.getByTestId("group-root").click();
+    await expect(page).toHaveURL(`/build/${root}`);
+    await expect(page.getByTestId("build-group").getByRole("heading")).toHaveText("Started 4 builds");
+});

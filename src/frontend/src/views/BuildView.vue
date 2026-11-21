@@ -119,6 +119,14 @@
             </div>
         </header>
 
+        <BuildGroup
+            v-if="statusUpdate.id"
+            :build-id="statusUpdate.id"
+            :parent="statusUpdate.parent || 0"
+            :done="isDone"
+            :embedded="embedded"
+        />
+
         <section
             v-if="summary"
             class="panel stack gap-2"
@@ -324,6 +332,7 @@
 <script>
 import { ago, formatDuration, isZeroTime } from "@/analytics.js";
 import ArtifactItem from "@/components/ArtifactItem.vue";
+import BuildGroup from "@/components/BuildGroup.vue";
 import LogViewer from "@/components/LogViewer.vue";
 import NotFound from "@/components/NotFound.vue";
 import RunDialog from "@/components/RunDialog.vue";
@@ -351,7 +360,7 @@ const DONE = ["failed", "finished", "aborted", "timed out", "skipped"];
 // The build page: one header, then the failure, then a plain task list
 // (B1-B3 in docs/ui-roadmap.md). Logs open under their task.
 export default {
-    components: { ArtifactItem, LogViewer, NotFound, RunDialog, StatusIcon, SubscribeButton, UiDialog, UiMenu },
+    components: { ArtifactItem, BuildGroup, LogViewer, NotFound, RunDialog, StatusIcon, SubscribeButton, UiDialog, UiMenu },
     props: {
         id: {
             type: Number,
