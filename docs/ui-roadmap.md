@@ -57,11 +57,6 @@ the commit message. How the styles work: [styles.md](styles.md).
 
 ## Live updates
 
-- **L1. Keep the list still while the user reads.** Update rows in place
-  with a short highlight on a status change. While the user has scrolled down
-  or hovers a row, collect new builds behind a "3 new builds" pill; insert
-  them on click or at the top. Today `FeedView.applyUpdate` adds and
-  re-sorts at once. Effort S.
 - **L3. Progress against the usual duration.** A bar from `eta` on running
   rows and in the build header ("4m 12s of about 9m"); mark builds far over
   it, and flag a build past its usual duration that printed nothing for a
@@ -94,7 +89,7 @@ overloaded.
 
 | Phase | Items |
 |---|---|
-| Later | F4 later, L1, L3–L6, B5, B7 |
+| Later | F4 later, L3–L6, B5, B7 |
 
 ## Sources
 
