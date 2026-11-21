@@ -1,13 +1,13 @@
 <template>
     <div
         class="feed-row"
-        :class="{ compact }"
+        :class="{ compact, 'has-group': members.length || build.hiddenMembers }"
         :data-cy-build="build.id"
         :aria-current="selected ? 'true' : null"
         @click="openFromRow"
     >
         <StatusIcon
-            :status="build.status"
+            :status="shownStatus"
             tip
             class="tip-start"
         />
@@ -20,6 +20,12 @@
             >
                 <span class="muted nums">#{{ build.id }}</span> {{ build.name }}
             </router-link>
+            <span
+                v-if="shownStatus === 'running' && failedMembers"
+                class="group-failed text-sm"
+                data-cy="group-failed"
+                >{{ failedMembers }} failed</span
+            >
             <div
                 v-if="values.length"
                 class="feed-values muted text-sm"
@@ -74,8 +80,8 @@
                 type="button"
                 class="btn btn-ghost btn-icon"
                 data-cy="abort-build-button"
-                aria-label="Abort"
-                data-tip="Abort"
+                :aria-label="members.length ? 'Abort all' : 'Abort'"
+                :data-tip="members.length ? 'Abort it and the builds it started' : 'Abort'"
                 @click.stop="abort"
             >
                 <i class="icon">stop</i>
@@ -125,7 +131,7 @@
                 role="menuitem"
                 @click.stop="abort"
             >
-                <i class="icon">stop</i> Abort
+                <i class="icon">stop</i> {{ members.length ? "Abort all" : "Abort" }}
             </button>
             <button
                 v-if="canStartNow"
@@ -172,6 +178,7 @@ import { ago, dateTime, formatDuration, isZeroTime } from "@/analytics.js";
 import StatusIcon from "@/components/StatusIcon.vue";
 import UiMenu from "@/components/ui/UiMenu.vue";
 import { MAX_ROW_VALUES, ordinal, rowValues } from "@/feed.js";
+import { groupStatus, isFailure, latestAttempts } from "@/groups.js";
 import { escapeHtml, searchTerm } from "@/store/utils.js";
 import axios from "axios";
 import vuex from "vuex";
@@ -231,11 +238,23 @@ export default {
         isDone() {
             return ["failed", "finished", "aborted", "skipped", "timed out"].includes(this.build.status);
         },
+        // The builds started under this one, each job's latest attempt (F2)
+        members() {
+            return latestAttempts(this.build.members || []);
+        },
+        // A root is running while its group runs, and then shows the worst
+        // result of all
+        shownStatus() {
+            return this.members.length ? groupStatus([this.build, ...this.members]) : this.build.status;
+        },
+        failedMembers() {
+            return this.members.filter(isFailure).length;
+        },
         canRun() {
             return this.can("run", this.build.name);
         },
         canAbort() {
-            return this.canRun && !this.isDone;
+            return this.canRun && (!this.isDone || this.shownStatus === "running");
         },
         canStartNow() {
             return this.canRun && this.build.status === "pending" && this.queue.queuedIDs.includes(this.build.id);
@@ -311,9 +330,15 @@ export default {
             this.$emit("setFilter", { term: searchTerm(item.name, item.value), append: event.ctrlKey || event.metaKey });
         },
         abort() {
+            const group = this.members.length > 0;
             axios
-                .post(`/api/build/${this.build.id}/abort`)
-                .then(() => this.$notify({ text: `#${this.build.id} has been aborted`, type: "primary" }))
+                .post(`/api/build/${this.build.id}/abort${group ? "?group=1" : ""}`)
+                .then(() =>
+                    this.$notify({
+                        text: group ? `#${this.build.id} and the builds it started have been aborted` : `#${this.build.id} has been aborted`,
+                        type: "primary",
+                    }),
+                )
                 .catch(() => {});
         },
         startNow() {
@@ -355,6 +380,15 @@ export default {
     padding: var(--space-2) var(--space-3);
     border-block-end: 1px solid var(--outline-variant);
     cursor: pointer;
+}
+
+.feed-row.has-group {
+    border-block-end: none;
+}
+
+.group-failed {
+    color: var(--status-failed);
+    font-weight: 600;
 }
 
 .feed-row:hover {

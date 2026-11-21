@@ -34,6 +34,7 @@ src/backend/                 Go server (package main, module "wakeci")
   build.go                   Build/Task execution: runs tasks via go-cmd, writes task_N.log
   queue.go                   Queue of pending/running builds, concurrency limiting, stop state
   restart.go                 Restores queued builds at startup, finishes interrupted ones' hooks, drains on stop
+  group.go                   Builds started by builds (WAKE_PARENT): parent and root, groups bucket, group route and abort
   update.go                  Self-update: latest GitHub release, download + checks, binary swap, handlers
   cleanup.go                 Periodic removal of old build workspaces/history
   stats.go, analytics.go     Build stats kept past cleanup; analytics page and job insights (insights.go)

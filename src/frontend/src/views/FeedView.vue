@@ -31,18 +31,29 @@
                 class="feed-list"
                 data-cy="feed-container"
             >
-                <FeedItem
+                <template
                     v-for="item in sortedBuilds"
                     :key="item.id"
-                    :build="item"
-                    :job="jobs.get(item.name) || null"
-                    :now="now"
-                    :selectable="wide"
-                    :selected="item.id === selected"
-                    :compact="split"
-                    @set-filter="handleSetFilter"
-                    @select="selectBuild"
-                />
+                >
+                    <FeedItem
+                        :build="item"
+                        :job="jobs.get(item.name) || null"
+                        :now="now"
+                        :selectable="wide"
+                        :selected="item.id === selected"
+                        :compact="split"
+                        @set-filter="handleSetFilter"
+                        @select="selectBuild"
+                    />
+                    <FeedGroup
+                        v-if="item.members?.length || item.hiddenMembers"
+                        :root="item"
+                        :jobs="jobs"
+                        :selectable="wide"
+                        :selected="selected"
+                        @select="selectBuild"
+                    />
+                </template>
             </div>
 
             <div
@@ -103,6 +114,7 @@
 </template>
 
 <script>
+import FeedGroup from "@/components/FeedGroup.vue";
 import FeedItem from "@/components/FeedItem.vue";
 import FeedSearch from "@/components/FeedSearch.vue";
 import { defineAsyncComponent } from "vue";
@@ -119,6 +131,7 @@ const WIDE = "(min-width: 1440px)";
 
 export default {
     components: {
+        FeedGroup,
         FeedItem,
         FeedSearch,
         // Loaded with the first build shown beside the feed
@@ -236,7 +249,7 @@ export default {
                 before = `before=${Math.min(...this.builds.map((build) => build.id))}&`;
             }
             axios
-                .get(`/api/feed?${before}q=${encodeURIComponent(this.filter)}`)
+                .get(`/api/feed?groups=1&${before}q=${encodeURIComponent(this.filter)}`)
                 .then((response) => {
                     this.isFetching = false;
 
@@ -317,9 +330,28 @@ export default {
             this.fetch.flush();
         },
         applyUpdate(ev, fromFetch = false) {
+            // A build started under a root that the feed shows goes in the
+            // root's group (F2)
+            const rootIndex = ev.root ? findInContainer(this.builds, "id", ev.root)[1] : undefined;
+            if (rootIndex !== undefined) {
+                const root = this.builds[rootIndex];
+                const members = (root.members || []).filter((member) => member.id !== ev.id);
+                members.push(ev);
+                members.sort((a, b) => a.id - b.id);
+                this.builds[rootIndex] = { ...root, members };
+                return;
+            }
+            // A group from the server takes in the rows of its members,
+            // shown on their own while their root wasn't loaded
+            if (ev.members?.length) {
+                const ids = new Set(ev.members.map((member) => member.id));
+                this.builds = this.builds.filter((build) => !ids.has(build.id));
+            }
             const index = findInContainer(this.builds, "id", ev.id)[1];
             if (index !== undefined) {
-                this.builds[index] = ev;
+                const old = this.builds[index];
+                // A live update of a root doesn't carry its group
+                this.builds[index] = ev.members || !old.members ? ev : { ...ev, members: old.members, hiddenMembers: old.hiddenMembers };
             } else {
                 if (!fromFetch) {
                     if (isFilteredUpdate(ev, this.filterObj)) {
