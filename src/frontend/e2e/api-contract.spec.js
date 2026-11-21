@@ -135,7 +135,7 @@ test("should answer every documented operation as the spec says", async ({ wake,
     // How each operation succeeds; the ones that remove something get
     // something of their own to remove
     const valid = {
-        "GET /api/feed": async () => ({ target: "/api/feed?limit=5" }),
+        "GET /api/feed": async () => ({ target: "/api/feed?limit=5&groups=1" }),
         "GET /api/jobs/": async () => ({ target: "/api/jobs/" }),
         "POST /api/jobs/create": async () => ({ target: "/api/jobs/create", form: { name: `contract-new-${randomUUID().slice(0, 8)}` } }),
         "GET /api/job/{name}": async () => ({ target: `/api/job/${job}` }),
@@ -254,6 +254,8 @@ test("should answer every documented operation as the spec says", async ({ wake,
     for (const [opKey, target, status, form, body] of errors) {
         expectStatus(await call("admin", opKey, target, { form, body }), [status], `${opKey} ${target}`);
     }
+    // The feed without groups, whose rows carry their parent and root
+    expectStatus(await call("admin", "GET /api/feed", "/api/feed?limit=5"), [200], "GET /api/feed without groups");
 
     // 2. Without credentials, everything is refused with 401
     for (const [opKey, make] of Object.entries(valid)) {

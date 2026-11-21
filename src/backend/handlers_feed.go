@@ -34,6 +34,8 @@ type feedRequest struct {
 	// jobs and statuses, if set, are the only ones shown, by exact value
 	jobs, statuses []string
 	filter         *FilterRequest
+	// groups puts the builds that other builds started under their root
+	groups bool
 }
 
 func positiveParam(query url.Values, name string, min, max, fallback int) (int, error) {
@@ -50,7 +52,7 @@ func positiveParam(query url.Values, name string, min, max, fallback int) (int, 
 
 // feedRequestFrom reads a feed request from its query parameters
 func feedRequestFrom(query url.Values) (*feedRequest, error) {
-	f := &feedRequest{jobs: query["job"], statuses: query["status"]}
+	f := &feedRequest{jobs: query["job"], statuses: query["status"], groups: query.Get("groups") == "1"}
 	var err error
 	if f.offset, err = positiveParam(query, "offset", 0, math.MaxInt32, 0); err != nil {
 		return nil, err
@@ -117,7 +119,8 @@ func seekAtOrBefore(c *bolt.Cursor, id int) ([]byte, []byte) {
 // @Param        offset   query      integer   false  "Deprecated: skip that many matching builds; page with before=<the oldest ID you got> instead"
 // @Param        q        query      string    false  "Space-separated words matched as substrings of id:<id> name:<job> status:<status> and the params, so +name:test_unit also matches test_unit_js. Builds must contain the words prefixed with +, must not contain those prefixed with -, and must contain one of the others. Phrases can be wrapped in single or double quotes"
 // @Param        filter   query      string    false  "Deprecated: the old name of `q`, read only when `q` is absent"
-// @Success      200      {array}    BuildUpdateData
+// @Param        groups   query      integer   false  "1 puts each build that another build started (WAKE_PARENT) in the members of its root, at the root's place, instead of a row of its own; a search or filter then shows a group when any of its builds matches. A member whose root the caller may not read, or that cleanup removed, keeps its own row"
+// @Success      200      {array}    FeedBuild
 // @Success      304      {string}   string
 // @Failure      400      {string}   string
 // @Failure      401      {string}   string
@@ -137,15 +140,28 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 	access := accessFromContext(r.Context())
 	// Without anything that hides builds, offset can skip IDs instead of
 	// reading each build
-	narrowed := f.filter != nil || len(f.jobs) > 0 || len(f.statuses) > 0 || (access != nil && !access.Full)
+	narrowed := f.filter != nil || len(f.jobs) > 0 || len(f.statuses) > 0 || (access != nil && !access.Full) || f.groups
 
-	payload := []*BuildUpdateData{}
+	payload := []*FeedBuild{}
 	// Builds the history still has as pending or running but the queue no
 	// longer knows, e.g. after a restart. They are marked aborted in a
 	// separate write, so the scan never holds the database's write lock.
 	var stale []int
 	err = DB.View(func(tx *bolt.Tx) error {
-		c := tx.Bucket(HistoryBucket).Cursor()
+		history := tx.Bucket(HistoryBucket)
+		c := history.Cursor()
+		// Whether each root seen so far shows its members
+		rootShown := map[int]bool{}
+		shows := func(root int) bool {
+			if shown, ok := rootShown[root]; ok {
+				return shown
+			}
+			var msg BuildUpdateData
+			data := history.Get(Itob(root))
+			shown := data != nil && json.Unmarshal(data, &msg) == nil && access.Reads(msg.Name)
+			rootShown[root] = shown
+			return shown
+		}
 		lastK, _ := c.Last()
 		if lastK == nil {
 			return nil
@@ -172,7 +188,20 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 				msg.Status = StatusAborted
 				stale = append(stale, msg.ID)
 			}
-			if !f.matches(&msg, access) {
+			if !access.Reads(msg.Name) {
+				continue
+			}
+			row := &FeedBuild{BuildUpdateData: &msg}
+			if f.groups {
+				// Shown under its root
+				if msg.Root != 0 && shows(msg.Root) {
+					continue
+				}
+				if msg.Root == 0 {
+					stale = append(stale, row.addMembers(tx, access, logger)...)
+				}
+			}
+			if !f.matches(&msg, access) && !slices.ContainsFunc(row.Members, func(m *BuildUpdateData) bool { return f.matches(m, access) }) {
 				continue
 			}
 			if skip > 0 {
@@ -180,7 +209,10 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			addArtifactURLs(&msg)
-			payload = append(payload, &msg)
+			for _, member := range row.Members {
+				addArtifactURLs(member)
+			}
+			payload = append(payload, row)
 			if len(payload) >= f.limit {
 				break
 			}
@@ -226,4 +258,67 @@ func markStaleBuildsAborted(logger *slog.Logger, ids []int) error {
 		}
 		return nil
 	})
+}
+
+// FeedBuild is a build in the feed. With groups=1 a root also has the builds
+// of its group that the caller may read, and how many others there are
+type FeedBuild struct {
+	*BuildUpdateData
+	// Members are the builds started under the root, in the order they were
+	// created; set only on a root, with groups=1
+	Members []*BuildUpdateData `json:"members,omitempty"`
+	// HiddenMembers counts the members the caller may not read; set with
+	// members
+	HiddenMembers int `json:"hiddenMembers,omitempty"`
+}
+
+// MarshalJSON adds the members to the build's own JSON, whose MarshalJSON
+// would otherwise stand for the whole FeedBuild
+func (b FeedBuild) MarshalJSON() ([]byte, error) {
+	data, err := json.Marshal(b.BuildUpdateData)
+	if err != nil || b.Members == nil {
+		return data, err
+	}
+	members, err := json.Marshal(struct {
+		Members       []*BuildUpdateData `json:"members"`
+		HiddenMembers int                `json:"hiddenMembers"`
+	}{b.Members, b.HiddenMembers})
+	if err != nil {
+		return nil, err
+	}
+	// Both are objects: {...} and {"members":...} make {...,"members":...}
+	return append(append(data[:len(data)-1], ','), members[1:]...), nil
+}
+
+// addMembers reads the members of the build's group, if it is a root, and
+// returns those that are stale like the feed's own rows
+func (b *FeedBuild) addMembers(tx *bolt.Tx, access *Access, logger *slog.Logger) []int {
+	ids := groupMembers(tx, b.ID)
+	if len(ids) == 0 {
+		return nil
+	}
+	var stale []int
+	history := tx.Bucket(HistoryBucket)
+	b.Members = []*BuildUpdateData{}
+	for _, id := range ids {
+		data := history.Get(Itob(id))
+		if data == nil {
+			continue
+		}
+		var member BuildUpdateData
+		if err := json.Unmarshal(data, &member); err != nil {
+			logger.Error("unmarshal build history entry", "build", id, "err", err)
+			continue
+		}
+		if !access.Reads(member.Name) {
+			b.HiddenMembers++
+			continue
+		}
+		if isStaleBuild(&member) {
+			member.Status = StatusAborted
+			stale = append(stale, id)
+		}
+		b.Members = append(b.Members, &member)
+	}
+	return stale
 }

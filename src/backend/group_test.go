@@ -2,12 +2,14 @@ package main
 
 import (
 	"encoding/json"
+	"maps"
 	"net/http"
 	"net/url"
 	"slices"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -261,5 +263,117 @@ func TestBuildGroupRoute(t *testing.T) {
 	}
 	if _, code := get(999, nil); code != http.StatusNotFound {
 		t.Errorf("group of a build that doesn't exist: %d, want 404", code)
+	}
+}
+
+// feedRows reads the feed and returns each row's ID with its members' IDs
+func feedRows(t *testing.T, query string, cookie *http.Cookie) map[int][]int {
+	t.Helper()
+	var prepare func(*http.Request)
+	if cookie == nil {
+		prepare = func(r *http.Request) { r.SetBasicAuth("", "admin") }
+	}
+	rec := apiCall("GET", "/api/feed?"+query, cookie, nil, prepare)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("feed %s: %d %q", query, rec.Code, rec.Body.String())
+	}
+	var rows []struct {
+		ID            int `json:"id"`
+		Members       []struct{ ID int }
+		HiddenMembers int `json:"hiddenMembers"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &rows); err != nil {
+		t.Fatal(err)
+	}
+	got := map[int][]int{}
+	for _, row := range rows {
+		got[row.ID] = []int{}
+		for _, m := range row.Members {
+			got[row.ID] = append(got[row.ID], m.ID)
+		}
+		if row.HiddenMembers > 0 {
+			got[row.ID] = append(got[row.ID], -row.HiddenMembers)
+		}
+	}
+	return got
+}
+
+func TestFeedGroups(t *testing.T) {
+	groupEnv(t)
+	root, _ := runAs(t, nil, "deploy", nil, http.StatusOK)
+	child, _ := runAs(t, nil, "nightly", url.Values{parentParam: {strconv.Itoa(root)}}, http.StatusOK)
+	grandchild, _ := runAs(t, nil, "deploy", url.Values{parentParam: {strconv.Itoa(child)}}, http.StatusOK)
+	lone, _ := runAs(t, nil, "deploy", nil, http.StatusOK)
+	addTestGroup(t, "Deployers", Grant{Scopes: []string{ScopeRead, ScopeRun}, Jobs: []string{"deploy"}})
+	addTestGroup(t, "Nightly", Grant{Scopes: []string{ScopeRead}, Jobs: []string{"nightly"}})
+	deployer := loginInGroups(t, "dana@example.com", "Deployers")
+	nightly := loginInGroups(t, "nina@example.com", "Nightly")
+
+	cases := []struct {
+		name   string
+		query  string
+		cookie *http.Cookie
+		want   map[int][]int
+	}{
+		// Builds 1 and 2 come from the test environment, without a group
+		{"flat without groups", "", nil, map[int][]int{lone: {}, grandchild: {}, child: {}, root: {}, 2: {}, 1: {}}},
+		{"members under the root", "groups=1", nil, map[int][]int{lone: {}, root: {child, grandchild}, 2: {}, 1: {}}},
+		{"a group matches by any build", "groups=1&job=nightly", nil, map[int][]int{root: {child, grandchild}, 2: {}}},
+		{"a search too", "groups=1&q=" + url.QueryEscape("id:"+strconv.Itoa(grandchild)), nil, map[int][]int{root: {child, grandchild}}},
+		{"unreadable members are counted", "groups=1", deployer, map[int][]int{lone: {}, root: {grandchild, -1}, 1: {}}},
+		{"an unreadable root leaves its members on their own", "groups=1", nightly, map[int][]int{child: {}, 2: {}}},
+	}
+	for _, c := range cases {
+		if got := feedRows(t, c.query, c.cookie); !maps.EqualFunc(got, c.want, slices.Equal) {
+			t.Errorf("%s: rows %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
+func TestAbortGroup(t *testing.T) {
+	groupEnv(t)
+	root, _ := runAs(t, nil, "deploy", nil, http.StatusOK)
+	child, _ := runAs(t, nil, "nightly", url.Values{parentParam: {strconv.Itoa(root)}}, http.StatusOK)
+	grandchild, _ := runAs(t, nil, "deploy", url.Values{parentParam: {strconv.Itoa(child)}}, http.StatusOK)
+	lone, _ := runAs(t, nil, "deploy", nil, http.StatusOK)
+	addTestGroup(t, "Deployers", Grant{Scopes: []string{ScopeRead, ScopeRun}, Jobs: []string{"deploy"}})
+	deployer := loginInGroups(t, "dana@example.com", "Deployers")
+	events, _ := captureAudit(t)
+
+	// The deployer may only run deploy: nightly stays
+	rec := apiCall("POST", "/api/build/"+strconv.Itoa(grandchild)+"/abort?group=1", deployer, nil, nil)
+	if rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != "2" {
+		t.Fatalf("deployer's group abort: %d %q, want 2", rec.Code, rec.Body.String())
+	}
+	if GlobalQueue.Live(child) == nil || GlobalQueue.Verify(lone) == false {
+		t.Error("the group abort reached a build it shouldn't")
+	}
+	waitLeftQueue(t, root, grandchild)
+	event := onlyAuditEvent(t, events())
+	if event["group"] != "true" || event["aborted"] != "2" {
+		t.Errorf("audit: %v, want group=true aborted=2", event)
+	}
+	rec = apiCall("POST", "/api/build/"+strconv.Itoa(root)+"/abort?group=1", nil, nil, func(r *http.Request) { r.SetBasicAuth("", "admin") })
+	if rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != "1" {
+		t.Errorf("admin's group abort after the deployer's: %d %q, want 1 (the nightly build)", rec.Code, rec.Body.String())
+	}
+	waitLeftQueue(t, child)
+	if !GlobalQueue.Verify(lone) {
+		t.Error("a build outside the group was aborted")
+	}
+}
+
+// waitLeftQueue waits until the aborted builds ran their last tasks and left
+// the queue, so nothing of theirs runs after the test
+func waitLeftQueue(t *testing.T, ids ...int) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for _, id := range ids {
+		for GlobalQueue.Live(id) != nil {
+			if time.Now().After(deadline) {
+				t.Fatalf("build %d is still in the queue", id)
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
 	}
 }

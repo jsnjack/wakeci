@@ -52,8 +52,9 @@ the commit message. How the styles work: [styles.md](styles.md).
   records them: a run with `WAKE_PARENT=$WAKE_BUILD_ID` stores `parent` and
   `root` in the build's records and in the `groups` bucket (`group.go`), and
   Run again keeps them (`WAKE_AGAIN`). The build page shows the group
-  (`BuildGroup.vue`, from `GET /api/build/{id}/group`). What is left is the
-  feed.
+  (`BuildGroup.vue`, from `GET /api/build/{id}/group`). The feed answers
+  groups with `groups=1` and abort takes `group=1`; what is left is the feed
+  page.
   - **The feed** shows the root's row, then every build of the group on a
     short line below it, always, so the failure needs no click. The lines
     form a tree in the order the builds started, indented 22 px per level,

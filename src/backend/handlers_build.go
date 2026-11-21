@@ -243,10 +243,11 @@ func readJobSummary(buildID int) (string, error) {
 
 // HandleAbortBuild aborts build
 // @Summary      Abort the build
-// @Description  API key scope: run. The task log names who aborted it: the single sign-on email, the API key's name and ID, or the admin password
+// @Description  API key scope: run. The task log names who aborted it: the single sign-on email, the API key's name and ID, or the admin password. With group=1 it aborts every pending or running build of the build's group (WAKE_PARENT) whose job the caller may run, and answers how many
 // @Tags         build
 // @Produce      plain
 // @Param        id       path    integer   true  "Build ID"
+// @Param        group    query   integer   false "1 aborts the whole group of the build"
 // @Success      200      {string}   string
 // @Failure      400      {string}   string
 // @Failure      401      {string}   string
@@ -260,6 +261,17 @@ func HandleAbortBuild(w http.ResponseWriter, r *http.Request) {
 	id, err := buildIDParam(r)
 	if err != nil {
 		writePlainText(w, logger, http.StatusBadRequest, err.Error())
+		return
+	}
+	if r.URL.Query().Get("group") == "1" {
+		aborted, err := abortGroup(r, id)
+		if err != nil {
+			logger.Error("abort group", "build", id, "err", err)
+			writePlainText(w, logger, http.StatusInternalServerError, err.Error())
+			return
+		}
+		addAuditAttrs(r, "group", true, "aborted", len(aborted))
+		writePlainText(w, logger, http.StatusOK, strconv.Itoa(len(aborted)))
 		return
 	}
 	err = GlobalQueue.AbortBy(id, StatusAborted, abortedBy(r))

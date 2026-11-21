@@ -276,3 +276,36 @@ func readGroup(id int, access *Access) (*GroupPayload, error) {
 	})
 	return payload, err
 }
+
+// abortGroup aborts every build of build id's group that is still in the
+// queue and whose job the request may run, and returns their IDs
+func abortGroup(r *http.Request, id int) ([]int, error) {
+	access := accessFromContext(r.Context())
+	payload, err := readGroup(id, access)
+	if errors.Is(err, errBuildNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	builds := payload.Builds
+	if payload.Root == 0 {
+		// A build without a group is a group of one
+		build, err := readBuildStatus(id)
+		if err != nil {
+			return nil, err
+		}
+		builds = []GroupBuild{{ID: build.ID, Name: build.Name}}
+	}
+	var aborted []int
+	by := abortedBy(r)
+	for _, build := range builds {
+		if access != nil && !access.Allows(ScopeRun, build.Name) {
+			continue
+		}
+		if GlobalQueue.AbortBy(build.ID, StatusAborted, by) == nil {
+			aborted = append(aborted, build.ID)
+		}
+	}
+	return aborted, nil
+}
