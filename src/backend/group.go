@@ -2,10 +2,12 @@ package main
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -160,4 +162,117 @@ func deleteGroupMember(tx *bolt.Tx, root, id int) error {
 		return groups.DeleteBucket(Itob(root))
 	}
 	return nil
+}
+
+// GroupBuild is a build of a group, as the build page shows it
+type GroupBuild struct {
+	ID     int        `json:"id"`
+	Name   string     `json:"name"`
+	Status ItemStatus `json:"status"`
+	// Parent is the build that started it, 0 for the root
+	Parent    int           `json:"parent"`
+	QueuedAt  time.Time     `json:"queuedAt"`
+	StartedAt time.Time     `json:"startedAt"`
+	Duration  time.Duration `json:"duration" swaggertype:"integer"`
+}
+
+// GroupPayload is the group of a build
+type GroupPayload struct {
+	// Root is the first build of the group, 0 if the build is in none: no
+	// build started it and it started none
+	Root int `json:"root"`
+	// Builds are the root, then the builds it and its members started, in
+	// the order they were created, each one that the caller may read and
+	// that cleanup kept
+	Builds []GroupBuild `json:"builds"`
+	// Hidden counts the members the caller may not read
+	Hidden int `json:"hidden"`
+}
+
+// HandleBuildGroup returns the group of a build
+// @Summary      Return the group of a build
+// @Description  The builds started under the same first build with WAKE_PARENT, the root first. Empty for a build that no build started and that started none. API key scope: read
+// @Tags         build
+// @Produce      json
+// @Param        id       path    integer   true  "Build ID"
+// @Success      200      {object}   GroupPayload
+// @Failure      400      {string}   string
+// @Failure      401      {string}   string
+// @Failure      403      {string}   string
+// @Failure      404      {string}   string
+// @Failure      429      {string}   string
+// @Failure      500      {string}   string
+// @Router       /api/build/{id}/group [get]
+func HandleBuildGroup(w http.ResponseWriter, r *http.Request) {
+	logger := requestLogger(r)
+	id, err := buildIDParam(r)
+	if err != nil {
+		writePlainText(w, logger, http.StatusBadRequest, err.Error())
+		return
+	}
+	payload, err := readGroup(id, accessFromContext(r.Context()))
+	if errors.Is(err, errBuildNotFound) {
+		writePlainText(w, logger, http.StatusNotFound, err.Error())
+		return
+	}
+	if err != nil {
+		logger.Error("read build group", "build", id, "err", err)
+		writePlainText(w, logger, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, logger, payload)
+}
+
+// readGroup reads the group of build id, with the builds access may read
+func readGroup(id int, access *Access) (*GroupPayload, error) {
+	payload := &GroupPayload{Builds: []GroupBuild{}}
+	err := DB.View(func(tx *bolt.Tx) error {
+		history := tx.Bucket(HistoryBucket)
+		// read returns build id from the history and its root, nil if
+		// cleanup removed it
+		read := func(id int) (*GroupBuild, int, error) {
+			data := history.Get(Itob(id))
+			if data == nil {
+				return nil, 0, nil
+			}
+			var build struct {
+				GroupBuild
+				Root int `json:"root"`
+			}
+			if err := json.Unmarshal(data, &build); err != nil {
+				return nil, 0, fmt.Errorf("decode build %d: %w", id, err)
+			}
+			return &build.GroupBuild, build.Root, nil
+		}
+		build, root, err := read(id)
+		if err != nil {
+			return err
+		}
+		if build == nil {
+			return errBuildNotFound
+		}
+		if root == 0 {
+			root = id
+		}
+		members := groupMembers(tx, root)
+		if len(members) == 0 {
+			return nil
+		}
+		payload.Root = root
+		for _, member := range append([]int{root}, members...) {
+			build, _, err := read(member)
+			if err != nil {
+				return err
+			}
+			switch {
+			case build == nil:
+			case access.Reads(build.Name):
+				payload.Builds = append(payload.Builds, *build)
+			default:
+				payload.Hidden++
+			}
+		}
+		return nil
+	})
+	return payload, err
 }

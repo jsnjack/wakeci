@@ -84,7 +84,8 @@
     </header>
     <main class="app-main">
         <QueueBanner v-if="auth.isLoggedIn" />
-        <router-view />
+        <!-- A new path mounts its page again, e.g. another build's -->
+        <router-view :key="$route.path" />
     </main>
     <notifications
         class="ui"

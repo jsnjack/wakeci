@@ -51,7 +51,9 @@ the commit message. How the styles work: [styles.md](styles.md).
 - **F2. Builds under the build that started them (decided).** The server
   records them: a run with `WAKE_PARENT=$WAKE_BUILD_ID` stores `parent` and
   `root` in the build's records and in the `groups` bucket (`group.go`), and
-  Run again keeps them (`WAKE_AGAIN`). What is left is showing them.
+  Run again keeps them (`WAKE_AGAIN`). The build page shows the group
+  (`BuildGroup.vue`, from `GET /api/build/{id}/group`). What is left is the
+  feed.
   - **The feed** shows the root's row, then every build of the group on a
     short line below it, always, so the failure needs no click. The lines
     form a tree in the order the builds started, indented 22 px per level,
@@ -62,9 +64,6 @@ the commit message. How the styles work: [styles.md](styles.md).
     then a "+26 passed" line that opens the rest. The group sits at the
     root's place: the feed pages by the root's ID, and a bucket from each
     root to its members reads them without scanning the history.
-  - **The build page** of a member says "Part of #5115 push" with the
-    group's strip, and `[` and `]` move between siblings. The root's page
-    lists the builds it started.
   - The tree shows each job's latest attempt ("2 attempts" on hover). Abort
     on the root row aborts the whole group: 6% of builds were aborted one by
     one when a newer push superseded them. A search shows a group when any
@@ -72,8 +71,7 @@ the commit message. How the styles work: [styles.md](styles.md).
     "+3 you can't see"; members whose root they can't read, or whose root
     was cleaned up, show as their own rows.
   - Explicit rather than guessed: grouping by an equal commit value would
-    merge re-runs and deploys and miss jobs without one. Effort M for the
-    build page, M–L for the feed.
+    merge re-runs and deploys and miss jobs without one. Effort M–L.
 - **F4, later.** Saved searches are kept in the browser (`FeedSearch.vue`);
   per SSO user on the server they would follow the user between browsers.
   "Started by me" could come from the recorded trigger, which the feed

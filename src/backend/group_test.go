@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"slices"
@@ -202,5 +203,63 @@ func TestGroupForgetsDeletedMembers(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestBuildGroupRoute(t *testing.T) {
+	groupEnv(t)
+	root, _ := runAs(t, nil, "deploy", nil, http.StatusOK)
+	child, _ := runAs(t, nil, "nightly", url.Values{parentParam: {strconv.Itoa(root)}}, http.StatusOK)
+	grandchild, _ := runAs(t, nil, "deploy", url.Values{parentParam: {strconv.Itoa(child)}}, http.StatusOK)
+	lone, _ := runAs(t, nil, "deploy", nil, http.StatusOK)
+	addTestGroup(t, "Deployers", Grant{Scopes: []string{ScopeRead}, Jobs: []string{"deploy"}})
+	deployer := loginInGroups(t, "dana@example.com", "Deployers")
+	admin := func(r *http.Request) { r.SetBasicAuth("", "admin") }
+
+	get := func(id int, cookie *http.Cookie) (GroupPayload, int) {
+		t.Helper()
+		var prepare func(*http.Request)
+		if cookie == nil {
+			prepare = admin
+		}
+		rec := apiCall("GET", "/api/build/"+strconv.Itoa(id)+"/group", cookie, nil, prepare)
+		var payload GroupPayload
+		if rec.Code == http.StatusOK {
+			if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode %q: %v", rec.Body.String(), err)
+			}
+		}
+		return payload, rec.Code
+	}
+	ids := func(p GroupPayload) []int {
+		var ids []int
+		for _, b := range p.Builds {
+			ids = append(ids, b.ID)
+		}
+		return ids
+	}
+
+	for _, id := range []int{root, child, grandchild} {
+		got, code := get(id, nil)
+		if code != http.StatusOK || got.Root != root || !slices.Equal(ids(got), []int{root, child, grandchild}) || got.Hidden != 0 {
+			t.Errorf("group of %d: %d %+v, want root %d with %d, %d, %d", id, code, got, root, root, child, grandchild)
+		}
+	}
+	got, _ := get(root, nil)
+	if got.Builds[2].Parent != child || got.Builds[2].Name != "deploy" || got.Builds[2].Status != StatusPending {
+		t.Errorf("grandchild in the group: %+v", got.Builds[2])
+	}
+	// The deployer reads deploy only: nightly is counted, not shown
+	if got, code := get(grandchild, deployer); code != http.StatusOK || !slices.Equal(ids(got), []int{root, grandchild}) || got.Hidden != 1 {
+		t.Errorf("deployer's group of %d: %d %+v, want %d and %d, 1 hidden", grandchild, code, got, root, grandchild)
+	}
+	if _, code := get(child, deployer); code != http.StatusForbidden {
+		t.Errorf("deployer's group of a nightly build: %d, want 403", code)
+	}
+	if got, code := get(lone, nil); code != http.StatusOK || got.Root != 0 || len(got.Builds) != 0 {
+		t.Errorf("group of a lone build: %d %+v, want none", code, got)
+	}
+	if _, code := get(999, nil); code != http.StatusNotFound {
+		t.Errorf("group of a build that doesn't exist: %d, want 404", code)
 	}
 }
