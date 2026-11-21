@@ -78,6 +78,9 @@ type buildStats struct {
 	Trigger buildTrigger `json:"trigger,omitzero"`
 	// FailedTask is the name of the main task that stopped the build
 	FailedTask string `json:"failedTask,omitempty"`
+	// Parent and Root are the build's group, 0 if no build started it
+	Parent int `json:"parent,omitempty"`
+	Root   int `json:"root,omitempty"`
 }
 
 // at is when the build was queued, or started for builds from before wakeci

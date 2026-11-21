@@ -256,6 +256,19 @@ func (q *Queue) AbortBy(id int, reason, by string) error {
 	return nil
 }
 
+// Live returns the build with id while it is in the queue: queued, running,
+// or running the tasks of a queued abort. Nil once it has ended
+func (q *Queue) Live(id int) *Build {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+	for _, item := range q.queued {
+		if item.ID == id {
+			return item
+		}
+	}
+	return q.find(id)
+}
+
 // find returns the build with id that is running or running the tasks of a
 // queued abort. The caller holds q.mutex
 func (q *Queue) find(id int) *Build {

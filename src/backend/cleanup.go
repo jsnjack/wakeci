@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -44,7 +45,7 @@ func (cl *Cleaner) Clean() {
 		// Find starting point for removing
 		fromB := make([]byte, 8)
 		binary.BigEndian.PutUint64(fromB, binary.BigEndian.Uint64(lastK)-uint64(preserve))
-		for key, _ := c.Seek(fromB); key != nil; key, _ = c.Prev() {
+		for key, value := c.Seek(fromB); key != nil; key, value = c.Prev() {
 			var id = binary.BigEndian.Uint64(key)
 			if id > binary.BigEndian.Uint64(fromB) {
 				continue
@@ -61,6 +62,14 @@ func (cl *Cleaner) Clean() {
 			err = os.RemoveAll(filepath.Join(Config.WorkDir, "wakespace/", fmt.Sprintf("%d", id)))
 			if err != nil {
 				cl.Logger.Error("remove wakespace", "build", id, "err", err)
+			}
+			var group struct {
+				Root int `json:"root"`
+			}
+			if json.Unmarshal(value, &group) == nil {
+				if err := deleteGroupMember(tx, group.Root, int(id)); err != nil {
+					cl.Logger.Error("delete build from its group", "build", id, "err", err)
+				}
 			}
 			err = c.Delete()
 			if err != nil {

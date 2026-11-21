@@ -141,6 +141,11 @@ type BuildUpdateData struct {
 	// QueuedAt is when the build was created and queued;
 	// 0001-01-01T00:00:00Z for builds from before wakeci recorded it
 	QueuedAt time.Time `json:"queuedAt"`
+	// Parent is the build that started this one with WAKE_PARENT, and Root
+	// the first build of that chain; both are left out for a build that no
+	// build started
+	Parent int `json:"parent,omitempty"`
+	Root   int `json:"root,omitempty"`
 }
 
 // When StartedAt field is serialized to JSON, it has fixed second's precision

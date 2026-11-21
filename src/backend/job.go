@@ -133,7 +133,7 @@ func (j *Job) AddToCron() error {
 // Run is used to run a job via cron
 func (j *Job) Run() {
 	var params url.Values
-	build, err := RunJob(j.Name, params, false, buildTrigger{Kind: TriggerInterval})
+	build, err := RunJob(j.Name, params, false, buildTrigger{Kind: TriggerInterval}, buildGroup{})
 	if err != nil {
 		L.Error("schedule build via cron", "job", j.Name, "err", err)
 		auditScheduled("build.run", "failed", "trigger", "interval", "job", j.Name, "reason", err.Error())
@@ -395,8 +395,8 @@ func RemoveJobFromCron(name string) {
 }
 
 // RunJob creates a new build and schedules it for execution. trigger says
-// who or what started it
-func RunJob(name string, params url.Values, untrustedParams bool, trigger buildTrigger) (*Build, error) {
+// who or what started it, and group which build, if one did
+func RunJob(name string, params url.Values, untrustedParams bool, trigger buildTrigger, group buildGroup) (*Build, error) {
 	// Check if job is enabled
 	err := DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(JobsBucket))
@@ -423,7 +423,7 @@ func RunJob(name string, params url.Values, untrustedParams bool, trigger buildT
 		return nil, err
 	}
 	build, err := GlobalQueue.addNewBuild(func() (*Build, error) {
-		build, err := createBuild(job, jobFile, untrustedParams, params)
+		build, err := createBuild(job, jobFile, untrustedParams, params, group)
 		if err != nil {
 			return nil, err
 		}
