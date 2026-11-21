@@ -187,8 +187,12 @@ test("should stay logged in when the groups don't allow a request", async ({ pag
 });
 
 test("should go to the login page when the session ended", async ({ page }) => {
+    // The feed asks for the jobs too: the session ends after it has them, or
+    // that answer would lead to the login page before the click
+    const feedJobs = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/jobs/");
     await page.goto("/");
     await expect(page.getByTestId("page-title")).toHaveText("Feed");
+    await feedJobs;
     // The session ends: every request, the login check too, gets 401
     const ended = (route) =>
         route.fulfill({
