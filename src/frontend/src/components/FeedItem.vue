@@ -62,7 +62,13 @@
                 <span data-cy="started-ago">{{ waited }}</span>
             </template>
             <template v-else>
-                <span data-cy="duration">{{ durationText }}</span>
+                <span
+                    data-cy="duration"
+                    :class="{ over: overUsual }"
+                    :data-tip="overUsual ? `Usually about ${usualText}` : null"
+                    class="tip-end"
+                    >{{ durationText }}</span
+                >
                 <span
                     data-cy="started-ago"
                     :data-tip="startedAtText"
@@ -166,7 +172,7 @@
         >
             <div
                 class="feed-progress"
-                :class="{ unknown: progress === null }"
+                :class="{ unknown: progress === null, over: overUsual }"
                 :style="progress === null ? null : { inlineSize: `${progress}%` }"
             ></div>
         </div>
@@ -184,6 +190,8 @@ import axios from "axios";
 import vuex from "vuex";
 
 const NS = 1e9;
+// A running build this many times its usual duration is marked (L3)
+const OVER_USUAL = 1.5;
 
 // A build in the feed: two plain lines, the status, ID and job on the first,
 // the labels and changed params on the second; duration and time on the
@@ -286,6 +294,13 @@ export default {
                 return null;
             }
             return Math.min(100, (this.elapsed / (this.build.eta / NS)) * 100);
+        },
+        // Far over the usual duration (L3)
+        overUsual() {
+            return this.build.status === "running" && this.started && this.build.eta > 0 && this.elapsed > (OVER_USUAL * this.build.eta) / NS;
+        },
+        usualText() {
+            return formatDuration(this.build.eta);
         },
         startedAgo() {
             // `now` makes it move on
@@ -404,6 +419,15 @@ export default {
 
 .feed-row.flash {
     animation: row-flash 1.5s ease-out;
+}
+
+.over {
+    color: var(--warning);
+    font-weight: 600;
+}
+
+.feed-progress.over {
+    background-color: var(--warning);
 }
 
 @keyframes row-flash {

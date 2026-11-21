@@ -120,6 +120,8 @@
   --status-aborted: var(--outline);
   --status-pending: var(--outline);
   --status-skipped: var(--outline);
+  /* A build far over its usual duration, or silent: not a status, a hint */
+  --warning: #8a5a00;
 }
 
 :root body.dark {
@@ -130,4 +132,5 @@
   --status-aborted: var(--outline);
   --status-pending: var(--outline);
   --status-skipped: var(--outline);
+  --warning: #ffb951;
 }
