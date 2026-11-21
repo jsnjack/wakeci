@@ -1,13 +1,13 @@
-/* The app's own components, which replace BeerCSS page by page (S3 in
-   docs/ui-roadmap.md). A part of the app moved to them sits in an element
-   with the class ui: inside it, BeerCSS's styles of elements are rolled back
-   to the browser's, so these start from a plain element and need no
-   !important. The classes work only inside .ui, so they can't change a part
-   of the app that hasn't moved. Spacing comes from gap, not from margins. */
+/* The app's own components (docs/styles.md). They work inside an element
+   with the class ui, where every element starts from the browser's styles,
+   so a component sets all it needs. Spacing comes from gap, not from
+   margins. */
 
 /* -- The scope ---------------------------------------------------------- */
 
+/* Positioned, so what a page places absolutely stays inside it */
 .ui {
+  position: relative;
   font-family: var(--font-sans);
   font-size: var(--text-md);
   line-height: var(--line-height);
@@ -227,7 +227,17 @@
   white-space: nowrap;
 }
 
-/* Material Symbols, by ligature name: <i class="icon">search</i> */
+/* Material Symbols, by ligature name: <i class="icon">search</i>. The font
+   has only the icons in use: after adding one, run npm run icons
+   (scripts/icons.mjs). Block, so a name never shows as text while it loads. */
+@font-face {
+  font-family: "Material Symbols Outlined";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("./fonts/material-symbols.woff2") format("woff2");
+}
+
 .ui .icon {
   font-family: "Material Symbols Outlined";
   font-weight: normal;
@@ -348,8 +358,7 @@
 
 /* -- Fields --------------------------------------------------------------- */
 
-/* A label above its control, with an optional hint under it:
-   <label class="field"> isn't free (BeerCSS), so .form-field */
+/* A label above its control, with an optional hint under it */
 .ui .form-field {
   display: flex;
   flex-direction: column;

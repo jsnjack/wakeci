@@ -1,4 +1,4 @@
-/* In the app layer of styles.css, above BeerCSS */
+/* In the app layer of styles.css, with the components */
 @layer app {
   /* Colours of the analytics charts. Series take the slots in order; statuses
      have their own colours (tokens.css), and every chart also names them in
