@@ -132,7 +132,7 @@ test("the filters stay in the address", async ({ page, wake }) => {
     await waitForEnd(page, id);
 
     await page.goto(`/analytics?days=7&job=${encodeURIComponent(name)}`);
-    await expect(page.getByTestId("range-7")).toHaveClass(/active/);
+    await expect(page.getByTestId("range-7")).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByTestId("job-filter")).toHaveValue(name);
     const row = page.getByTestId(`job-row-${name}`);
     await expect(row.getByTestId("job-success")).toHaveText("0%");

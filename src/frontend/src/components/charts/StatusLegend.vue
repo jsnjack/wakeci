@@ -8,7 +8,7 @@
                 class="swatch"
                 :class="status.cls"
             ></span>
-            <i>{{ status.icon }}</i> {{ status.label }}
+            <i class="icon small">{{ status.icon }}</i> {{ status.label }}
         </span>
     </div>
 </template>

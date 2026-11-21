@@ -189,7 +189,8 @@ for (const theme of themes) {
                 if (shot.open) await shot.open(page);
                 await expect(shot.ready(page)).toBeVisible();
                 await page.evaluate(() => document.fonts.ready);
-                await expect(page).toHaveScreenshot(`${shot.name}-${size.name}-${theme}.png`, {
+                // Soft, so a page that changed shows at every width in the report
+                await expect.soft(page).toHaveScreenshot(`${shot.name}-${size.name}-${theme}.png`, {
                     fullPage: shot.fullPage ?? true,
                     mask: masked.map((id) => page.getByTestId(id)),
                 });

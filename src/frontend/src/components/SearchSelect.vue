@@ -1,15 +1,21 @@
 <template>
     <div
-        class="field suffix border small round no-margin search-select"
-        :class="[{ label: !!label }, $attrs.class]"
+        class="search-select"
+        :class="$attrs.class"
     >
+        <label
+            v-if="label"
+            :for="inputID"
+            class="select-label"
+            >{{ label }}</label
+        >
         <input
             :id="inputID"
             ref="input"
             v-bind="inputAttrs"
             :value="text"
             type="text"
-            class="active"
+            class="input"
             role="combobox"
             autocomplete="off"
             spellcheck="false"
@@ -24,14 +30,8 @@
             @keydown="onKeydown"
             @blur="onBlur"
         />
-        <label
-            v-if="label"
-            :for="inputID"
-            class="active"
-            >{{ label }}</label
-        >
         <i
-            class="toggle"
+            class="icon toggle"
             aria-hidden="true"
             @mousedown.prevent="toggle"
             >{{ open ? "arrow_drop_up" : "arrow_drop_down" }}</i
@@ -300,52 +300,76 @@ export default {
 <style scoped>
 .search-select {
     position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
 }
-.search-select > input {
+
+.select-label {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--on-surface-variant);
+}
+
+.search-select > .input {
+    padding-inline-end: 34px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
 .toggle {
+    position: absolute;
+    inset-inline-end: 8px;
+    inset-block-end: 8px;
+    color: var(--on-surface-variant);
     cursor: pointer;
 }
+
 .search-list {
     position: absolute;
     inset-inline: 0;
-    top: calc(100% + 0.25rem);
+    inset-block-start: calc(100% + 4px);
     z-index: 20;
     max-block-size: 18rem;
     overflow-y: auto;
-    margin: 1rem 0 0;
-    padding: 0.25rem 0;
+    margin: 0;
+    padding: var(--space-1) 0;
     list-style: none;
-    background-color: var(--surface-container);
+    background-color: var(--surface-container-high);
     color: var(--on-surface);
-    border-radius: 0.75rem;
-    box-shadow: var(--elevate2);
+    border: 1px solid var(--outline-variant);
+    border-radius: var(--radius-control);
+    box-shadow: 0 6px 24px rgb(0 0 0 / 0.2);
 }
+
 .search-list li {
-    padding: 0.5rem 1rem;
+    padding: var(--space-2) var(--space-3);
     cursor: pointer;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     line-height: 1.25rem;
 }
+
 .search-list li.active {
     background-color: var(--secondary-container);
     color: var(--on-secondary-container);
 }
+
 .search-list li.selected {
     font-weight: 600;
 }
+
 .search-list li.none {
     cursor: default;
     color: var(--on-surface-variant);
 }
+
 .search-list b {
     color: var(--primary);
 }
+
 .search-list li.active b {
     color: inherit;
     text-decoration: underline;
