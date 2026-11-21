@@ -1,7 +1,7 @@
 <template>
     <div
         class="feed-row"
-        :class="{ compact, 'has-group': members.length || build.hiddenMembers }"
+        :class="{ compact, 'has-group': members.length || build.hiddenMembers, flash }"
         :data-cy-build="build.id"
         :aria-current="selected ? 'true' : null"
         @click="openFromRow"
@@ -223,6 +223,11 @@ export default {
         },
     },
     emits: ["setFilter", "select"],
+    data() {
+        // A short highlight when the status changes, since the row stays
+        // where it is (L1)
+        return { flash: false };
+    },
     computed: {
         ...vuex.mapGetters(["can"]),
         ...vuex.mapState(["queue"]),
@@ -300,6 +305,21 @@ export default {
             const seconds = Math.max(0, (this.now - new Date(this.build.queuedAt).getTime()) / 1000);
             return `waiting ${formatDuration(seconds * NS)}`;
         },
+    },
+    watch: {
+        shownStatus(status, old) {
+            if (old && status !== old) {
+                this.flash = false;
+                this.$nextTick(() => {
+                    this.flash = true;
+                });
+                clearTimeout(this.flashTimer);
+                this.flashTimer = setTimeout(() => (this.flash = false), 1500);
+            }
+        },
+    },
+    unmounted() {
+        clearTimeout(this.flashTimer);
     },
     methods: {
         // A click anywhere on the row opens the build, unless it was on a
@@ -380,6 +400,24 @@ export default {
     padding: var(--space-2) var(--space-3);
     border-block-end: 1px solid var(--outline-variant);
     cursor: pointer;
+}
+
+.feed-row.flash {
+    animation: row-flash 1.5s ease-out;
+}
+
+@keyframes row-flash {
+    from {
+        background-color: color-mix(in srgb, var(--primary) 18%, transparent);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .feed-row.flash {
+        animation: none;
+        outline: 2px solid color-mix(in srgb, var(--primary) 40%, transparent);
+        outline-offset: -2px;
+    }
 }
 
 .feed-row.has-group {

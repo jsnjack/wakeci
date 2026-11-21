@@ -27,9 +27,21 @@
                 </button>
             </div>
 
+            <button
+                v-if="held.length"
+                type="button"
+                class="btn btn-sm btn-primary new-builds"
+                data-cy="new-builds"
+                @click="showHeld"
+            >
+                <i class="icon small">arrow_upward</i>
+                {{ held.length }} new {{ held.length === 1 ? "build" : "builds" }}
+            </button>
             <div
                 class="feed-list"
                 data-cy="feed-container"
+                @pointermove="pointerAt = Date.now()"
+                @pointerleave="onPointerLeave"
             >
                 <template
                     v-for="item in sortedBuilds"
@@ -129,6 +141,11 @@ const FetchItemsSize = 10;
 // below, it opens the build's page
 const WIDE = "(min-width: 1440px)";
 
+// How long a pointer that moved over the list holds new builds, and how far
+// down the user has scrolled when they wait (L1)
+const HOLD_MS = 2000;
+const SCROLLED_PX = 120;
+
 export default {
     components: {
         FeedGroup,
@@ -146,6 +163,11 @@ export default {
             filter: "", // sent to the server, to filter builds out
             moreEnabled: true, // if makes sense to load more builds from the server
             filteredUpdates: 0, // When `filter` is active, updates which do not much are counted here
+            // New builds that wait while the user reads (L1), and when the
+            // pointer last moved over the list
+            held: [],
+            pointerAt: 0,
+            scrolled: false,
             filterObj: null,
             // Each job's { defaults: { NAME: value }, labels: [NAME],
             // interval }, so a row can show the labels first and leave
@@ -218,7 +240,11 @@ export default {
         this.fetchJobs();
         this.subscribe();
         this.emitter.on(this.subscription, this.applyUpdate);
-        this.clock = setInterval(() => (this.now = Date.now()), 1000);
+        this.clock = setInterval(() => {
+            this.now = Date.now();
+            this.releaseHeld();
+        }, 1000);
+        window.addEventListener("scroll", this.onScroll, { passive: true });
 
         this.wideQuery = window.matchMedia(WIDE);
         this.wide = this.wideQuery.matches;
@@ -235,6 +261,7 @@ export default {
         this.unsubscribe();
         this.emitter.off(this.subscription, this.applyUpdate);
         clearInterval(this.clock);
+        window.removeEventListener("scroll", this.onScroll);
         this.wideQuery.removeEventListener("change", this.onWideChange);
         document.removeEventListener("keydown", this.onKeyDown);
     },
@@ -332,6 +359,12 @@ export default {
         applyUpdate(ev, fromFetch = false) {
             // A build started under a root that the feed shows goes in the
             // root's group (F2)
+            const heldRoot = ev.root ? this.held.find((build) => build.id === ev.root) : undefined;
+            if (heldRoot) {
+                const members = [...(heldRoot.members || []).filter((member) => member.id !== ev.id), ev].sort((a, b) => a.id - b.id);
+                this.held = this.held.map((build) => (build === heldRoot ? { ...heldRoot, members } : build));
+                return;
+            }
             const rootIndex = ev.root ? findInContainer(this.builds, "id", ev.root)[1] : undefined;
             if (rootIndex !== undefined) {
                 const root = this.builds[rootIndex];
@@ -358,10 +391,46 @@ export default {
                         this.filteredUpdates++;
                         return;
                     }
+                    // A new build waits while the user reads, so the rows
+                    // they read don't move
+                    if (this.held.some((build) => build.id === ev.id) || this.holding()) {
+                        this.held = [...this.held.filter((build) => build.id !== ev.id), ev];
+                        return;
+                    }
                 }
                 this.builds.push(ev);
                 this.$forceUpdate();
             }
+        },
+        // holding reports whether new builds wait: while the user has
+        // scrolled down, or moved the pointer over the list in the last 2
+        // seconds. A pointer that rests there doesn't hold them
+        holding() {
+            return this.scrolled || Date.now() - this.pointerAt < HOLD_MS;
+        },
+        releaseHeld() {
+            if (this.held.length === 0 || this.holding()) {
+                return;
+            }
+            const held = this.held;
+            this.held = [];
+            for (const build of held) {
+                this.applyUpdate(build, true);
+            }
+        },
+        showHeld() {
+            this.scrolled = false;
+            this.pointerAt = 0;
+            this.releaseHeld();
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        },
+        onScroll() {
+            this.scrolled = window.scrollY > SCROLLED_PX;
+            this.releaseHeld();
+        },
+        onPointerLeave() {
+            this.pointerAt = 0;
+            this.releaseHeld();
         },
         clearFilter() {
             if (!this.isFetching && !this.filterIsDirty) {
@@ -454,6 +523,15 @@ export default {
 
 .feed-list {
     border-block-start: 1px solid var(--outline-variant);
+}
+
+/* Stays in sight while the user has scrolled down */
+.new-builds {
+    position: sticky;
+    inset-block-start: 72px;
+    z-index: 5;
+    align-self: center;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.2);
 }
 
 .feed-empty {
