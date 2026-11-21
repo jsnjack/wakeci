@@ -80,7 +80,20 @@
             >
                 <span>#{{ statusUpdate.id }}</span>
                 <span v-if="statusText">
-                    · <span data-cy="duration">{{ statusText }}</span></span
+                    ·
+                    <span
+                        data-cy="duration"
+                        :class="{ over: overUsual }"
+                        >{{ statusText }}</span
+                    ></span
+                >
+                <span v-if="silentFor">
+                    ·
+                    <span
+                        class="over"
+                        data-cy="silent"
+                        >No output for {{ silentFor }}</span
+                    ></span
                 >
                 <span v-if="startedText">
                     · <span data-cy="started-ago">{{ startedText }}</span></span
@@ -356,6 +369,10 @@ const GROUPS = [
 ];
 
 const DONE = ["failed", "finished", "aborted", "timed out", "skipped"];
+// A running build this many times its usual duration is marked, and one
+// past it that printed nothing for this long is flagged (L3)
+const OVER_USUAL = 1.5;
+const SILENT_MS = 2 * 60 * 1000;
 
 // The build page: one header, then the failure, then a plain task list
 // (B1-B3 in docs/ui-roadmap.md). Logs open under their task.
@@ -399,6 +416,8 @@ export default {
             // until searched
             allResults: null,
             now: Date.now(),
+            // When the build last printed a line, as far as the page saw
+            lastOutputAt: Date.now(),
         };
     },
     computed: {
@@ -432,6 +451,28 @@ export default {
         started() {
             return !isZeroTime(this.statusUpdate.startedAt);
         },
+        elapsedNs() {
+            return Math.max(0, this.now - new Date(this.statusUpdate.startedAt).getTime()) * 1e6;
+        },
+        // Far over its usual duration (L3)
+        overUsual() {
+            return this.statusUpdate.status === "running" && this.started && this.statusUpdate.eta > 0 && this.elapsedNs > OVER_USUAL * this.statusUpdate.eta;
+        },
+        // Past its usual duration and quiet for a while, which a hung
+        // command looks like; known only while the logs stream
+        silentFor() {
+            if (
+                this.statusUpdate.status !== "running" ||
+                !this.started ||
+                !this.statusUpdate.eta ||
+                this.hideAllLogs ||
+                this.elapsedNs <= this.statusUpdate.eta
+            ) {
+                return "";
+            }
+            const quiet = this.now - this.lastOutputAt;
+            return quiet >= SILENT_MS ? formatDuration(quiet * 1e6) : "";
+        },
         // "Failed after 7m 46s", "Running for 2m 03s", "3rd in queue"
         statusText() {
             const status = this.statusUpdate.status;
@@ -440,7 +481,12 @@ export default {
                 return i < 0 ? "Queued" : `${ordinal(i + 1)} in queue`;
             }
             if (status === "running" && this.started) {
-                return `Running for ${formatDuration(Math.max(0, this.now - new Date(this.statusUpdate.startedAt).getTime()) * 1e6)}`;
+                const running = `Running for ${formatDuration(this.elapsedNs)}`;
+                if (!this.statusUpdate.eta) {
+                    return running;
+                }
+                const usual = formatDuration(this.statusUpdate.eta);
+                return this.overUsual ? `${running}, usually about ${usual}` : `${running} of about ${usual}`;
             }
             if (!this.statusUpdate.duration) {
                 return status ? status[0].toUpperCase() + status.slice(1) : "";
@@ -509,12 +555,14 @@ export default {
         this.fetch();
         this.subscribe();
         this.emitter.on(this.buildUpdateSubscription, this.applyBuildUpdate);
+        this.emitter.on("*", this.onAnyEvent);
         this.clock = setInterval(() => (this.now = Date.now()), 1000);
     },
     unmounted() {
         document.removeEventListener("keyup", this.onKeyUp);
         this.unsubscribe();
         this.emitter.off(this.buildUpdateSubscription, this.applyBuildUpdate);
+        this.emitter.off("*", this.onAnyEvent);
         clearInterval(this.clock);
     },
     methods: {
@@ -688,6 +736,12 @@ export default {
                 this.unsubscribe();
             }
         },
+        // A log line of this build's tasks
+        onAnyEvent(type) {
+            if (type.startsWith(`${this.buildLogSubscription}:task-`)) {
+                this.lastOutputAt = Date.now();
+            }
+        },
         onKeyUp(event) {
             if (event.ctrlKey && event.altKey && event.code === "KeyH") {
                 this.hideAllLogs = !this.hideAllLogs;
@@ -702,6 +756,11 @@ export default {
 </script>
 
 <style scoped>
+.over {
+    color: var(--warning);
+    font-weight: 600;
+}
+
 .build-status {
     inline-size: 28px;
     block-size: 28px;

@@ -57,10 +57,6 @@ the commit message. How the styles work: [styles.md](styles.md).
 
 ## Live updates
 
-- **L3. Progress against the usual duration.** A bar from `eta` on running
-  rows and in the build header ("4m 12s of about 9m"); mark builds far over
-  it, and flag a build past its usual duration that printed nothing for a
-  while, as TeamCity does. Effort S.
 - **L4. Status outside the page.** A status dot in the favicon on the build
   page (the title already has an emoji). Effort S.
 - **L5. Notifications that follow the user.** "Notify me when builds matching
@@ -89,7 +85,7 @@ overloaded.
 
 | Phase | Items |
 |---|---|
-| Later | F4 later, L3–L6, B5, B7 |
+| Later | F4 later, L4–L6, B5, B7 |
 
 ## Sources
 
