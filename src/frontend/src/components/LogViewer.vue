@@ -621,7 +621,17 @@ export default {
             this.following = true;
             this.newLines = 0;
             this.newMatches = 0;
-            this.view.dispatch({ effects: EditorView.scrollIntoView(this.view.state.doc.length, { y: "end" }) });
+            // Only the viewer scrolls: scrollIntoView would also move the
+            // page, e.g. a phone's down to the end of a failed log, hiding
+            // the build's title. Again once CodeMirror has measured the lines
+            const scroller = this.view.scrollDOM;
+            scroller.scrollTop = scroller.scrollHeight;
+            this.view.requestMeasure({
+                read: () => scroller.scrollHeight,
+                write: (height) => {
+                    scroller.scrollTop = height;
+                },
+            });
         },
         openSearch() {
             this.searchOpen = true;

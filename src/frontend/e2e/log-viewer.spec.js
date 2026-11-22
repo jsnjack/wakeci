@@ -108,3 +108,20 @@ tasks:
     await expect(page.getByTestId("log-search-count")).toHaveText(/ of 55$/);
     await expect(log).toBeVisible();
 });
+
+test("should open a failed log at its end without moving the page", async ({ page, wake }) => {
+    const name = await wake.createJob(`
+tasks:
+  - name: Long
+    run: for i in $(seq 1 200); do echo "line $i"; done; echo "the last li""ne"; exit 1
+`);
+    const id = await wake.runJob(name);
+    await wake.waitForBuild(id, "failed");
+    await page.setViewportSize({ width: 390, height: 700 });
+    await page.goto(`/build/${id}`);
+    const log = page.getByTestId("task-log").first();
+    await expect(log.getByText("the last line")).toBeInViewport();
+    // The title stays in sight: only the viewer scrolled
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    await expect(page.locator("h1.title")).toBeInViewport();
+});
