@@ -1,5 +1,9 @@
 <template>
-    <NotFound v-if="empty" />
+    <NotFound
+        v-if="empty"
+        :title="`Build #${id} isn't here`"
+        detail="It doesn't exist, cleanup removed it with the older builds, or you may not see its job."
+    />
     <div
         v-else
         class="ui build-page stack gap-4"

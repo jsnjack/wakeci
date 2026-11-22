@@ -114,6 +114,12 @@ const router = createRouter({
             name: "help",
             component: () => import("./views/HelpView.vue"),
         },
+        // An address that matches no page says so
+        {
+            path: "/:pathMatch(.*)*",
+            name: "notFound",
+            component: () => import("./components/NotFound.vue"),
+        },
     ],
 });
 
