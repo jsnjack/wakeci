@@ -13,6 +13,7 @@ import (
 	"time"
 
 	bolt "go.etcd.io/bbolt"
+	berrors "go.etcd.io/bbolt/errors"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -364,7 +365,7 @@ var dbLockTimeout = 10 * time.Second
 // another process has it open
 func openDB(path string, timeout time.Duration) (*bolt.DB, error) {
 	db, err := bolt.Open(path, 0644, &bolt.Options{Timeout: timeout})
-	if errors.Is(err, bolt.ErrTimeout) {
+	if errors.Is(err, berrors.ErrTimeout) {
 		return nil, fmt.Errorf("another wakeci has %s open; stop it, or give this one another workdir", path)
 	}
 	return db, err

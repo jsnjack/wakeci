@@ -361,11 +361,11 @@ func TestOpenDBSaysWhenAnotherProcessHasIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer first.Close()
+	defer func() { _ = first.Close() }()
 	started := time.Now()
 	second, err := openDB(path, 200*time.Millisecond)
 	if err == nil {
-		second.Close()
+		_ = second.Close()
 		t.Fatal("a second open of the database succeeded")
 	}
 	if !strings.Contains(err.Error(), "another wakeci has") || time.Since(started) > 5*time.Second {
