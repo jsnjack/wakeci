@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { groupStatus, groupTree, latestAttempts } from "../src/groups.js";
+import { groupStatus, groupTree, latestAttempts, memberValues } from "../src/groups.js";
 
 const build = (id, parent, name = "job", status = "finished", params = []) => ({ id, parent, name, status, params });
 
@@ -37,4 +37,13 @@ test("a group runs while any build runs, then shows the worst result", () => {
     expect(groupStatus([build(1, 0, "a", "aborted"), build(2, 1, "b", "failed")])).toBe("failed");
     expect(groupStatus([build(1, 0, "a", "finished"), build(2, 1, "b", "timed out")])).toBe("timed out");
     expect(groupStatus([build(1, 0, "a", "finished"), build(2, 1, "b", "skipped")])).toBe("finished");
+});
+
+test("a member's line names only the values it doesn't share with its root", () => {
+    const root = { params: [{ BRANCH_LABEL: "main" }, { COMMIT: "4f9c2ab" }] };
+    const shard = { params: [{ SHARD: "7" }, { BRANCH_LABEL: "main" }] };
+    expect(memberValues(shard, root, null)).toBe("7");
+    const other = { params: [{ BRANCH_LABEL: "release/2.68" }] };
+    expect(memberValues(other, root, null)).toBe("release/2.68");
+    expect(memberValues({ params: [{ BRANCH_LABEL: "main" }] }, root, null)).toBe("");
 });

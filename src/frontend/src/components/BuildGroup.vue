@@ -50,7 +50,7 @@
             id="group-title"
             class="card-title"
         >
-            Started {{ members.length }} {{ members.length === 1 ? "build" : "builds" }}
+            Started {{ startedCount }} {{ startedCount === 1 ? "build" : "builds" }}
         </h2>
         <router-link
             v-for="build in members"
@@ -66,7 +66,22 @@
                 small
             />
             <span class="nums">#{{ build.id }}</span>
-            <span class="grow ellipsis">{{ build.name }}</span>
+            <span class="grow ellipsis"
+                >{{ build.name
+                }}<span
+                    v-if="build.values"
+                    class="muted"
+                    data-cy="group-values"
+                >
+                    · {{ build.values }}</span
+                ></span
+            >
+            <span
+                v-if="build.attempts > 1"
+                class="muted text-sm"
+                data-cy="group-attempts"
+                >{{ build.attempts }} attempts</span
+            >
             <span class="via muted text-sm">via #{{ build.parent }}</span>
             <span class="muted text-sm nums">{{ timeOf(build) }}</span>
         </router-link>
@@ -83,7 +98,7 @@
 <script>
 import { formatDuration } from "@/analytics.js";
 import StatusIcon from "@/components/StatusIcon.vue";
-import { groupTree, MAX_DEPTH } from "@/groups.js";
+import { groupTree, latestAttempts, MAX_DEPTH, memberValues } from "@/groups.js";
 import axios from "axios";
 import vuex from "vuex";
 
@@ -131,8 +146,14 @@ export default {
         root() {
             return this.group.builds.find((build) => build.id === this.group.root);
         },
+        // Every build under the root, attempts too
+        startedCount() {
+            return this.group.builds.filter((build) => build.id !== this.group.root).length;
+        },
+        // Each job's latest attempt, as in the feed
         members() {
-            return groupTree(this.group.root, this.group.builds);
+            const builds = latestAttempts(this.group.builds.filter((build) => build.id !== this.group.root));
+            return groupTree(this.group.root, builds).map((build) => ({ ...build, values: memberValues(build, this.root, null) }));
         },
         siblings() {
             return this.group.builds.filter((build) => build.id !== this.group.root && build.parent === this.parent);
@@ -195,6 +216,7 @@ export default {
                 queuedAt: ev.queuedAt,
                 startedAt: ev.startedAt,
                 duration: ev.duration,
+                params: ev.params || [],
             };
             const builds = this.group.builds.filter((item) => item.id !== ev.id);
             builds.push(build);
@@ -221,7 +243,8 @@ export default {
             return `/build/${id}`;
         },
         label(build) {
-            return `#${build.id} ${build.name}: ${build.status}`;
+            const values = build.id === this.group.root ? "" : memberValues(build, this.root, null);
+            return `#${build.id} ${build.name}${values ? ` · ${values}` : ""}: ${build.status}`;
         },
         timeOf(build) {
             return build.duration ? formatDuration(build.duration) : build.status;

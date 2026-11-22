@@ -58,8 +58,7 @@
 <script>
 import { formatDuration } from "@/analytics.js";
 import StatusIcon from "@/components/StatusIcon.vue";
-import { MAX_ROW_VALUES, rowValues } from "@/feed.js";
-import { groupTree, latestAttempts, MAX_DEPTH } from "@/groups.js";
+import { groupTree, latestAttempts, MAX_DEPTH, memberValues } from "@/groups.js";
 
 // Lines shown before the ones that passed fold away
 const FOLD_AFTER = 10;
@@ -100,10 +99,7 @@ export default {
         lines() {
             return groupTree(this.root.id, latestAttempts(this.root.members || [])).map((build) => ({
                 ...build,
-                values: rowValues(build.params, this.jobs.get(build.name) || null)
-                    .slice(0, MAX_ROW_VALUES)
-                    .map((item) => item.short)
-                    .join(" · "),
+                values: memberValues(build, this.root, this.jobs.get(build.name) || null),
             }));
         },
         folds() {

@@ -174,6 +174,9 @@ type GroupBuild struct {
 	QueuedAt  time.Time     `json:"queuedAt"`
 	StartedAt time.Time     `json:"startedAt"`
 	Duration  time.Duration `json:"duration" swaggertype:"integer"`
+	// Params are the build's values, so a page can tell the builds of one
+	// job apart, e.g. the shards of a test run
+	Params []map[string]string `json:"params"`
 }
 
 // GroupPayload is the group of a build

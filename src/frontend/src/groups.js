@@ -1,5 +1,6 @@
 // Builds started by other builds (F2 in docs/ui-roadmap.md), shared by the
 // feed and the build page
+import { MAX_ROW_VALUES, rowValues } from "./feed.js";
 
 // Levels shown before a deeper build says "via #N" instead
 export const MAX_DEPTH = 4;
@@ -61,4 +62,17 @@ export function groupStatus(builds) {
 
 export function isFailure(build) {
     return build.status === "failed" || build.status === "timed out";
+}
+
+// memberValues is what a member's line says about its values: those it
+// doesn't share with the root, e.g. "7" for a shard of a push to a branch,
+// since the root's row already names the branch. job is the member's job's
+// { defaults, labels }, null if unknown
+export function memberValues(build, root, job) {
+    const rootParams = Object.assign({}, ...(root?.params || []));
+    return rowValues(build.params, job)
+        .filter((item) => rootParams[item.name] !== item.value)
+        .slice(0, MAX_ROW_VALUES)
+        .map((item) => item.short)
+        .join(" · ");
 }
