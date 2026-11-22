@@ -420,7 +420,8 @@ func RunJob(name string, params url.Values, untrustedParams bool, trigger buildT
 	jobFile := Config.JobDir + name + Config.jobsExt
 	job, err := CreateJobFromFile(jobFile)
 	if err != nil {
-		return nil, err
+		// Says which file, since the error may only name a line
+		return nil, fmt.Errorf("%s%s can't be read: %w", name, Config.jobsExt, err)
 	}
 	build, err := GlobalQueue.addNewBuild(func() (*Build, error) {
 		build, err := createBuild(job, jobFile, untrustedParams, params, group)
