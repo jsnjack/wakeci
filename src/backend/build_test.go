@@ -742,3 +742,14 @@ func TestLogLinesGoOutNumberedInBatches(t *testing.T) {
 	}
 	build.flushLog()
 }
+
+// The "Expanded command" log line fills in the build's variables and keeps
+// the ones bash will fill in, such as a shell function's arguments
+func TestLogEnvMapperKeepsUnknownVariables(t *testing.T) {
+	env := []string{"WAKE_BUILD_ID=7", "TARGET=prod"}
+	got := os.Expand(`start() { curl "$1/$TARGET"; }; start x; echo ${WAKE_BUILD_ID} $failed`, logEnvMapper(env))
+	want := `start() { curl "$1/prod"; }; start x; echo 7 $failed`
+	if got != want {
+		t.Errorf("expanded\n%s\nwant\n%s", got, want)
+	}
+}

@@ -413,7 +413,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 
 	// Add executed command to logs
 	b.ProcessLogEntry("> Running command: "+task.Command, bw, task.ID, task.startedAt)
-	expandedTaskCmd := os.Expand(task.Command, getEnvMapper(taskCmd.Env))
+	expandedTaskCmd := os.Expand(task.Command, logEnvMapper(taskCmd.Env))
 	if expandedTaskCmd != task.Command {
 		b.ProcessLogEntry(
 			"> Expanded command: "+injectSecrets(expandedTaskCmd), bw, task.ID, task.startedAt,
@@ -1399,6 +1399,25 @@ type ArtifactInfo struct {
 }
 
 // Used to expand env variables in commands
+// logEnvMapper expands the variables a task's environment has, for the
+// "Expanded command" log line, and leaves the others as written: bash runs
+// the command as written, where $1 in a shell function or a variable the
+// command sets itself has a value that the log line can't know
+func logEnvMapper(env []string) func(string) string {
+	known := map[string]bool{}
+	for _, pair := range env {
+		name, _, _ := strings.Cut(pair, "=")
+		known[name] = true
+	}
+	mapper := getEnvMapper(env)
+	return func(name string) string {
+		if !known[name] {
+			return "$" + name
+		}
+		return mapper(name)
+	}
+}
+
 func getEnvMapper(env []string) func(string) string {
 	mapper := func(evar string) string {
 		// Iterate backwards as the last value will be the actual value
