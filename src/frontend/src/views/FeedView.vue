@@ -502,6 +502,9 @@ export default {
     max-block-size: calc(100dvh - 80px);
     overflow-y: auto;
     overscroll-behavior: contain;
+    /* Its scrollbar gets a lane of its own, apart from a log's */
+    scrollbar-gutter: stable;
+    padding-inline-end: var(--space-4);
     padding-inline-start: var(--space-4);
     border-inline-start: 1px solid var(--outline-variant);
 }

@@ -346,9 +346,17 @@ export default {
     overflow: hidden;
 }
 
-/* Wider for pages of logs, so their lines wrap less */
+/* Wider for pages of logs, so their lines wrap less, with room at the
+   sides so the page's scrollbar (on top of the page in Firefox and macOS)
+   stays clear of a log's own */
 .app-main:has(.build-page, .feed-page.split) {
     max-inline-size: 100rem;
+}
+
+@media (min-width: 900px) {
+    .app-main:has(.build-page, .feed-page.split) {
+        padding-inline: var(--space-6);
+    }
 }
 
 .app-header {
