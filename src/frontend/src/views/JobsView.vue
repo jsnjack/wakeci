@@ -38,9 +38,9 @@
             <button
                 type="button"
                 class="btn btn-outline btn-ghost"
-                :aria-pressed="grouped ? 'true' : 'false'"
+                :aria-pressed="isGrouped ? 'true' : 'false'"
                 data-cy="group-jobs"
-                @click="grouped = !grouped"
+                @click="toggleGrouped"
             >
                 <i class="icon small">folder</i> Group
             </button>
@@ -81,7 +81,7 @@
                     >
                         <button
                             type="button"
-                            class="btn btn-ghost btn-icon btn-sm tip-start"
+                            class="btn btn-ghost btn-icon btn-sm tip-start job-pin"
                             :aria-pressed="pinned.includes(job.name) ? 'true' : 'false'"
                             :aria-label="pinned.includes(job.name) ? `Unpin ${job.name}` : `Pin ${job.name}`"
                             :data-tip="pinned.includes(job.name) ? 'Unpin' : 'Pin to the top'"
@@ -311,6 +311,17 @@ import vuex from "vuex";
 const PINNED_KEY = "pinnedJobs";
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
+const GROUPED_KEY = "jobsGrouped";
+
+function loadGrouped() {
+    try {
+        const grouped = window.localStorage.getItem(GROUPED_KEY);
+        return grouped === null ? null : grouped === "true";
+    } catch {
+        return null;
+    }
+}
+
 function loadPinned() {
     try {
         const pinned = JSON.parse(window.localStorage.getItem(PINNED_KEY) || "[]");
@@ -332,7 +343,8 @@ function groupOf(job) {
 
 // The jobs page as a status board (J1): each job's last 20 builds, when it
 // ran and runs next, and since when it fails; pinned jobs first, sorted by
-// name as people expect or by recent failure, grouped on demand
+// name as people expect or by recent failure, grouped by the jobs' group
+// when they have one, or on demand
 export default {
     components: { OutcomeStrip, RunDialog, UiDialog },
     data() {
@@ -340,7 +352,8 @@ export default {
             jobs: [],
             filter: this.$route.query.q || "",
             sort: "name",
-            grouped: false,
+            // The user's choice, null until they make one
+            grouped: loadGrouped(),
             pinned: loadPinned(),
             fetchingDone: false,
             runJob: null,
@@ -370,9 +383,12 @@ export default {
                 return collator.compare(a.name, b.name);
             });
         },
+        isGrouped() {
+            return this.grouped ?? this.jobs.some((job) => job.group);
+        },
         // Pinned jobs stay above the groups
         groups() {
-            if (!this.grouped) {
+            if (!this.isGrouped) {
                 return [{ name: "", jobs: this.shownJobs }];
             }
             const pinned = this.shownJobs.filter((job) => this.pinned.includes(job.name));
@@ -381,7 +397,19 @@ export default {
                 const name = groupOf(job);
                 byGroup.set(name, [...(byGroup.get(name) || []), job]);
             }
+            // A job alone under a heading from its name goes with the others
+            // like it, under "Other" at the end
+            const other = [];
+            for (const [name, jobs] of byGroup) {
+                if (jobs.length === 1 && !jobs[0].group) {
+                    other.push(jobs[0]);
+                    byGroup.delete(name);
+                }
+            }
             const groups = [...byGroup.entries()].sort(([a], [b]) => collator.compare(a, b)).map(([name, jobs]) => ({ name, jobs }));
+            if (other.length) {
+                groups.push({ name: "Other", jobs: other });
+            }
             return pinned.length ? [{ name: "Pinned", jobs: pinned }, ...groups] : groups;
         },
     },
@@ -395,6 +423,14 @@ export default {
         this.fetch();
     },
     methods: {
+        toggleGrouped() {
+            this.grouped = !this.isGrouped;
+            try {
+                window.localStorage.setItem(GROUPED_KEY, String(this.grouped));
+            } catch {
+                // A browser that keeps nothing asks again on the next visit
+            }
+        },
         ago(value) {
             return ago(value);
         },
@@ -501,7 +537,9 @@ export default {
 
 .job-row {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto 11rem auto auto;
+    /* The status takes the room it needs, so it never runs into the strip */
+    grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
+    grid-template-areas: "pin main strip meta active actions";
     align-items: center;
     gap: var(--space-3);
     min-block-size: 56px;
@@ -554,13 +592,49 @@ export default {
     --_c: var(--primary);
 }
 
-@media (max-width: 1024px) {
+.job-pin {
+    grid-area: pin;
+}
+
+.job-main {
+    grid-area: main;
+}
+
+.job-strip {
+    grid-area: strip;
+}
+
+.job-meta {
+    grid-area: meta;
+}
+
+.job-active {
+    grid-area: active;
+}
+
+.job-actions {
+    grid-area: actions;
+}
+
+/* Phones: the status under the name, and no room for the strip */
+@media (max-width: 600px) {
     .job-row {
         grid-template-columns: auto minmax(0, 1fr) auto auto;
+        grid-template-areas:
+            "pin main active actions"
+            ". meta meta meta";
+        row-gap: 0;
     }
-    .job-strip,
-    .job-meta {
+    .job-strip {
         display: none;
+    }
+    .job-meta {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 0 var(--space-2);
+        align-items: baseline;
+        text-align: start;
+        white-space: normal;
     }
 }
 </style>

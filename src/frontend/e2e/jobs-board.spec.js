@@ -43,9 +43,18 @@ test("should group jobs by their group or the start of their names", async ({ pa
     await wake.createJob(undefined, `grp${id}-one`);
     await wake.createJob(undefined, `grp${id}-two`);
     await wake.createJob(`group: Deploys ${id}\ntasks:\n  - name: Hi\n    run: "true"\n`, `other${id}`);
+    await wake.createJob(undefined, `solo${id}`);
+    // Grouped from the start, since a job has a group; a job alone under its
+    // name goes under Other
     await page.goto(`/jobs?q=${id}`);
+    await expect(page.getByTestId("group-jobs")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("job-group")).toHaveText([`Deploys ${id}`, `grp${id}`, "Other"]);
+    // The user's choice wins, also after a reload
     await page.getByTestId("group-jobs").click();
-    await expect(page.getByTestId("job-group")).toHaveText([`Deploys ${id}`, `grp${id}`]);
+    await expect(page.getByTestId("job-group")).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByTestId(`other${id}`)).toBeVisible();
+    await expect(page.getByTestId("job-group")).toHaveCount(0);
 });
 
 test("should explain the run form's parameters and remember the last values", async ({ page, wake }) => {
