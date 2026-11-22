@@ -62,10 +62,10 @@ logs in the viewer (docs/logs.md). A header with more in it (a status
 band, strips, counts) and folded task groups were tried and read as
 overloaded.
 
-- **B5. Summary first.** `$WAKE_SUMMARY` already shows above the tasks; the
-  docs should show how a test task writes its failed tests and the value to
-  re-run only them. Later: a "Re-run with these values" link, and Markdown
-  rendered without raw HTML. Effort S, then M.
+- **B5, later.** The job docs show how a test task writes its failed tests
+  to `$WAKE_SUMMARY` with the value that runs only them again. Next: a
+  "Re-run with these values" link, and Markdown rendered without raw HTML.
+  Effort M.
 - **B7. History in reach.** The job's last 20 builds as a strip next to the
   title (`OutcomeStrip` from the analytics page), keys for previous and next
   build. Effort S.
@@ -74,7 +74,7 @@ overloaded.
 
 | Phase | Items |
 |---|---|
-| Later | F4 later, B5, B7 |
+| Later | F4 later, B5 later, B7 |
 
 ## Sources
 

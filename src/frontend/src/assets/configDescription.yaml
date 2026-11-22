@@ -147,6 +147,17 @@ finally:
 #                  page as plain text and returned by the API, up to 64 KB,
 #                  with secret values redacted as in the logs:
 #                  echo "Failed: test_login" >> "$WAKE_SUMMARY"
+#                  A test task can name the tests that failed and the value
+#                  that runs only them again, so whoever reads the build can
+#                  use Run again with it. With a param TESTS: "" (all tests):
+#                    run: |
+#                      set -o pipefail
+#                      if ! go test ./... -run "${TESTS:-.}" | tee test.log; then
+#                        failed=$(grep -o -- '--- FAIL: [^ ]*' test.log | cut -d' ' -f3 | paste -sd'|' -)
+#                        echo "Failed: $failed" >> "$WAKE_SUMMARY"
+#                        echo "Run only them again with TESTS=^($failed)\$" >> "$WAKE_SUMMARY"
+#                        exit 1
+#                      fi
 # "WAKE_INTERRUPTED" - `true` in the tasks a build runs after wakeci stopped
 #                      without ending it (see on_aborted above), else `false`
 # "WAKE_PARENT_ID" - id of the build that started this one, set only then. A
