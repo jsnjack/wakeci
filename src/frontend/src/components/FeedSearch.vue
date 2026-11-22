@@ -1,5 +1,5 @@
 <template>
-    <div class="stack gap-2">
+    <div class="stack gap-2 feed-search">
         <div class="cluster nowrap gap-1">
             <div class="search-box grow">
                 <label class="input-icon">
@@ -162,21 +162,23 @@
                 type="button"
                 class="btn btn-sm btn-ghost"
                 data-cy="save-search"
+                aria-label="Save this search"
                 :disabled="modelValue.trim() === ''"
                 @click="openSave"
             >
-                <i class="icon small">bookmark_add</i> Save this search
+                <i class="icon small">bookmark_add</i> <span class="wide-label">Save this search</span>
             </button>
             <button
                 type="button"
                 class="btn btn-sm btn-ghost"
                 data-cy="watch-search"
+                aria-label="Notify me when builds that match the search end"
                 :aria-pressed="searchWatched ? 'true' : 'false'"
                 :disabled="query === ''"
                 @click="toggleWatch"
             >
                 <i class="icon small">{{ searchWatched ? "notifications_active" : "notifications_none" }}</i>
-                {{ searchWatched ? "Notifying when they end" : "Notify me when they end" }}
+                <span class="wide-label">{{ searchWatched ? "Notifying when they end" : "Notify me when they end" }}</span>
             </button>
         </div>
 
@@ -573,5 +575,18 @@ export default {
     padding: 1px 6px;
     border-radius: 4px;
     background-color: var(--surface-container-highest);
+}
+
+/* The search measures its own width, which is narrow on phones and beside
+   a build (F9) */
+.feed-search {
+    container-type: inline-size;
+}
+
+/* Where it is narrow, the icons say it, so the bar fits on fewer lines */
+@container (max-width: 34rem) {
+    .wide-label {
+        display: none;
+    }
 }
 </style>

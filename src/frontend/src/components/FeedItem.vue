@@ -486,11 +486,17 @@ export default {
 }
 
 .feed-value {
+    max-inline-size: 100%;
     padding: 0;
     border: none;
     background: none;
     color: inherit;
     font: inherit;
+    /* One line, from the start: a button centres text that wraps */
+    text-align: start;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     cursor: pointer;
 }
 
