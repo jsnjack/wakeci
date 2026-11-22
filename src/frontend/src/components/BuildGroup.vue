@@ -133,7 +133,9 @@ export default {
         },
     },
     data() {
-        return { group: { root: 0, builds: [], hidden: 0 }, subscribed: false, MAX_DEPTH };
+        // jobs: each job's { defaults, labels }, so lines leave out values at
+        // their default, as the feed does
+        return { group: { root: 0, builds: [], hidden: 0 }, jobs: new Map(), subscribed: false, MAX_DEPTH };
     },
     computed: {
         ...vuex.mapState(["ws"]),
@@ -153,7 +155,7 @@ export default {
         // Each job's latest attempt, as in the feed
         members() {
             const builds = latestAttempts(this.group.builds.filter((build) => build.id !== this.group.root));
-            return groupTree(this.group.root, builds).map((build) => ({ ...build, values: memberValues(build, this.root, null) }));
+            return groupTree(this.group.root, builds).map((build) => ({ ...build, values: memberValues(build, this.root, this.jobs.get(build.name) || null) }));
         },
         siblings() {
             return this.group.builds.filter((build) => build.id !== this.group.root && build.parent === this.parent);
@@ -187,6 +189,19 @@ export default {
                 .get(`/api/build/${this.buildId}/group`)
                 .then((response) => {
                     this.group = response.data;
+                    if (this.group.root && this.jobs.size === 0) {
+                        this.fetchJobs();
+                    }
+                })
+                .catch(() => {});
+        },
+        fetchJobs() {
+            axios
+                .get("/api/jobs/")
+                .then((response) => {
+                    this.jobs = new Map(
+                        (response.data || []).map((job) => [job.name, { defaults: Object.assign({}, ...(job.defaultParams || [])), labels: job.labels || [] }]),
+                    );
                 })
                 .catch(() => {});
         },
@@ -243,7 +258,7 @@ export default {
             return `/build/${id}`;
         },
         label(build) {
-            const values = build.id === this.group.root ? "" : memberValues(build, this.root, null);
+            const values = build.id === this.group.root ? "" : memberValues(build, this.root, this.jobs.get(build.name) || null);
             return `#${build.id} ${build.name}${values ? ` · ${values}` : ""}: ${build.status}`;
         },
         timeOf(build) {
