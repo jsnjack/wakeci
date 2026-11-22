@@ -151,7 +151,9 @@ func CORSMi(next http.Handler) http.Handler {
 func SecurityMi(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("referrer-policy", "no-referrer")
-		w.Header().Set("content-security-policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'self'")
+		// data: images for the favicon that the build page draws with the
+		// build's status (favicon.js); an image can't run scripts
+		w.Header().Set("content-security-policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'self'")
 		w.Header().Set("x-content-type-options", "nosniff")
 		if Config.Hostname != "" {
 			w.Header().Set("strict-transport-security", "max-age=15768000;includeSubdomains")
