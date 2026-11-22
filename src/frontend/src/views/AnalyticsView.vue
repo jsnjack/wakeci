@@ -187,7 +187,7 @@
                     <template v-if="data.showsPeople && data.people.length">
                         <div class="muted text-sm">People and API keys</div>
                         <div
-                            v-for="person in data.people"
+                            v-for="person in shownPeople"
                             :key="person.kind + person.user + person.apiKey"
                             class="bar-row"
                             :title="`${personName(person)}: ${plural(person.builds, 'build')}`"
@@ -200,6 +200,15 @@
                             <span class="bar"><span :style="{ width: barWidth(person.builds, data.people[0].builds) }"></span></span>
                             <span class="muted right-align">{{ person.builds }}</span>
                         </div>
+                        <button
+                            v-if="data.people.length > PEOPLE_SHOWN"
+                            type="button"
+                            class="btn btn-sm btn-ghost people-more"
+                            data-cy="people-more"
+                            @click="allPeople = !allPeople"
+                        >
+                            {{ allPeople ? "Show the first " + PEOPLE_SHOWN : `Show all ${data.people.length}` }}
+                        </button>
                     </template>
                     <p
                         v-else-if="!data.showsPeople"
@@ -348,10 +357,14 @@ import vuex from "vuex";
 const RANGES = [7, 30, 90, 365];
 const FINAL = new Set(STATUSES.map((s) => s.status));
 
+const PEOPLE_SHOWN = 10;
+
 export default {
     components: { AnalyticsTabs, BandLegend, LineChart, OutcomeStrip, SearchSelect, SparkLine, StartsHeatmap, StatusBarsChart, StatusLegend },
     data() {
         return {
+            allPeople: false,
+            PEOPLE_SHOWN,
             ranges: RANGES,
             triggers: TRIGGERS,
             days: 30,
@@ -388,6 +401,10 @@ export default {
         };
     },
     computed: {
+        // The ten who start most builds, the rest on request
+        shownPeople() {
+            return this.allPeople ? this.data.people : this.data.people.slice(0, PEOPLE_SHOWN);
+        },
         ...vuex.mapState(["ws"]),
         rangeText() {
             return `${dayLabel(this.data.from, true)} – ${dayLabel(this.data.today, true)}`;
@@ -764,6 +781,10 @@ export default {
 .tile-sub {
     font-size: 0.8rem;
     min-block-size: 1.2rem;
+}
+
+.people-more {
+    align-self: flex-start;
 }
 
 .bar-row {
