@@ -57,8 +57,6 @@ the commit message. How the styles work: [styles.md](styles.md).
 
 ## Live updates
 
-- **L4. Status outside the page.** A status dot in the favicon on the build
-  page (the title already has an emoji). Effort S.
 - **L5. Notifications that follow the user.** "Notify me when builds matching
   this filter finish", kept in the browser, with the app subscribed to them
   on every page. Today the bell is per build, forgotten on reload, and fires
@@ -85,7 +83,7 @@ overloaded.
 
 | Phase | Items |
 |---|---|
-| Later | F4 later, L4–L6, B5, B7 |
+| Later | F4 later, L5, L6, B5, B7 |
 
 ## Sources
 

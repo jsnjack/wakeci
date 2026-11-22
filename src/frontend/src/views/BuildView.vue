@@ -346,6 +346,7 @@
 import { ago, formatDuration, isZeroTime } from "@/analytics.js";
 import ArtifactItem from "@/components/ArtifactItem.vue";
 import BuildGroup from "@/components/BuildGroup.vue";
+import { showPlain, showStatus } from "@/favicon.js";
 import LogViewer from "@/components/LogViewer.vue";
 import NotFound from "@/components/NotFound.vue";
 import RunDialog from "@/components/RunDialog.vue";
@@ -564,6 +565,9 @@ export default {
         this.emitter.off(this.buildUpdateSubscription, this.applyBuildUpdate);
         this.emitter.off("*", this.onAnyEvent);
         clearInterval(this.clock);
+        if (!this.embedded) {
+            showPlain();
+        }
     },
     methods: {
         subscribe() {
@@ -636,6 +640,9 @@ export default {
             }
             const icons = { failed: "❌", finished: "✅", aborted: "🛑", "timed out": "⏱️", skipped: "⤵️", pending: "⏳", running: "▶️" };
             this.$store.commit("SET_CURRENT_PAGE", { title: `#${this.id} - ${this.statusUpdate.status}`, icon: icons[this.statusUpdate.status] || "" });
+            if (this.statusUpdate.status) {
+                showStatus(this.statusUpdate.status);
+            }
         },
         taskDuration(task) {
             if (task.status === "running" && !isZeroTime(task.startedAt)) {
