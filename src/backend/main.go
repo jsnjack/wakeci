@@ -241,7 +241,7 @@ func run(cleanup func()) (tasksLeft bool) {
 		fatal("create work dir", err)
 	}
 
-	DB, err = bolt.Open(Config.WorkDir+"wakeci.db", 0644, nil)
+	DB, err = openDB(Config.WorkDir+"wakeci.db", dbLockTimeout)
 	if err != nil {
 		fatal("open db", err)
 	}

@@ -354,3 +354,18 @@ func pruneDBBackups(dbPath string) error {
 func backupTime(name string) string {
 	return name[len(name)-len(dbBackupTime):]
 }
+
+// dbLockTimeout is how long wakeci waits for the database at startup. Only
+// one process may have it open, and a restart in place has closed it by
+// then, so a longer wait means that another wakeci uses the same workdir.
+var dbLockTimeout = 10 * time.Second
+
+// openDB opens the database, and says so instead of waiting forever when
+// another process has it open
+func openDB(path string, timeout time.Duration) (*bolt.DB, error) {
+	db, err := bolt.Open(path, 0644, &bolt.Options{Timeout: timeout})
+	if errors.Is(err, bolt.ErrTimeout) {
+		return nil, fmt.Errorf("another wakeci has %s open; stop it, or give this one another workdir", path)
+	}
+	return db, err
+}

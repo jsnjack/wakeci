@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -349,5 +350,25 @@ func TestBackupForNewVersionRecordsTheVersionWhenTheCopyFails(t *testing.T) {
 	// So the next start doesn't save the db this version changed as its backup
 	if got := storedDBVersion(t, db); got != "2.68.0" {
 		t.Errorf("version = %q, want 2.68.0", got)
+	}
+}
+
+// A second wakeci with the same workdir says that another one has the
+// database open, instead of waiting for it forever
+func TestOpenDBSaysWhenAnotherProcessHasIt(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "wakeci.db")
+	first, err := openDB(path, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer first.Close()
+	started := time.Now()
+	second, err := openDB(path, 200*time.Millisecond)
+	if err == nil {
+		second.Close()
+		t.Fatal("a second open of the database succeeded")
+	}
+	if !strings.Contains(err.Error(), "another wakeci has") || time.Since(started) > 5*time.Second {
+		t.Errorf("second open: %v after %v", err, time.Since(started))
 	}
 }
