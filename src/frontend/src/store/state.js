@@ -1,3 +1,5 @@
+import { loadWatches } from "./watches.js";
+
 const state = {
     ws: {
         obj: { sendMessage: function () {} },
@@ -10,6 +12,8 @@ const state = {
         // connection when the user's permissions change, so pages watch it
         // to load their data again, also what was sent while disconnected.
         reconnects: 0,
+        // How many parts of the app use each topic, see SUBSCRIBE_TOPIC
+        topics: {},
     },
     auth: {
         isLoggedIn: false,
@@ -22,7 +26,8 @@ const state = {
         // the user can't use.
         grants: [],
     },
-    notifyOnBuildStatusUpdate: [],
+    // The builds and searches to notify about, see watches.js
+    watches: loadWatches(),
     // Whether queued builds start, see QueueStatusData in the backend
     queue: {
         stopping: false,

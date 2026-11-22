@@ -118,6 +118,12 @@ export default {
         };
     },
     computed: {
+        // Every build's updates are needed while the user watches builds or
+        // searches, whatever page is open (L5)
+        notifies() {
+            const watches = this.$store.state.watches;
+            return this.auth.isLoggedIn && (watches.builds.length > 0 || watches.searches.length > 0);
+        },
         ...vuex.mapState(["ws", "auth", "currentPage", "theme"]),
         ...vuex.mapGetters(["canAny"]),
         getVesion: function () {
@@ -139,6 +145,16 @@ export default {
         },
         themeLabel() {
             return this.theme === "light" ? "Dark theme" : "Light theme";
+        },
+    },
+    watch: {
+        notifies: {
+            immediate: true,
+            handler(value, old) {
+                if (value !== Boolean(old)) {
+                    this.$store.commit(value ? "SUBSCRIBE_TOPIC" : "UNSUBSCRIBE_TOPIC", "build:update:");
+                }
+            },
         },
     },
     mounted() {

@@ -228,3 +228,11 @@ export function grantHasScope(grant, scope) {
 export function grantAllows(grant, scope, job) {
     return grantHasScope(grant, scope) && (grant.allJobs || grant.jobs.includes(job) || grant.patterns.some((pattern) => matchJobPattern(pattern, job)));
 }
+
+// askNotificationPermission asks for system notifications if the browser has
+// them and the user hasn't answered; without them the page shows a message
+export function askNotificationPermission() {
+    if ("Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission().catch(() => {});
+    }
+}

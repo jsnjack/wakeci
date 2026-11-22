@@ -207,7 +207,6 @@ export default {
             this.showFilterInURL();
             this.fetch();
         },
-        "ws.connected": "onWSChange",
         "$route.query.build": "readSelected",
         // Builds of jobs the user may now read, and those sent while
         // disconnected. Not fetchNow itself: it would take the count for
@@ -318,21 +317,13 @@ export default {
                 this.$router.replace(target);
             }
         },
+        // Counted, since the notifications and a build's group may use the
+        // same topic; a new connection subscribes again by itself
         subscribe() {
-            this.$store.commit("WS_SEND", {
-                type: "in:subscribe",
-                data: {
-                    to: [this.subscription],
-                },
-            });
+            this.$store.commit("SUBSCRIBE_TOPIC", this.subscription);
         },
         unsubscribe() {
-            this.$store.commit("WS_SEND", {
-                type: "in:unsubscribe",
-                data: {
-                    to: [this.subscription],
-                },
-            });
+            this.$store.commit("UNSUBSCRIBE_TOPIC", this.subscription);
         },
         fetch() {},
         // Without them, rows show every non-empty param
@@ -437,13 +428,6 @@ export default {
                 this.filter = "";
                 this.filteredUpdates = 0;
                 this.fetchNow();
-            }
-        },
-        onWSChange(value) {
-            if (value) {
-                this.subscribe();
-            } else {
-                this.unsubscribe();
             }
         },
         readSelected() {

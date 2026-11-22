@@ -145,13 +145,6 @@ export default {
     },
     watch: {
         follows: "updateSubscription",
-        "ws.connected"(connected) {
-            // A new connection has no subscriptions
-            this.subscribed = false;
-            if (connected) {
-                this.updateSubscription();
-            }
-        },
         "ws.reconnects": "fetch",
     },
     mounted() {
@@ -164,7 +157,7 @@ export default {
         this.emitter.off(TOPIC, this.apply);
         document.removeEventListener("keydown", this.onKey);
         if (this.subscribed) {
-            this.$store.commit("WS_SEND", { type: "in:unsubscribe", data: { to: [TOPIC] } });
+            this.$store.commit("UNSUBSCRIBE_TOPIC", TOPIC);
         }
     },
     methods: {
@@ -176,11 +169,12 @@ export default {
                 })
                 .catch(() => {});
         },
+        // Counted, so it doesn't end the feed's subscription beside it (F9)
         updateSubscription() {
-            if (this.embedded || !this.ws.connected || this.follows === this.subscribed) {
+            if (this.follows === this.subscribed) {
                 return;
             }
-            this.$store.commit("WS_SEND", { type: this.follows ? "in:subscribe" : "in:unsubscribe", data: { to: [TOPIC] } });
+            this.$store.commit(this.follows ? "SUBSCRIBE_TOPIC" : "UNSUBSCRIBE_TOPIC", TOPIC);
             this.subscribed = this.follows;
         },
         apply(ev) {

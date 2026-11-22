@@ -57,10 +57,6 @@ the commit message. How the styles work: [styles.md](styles.md).
 
 ## Live updates
 
-- **L5. Notifications that follow the user.** "Notify me when builds matching
-  this filter finish", kept in the browser, with the app subscribed to them
-  on every page. Today the bell is per build, forgotten on reload, and fires
-  only on the feed or that build's page. Effort M.
 - **L6. Say when updates stop.** A "Reconnecting…" badge after a few seconds
   without the WebSocket. Effort S.
 
@@ -83,7 +79,7 @@ overloaded.
 
 | Phase | Items |
 |---|---|
-| Later | F4 later, L5, L6, B5, B7 |
+| Later | F4 later, L6, B5, B7 |
 
 ## Sources
 

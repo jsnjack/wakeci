@@ -167,6 +167,17 @@
             >
                 <i class="icon small">bookmark_add</i> Save this search
             </button>
+            <button
+                type="button"
+                class="btn btn-sm btn-ghost"
+                data-cy="watch-search"
+                :aria-pressed="searchWatched ? 'true' : 'false'"
+                :disabled="query === ''"
+                @click="toggleWatch"
+            >
+                <i class="icon small">{{ searchWatched ? "notifications_active" : "notifications_none" }}</i>
+                {{ searchWatched ? "Notifying when they end" : "Notify me when they end" }}
+            </button>
         </div>
 
         <div
@@ -265,7 +276,7 @@
 import UiDialog from "@/components/ui/UiDialog.vue";
 import UiMenu from "@/components/ui/UiMenu.vue";
 import { DONE_STATUSES, hasTerm, quoteTerm, splitTerms, toggleTerms } from "@/feed.js";
-import { shownName } from "@/store/utils.js";
+import { askNotificationPermission, shownName } from "@/store/utils.js";
 
 const FAILED = ["+status=failed"];
 const ACTIVE = DONE_STATUSES.map((status) => `-status=${status}`);
@@ -322,6 +333,13 @@ export default {
         };
     },
     computed: {
+        query() {
+            return this.modelValue.trim();
+        },
+        // Notifications for the builds that match the search (L5)
+        searchWatched() {
+            return this.query !== "" && this.$store.state.watches.searches.includes(this.query);
+        },
         jobNames() {
             return [...this.jobs.keys()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
         },
@@ -388,6 +406,14 @@ export default {
         },
     },
     methods: {
+        toggleWatch() {
+            if (this.searchWatched) {
+                this.$store.commit("UNWATCH_SEARCH", this.query);
+                return;
+            }
+            this.$store.commit("WATCH_SEARCH", this.query);
+            askNotificationPermission();
+        },
         has(terms) {
             return terms.length > 0 && terms.every((term) => hasTerm(this.modelValue, term));
         },
