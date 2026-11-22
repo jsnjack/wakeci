@@ -2,7 +2,7 @@
     <svg
         class="strip"
         :width="width"
-        :height="height"
+        :height="height + (current ? 4 : 0)"
         role="img"
         :aria-label="summary"
         data-cy="outcome-strip"
@@ -32,12 +32,22 @@
                 rx="1.5"
                 :data-cy-status="bar.status"
             />
+            <rect
+                v-if="bar.id === current"
+                class="current-mark"
+                :x="(offset + i) * step"
+                :y="height + 2"
+                :width="step - 2"
+                height="2"
+                data-cy="strip-current"
+            />
         </g>
     </svg>
 </template>
 
 <script>
 import { dateTime, formatDuration, statusOf, uniqueID } from "@/analytics";
+import "@/assets/charts.css";
 import HatchPattern from "./HatchPattern.vue";
 
 // OutcomeStrip shows a job's last builds, newest on the right. Height as
@@ -54,6 +64,16 @@ export default {
         slots: {
             type: Number,
             default: 20,
+        },
+        // The build whose page shows the strip, marked under its bar
+        current: {
+            type: Number,
+            default: 0,
+        },
+        // Where a bar leads, the build's page by default
+        to: {
+            type: Function,
+            default: null,
         },
     },
     data() {
@@ -91,7 +111,7 @@ export default {
     },
     methods: {
         open(id) {
-            this.$router.push({ name: "build", params: { id } });
+            this.$router.push(this.to ? this.to(id) : { name: "build", params: { id } });
         },
     },
 };
@@ -109,5 +129,9 @@ export default {
 }
 .link {
     cursor: pointer;
+}
+
+.current-mark {
+    fill: var(--on-surface);
 }
 </style>

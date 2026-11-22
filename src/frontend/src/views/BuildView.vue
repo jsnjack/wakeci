@@ -12,7 +12,16 @@
                         class="build-status"
                     />
                     <div class="stack gap-0 grow">
-                        <h1 class="title">{{ statusUpdate.name }}</h1>
+                        <div class="cluster gap-3">
+                            <h1 class="title">{{ statusUpdate.name }}</h1>
+                            <JobHistory
+                                v-if="statusUpdate.name"
+                                :job-name="statusUpdate.name"
+                                :build-id="statusUpdate.id"
+                                :status="statusUpdate.status"
+                                :embedded="embedded"
+                            />
+                        </div>
                         <p
                             v-if="job.desc"
                             class="muted"
@@ -346,6 +355,7 @@
 import { ago, formatDuration, isZeroTime } from "@/analytics.js";
 import ArtifactItem from "@/components/ArtifactItem.vue";
 import BuildGroup from "@/components/BuildGroup.vue";
+import JobHistory from "@/components/JobHistory.vue";
 import { showPlain, showStatus } from "@/favicon.js";
 import LogViewer from "@/components/LogViewer.vue";
 import NotFound from "@/components/NotFound.vue";
@@ -378,7 +388,7 @@ const SILENT_MS = 2 * 60 * 1000;
 // The build page: one header, then the failure, then a plain task list
 // (B1-B3 in docs/ui-roadmap.md). Logs open under their task.
 export default {
-    components: { ArtifactItem, BuildGroup, LogViewer, NotFound, RunDialog, StatusIcon, SubscribeButton, UiDialog, UiMenu },
+    components: { ArtifactItem, BuildGroup, JobHistory, LogViewer, NotFound, RunDialog, StatusIcon, SubscribeButton, UiDialog, UiMenu },
     props: {
         id: {
             type: Number,

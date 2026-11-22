@@ -66,15 +66,11 @@ overloaded.
   to `$WAKE_SUMMARY` with the value that runs only them again. Next: a
   "Re-run with these values" link, and Markdown rendered without raw HTML.
   Effort M.
-- **B7. History in reach.** The job's last 20 builds as a strip next to the
-  title (`OutcomeStrip` from the analytics page), keys for previous and next
-  build. Effort S.
-
 ## Order
 
 | Phase | Items |
 |---|---|
-| Later | F4 later, B5 later, B7 |
+| Later | F4 later, B5 later |
 
 ## Sources
 
