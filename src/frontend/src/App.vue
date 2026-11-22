@@ -18,6 +18,19 @@
         >
             {{ currentPage }}
         </h1>
+        <span
+            v-if="offline"
+            class="reconnecting cluster nowrap gap-1 text-sm"
+            role="status"
+            data-cy="reconnecting"
+        >
+            <i
+                class="icon small"
+                aria-hidden="true"
+                >sync</i
+            >
+            <span class="reconnecting-label">Reconnecting…</span>
+        </span>
         <nav
             class="app-nav"
             aria-label="Pages"
@@ -107,6 +120,9 @@ import axios from "axios";
 import vuex from "vuex";
 import wsMessageHandler from "./store/communication.js";
 
+// How long the connection is down before the header says so (L6)
+const OFFLINE_AFTER_MS = 3000;
+
 export default {
     components: { QueueBanner, UiMenu },
     data: function () {
@@ -115,11 +131,18 @@ export default {
             queueRequests: 0,
             // How many WebSocket connections opened
             connections: 0,
+            // The connection has been down for a while (L6)
+            offline: false,
+            offlineTimer: null,
         };
     },
     computed: {
         // Every build's updates are needed while the user watches builds or
         // searches, whatever page is open (L5)
+        // Live updates need the connection (L6)
+        wsDown() {
+            return this.auth.isLoggedIn && !this.ws.connected;
+        },
         notifies() {
             const watches = this.$store.state.watches;
             return this.auth.isLoggedIn && (watches.builds.length > 0 || watches.searches.length > 0);
@@ -148,6 +171,19 @@ export default {
         },
     },
     watch: {
+        // A short drop, e.g. a restart, says nothing; one of a few seconds
+        // says that the page doesn't update
+        wsDown: {
+            immediate: true,
+            handler(down) {
+                clearTimeout(this.offlineTimer);
+                if (down) {
+                    this.offlineTimer = setTimeout(() => (this.offline = true), OFFLINE_AFTER_MS);
+                } else {
+                    this.offline = false;
+                }
+            },
+        },
         notifies: {
             immediate: true,
             handler(value, old) {
@@ -166,6 +202,7 @@ export default {
     },
     unmounted() {
         this.systemTheme?.removeEventListener("change", this.onSystemTheme);
+        clearTimeout(this.offlineTimer);
     },
     methods: {
         connect: function () {
@@ -330,6 +367,30 @@ export default {
     font-size: 28px;
 }
 
+.reconnecting {
+    padding: 2px var(--space-2);
+    border-radius: var(--radius-pill);
+    background-color: color-mix(in srgb, var(--warning) 18%, transparent);
+    color: var(--on-surface);
+    white-space: nowrap;
+}
+
+.reconnecting .icon {
+    animation: spin 1.2s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(-360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .reconnecting .icon {
+        animation: none;
+    }
+}
+
 .app-header .page-title {
     flex: 1 1 auto;
     font-size: var(--text-md);
@@ -396,6 +457,15 @@ export default {
     }
     .phone-only {
         display: inline-flex;
+    }
+    /* Only the turning icon; the text stays for screen readers */
+    .reconnecting-label {
+        position: absolute;
+        inline-size: 1px;
+        block-size: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
     }
 }
 </style>

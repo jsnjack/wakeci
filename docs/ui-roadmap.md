@@ -55,11 +55,6 @@ the commit message. How the styles work: [styles.md](styles.md).
 - Not planned: labels added to a build after it ran ("flaky"). They would
   need storage per build, an audited route and access rules.
 
-## Live updates
-
-- **L6. Say when updates stop.** A "Reconnecting…" badge after a few seconds
-  without the WebSocket. Effort S.
-
 ## Build page
 
 The page has one header, then the failure, then a plain task list, with
@@ -79,7 +74,7 @@ overloaded.
 
 | Phase | Items |
 |---|---|
-| Later | F4 later, L6, B5, B7 |
+| Later | F4 later, B5, B7 |
 
 ## Sources
 
