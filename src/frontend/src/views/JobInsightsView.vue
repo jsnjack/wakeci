@@ -185,7 +185,7 @@
                         >
                             <span class="label-text">Parameter</span>
                             <select
-                                v-model="paramName"
+                                v-model="shownParam"
                                 class="select"
                             >
                                 <option
@@ -197,27 +197,29 @@
                                 </option>
                             </select>
                         </label>
-                        <table class="data-table text-sm">
-                            <thead>
-                                <tr>
-                                    <th>{{ param.name }}</th>
-                                    <th class="right-align">Builds</th>
-                                    <th class="right-align">Success</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr
-                                    v-for="value in param.values"
-                                    :key="value.value"
-                                >
-                                    <td class="ellipsis param-value">
-                                        <code>{{ value.value || "(empty)" }}</code>
-                                    </td>
-                                    <td class="right-align">{{ value.builds }}</td>
-                                    <td class="right-align">{{ formatRate(value.successRate) }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        <div class="table-scroll">
+                            <table class="data-table text-sm">
+                                <thead>
+                                    <tr>
+                                        <th>{{ param.name }}</th>
+                                        <th class="right-align">Builds</th>
+                                        <th class="right-align">Success</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr
+                                        v-for="value in param.values"
+                                        :key="value.value"
+                                    >
+                                        <td class="ellipsis param-value">
+                                            <code>{{ value.value || "(empty)" }}</code>
+                                        </td>
+                                        <td class="right-align">{{ value.builds }}</td>
+                                        <td class="right-align">{{ formatRate(value.successRate) }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </template>
                     <p
                         v-else
@@ -339,6 +341,16 @@ export default {
         },
         param() {
             return this.data.params.find((p) => p.name === this.paramName) || this.data.params[0];
+        },
+        // The select shows the parameter the table shows, the first until
+        // the user picks one
+        shownParam: {
+            get() {
+                return this.param?.name || "";
+            },
+            set(name) {
+                this.paramName = name;
+            },
         },
     },
     watch: {
