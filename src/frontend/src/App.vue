@@ -3,7 +3,8 @@
         <router-link
             to="/"
             class="brand"
-            aria-label="wakeci"
+            aria-label="wakeci, the feed"
+            data-tip="Feed"
         >
             <i class="icon">water</i>
         </router-link>
@@ -61,7 +62,7 @@
             <button
                 v-if="auth.isLoggedIn"
                 type="button"
-                class="btn btn-ghost btn-icon tip-end"
+                class="btn btn-ghost btn-icon"
                 data-cy="logout"
                 aria-label="Log out"
                 data-tip="Log out"
@@ -343,6 +344,11 @@ export default {
     padding: var(--space-4);
     /* Nothing on a page makes it wider than the window */
     overflow: hidden;
+}
+
+/* Wider for pages of logs, so their lines wrap less */
+.app-main:has(.build-page, .feed-page.split) {
+    max-inline-size: 100rem;
 }
 
 .app-header {

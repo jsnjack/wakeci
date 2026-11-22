@@ -7,6 +7,7 @@ import { notify } from "@kyvg/vue3-notification";
 import axios from "axios";
 import mitt from "mitt";
 import { escapeHtml } from "./store/utils";
+import { installTips } from "./tips";
 
 const emitter = mitt();
 
@@ -16,6 +17,7 @@ app.use(router);
 app.use(store);
 app.use(Notifications);
 app.mount("#app");
+installTips();
 
 // Global axios handler to show error messages and redirect to the login page
 // when the session ended

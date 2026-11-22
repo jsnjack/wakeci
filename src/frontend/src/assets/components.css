@@ -435,15 +435,21 @@
 
 /* Buttons joined into one control, the chosen one marked with
    aria-pressed="true" */
+/* As wide as its buttons, also in a stack, which would stretch it; it
+   scrolls when wider than its place, e.g. four tabs on a phone */
 .ui .segmented {
   display: inline-flex;
+  align-self: flex-start;
+  max-inline-size: 100%;
   border: 1px solid var(--outline-variant);
   border-radius: var(--radius-control);
-  overflow: hidden;
+  overflow-x: auto;
+  white-space: nowrap;
 }
 
 .ui .segmented > * {
   display: inline-flex;
+  flex: none;
   align-items: center;
   gap: var(--space-1);
   block-size: 30px;
@@ -511,21 +517,14 @@
 
 /* -- Tooltips ------------------------------------------------------------- */
 
-/* data-tip="Text" shows the text under the element on hover and focus;
-   tip-start and tip-end align it with the element's edge instead of its
-   middle, for elements at the window's sides. An icon-only button also
-   needs an aria-label, since screen readers don't read the tip. */
-.ui [data-tip] {
-  position: relative;
-}
-
-.ui [data-tip]:is(:hover, :focus-visible)::after {
-  content: attr(data-tip);
-  position: absolute;
-  inset-block-start: calc(100% + 6px);
-  inset-inline-start: 50%;
-  translate: -50% 0;
-  z-index: 50;
+/* data-tip="Text" on an element; tips.js shows it in this bubble, placed
+   next to the element inside the window. Here also inside .ui, since a tip
+   in a dialog sits in the dialog */
+.tip-bubble,
+.ui .tip-bubble {
+  position: fixed;
+  z-index: 1000;
+  max-inline-size: min(28rem, calc(100vw - 16px));
   padding: 4px 8px;
   border-radius: 6px;
   background-color: var(--inverse-surface);
@@ -534,19 +533,10 @@
   font-size: 12px;
   font-weight: 400;
   line-height: 1.4;
-  white-space: nowrap;
+  letter-spacing: normal;
+  white-space: normal;
+  overflow-wrap: anywhere;
   pointer-events: none;
-}
-
-.ui [data-tip].tip-start:is(:hover, :focus-visible)::after {
-  inset-inline-start: 0;
-  translate: none;
-}
-
-.ui [data-tip].tip-end:is(:hover, :focus-visible)::after {
-  inset-inline-start: auto;
-  inset-inline-end: 0;
-  translate: none;
 }
 
 /* -- Dialogs (UiDialog.vue, on the native <dialog>) ------------------------ */
@@ -561,6 +551,7 @@
   color: var(--on-surface);
   box-shadow: 0 12px 40px rgb(0 0 0 / 0.3);
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .ui .modal.wide {
@@ -585,12 +576,14 @@
   display: inline-flex;
 }
 
+/* UiMenu places it; scrolling to its end doesn't move the page */
 .ui .menu-list {
-  position: absolute;
-  inset-block-start: calc(100% + 4px);
-  inset-inline-end: 0;
+  position: fixed;
+  overscroll-behavior: contain;
   z-index: 40;
   min-inline-size: 12rem;
+  max-inline-size: calc(100vw - 16px);
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   padding: var(--space-1) 0;

@@ -5,7 +5,7 @@
         data-cy="log-viewer"
         @keydown="onKeyDown"
     >
-        <div class="log-bar cluster nowrap gap-1">
+        <div class="log-bar cluster gap-1">
             <template v-if="searchOpen">
                 <label class="input-icon log-search">
                     <i class="icon small">search</i>
@@ -123,7 +123,7 @@
                 <i class="icon small">sync</i>
             </button>
             <a
-                class="btn btn-ghost btn-icon btn-sm tip-end"
+                class="btn btn-ghost btn-icon btn-sm"
                 :href="rawURL"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -208,7 +208,27 @@ class GapWidget extends WidgetType {
     }
 }
 
-const prefixMark = Decoration.mark({ class: "log-prefix" });
+// The time prefix ("[     707ms] ") shows as a narrow column with the time
+// alone, so lines have room for their text; wrapped lines go under the text
+// (the theme's indent). The text, and copies of it, keep the prefix.
+class TimeWidget extends WidgetType {
+    constructor(time) {
+        super();
+        this.time = time;
+    }
+    eq(other) {
+        return other.time === this.time;
+    }
+    toDOM() {
+        const span = document.createElement("span");
+        span.className = "log-time";
+        span.textContent = this.time;
+        return span;
+    }
+}
+// A line without the prefix, such as a command's second line, starts where
+// the text of the others does
+const plainLine = Decoration.line({ class: "log-plain" });
 const hitMark = Decoration.mark({ class: "log-hit" });
 const currentHitMark = Decoration.mark({ class: "log-hit-current" });
 const markedLine = Decoration.line({ class: "log-marked" });
@@ -416,7 +436,19 @@ export default {
                         ".cm-lineNumbers .cm-gutterElement": { padding: "0 10px 0 12px", cursor: "pointer", userSelect: "none" },
                         ".cm-lineNumbers .cm-gutterElement:hover": { color: "var(--primary)", textDecoration: "underline" },
                         ".cm-content": { padding: "6px 0" },
-                        ".cm-line": { padding: "0 12px 0 2px" },
+                        // Room for the time column (log-time), which a wrapped line's
+                        // second row leaves empty
+                        ".cm-line": { padding: "0 12px 0 calc(var(--log-time) + 2px)", textIndent: "calc(-1 * var(--log-time))" },
+                        ".cm-line.log-plain": { textIndent: "0" },
+                        ".log-time": {
+                            display: "inline-block",
+                            inlineSize: "var(--log-time)",
+                            paddingInlineEnd: "1ch",
+                            textAlign: "end",
+                            textIndent: "0",
+                            color: "var(--log-muted)",
+                            userSelect: "none",
+                        },
                         "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection": { backgroundColor: "rgb(103 80 164 / 0.3)" },
                     }),
                 ],
@@ -438,11 +470,15 @@ export default {
                     const marks = [];
                     const end = prefixEnd(line.text);
                     if (end > 0) {
-                        marks.push([0, end, prefixMark]);
+                        marks.push([0, end, Decoration.replace({ widget: new TimeWidget(line.text.slice(1, end - 2).trim()) })]);
+                    } else {
+                        builder.add(line.from, line.from, plainLine);
                     }
                     const spans = this.spans.get(line.number) || [];
                     for (const span of spans) {
-                        marks.push([span.from, span.to, spanDecoration(span, this.theme)]);
+                        if (span.to > end) {
+                            marks.push([Math.max(span.from, end), span.to, spanDecoration(span, this.theme)]);
+                        }
                     }
                     if (!spans.some((span) => span.href)) {
                         for (const m of line.text.matchAll(URL_RE)) {
@@ -770,19 +806,30 @@ export default {
 </script>
 
 <style scoped>
+/* Nothing here clips its overflow, or the buttons' tips would be cut off:
+   the bar and the editor round their own corners, and the bar wraps on a
+   narrow screen instead of scrolling */
 .log-view {
+    /* The time column: 7 characters for times such as 13m33.1s, and a space */
+    --log-time: 8ch;
     position: relative;
+    container-type: inline-size;
     border: 1px solid var(--outline-variant);
     border-radius: var(--radius-control);
-    overflow: hidden;
     background-color: var(--log-bg);
 }
 
 .log-bar {
     padding: var(--space-1) var(--space-2);
     border-block-end: 1px solid var(--outline-variant);
+    border-start-start-radius: inherit;
+    border-start-end-radius: inherit;
     background-color: var(--surface-container-low);
-    overflow-x: auto;
+}
+
+.log-view :deep(.cm-editor) {
+    border-end-start-radius: var(--radius-control);
+    border-end-end-radius: var(--radius-control);
 }
 
 .log-search {
@@ -813,5 +860,19 @@ export default {
     z-index: 5;
     border-radius: var(--radius-pill);
     box-shadow: 0 4px 16px rgb(0 0 0 / 0.2);
+}
+
+/* A narrow viewer, e.g. on a phone, gives its width to the text: no time
+   column (the raw log and copied lines keep the times), slimmer numbers */
+@container (max-width: 34rem) {
+    .log-view :deep(.cm-editor) {
+        --log-time: 0px;
+    }
+    .log-view :deep(.log-time) {
+        display: none;
+    }
+    .log-view :deep(.cm-lineNumbers .cm-gutterElement) {
+        padding: 0 6px 0 6px;
+    }
 }
 </style>

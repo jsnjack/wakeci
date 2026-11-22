@@ -89,7 +89,7 @@
                     />
                     <button
                         type="button"
-                        class="btn btn-ghost btn-icon tip-end"
+                        class="btn btn-ghost btn-icon"
                         aria-label="Copy API key"
                         :data-tip="copied ? 'Copied' : 'Copy'"
                         data-cy="copy-key"

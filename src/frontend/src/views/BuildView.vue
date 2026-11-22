@@ -53,9 +53,9 @@
                     >
                         <i class="icon small">stop</i> Abort
                     </button>
+                    <!-- Only while it can still end -->
                     <SubscribeButton
-                        v-if="statusUpdate.id"
-                        :disabled="isDone"
+                        v-if="statusUpdate.id && !isDone"
                         :build-id="statusUpdate.id"
                     />
                     <UiMenu label="More build actions">

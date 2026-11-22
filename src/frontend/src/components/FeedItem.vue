@@ -9,7 +9,6 @@
         <StatusIcon
             :status="shownStatus"
             tip
-            class="tip-start"
         />
         <div class="feed-main">
             <router-link
@@ -66,13 +65,11 @@
                     data-cy="duration"
                     :class="{ over: overUsual }"
                     :data-tip="overUsual ? `Usually about ${usualText}` : null"
-                    class="tip-end"
                     >{{ durationText }}</span
                 >
                 <span
                     data-cy="started-ago"
                     :data-tip="startedAtText"
-                    class="tip-end"
                     >{{ startedAgo }}</span
                 >
             </template>
@@ -118,7 +115,7 @@
                 :href="buildPath"
                 target="_blank"
                 rel="noopener"
-                class="btn btn-ghost btn-icon tip-end"
+                class="btn btn-ghost btn-icon"
                 aria-label="Open in a new tab"
                 data-tip="Open in a new tab"
                 @click.stop
@@ -498,6 +495,13 @@ export default {
     overflow: hidden;
     text-overflow: ellipsis;
     cursor: pointer;
+}
+
+/* Touch: a value is a button too, so it gets room for a finger */
+@media (pointer: coarse), (max-width: 600px) {
+    .feed-value {
+        padding-block: 4px;
+    }
 }
 
 .feed-value:hover {

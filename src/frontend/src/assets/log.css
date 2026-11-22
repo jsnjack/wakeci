@@ -53,10 +53,6 @@
     --ansi-15: #f0f6fc;
   }
 
-  .log-prefix {
-    color: var(--log-muted);
-  }
-
   .log-hit {
     background-color: var(--log-hit);
     border-radius: 2px;

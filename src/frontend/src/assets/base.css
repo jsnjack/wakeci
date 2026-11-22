@@ -35,6 +35,15 @@ body {
   }
 }
 
+/* With a mouse or touchpad the page stops at its ends instead of bouncing
+   past them, which only suits touch screens (and their pull to refresh) */
+@media (pointer: fine) {
+  html,
+  body {
+    overscroll-behavior-y: none;
+  }
+}
+
 /* On a phone the page doesn't scroll behind an open dialog */
 @media (pointer: coarse) {
   body:has(dialog[open]) {

@@ -136,7 +136,7 @@
                     </router-link>
                     <button
                         type="button"
-                        class="btn btn-ghost btn-icon tip-end"
+                        class="btn btn-ghost btn-icon"
                         :aria-label="'Remove ' + group.name"
                         data-tip="Remove"
                         data-cy="remove-group"
@@ -226,7 +226,7 @@
                     </router-link>
                     <button
                         type="button"
-                        class="btn btn-ghost btn-icon tip-end"
+                        class="btn btn-ghost btn-icon"
                         aria-label="Turn off people in no group"
                         data-tip="Turn off"
                         data-cy="turn-off-no-group"

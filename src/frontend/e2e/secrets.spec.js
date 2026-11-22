@@ -19,9 +19,13 @@ tasks:
     await expect(page.locator("body")).toContainText("my API key is ***REDACTED***");
     await expect(page.locator("body")).toContainText("and from env ***REDACTED***");
     await expect(page.locator("body")).toContainText("Unknown secret <no value>");
-    // The log viewer draws each line, its time prefix first
-    const logs = page.getByTestId("task-log").locator(".cm-line");
-    await expect(logs.filter({ hasText: /\] My secret is/ })).toHaveText(/^\[[^\]\n]+\] My secret is \*\*\*REDACTED\*\*\*/);
+    // The log viewer draws each line with its time in a column first
+    const output = page
+        .getByTestId("task-log")
+        .locator(".cm-line")
+        .filter({ hasText: /^[^\s>]+My secret is/ });
+    await expect(output.locator(".log-time")).toHaveText(/^\d/);
+    await expect(output).toContainText("My secret is ***REDACTED***");
     await expect(page.getByTestId("task-log")).not.toContainText("test1");
     await expect(page.getByTestId("task-log")).not.toContainText("test2");
 });

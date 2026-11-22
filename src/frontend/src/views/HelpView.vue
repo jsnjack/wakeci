@@ -136,7 +136,7 @@
                     >{{ connectCommand }}</pre>
                 <button
                     type="button"
-                    class="btn btn-ghost btn-icon tip-end"
+                    class="btn btn-ghost btn-icon"
                     :aria-label="'Copy the command for ' + clientTitle"
                     :data-tip="copied ? 'Copied' : 'Copy'"
                     data-cy="mcp-copy"
@@ -292,7 +292,8 @@ export default {
                 case "copilot":
                     return `copilot mcp add --transport http wakeci ${this.endpoint} \\\n  --header "Authorization: Bearer ${this.key}"`;
                 case "vscode":
-                    return `code --add-mcp '${JSON.stringify(this.vscodeServer)}'`;
+                    // Over several lines, which the JSON and the shell's quotes allow
+                    return `code --add-mcp '${JSON.stringify(this.vscodeServer, null, 2)}'`;
                 default:
                     return `claude mcp add --transport http wakeci ${this.endpoint} \\\n  --header "Authorization: Bearer ${this.key}"`;
             }
@@ -388,7 +389,7 @@ export default {
     border-radius: var(--radius-control);
     background-color: var(--surface-container);
     white-space: pre-wrap;
-    word-break: break-all;
+    overflow-wrap: anywhere;
     font-size: var(--text-sm);
 }
 

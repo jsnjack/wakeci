@@ -60,7 +60,7 @@
             </button>
             <button
                 type="button"
-                class="btn btn-ghost btn-icon tip-end"
+                class="btn btn-ghost btn-icon"
                 aria-label="Search examples"
                 data-tip="Search examples"
                 @click="helpOpen = true"
@@ -113,8 +113,21 @@
                     {{ pickedJobs.length ? `${pickedJobs.length} ${pickedJobs.length === 1 ? "job" : "jobs"}` : "Jobs" }}
                     <i class="icon small">arrow_drop_down</i>
                 </template>
+                <div
+                    v-if="jobNames.length > 8"
+                    class="job-filter"
+                >
+                    <input
+                        v-model="jobFilter"
+                        class="input"
+                        type="search"
+                        placeholder="Filter jobs"
+                        aria-label="Filter jobs"
+                        data-cy="filter-jobs-input"
+                    />
+                </div>
                 <label
-                    v-for="name in jobNames"
+                    v-for="name in shownJobNames"
                     :key="name"
                     role="menuitemcheckbox"
                     :aria-checked="pickedJobs.includes(name) ? 'true' : 'false'"
@@ -197,6 +210,7 @@
                     type="button"
                     class="term-remove"
                     :aria-label="`Remove ${term}`"
+                    data-tip="Remove from the search"
                     data-cy="remove-term"
                     @click="removeTerm(i)"
                 >
@@ -322,17 +336,7 @@ export default {
     },
     emits: ["update:modelValue", "clear"],
     data() {
-        return {
-            FAILED,
-            ACTIVE,
-            helpOpen: false,
-            saveOpen: false,
-            saveName: "",
-            saved: loadSaved(),
-            suggestOpen: false,
-            caret: 0,
-            active: -1,
-        };
+        return { jobFilter: "", FAILED, ACTIVE, helpOpen: false, saveOpen: false, saveName: "", saved: loadSaved(), suggestOpen: false, caret: 0, active: -1 };
     },
     computed: {
         query() {
@@ -344,6 +348,11 @@ export default {
         },
         jobNames() {
             return [...this.jobs.keys()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        },
+        // Picked jobs stay listed while the filter hides others
+        shownJobNames() {
+            const filter = this.jobFilter.trim().toLowerCase();
+            return filter ? this.jobNames.filter((name) => name.toLowerCase().includes(filter) || this.pickedJobs.includes(name)) : this.jobNames;
         },
         scheduledTerms() {
             return this.jobNames.filter((name) => this.jobs.get(name).interval).map((name) => `-name=${name}`);
@@ -542,6 +551,19 @@ export default {
     cursor: pointer;
 }
 
+/* Stays at the top of a long list */
+.job-filter {
+    position: sticky;
+    inset-block-start: calc(-1 * var(--space-1));
+    z-index: 1;
+    background-color: var(--surface-container-high);
+}
+
+.job-filter .input {
+    inline-size: 100%;
+    block-size: 32px;
+}
+
 .term {
     display: inline-flex;
     align-items: center;
@@ -559,6 +581,15 @@ export default {
     background: none;
     color: var(--on-surface-variant);
     cursor: pointer;
+}
+
+@media (pointer: coarse), (max-width: 600px) {
+    .term-remove {
+        min-inline-size: 24px;
+        min-block-size: 24px;
+        justify-content: center;
+        align-items: center;
+    }
 }
 
 .term-remove:hover {

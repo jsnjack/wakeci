@@ -81,7 +81,7 @@
                     >
                         <button
                             type="button"
-                            class="btn btn-ghost btn-icon btn-sm tip-start job-pin"
+                            class="btn btn-ghost btn-icon btn-sm job-pin"
                             :aria-pressed="pinned.includes(job.name) ? 'true' : 'false'"
                             :aria-label="pinned.includes(job.name) ? `Unpin ${job.name}` : `Pin ${job.name}`"
                             :data-tip="pinned.includes(job.name) ? 'Unpin' : 'Pin to the top'"
@@ -185,7 +185,7 @@
                             <button
                                 v-if="canAny('write')"
                                 type="button"
-                                class="btn btn-ghost btn-icon tip-end"
+                                class="btn btn-ghost btn-icon"
                                 aria-label="Delete"
                                 data-tip="Delete"
                                 data-cy="delete-job-button"
@@ -616,8 +616,20 @@ export default {
     grid-area: actions;
 }
 
-/* Phones: the status under the name, and no room for the strip */
-@media (max-width: 600px) {
+/* Touch: room for a finger on the switch and the name */
+@media (pointer: coarse), (max-width: 600px) {
+    .job-active {
+        min-inline-size: 32px;
+        min-block-size: 32px;
+        justify-content: center;
+    }
+    .job-name {
+        padding-block: 4px;
+    }
+}
+
+/* Narrow: the status under the name, and no room for the strip */
+@media (max-width: 760px) {
     .job-row {
         grid-template-columns: auto minmax(0, 1fr) auto auto;
         grid-template-areas:

@@ -278,9 +278,12 @@ export default {
 }
 
 /* No keyboard to press them on */
-@media (pointer: coarse) {
+@media (pointer: coarse), (max-width: 600px) {
     .keys {
         display: none;
+    }
+    .strip-build {
+        padding: 4px;
     }
 }
 

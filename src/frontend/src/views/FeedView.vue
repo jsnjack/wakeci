@@ -107,7 +107,7 @@
                 </router-link>
                 <button
                     type="button"
-                    class="btn btn-ghost btn-icon btn-sm tip-end"
+                    class="btn btn-ghost btn-icon btn-sm"
                     aria-label="Close"
                     data-tip="Close (Esc)"
                     data-cy="pane-close"
@@ -501,6 +501,7 @@ export default {
     inset-block-start: 64px;
     max-block-size: calc(100dvh - 80px);
     overflow-y: auto;
+    overscroll-behavior: contain;
     padding-inline-start: var(--space-4);
     border-inline-start: 1px solid var(--outline-variant);
 }
