@@ -1,9 +1,11 @@
-# UI roadmap: feed, live updates, build page, task logs
+# UI roadmap: feed, build page
 
 Read this before changing the feed, labels, live updates, the build page or
-task logs. It lists the changes planned for them, the evidence behind each,
-and the order. When an item ships, delete it here and name it (e.g. "F1") in
-the commit message. How the styles work: [styles.md](styles.md).
+task logs. The planned changes have shipped (their commits name them, e.g.
+"F2"); what is left are the later steps of two of them, with the evidence
+the plan was built on. When an item ships, delete it here and name it in
+the commit message. How the styles work: [styles.md](styles.md); task logs:
+[logs.md](logs.md).
 
 ## Evidence
 
@@ -66,6 +68,7 @@ overloaded.
   to `$WAKE_SUMMARY` with the value that runs only them again. Next: a
   "Re-run with these values" link, and Markdown rendered without raw HTML.
   Effort M.
+
 ## Order
 
 | Phase | Items |
