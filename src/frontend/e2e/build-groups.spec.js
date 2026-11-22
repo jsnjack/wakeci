@@ -72,10 +72,20 @@ test("the build page shows the group: the tree on the root, the strip on a membe
     await expect(strip.getByTestId("group-root")).toHaveText(`#${root} ${rootJob}`);
     await expect(strip.getByTestId("group-build")).toHaveCount(5);
     await expect(strip.locator('[aria-current="page"]')).toHaveAttribute("aria-label", new RegExp(`^#${second} `));
+    // The page takes the key, so a browser's "search when you start typing"
+    // doesn't open its find bar
+    await page.evaluate(() => document.addEventListener("keydown", (e) => setTimeout(() => (window.keyTaken = e.defaultPrevented)), { once: true }));
     await page.keyboard.press("[");
+    expect(await page.evaluate(() => window.keyTaken)).toBe(true);
     await expect(page).toHaveURL(`/build/${first}`);
     await expect(page.getByTestId("page-title")).toContainText(`#${first}`);
     await page.keyboard.press("]");
+    await expect(page).toHaveURL(`/build/${second}`);
+    // The same with the buttons
+    await strip.getByTestId("sibling-previous").click();
+    await expect(page).toHaveURL(`/build/${first}`);
+    await expect(strip.getByTestId("sibling-previous")).toBeDisabled();
+    await strip.getByTestId("sibling-next").click();
     await expect(page).toHaveURL(`/build/${second}`);
     await strip.getByTestId("group-root").click();
     await expect(page).toHaveURL(`/build/${root}`);

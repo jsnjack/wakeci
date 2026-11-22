@@ -10,7 +10,31 @@
             :current="buildId"
             :to="buildPath"
         />
-        <span class="muted text-sm keys"><kbd>,</kbd> <kbd>.</kbd> older, newer</span>
+        <!-- Also , and . -->
+        <span class="cluster nowrap gap-0">
+            <button
+                type="button"
+                class="btn btn-ghost btn-icon btn-sm"
+                :disabled="!neighbours.older"
+                :aria-label="`Older build of ${jobName}`"
+                :data-tip="neighbours.older ? `Older build of ${jobName} (,)` : null"
+                data-cy="job-older"
+                @click="open(neighbours.older)"
+            >
+                <i class="icon small">chevron_left</i>
+            </button>
+            <button
+                type="button"
+                class="btn btn-ghost btn-icon btn-sm"
+                :disabled="!neighbours.newer"
+                :aria-label="`Newer build of ${jobName}`"
+                :data-tip="neighbours.newer ? `Newer build of ${jobName} (.)` : null"
+                data-cy="job-newer"
+                @click="open(neighbours.newer)"
+            >
+                <i class="icon small">chevron_right</i>
+            </button>
+        </span>
     </div>
 </template>
 
@@ -105,6 +129,9 @@ export default {
             if (event.target.closest?.("input, textarea, select, [contenteditable='true']")) {
                 return;
             }
+            // The key is the page's, so Firefox's "search when you start
+            // typing" doesn't take it
+            event.preventDefault();
             const key = event.key;
             this.loaded.then(() => {
                 const id = key === "," ? this.neighbours.older : this.neighbours.newer;
@@ -113,6 +140,11 @@ export default {
                     this.$router.push(this.buildPath(id));
                 }
             });
+        },
+        open(id) {
+            if (id) {
+                this.$router.push(this.buildPath(id));
+            }
         },
         buildPath(id) {
             if (this.embedded) {
@@ -125,20 +157,6 @@ export default {
 </script>
 
 <style scoped>
-.keys kbd {
-    padding: 0 4px;
-    border: 1px solid var(--outline-variant);
-    border-radius: 4px;
-    font-family: var(--font-mono);
-    font-size: 0.85em;
-}
-
-@media (pointer: coarse) {
-    .keys {
-        display: none;
-    }
-}
-
 @media (max-width: 600px) {
     .job-history {
         display: none;

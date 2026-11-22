@@ -34,11 +34,34 @@
             data-cy="group-hidden"
             >+{{ group.hidden }} you can't see</span
         >
+        <!-- The builds its parent started, one by one; also [ and ] -->
         <span
             v-if="siblings.length > 1"
-            class="muted keys"
-            ><kbd>[</kbd> <kbd>]</kbd> the builds beside it</span
+            class="cluster nowrap gap-0"
         >
+            <button
+                type="button"
+                class="btn btn-ghost btn-icon btn-sm"
+                :disabled="!previousSibling"
+                :aria-label="`Previous build started by #${parent}`"
+                :data-tip="previousSibling ? `Previous build started by #${parent} ([)` : null"
+                data-cy="sibling-previous"
+                @click="go(previousSibling)"
+            >
+                <i class="icon small">chevron_left</i>
+            </button>
+            <button
+                type="button"
+                class="btn btn-ghost btn-icon btn-sm"
+                :disabled="!nextSibling"
+                :aria-label="`Next build started by #${parent}`"
+                :data-tip="nextSibling ? `Next build started by #${parent} (])` : null"
+                data-cy="sibling-next"
+                @click="go(nextSibling)"
+            >
+                <i class="icon small">chevron_right</i>
+            </button>
+        </span>
     </nav>
     <section
         v-else-if="isRoot"
@@ -157,6 +180,13 @@ export default {
             const builds = latestAttempts(this.group.builds.filter((build) => build.id !== this.group.root));
             return groupTree(this.group.root, builds).map((build) => ({ ...build, values: memberValues(build, this.root, this.jobs.get(build.name) || null) }));
         },
+        previousSibling() {
+            return this.siblings[this.siblings.findIndex((build) => build.id === this.buildId) - 1] || null;
+        },
+        nextSibling() {
+            const i = this.siblings.findIndex((build) => build.id === this.buildId);
+            return i < 0 ? null : this.siblings[i + 1] || null;
+        },
         siblings() {
             return this.group.builds.filter((build) => build.id !== this.group.root && build.parent === this.parent);
         },
@@ -245,10 +275,17 @@ export default {
             if (event.target.closest?.("input, textarea, select, [contenteditable='true']")) {
                 return;
             }
-            const i = this.siblings.findIndex((build) => build.id === this.buildId);
-            const next = this.siblings[i + (event.key === "]" ? 1 : -1)];
-            if (i >= 0 && next) {
-                this.$router.push(this.buildPath(next.id));
+            if (this.siblings.length < 2) {
+                return;
+            }
+            // The key is the page's, so Firefox's "search when you start
+            // typing" doesn't take it
+            event.preventDefault();
+            this.go(event.key === "]" ? this.nextSibling : this.previousSibling);
+        },
+        go(build) {
+            if (build) {
+                this.$router.push(this.buildPath(build.id));
             }
         },
         buildPath(id) {
@@ -284,21 +321,14 @@ export default {
     outline-offset: -1px;
 }
 
-.keys kbd {
-    padding: 0 4px;
-    border: 1px solid var(--outline-variant);
-    border-radius: 4px;
-    font-family: var(--font-mono);
-    font-size: 0.85em;
-}
-
 /* No keyboard to press them on */
 @media (pointer: coarse), (max-width: 600px) {
-    .keys {
-        display: none;
-    }
     .strip-build {
         padding: 4px;
+    }
+    .group-strip > a {
+        display: inline-block;
+        padding-block: 2px;
     }
 }
 

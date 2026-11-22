@@ -25,4 +25,9 @@ test("the build page shows the job's last builds and moves between them", async 
     await expect(page).toHaveURL(`/build/${middle}`);
     await page.keyboard.press(".");
     await expect(page).toHaveURL(`/build/${last}`);
+    // The same with the buttons
+    const history = page.getByTestId("job-history");
+    await expect(history.getByTestId("job-newer")).toBeDisabled();
+    await history.getByTestId("job-older").click();
+    await expect(page).toHaveURL(`/build/${middle}`);
 });
