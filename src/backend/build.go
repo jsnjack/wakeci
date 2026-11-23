@@ -114,6 +114,11 @@ type Build struct {
 	// group is the build that started this one and the root of its chain,
 	// set before the build's tasks start. Guarded by mutex
 	group buildGroup
+	// token is the build's WAKE_TOKEN, created when its first task starts,
+	// and tokenRevoked is set once the build left the queue (buildtoken.go).
+	// Guarded by mutex
+	token        string
+	tokenRevoked bool
 	// updateMu is held by BroadcastUpdate from taking the build's state until
 	// it is saved, so updates are saved in the order they were taken: an
 	// update taken while queued, saved after a later one, would queue the
@@ -657,6 +662,11 @@ func (b *Build) generateDefaultEnvVariables() []string {
 	} else {
 		evs = append(evs, fmt.Sprintf("WAKE_URL=http://localhost:%s/", Config.Port))
 	}
+	if token, err := b.buildToken(); err != nil {
+		b.Logger.Error("create build token", "err", err)
+	} else if token != "" {
+		evs = append(evs, "WAKE_TOKEN="+token)
+	}
 	return evs
 }
 
@@ -687,6 +697,7 @@ func (b *Build) Cleanup() {
 		b.timer.Stop()
 	}
 	GlobalQueue.Remove(b.ID)
+	b.revokeBuildToken()
 	// Waiting requests take a build as ended once it left the queue
 	buildChanges.notify(b.ID)
 	GlobalQueue.Take()

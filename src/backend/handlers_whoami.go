@@ -11,8 +11,8 @@ import (
 // which server it talks to
 type WhoAmIData struct {
 	// Auth is how the request was authenticated: apikey, basic (the
-	// password as Basic auth), password (a session from the password) or
-	// sso
+	// password as Basic auth), build (a build's token, WAKE_TOKEN),
+	// password (a session from the password) or sso
 	Auth string `json:"auth"`
 	// User is the single sign-on email; for an API key, who created it.
 	// Empty for the admin password.
@@ -21,6 +21,8 @@ type WhoAmIData struct {
 	Admin bool `json:"admin"`
 	// Key is the API key the request carries, without its secret
 	Key *APIKey `json:"key,omitempty"`
+	// Build is the build whose token the request carries
+	Build int `json:"build,omitempty"`
 	// Grants are what the request may do, united. A key made by a single
 	// sign-on user is also limited by what its creator's groups allow.
 	Grants []Grant `json:"grants"`
@@ -42,7 +44,7 @@ type ServerInfo struct {
 
 // HandleWhoAmI tells the client how it is authenticated and what it may do
 // @Summary      Tell the client how it is authenticated, what it may do and which server answers
-// @Description  Any API key or login; no scope needed. server holds the range of build IDs this server has, to tell servers apart.
+// @Description  Any API key, build token (WAKE_TOKEN) or login; no scope needed. server holds the range of build IDs this server has, to tell servers apart.
 // @Tags         auth
 // @Produce      json
 // @Success      200      {object}   WhoAmIData
@@ -66,6 +68,8 @@ func HandleWhoAmI(w http.ResponseWriter, r *http.Request) {
 		Server: ServerInfo{Hostname: auditServerName(Config.Hostname), Version: Version},
 	}
 	switch _, _, basic := r.BasicAuth(); {
+	case tokenBuildFromContext(r.Context()) != nil:
+		data.Auth, data.Build = "build", tokenBuildFromContext(r.Context()).ID
 	case data.Key != nil:
 		data.Auth, data.User = "apikey", data.Key.CreatedBy
 	case basic:

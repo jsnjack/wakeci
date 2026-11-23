@@ -47,6 +47,14 @@ func errNoParent(id int) error {
 // jobs under a group either. Both must be builds the caller may read.
 func groupOf(r *http.Request, job string) (buildGroup, error) {
 	parentValue, againValue := r.Form.Get(parentParam), r.Form.Get(againParam)
+	// A build's token starts builds under its build, which is in the queue
+	// while the token works
+	if tokenBuild := tokenBuildFromContext(r.Context()); tokenBuild != nil && againValue == "" {
+		if parentValue != "" && parentValue != strconv.Itoa(tokenBuild.ID) {
+			return buildGroup{}, fmt.Errorf("a build's token starts builds under its own build, %d, not %s", tokenBuild.ID, parentValue)
+		}
+		return groupUnder(tokenBuild), nil
+	}
 	if parentValue == "" && againValue == "" {
 		return buildGroup{}, nil
 	}
@@ -86,11 +94,16 @@ func groupOf(r *http.Request, job string) (buildGroup, error) {
 	if !access.Reads(parent.Job.Name) {
 		return buildGroup{}, errNoParent(id)
 	}
-	group := buildGroup{Parent: id, Root: parent.Group().Root}
+	return groupUnder(parent), nil
+}
+
+// groupUnder returns the group of a build that parent starts
+func groupUnder(parent *Build) buildGroup {
+	group := buildGroup{Parent: parent.ID, Root: parent.Group().Root}
 	if group.Root == 0 {
-		group.Root = id
+		group.Root = parent.ID
 	}
-	return group, nil
+	return group
 }
 
 // runBuildID reads the build ID that a run sends as name

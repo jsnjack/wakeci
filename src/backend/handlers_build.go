@@ -308,6 +308,8 @@ func abortedBy(r *http.Request) string {
 			return fmt.Sprintf("with API key %q (%s)", key.Name, key.ID)
 		}
 		return "with API key " + info.apiKey
+	case "build":
+		return fmt.Sprintf("by build #%d", info.build)
 	}
 	return ""
 }

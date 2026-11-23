@@ -64,7 +64,8 @@ type requestInfo struct {
 	// so it is logged next to ip, never instead of it.
 	forwardedFor string
 	// auth is how the request was authenticated: password (a session from
-	// the password), sso, basic (Basic auth with the password) or apikey
+	// the password), sso, basic (Basic auth with the password), apikey or
+	// build (a build's token)
 	auth string
 	// user is the SSO email; for an API key, who created it
 	user string
@@ -72,6 +73,8 @@ type requestInfo struct {
 	apiKey string
 	// mcpTool is the tool a request to /mcp called
 	mcpTool string
+	// build is the build whose token the request carries
+	build int
 	// attrs are added by the handler to the request's audit event
 	attrs []any
 }
@@ -161,6 +164,13 @@ func setRequestUser(r *http.Request, auth, user, apiKey string) {
 	info.auth, info.user, info.apiKey = auth, user, apiKey
 }
 
+// setRequestBuild records that the request carries build id's token. Only
+// call it once the token has been checked.
+func setRequestBuild(r *http.Request, id int) {
+	info := requestInfoOf(r)
+	info.auth, info.build = "build", id
+}
+
 // sessionAuth is how a session was created: an SSO login, or the password
 // for a session without a user
 func sessionAuth(user string) string {
@@ -188,6 +198,10 @@ func (info *requestInfo) who() []any {
 	}
 	if info.apiKey != "" {
 		attrs = append(attrs, "apiKey", info.apiKey)
+	}
+	// Not "build", which names the build a request acts on
+	if info.build != 0 {
+		attrs = append(attrs, "byBuild", info.build)
 	}
 	return attrs
 }
