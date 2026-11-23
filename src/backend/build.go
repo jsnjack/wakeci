@@ -667,6 +667,15 @@ func (b *Build) generateDefaultEnvVariables() []string {
 	} else if token != "" {
 		evs = append(evs, "WAKE_TOKEN="+token)
 	}
+	// The wake command, first, so another wake on the PATH doesn't hide it
+	if wakeCommandDir != "" {
+		path := wakeCommandDir
+		// An empty entry would add the workspace to the PATH
+		if inherited := os.Getenv("PATH"); inherited != "" {
+			path += string(os.PathListSeparator) + inherited
+		}
+		evs = append(evs, "PATH="+path)
+	}
 	return evs
 }
 

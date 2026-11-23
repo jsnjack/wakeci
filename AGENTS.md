@@ -45,6 +45,7 @@ src/backend/                 Go server (package main, module "wakeci")
   sso.go                     SAML single sign-on (e.g. Google Workspace): IdP metadata, response checks, login state
   apikeys.go                 API keys: storage, management handlers, the key router with its scope and job checks
   mcp.go                     /mcp for API keys: MCP tools that call the key router with the request's key
+  buildtoken.go, wake.go     Build tokens (WAKE_TOKEN) and the wake command, the binary run as `wake`
   auth_limiter.go            Per-client failed-auth limiter and retry/reset response headers
   audit.go                   Audit log: who did what, AuditMi and the table of audited routes
   middleware.go               chi middleware: per-request logger, auth, CORS, security headers
@@ -76,6 +77,7 @@ src/frontend/                Vue 3 + Vite SPA
 | [docs/logs.md](docs/logs.md) | Task log files, colours, log messages, the log route, the log viewer and its search |
 | [docs/ui-roadmap.md](docs/ui-roadmap.md) | The feed, labels, live updates, the build page or task logs: what is left of the plan and its evidence |
 | [docs/styles.md](docs/styles.md) | The frontend's styles: layers, the `.ui` scope, components, icons and `npm run icons`, the look |
+| [docs/wake.md](docs/wake.md) | The wake command and build tokens: how tasks start builds and read the API |
 
 ---
 
@@ -124,7 +126,8 @@ src/frontend/                Vue 3 + Vite SPA
    so a mistyped URL doesn't look like a refusal. The session routes check
    single sign-on users the same way, with what their groups allow
    ([docs/access.md](docs/access.md)). The feed and job list filter
-   themselves with `accessFromContext`.
+   themselves with `accessFromContext`. A build's token (`Bearer wb_...`)
+   takes the same router (`buildTokenAuth`).
 7. **Live UI updates**: `Build.BroadcastUpdate` persists build state to the
    `history` and `buildstats` buckets (and `queue` while pending)
    and pushes it over `WSHub` to any client subscribed to that build/feed
@@ -292,15 +295,11 @@ AGENTS.universal.md for the general contract.
   refuses a password change without the admin password (403, nothing
   saved) and the settings page hides the field. Revoking a person's keys
   also ends their sessions and WebSockets and refuses their SSO logins
-  from before it ([docs/access.md](docs/access.md#revoking-a-person)).
-  What an SSO user may do comes from their groups, set by the admin
-  password in the settings ([docs/access.md](docs/access.md)); `write`
-  still runs commands on the server, so those who have it are trusted.
-  Sessions carry the SSO email (`session.user`, empty for the password) and
-  each key records it in `CreatedBy`. `requestUser` reads it, Basic auth
-  first like `AuthMi`. The admin password lists and revokes every key,
-  also all of a person's; an SSO user only keys with their email.
-  Offboarding is that manual step.
+  from before it; who owns a key and how offboarding works:
+  [docs/access.md](docs/access.md#revoking-a-person).
+- **Tasks start builds only with `wake`**, whose build token may read and
+  run every job while its build is in the queue; why one way, and why
+  every job: [docs/wake.md](docs/wake.md).
 - **API key secrets are hashed with SHA-256, not bcrypt.** A secret is 256
   random bits, so there is nothing to guess; bcrypt would slow down every
   API call. Tokens are `wk_<id>_<secret>`: the ID is public (list, logs,
@@ -416,6 +415,8 @@ AGENTS.universal.md for the general contract.
 - `jobFromStorage` must read the path from `wakespacePath` and clean it like
   `http.FileServer` does, so the build it checks is the build that is served
   (`/storage/build/1/../2/x` is build 2).
+- Never log a build token, and keep `buildTokenValues` in
+  `secretRedactionValues`, or a log's reader could act as the build.
 - API key failures count on `apiKeyAttemptLimiter`, never on
   `globalAuthAttemptLimiter`, so a valid key can't clear failed password
   attempts. Only failures are limited: a valid key always passes, so bad

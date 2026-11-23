@@ -100,6 +100,10 @@ on the page's own requests.
 
 The feed and the job list filter themselves with `Access.Reads`.
 
+A build's token (`WAKE_TOKEN`, [docs/wake.md](wake.md#build-tokens)) goes
+to the key router like an API key and may read and run every job, but never
+write; it works until its build leaves the queue.
+
 A run that names a build (`WAKE_PARENT`, `WAKE_AGAIN`, `groupOf` in
 `group.go`) needs read on that build's job too; otherwise it gets the same
 400 as a build that doesn't exist, so a run can't tell which build IDs
@@ -180,11 +184,15 @@ otherwise the request was something the user's groups don't allow, and the
 page shows the error and reads the permissions again.
 
 A build aborted from the page or the API says who aborted it in its task
-log (`abortedBy`): the single sign-on email, the API key's name and ID, or
-"with the admin password". Everyone who may read the build sees it, unlike
+log (`abortedBy`): the single sign-on email, the API key's name and ID,
+the build whose token aborted it, or "with the admin password". Everyone who may read the build sees it, unlike
 the people on the analytics page, which only the admin password sees.
 
 ## Revoking a person
+
+Sessions carry the SSO email (`session.user`, empty for the password), and
+each key records it in `CreatedBy`; `requestUser` reads it, Basic auth
+first like `AuthMi`.
 
 The admin password (password login or Basic auth) lists and revokes every
 key and can revoke all keys of a person (`DELETE /api/keys/?createdBy=`);

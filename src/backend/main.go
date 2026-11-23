@@ -173,6 +173,9 @@ func initApp() func() {
 // @security APIKey
 // @security PasswordAuth
 func main() {
+	if isWakeCommand(os.Args[0]) {
+		os.Exit(runWake(os.Args[1:], os.Getenv, os.Stdin, os.Stdout, os.Stderr))
+	}
 	cleanup := initApp()
 	tasksLeft := run(cleanup)
 	// Read once run returned. Only a stop signal cancels it on the way out
@@ -239,6 +242,12 @@ func run(cleanup func()) (tasksLeft bool) {
 	err = os.MkdirAll(Config.WorkDir, os.ModePerm)
 	if err != nil {
 		fatal("create work dir", err)
+	}
+	// Without it, tasks can't run wake; everything else works
+	if err := installWakeCommand(Config.WorkDir+"bin", executablePath); err != nil {
+		L.Warn("can't link the wake command for tasks", "err", err)
+	} else {
+		wakeCommandDir = Config.WorkDir + "bin"
 	}
 
 	DB, err = openDB(Config.WorkDir+"wakeci.db", dbLockTimeout)

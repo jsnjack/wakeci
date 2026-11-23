@@ -137,11 +137,19 @@ finally:
 #                       when: '"$WAKE_BUILD_STATUS" == "timed out"'
 # "WAKE_BUILD_WORKSPACE" - path to the build's workspace, e.g. ~/workspace/169/
 # "WAKE_JOB_NAME" - name of the job, e.g. ask_a_cow
-# "WAKE_JOB_PARAMS" - URL encoded `params` of the job. Useful to start another
-#                     job with the same params, e.g. "sleep=5&print=true"
+# "WAKE_JOB_PARAMS" - URL encoded `params` of the job, e.g. "sleep=5&print=true"
 # "WAKE_CONFIG_DIR" - path to the directory with all job configuration files,
 #                     e.g. ~/jobs/
 # "WAKE_URL" - URL of the service, e.g. https://myci.space/
+# "WAKE_TOKEN" - the build's token, for the wake command, which every task has
+#                on its PATH. It starts builds under this one and reads the
+#                API, and stops working when the build ends:
+#                  run: wake start deploy --inherit VERSION=2.1
+#                  run: list_nodes | wake start check_node --each NODE
+#                  run: wake start migrate --wait    # fails if it fails
+#                  run: wake api /api/build/$WAKE_BUILD_ID
+#                Everything is checked before the first build starts.
+#                Run `wake help` for the options.
 # "WAKE_SUMMARY" - path of a file for the build's summary. What tasks write
 #                  there, e.g. the tests that failed, is shown on the build
 #                  page as plain text and returned by the API, up to 64 KB,
@@ -160,11 +168,9 @@ finally:
 #                      fi
 # "WAKE_INTERRUPTED" - `true` in the tasks a build runs after wakeci stopped
 #                      without ending it (see on_aborted above), else `false`
-# "WAKE_PARENT_ID" - id of the build that started this one, set only then. A
-#                    task starts another job under its build, shown below it
-#                    in the feed, with WAKE_PARENT, while its build runs:
-#                    curl -X POST -H "Authorization: Bearer {{ secrets.WAKE_KEY }}" \
-#                      "${WAKE_URL}api/job/deploy/run?WAKE_PARENT=${WAKE_BUILD_ID}"
+# "WAKE_PARENT_ID" - id of the build that started this one, set only then:
+#                    the builds `wake start` starts are shown below their
+#                    build in the feed
 #
 # Set only after a main task failed, timed out or was aborted, so they reach
 # the `on_failed`, `on_aborted` and `finally` tasks:

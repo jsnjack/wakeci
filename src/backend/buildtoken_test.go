@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -171,11 +172,18 @@ func TestBuildTokenStopsWhenItsBuildLeavesTheQueue(t *testing.T) {
 func TestBuildTokenInTasksAndRedacted(t *testing.T) {
 	tokenEnv(t)
 	root, _ := runAs(t, nil, "deploy", nil, http.StatusOK)
+	oldDir := wakeCommandDir
+	wakeCommandDir = "/opt/wakeci/bin"
+	t.Cleanup(func() { wakeCommandDir = oldDir })
+
 	build := GlobalQueue.Live(root)
 	env := build.generateDefaultEnvVariables()
 	token := liveToken(t, root)
 	if !slices.Contains(env, "WAKE_TOKEN="+token) {
 		t.Errorf("task environment lacks WAKE_TOKEN: %q", env)
+	}
+	if want := "PATH=/opt/wakeci/bin" + string(os.PathListSeparator); !slices.ContainsFunc(env, func(v string) bool { return strings.HasPrefix(v, want) }) {
+		t.Errorf("task environment lacks %s...: %q", want, env)
 	}
 
 	line := "curl -H 'Authorization: Bearer " + token + "' $WAKE_URL"
