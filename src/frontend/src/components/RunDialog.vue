@@ -20,6 +20,29 @@
                 Use the job's defaults
             </button>
         </p>
+        <p
+            v-if="suggestions.length"
+            class="cluster between gap-2 text-sm"
+            data-cy="run-suggested"
+        >
+            <span
+                >The build's summary suggests
+                <code
+                    v-for="field in suggestions"
+                    :key="field.name"
+                    class="suggested-value"
+                    >{{ field.name }}={{ suggested[field.name] }}</code
+                ></span
+            >
+            <button
+                type="button"
+                class="btn btn-sm"
+                data-cy="run-use-suggested"
+                @click="useSuggested"
+            >
+                Use {{ suggestions.length === 1 ? "it" : "them" }}
+            </button>
+        </p>
         <form
             :id="formID"
             class="run-fields"
@@ -199,12 +222,21 @@ export default {
             type: Number,
             default: 0,
         },
+        // Values the build's summary suggests, { NAME: value } (summary.js)
+        suggested: {
+            type: Object,
+            default: () => ({}),
+        },
     },
     emits: ["update:open"],
     data() {
         return { values: {}, fromLast: false, formID: `run-form-${++forms}` };
     },
     computed: {
+        // The suggested values the form doesn't have yet
+        suggestions() {
+            return this.fields.filter((field) => Object.hasOwn(this.suggested, field.name) && this.values[field.name] !== this.suggested[field.name]);
+        },
         fields() {
             const fields = this.params.map((param) => {
                 const [name, value] = Object.entries(param)[0];
@@ -252,6 +284,11 @@ export default {
         isTrue(value) {
             return ["true", "1", "yes", "on"].includes(String(value).toLowerCase());
         },
+        useSuggested() {
+            for (const field of this.suggestions) {
+                this.values[field.name] = this.suggested[field.name];
+            }
+        },
         useDefaults() {
             this.values = Object.fromEntries(this.fields.map((field) => [field.name, field.default]));
             this.fromLast = false;
@@ -285,6 +322,11 @@ export default {
 </script>
 
 <style scoped>
+.suggested-value {
+    margin-inline-start: var(--space-1);
+    overflow-wrap: anywhere;
+}
+
 .run-fields {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr));

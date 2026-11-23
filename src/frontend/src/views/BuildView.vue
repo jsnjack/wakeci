@@ -348,6 +348,7 @@
             :job-name="statusUpdate.name"
             :params="statusUpdate.params || []"
             :again="statusUpdate.parent ? statusUpdate.id : 0"
+            :suggested="suggested"
             :defaults="jobInfo.defaults"
             :labels="job.labels || []"
             :param-info="job.param_info || {}"
@@ -364,6 +365,7 @@ import { showPlain, showStatus } from "@/favicon.js";
 import LogViewer from "@/components/LogViewer.vue";
 import NotFound from "@/components/NotFound.vue";
 import RunDialog from "@/components/RunDialog.vue";
+import { suggestedValues } from "@/summary.js";
 import StatusIcon from "@/components/StatusIcon.vue";
 import SubscribeButton from "@/components/SubscribeButton.vue";
 import UiDialog from "@/components/ui/UiDialog.vue";
@@ -440,6 +442,13 @@ export default {
         ...vuex.mapGetters(["can"]),
         canRun() {
             return this.can("run", this.statusUpdate.name);
+        },
+        // What the summary suggests for Run again, e.g. only the failed tests
+        suggested() {
+            return suggestedValues(
+                this.summary,
+                (this.statusUpdate.params || []).map((param) => Object.keys(param)[0]),
+            );
         },
         isDone() {
             return DONE.includes(this.statusUpdate.status);

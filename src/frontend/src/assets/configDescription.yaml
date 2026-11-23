@@ -173,8 +173,9 @@ finally:
 #                  with secret values redacted as in the logs:
 #                  echo "Failed: test_login" >> "$WAKE_SUMMARY"
 #                  A test task can name the tests that failed and the value
-#                  that runs only them again, so whoever reads the build can
-#                  use Run again with it. With a param TESTS: "" (all tests):
+#                  that runs only them again: Run again on the build page
+#                  offers each NAME=VALUE whose NAME is one of the job's
+#                  params. With a param TESTS: "" (all tests):
 #                    run: |
 #                      set -o pipefail
 #                      if ! go test ./... -run "${TESTS:-.}" | tee test.log; then

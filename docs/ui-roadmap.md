@@ -64,10 +64,9 @@ logs in the viewer (docs/logs.md). A header with more in it (a status
 band, strips, counts) and folded task groups were tried and read as
 overloaded.
 
-- **B5, later.** The job docs show how a test task writes its failed tests
-  to `$WAKE_SUMMARY` with the value that runs only them again. Next: a
-  "Re-run with these values" link, and Markdown rendered without raw HTML.
-  Effort M.
+- **B5, later.** A test task writes its failed tests to `$WAKE_SUMMARY`
+  with the value that runs only them again, and Run again offers that value
+  (`summary.js`). Next: Markdown rendered without raw HTML. Effort S.
 
 ## Order
 
