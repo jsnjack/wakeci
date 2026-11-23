@@ -37,7 +37,7 @@ src/backend/                 Go server (package main, module "wakeci")
   group.go                   Builds started by builds (WAKE_PARENT): parent and root, groups bucket, group route and abort
   update.go                  Self-update: latest GitHub release, download + checks, binary swap, handlers
   cleanup.go                 Periodic removal of old build workspaces/history
-  stats.go, analytics.go     Build stats kept past cleanup; analytics page and job insights (insights.go)
+  stats.go, analytics.go     Build stats kept past cleanup; analytics page and job insights (insights.go, disk.go)
   request_stats.go           Counts requests and MCP tool calls for the API usage tab
   eta.go                     Rolling average build duration, used for ETA display
   secrets.go                 injectSecrets: redacts/substitutes secret values in commands

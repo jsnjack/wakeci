@@ -484,6 +484,7 @@ func run(cleanup func()) (tasksLeft bool) {
 		go build.finishInterrupted()
 	}
 	GlobalQueue.Take()
+	go BackfillBuildDisk(ctx)
 	err = serveUntilShutdown(ctx, serve, server.Shutdown)
 	stop()
 	auxiliaryServers.Wait()

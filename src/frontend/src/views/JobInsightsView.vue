@@ -252,6 +252,7 @@ import JobTabs from "@/components/JobTabs.vue";
 import StatusIcon from "@/components/StatusIcon.vue";
 import StatusLegend from "@/components/charts/StatusLegend.vue";
 import TaskBarsChart from "@/components/charts/TaskBarsChart.vue";
+import { humanFileSize } from "@/store/utils";
 import axios from "axios";
 import debounce from "lodash/debounce";
 import vuex from "vuex";
@@ -304,7 +305,28 @@ export default {
                     value: d.duration.count ? formatDuration(d.duration.p50) : "—",
                     sub: d.duration.count ? `p95 ${formatDuration(d.duration.p95)} · successful builds` : "no successful builds",
                 },
+                { key: "disk", label: "Disk", ...this.disk },
             ];
+        },
+        // What all the job's builds in the history keep on disk
+        disk() {
+            const disk = this.data.disk;
+            if (!disk?.builds) {
+                return { value: "—", sub: "measured as builds end" };
+            }
+            const parts = [
+                ["artifacts", disk.artifacts],
+                ["logs", disk.logs],
+                ["workspaces", disk.workspace],
+            ]
+                .filter(([, size]) => size > 0)
+                .map(([what, size]) => `${what} ${humanFileSize(size)}`);
+            const builds = `${disk.builds} ${disk.builds === 1 ? "build" : "builds"}`;
+            const pending = disk.unmeasured ? `, ${disk.unmeasured} not measured yet` : "";
+            return {
+                value: humanFileSize(disk.logs + disk.artifacts + disk.workspace),
+                sub: `${parts.join(" · ") || "empty"} · ${builds}${pending}`,
+            };
         },
         timeToFix() {
             const d = this.data;

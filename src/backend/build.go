@@ -119,6 +119,8 @@ type Build struct {
 	// audit event, written by the goroutine that queues the build
 	cancelled    []int
 	supersededBy int
+	// disk is the build's size on disk, measured as it ends. Guarded by mutex
+	disk *buildDisk
 	// group is the build that started this one and the root of its chain,
 	// set before the build's tasks start. Guarded by mutex
 	group buildGroup
@@ -896,6 +898,7 @@ func (b *Build) records() (data, queued, started, stats []byte, err error) {
 		FailedTask: failedTask,
 		Parent:     b.group.Parent,
 		Root:       b.group.Root,
+		Disk:       b.disk,
 	})
 	if err != nil {
 		return data, nil, nil, stats, err
@@ -1281,6 +1284,7 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		b.nextAbortScope()
 		b.runOnStatusTasks(FinalTask)
 		b.setDuration()
+		b.setDisk()
 		// Saved before the build leaves the queue: a stop waits only for
 		// builds in the queue, then closes the database
 		b.BroadcastUpdate()
@@ -1292,6 +1296,7 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		b.nextAbortScope()
 		b.runOnStatusTasks(FinalTask)
 		b.setDuration()
+		b.setDisk()
 		b.BroadcastUpdate()
 		b.Cleanup()
 	case StatusFinished:
@@ -1301,6 +1306,7 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		b.nextAbortScope()
 		b.runOnStatusTasks(FinalTask)
 		b.setDuration()
+		b.setDisk()
 		// An interrupted build's duration is unknown (setDuration)
 		if !b.interrupted {
 			if err := RecordBuildDuration(b.Job.Name, int(b.Duration)); err != nil {

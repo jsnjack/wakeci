@@ -104,6 +104,14 @@ from each build's plan (`getBuildConfig`), read after the transaction.
   the page says so and names the first build of that streak, next to the
   median of earlier fixes if there are any.
 - **Parameters** with more than one value, each value with its success rate.
+- **Disk** (`disk.go`): what all of the job's builds in the history keep, not
+  only those asked for: logs and other wakespace files, artifacts, and the
+  workspace. A build is measured once, as it ends (`setDisk`, before its
+  last stats record), since its files don't change after; builds from before
+  wakeci measured them are measured once after startup, in batches of 100,
+  in the background (`BackfillBuildDisk`). `unmeasured` counts the builds
+  without a size, e.g. while that runs. Builds that cleanup removed don't
+  count: their stats records stay, their files don't.
 
 ## Who sees what
 
