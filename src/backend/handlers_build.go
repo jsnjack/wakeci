@@ -107,7 +107,7 @@ func getBuildConfig(buildID int) (*Job, error) {
 // @Tags         build
 // @Produce      json
 // @Param        id       path    integer   true  "Build ID"
-// @Param        wait     query   integer   false "Wait up to that many seconds, at most 300, for the build to end, its on_* and finally tasks included; it answers as soon as it has"
+// @Param        wait     query   integer   false "Wait up to that many seconds, at most 300, for the build to end, its on_* and finally tasks included; it answers as soon as it has, and ended says whether it had"
 // @Success      200      {object}   GetBuildPayload
 // @Failure      400      {string}   string
 // @Failure      401      {string}   string
@@ -128,7 +128,7 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request) {
 		writePlainText(w, logger, http.StatusBadRequest, err.Error())
 		return
 	}
-	buildStatusData, err := waitForBuild(r, buildID, wait)
+	buildStatusData, ended, err := waitForBuild(r, buildID, wait)
 	if errors.Is(err, errBuildNotFound) {
 		writePlainText(w, logger, http.StatusNotFound, err.Error())
 		return
@@ -156,6 +156,7 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request) {
 		Job:          job,
 		StatusUpdate: buildStatusData,
 		Summary:      summary,
+		Ended:        ended,
 	}
 
 	writeCachedJSON(w, r, logger, payload)
@@ -202,6 +203,9 @@ type GetBuildPayload struct {
 	StatusUpdate *BuildUpdateData `json:"status_update"`
 	// Summary is what the job wrote to $WAKE_SUMMARY, empty if nothing
 	Summary string `json:"summary"`
+	// Ended is true once the build has ended, its on_* and finally tasks
+	// included; its status is final earlier
+	Ended bool `json:"ended"`
 }
 
 // jobSummaryFile is where a build's tasks write its summary, in its

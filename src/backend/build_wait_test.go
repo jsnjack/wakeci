@@ -30,7 +30,7 @@ func waitTime(t *testing.T, ctx context.Context, id, seconds int) time.Duration 
 	t.Helper()
 	started := time.Now()
 	req := httptest.NewRequest("GET", "/api/build/1", nil).WithContext(ctx)
-	build, err := waitForBuild(req, id, seconds)
+	build, _, err := waitForBuild(req, id, seconds)
 	if err != nil || build == nil || build.ID != id {
 		t.Fatalf("waitForBuild = %+v, %v; want build %d", build, err, id)
 	}
@@ -152,7 +152,7 @@ func TestWaitForBuildHooks(t *testing.T) {
 	t.Cleanup(func() { buildWaitsEnd = oldEnd })
 
 	done := startBuild(build)
-	got, err := waitForBuild(httptest.NewRequest("GET", "/api/build/1", nil), build.ID, 10)
+	got, _, err := waitForBuild(httptest.NewRequest("GET", "/api/build/1", nil), build.ID, 10)
 	if err != nil {
 		t.Fatalf("waitForBuild: %v", err)
 	}
