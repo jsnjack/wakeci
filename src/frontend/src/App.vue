@@ -342,8 +342,13 @@ export default {
     max-inline-size: 75rem;
     margin-inline: auto;
     padding: var(--space-4);
-    /* Nothing on a page makes it wider than the window */
-    overflow: hidden;
+    /* Nothing on a page makes it wider than the window. clip, not hidden:
+       hidden makes it a scroll container, so nothing inside could stick to
+       the window (the new builds pill, the feed beside a build). Unlike a
+       scroll container, it would grow to its widest line without the
+       min-inline-size */
+    min-inline-size: 0;
+    overflow-x: clip;
 }
 
 /* Wider for pages of logs, so their lines wrap less, with room at the

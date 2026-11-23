@@ -332,6 +332,28 @@ test("should show a build beside the feed on a wide window", async ({ page, wake
     await expect(page).not.toHaveURL(/build=/);
 });
 
+test("should keep the build beside the feed in sight while the feed scrolls", async ({ page, wake }) => {
+    await page.setViewportSize({ width: 1600, height: 500 });
+    const name = await wake.createJob();
+    let newest = 0;
+    for (let i = 0; i < 12; i++) {
+        newest = await wake.runJob(name);
+        await wake.waitForBuild(newest);
+    }
+    await wake.showFeed(name);
+    await page.locator(`[data-cy-build="${newest}"]`).getByTestId("open-build-button").click();
+    await expect(page.getByTestId("build-pane")).toContainText(`#${newest}`);
+    await page.evaluate(
+        () =>
+            new Promise((resolve) => {
+                window.addEventListener("scroll", resolve, { once: true });
+                window.scrollTo(0, document.body.scrollHeight);
+            }),
+    );
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(200);
+    await expect(page.getByTestId("build-pane")).toBeInViewport({ ratio: 0.9 });
+});
+
 test("should open a shared feed address with a build as the build's page on a narrow window", async ({ page, wake }) => {
     const name = await wake.createJob();
     const id = await wake.runJob(name);
