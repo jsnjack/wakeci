@@ -45,7 +45,8 @@ src/backend/                 Go server (package main, module "wakeci")
   sso.go                     SAML single sign-on (e.g. Google Workspace): IdP metadata, response checks, login state
   apikeys.go                 API keys: storage, management handlers, the key router with its scope and job checks
   mcp.go                     /mcp for API keys: MCP tools that call the key router with the request's key
-  buildtoken.go, wake.go     Build tokens (WAKE_TOKEN) and the wake command, the binary run as `wake`
+  buildtoken.go, wake.go     Build tokens (WAKE_TOKEN), the wake command (the binary run as `wake`)
+  cancel.go                  cancel_group, concurrency_key
   auth_limiter.go            Per-client failed-auth limiter and retry/reset response headers
   audit.go                   Audit log: who did what, AuditMi and the table of audited routes
   middleware.go               chi middleware: per-request logger, auth, CORS, security headers
@@ -77,7 +78,7 @@ src/frontend/                Vue 3 + Vite SPA
 | [docs/logs.md](docs/logs.md) | Task log files, colours, log messages, the log route, the log viewer and its search |
 | [docs/ui-roadmap.md](docs/ui-roadmap.md) | The feed, labels, live updates, the build page or task logs: what is left of the plan and its evidence |
 | [docs/styles.md](docs/styles.md) | The frontend's styles: layers, the `.ui` scope, components, icons and `npm run icons`, the look |
-| [docs/wake.md](docs/wake.md) | The wake command and build tokens: how tasks start builds and read the API |
+| [docs/wake.md](docs/wake.md) | The wake command, build tokens, cancel groups |
 
 ---
 

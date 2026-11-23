@@ -88,6 +88,23 @@ priority: 10
 # 0 - unlimited
 concurrency: 0
 
+# Counts the builds of every job with this key against `concurrency` (1 if
+# it is 0), e.g. jobs that work on the same test server. The build's params
+# fill in $NAME, and a param without a value means no key. A build that runs
+# its on_aborted and finally tasks after an abort still counts, so a build
+# waits until the one it cancelled has cleaned up. e.g. pr_init/$NAME
+concurrency_key: ""
+
+# A newer build cancels the older builds with the same key, of every job
+# with this group, queued or running, with the builds they started. Their
+# on_aborted and finally tasks run, and their log says "Aborted as
+# superseded by #N". The build queued later wins; builds of one group never
+# cancel each other. A param without a value means no key. e.g. tests/$BRANCH
+cancel_group: ""
+# While this command succeeds, the build cancels nothing. It gets the params
+# as variables, e.g. '[[ $BRANCH =~ ^(main|release)$ ]]'
+cancel_unless: ""
+
 # Asks the tools of every task to print colours, which the build page shows:
 # sets FORCE_COLOR=1, CLICOLOR_FORCE=1 and PY_COLORS=1, before the params and
 # the task's `env`, which can set them otherwise. A task can set `color: true`

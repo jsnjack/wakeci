@@ -75,17 +75,8 @@ func (q *Queue) Take() {
 	QLoop:
 		for id, qItem := range q.queued {
 			L.Debug("inspecting build from queue", "build", qItem.ID)
-			if qItem.Job.Concurrency != 0 {
-				// Verify number of running builds of the same job
-				parallel := 0
-				for _, rItem := range q.running {
-					if rItem.Job.Name == qItem.Job.Name {
-						parallel++
-					}
-				}
-				if parallel >= qItem.Job.Concurrency {
-					continue QLoop
-				}
+			if q.concurrencyFull(qItem) {
+				continue QLoop
 			}
 			foundItem = true
 			foundItemID = id
@@ -145,10 +136,12 @@ func (q *Queue) TakeNow(buildID int) error {
 	return nil
 }
 
-// Add adds build to the queue
+// Add adds build to the queue. A build with a cancel key then cancels the
+// older builds with its key, or itself if there is a newer one (cancel.go):
+// both are found under the lock, so of two builds queued at once, the later
+// one wins either way. Call setQueueKeys first.
 func (q *Queue) Add(b *Build) {
 	q.mutex.Lock()
-	defer q.mutex.Unlock()
 	q.queued = append(q.queued, b)
 	// Possibly shift queue
 	if b.Job.Priority != 0 {
@@ -165,6 +158,9 @@ func (q *Queue) Add(b *Build) {
 	}
 	L.Info("new build queued", "job", b.Job.Name, "build", b.ID)
 	q.queueChanged()
+	found := q.supersedeLocked(b)
+	q.mutex.Unlock()
+	q.applySupersede(b, found)
 }
 
 // addInterrupted adds an interrupted build (FinishInterruptedBuilds) next to
@@ -580,6 +576,7 @@ func (q *Queue) addNewBuild(create func() (*Build, error)) (*Build, error) {
 	if err != nil {
 		return nil, err
 	}
+	build.setQueueKeys()
 	q.Add(build)
 	return build, nil
 }

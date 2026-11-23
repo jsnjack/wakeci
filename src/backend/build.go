@@ -111,6 +111,14 @@ type Build struct {
 	// which FinishInterruptedBuilds restored to run the tasks it has left.
 	// Set before the build is shared, never changed
 	interrupted bool
+	// keys are the build's cancel and concurrency keys (cancel.go), set
+	// before it is queued, never changed
+	keys queueKeys
+	// cancelled are the builds this one cancelled as it was queued, and
+	// supersededBy the newer build that cancelled it then; for the run's
+	// audit event, written by the goroutine that queues the build
+	cancelled    []int
+	supersededBy int
 	// group is the build that started this one and the root of its chain,
 	// set before the build's tasks start. Guarded by mutex
 	group buildGroup

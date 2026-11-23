@@ -42,7 +42,15 @@ type Job struct {
 	Interval      string              `yaml:"interval" json:"interval"`
 	Timeout       string              `yaml:"timeout" json:"timeout"`
 	Concurrency   int                 `yaml:"concurrency" json:"concurrency"`
-	Priority      int                 `yaml:"priority" json:"priority"`
+	// ConcurrencyKey, e.g. pr_init/$NAME, makes concurrency count the builds
+	// of every job with the same key (cancel.go)
+	ConcurrencyKey string `yaml:"concurrency_key" json:"concurrency_key"`
+	// CancelGroup, e.g. tests/$BRANCH, makes a build cancel the older builds
+	// with the same key, of every job with that group (cancel.go)
+	CancelGroup string `yaml:"cancel_group" json:"cancel_group"`
+	// CancelUnless is a command: while it succeeds, the build cancels nothing
+	CancelUnless string `yaml:"cancel_unless" json:"cancel_unless"`
+	Priority     int    `yaml:"priority" json:"priority"`
 	// Labels are the params that say what a build is about, shown first in
 	// the feed, in this order; without it, the params named *_LABEL
 	Labels []string `yaml:"labels" json:"labels"`

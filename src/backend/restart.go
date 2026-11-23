@@ -85,6 +85,7 @@ func RestoreQueue(q *Queue) error {
 			}
 			continue
 		}
+		build.setQueueKeys()
 		q.Add(build)
 		build.BroadcastUpdate()
 		restored++
@@ -217,6 +218,8 @@ func FinishInterruptedBuilds(q *Queue) ([]*Build, error) {
 			}
 			continue
 		}
+		// Its hooks hold its concurrency key, as after any abort
+		build.setQueueKeys()
 		q.addInterrupted(build)
 		builds = append(builds, build)
 	}

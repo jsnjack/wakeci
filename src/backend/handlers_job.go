@@ -94,6 +94,16 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	addAuditAttrs(r, "build", build.ID)
+	if len(build.cancelled) > 0 {
+		ids := make([]string, len(build.cancelled))
+		for i, id := range build.cancelled {
+			ids[i] = strconv.Itoa(id)
+		}
+		addAuditAttrs(r, auditListAttrs("cancelled", ids)...)
+	}
+	if build.supersededBy != 0 {
+		addAuditAttrs(r, "supersededBy", build.supersededBy)
+	}
 	used, ignored := usedParams(build, r.Form)
 	if len(used) > 0 {
 		addAuditAttrs(r, auditListAttrs("params", used)...)

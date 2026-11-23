@@ -81,6 +81,41 @@ exits with 1 and prints the status and answer if the server refuses. The
 path is always below `WAKE_URL`, so the token is never sent anywhere else.
 Every route is in `/llms-full.txt`.
 
+## Builds that replace older ones
+
+A push makes the builds of the push before it useless. With a cancel group,
+the newer build cancels them (`cancel.go`):
+
+```yaml
+cancel_group: tests/$BRANCH
+cancel_unless: '[[ $BRANCH =~ ^(main|release)$ ]]'
+```
+
+- As a build is queued (`Queue.Add`), it aborts the older builds, queued or
+  running, whose key is the same, of every job with that group, and the
+  builds they started (`startedUnder`). Their on_aborted and finally tasks
+  run, and their log says "Aborted as superseded by #N (tests/feature)".
+- The later build wins: both are looked for under the queue's lock, so a
+  build queued after a newer one with its key cancels itself. There is no
+  check of which commit is newer.
+- Builds of one group never cancel each other, so a build's children can
+  share its key.
+- A key that names a param without a value is no key, and while
+  `cancel_unless` succeeds (run with the params as variables) the build
+  cancels nothing.
+- The run's audit event lists what it `cancelled`, or who it was
+  `supersededBy`.
+
+When the builds share something, such as a test server, the newer one
+should start only after the older one's cleanup. `concurrency_key` makes
+`concurrency` (1 if unset) count the builds of every job with that key,
+also those running their hooks after an abort (`Queue.concurrencyFull`):
+
+```yaml
+cancel_group: pr_init/$NAME
+concurrency_key: pr_init/$NAME
+```
+
 ## Build tokens
 
 Every build gets a token, `wb_<build ID>_<secret>`, when its first task
