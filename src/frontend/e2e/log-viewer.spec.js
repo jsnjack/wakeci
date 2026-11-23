@@ -44,6 +44,33 @@ tasks:
     await expect(page.getByTestId("task-log")).not.toContainText("line 15");
 });
 
+test("should find what failed with the Errors search", async ({ page, wake }) => {
+    const name = await wake.createJob(`
+tasks:
+  - name: Test
+    run: |
+      for i in $(seq 1 30); do echo "ok $i, 0 errors"; done
+      echo "--- FA""IL: TestLogin (0.01s)"
+      echo "no failures here"
+      echo "Trace""back (most recent call last):"
+      echo "ValueE""rror: bad input"
+      exit 3
+`);
+    const id = await wake.runJob(name);
+    await wake.openBuild(id, "failed");
+    await openLog(page);
+    await page.getByTestId("log-errors").click();
+    // FAIL, the traceback, ValueError and wakeci's "Exit code: 3"
+    await expect(page.getByTestId("log-search-count")).toHaveText(/ of 4$/);
+    await expect(page.getByTestId("log-errors")).toHaveAttribute("aria-pressed", "true");
+    await page.getByTestId("log-only-matching").check();
+    await expect(page.getByTestId("log-search-count")).toHaveText(/^4 matching lines of /);
+    await expect(page.getByTestId("task-log").locator(".cm-line")).toHaveText([/--- FAIL: TestLogin/, /Traceback/, /ValueError: bad input/, /> Exit code: 3/]);
+    // Typing searches the text instead
+    await page.getByTestId("log-search").fill("ok 1");
+    await expect(page.getByTestId("log-errors")).toHaveAttribute("aria-pressed", "false");
+});
+
 test("should put marked lines in the address and open them from it", async ({ page, wake }) => {
     const name = await wake.createJob(`
 tasks:

@@ -15,7 +15,7 @@
                         type="search"
                         class="input"
                         aria-label="Search the log"
-                        placeholder="Search the log"
+                        :placeholder="errors ? 'Errors: failures, exceptions, exit codes' : 'Search the log'"
                         data-cy="log-search"
                         @keydown.enter.prevent="$event.shiftKey ? previous() : next()"
                         @keydown.esc.prevent="closeSearch"
@@ -52,6 +52,7 @@
                     :aria-pressed="caseSensitive ? 'true' : 'false'"
                     aria-label="Match case"
                     data-tip="Match case"
+                    :disabled="errors"
                     @click="caseSensitive = !caseSensitive"
                 >
                     Aa
@@ -75,6 +76,16 @@
                 @click="openSearch"
             >
                 <i class="icon small">search</i>
+            </button>
+            <button
+                type="button"
+                class="btn btn-ghost btn-sm"
+                :aria-pressed="errors ? 'true' : 'false'"
+                data-tip="Find what failed: test failures, errors, exceptions, a failed exit"
+                data-cy="log-errors"
+                @click="toggleErrors"
+            >
+                Errors
             </button>
             <span class="grow"></span>
             <span
@@ -157,7 +168,7 @@
 import "@/assets/log.css";
 import { AnsiParser, prefixEnd } from "@/log/ansi.js";
 import { backgroundColor, readableColor } from "@/log/colors.js";
-import { LogSearch, lineMatches } from "@/log/search.js";
+import { LogSearch } from "@/log/search.js";
 import { Compartment, EditorState, RangeSetBuilder, StateEffect, StateField } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin, WidgetType, lineNumbers } from "@codemirror/view";
 import axios from "axios";
@@ -307,6 +318,8 @@ export default {
             loading: true,
             searchOpen: false,
             query: "",
+            // errors searches for errorMatches instead of the query
+            errors: false,
             caseSensitive: false,
             onlyMatching: false,
             matchCount: 0,
@@ -331,8 +344,15 @@ export default {
         },
     },
     watch: {
-        query() {
+        query(value) {
+            // Typing searches the text instead
+            if (value) {
+                this.errors = false;
+            }
             this.searchSoon();
+        },
+        errors() {
+            this.search();
         },
         caseSensitive() {
             this.search();
@@ -486,8 +506,8 @@ export default {
                             marks.push([m.index, m.index + href.length, linkMark(href)]);
                         }
                     }
-                    if (this.searchState?.query) {
-                        for (const [hitFrom, hitTo] of lineMatches(line.text, this.searchState.query, this.searchState.caseSensitive)) {
+                    if (this.searchState?.active) {
+                        for (const [hitFrom, hitTo] of this.searchState.find(line.text)) {
                             const isCurrent = current && current.line === line.number && current.from === hitFrom;
                             marks.push([hitFrom, hitTo, isCurrent ? currentHitMark : hitMark]);
                         }
@@ -593,7 +613,7 @@ export default {
             this.view.dispatch({ changes: { from: this.view.state.doc.length, insert } });
             this.lineCount += lines.length;
             let added = 0;
-            if (this.searchState?.query) {
+            if (this.searchState?.active) {
                 const before = this.searchState.count;
                 this.searchState.add(first, visible);
                 added = this.searchState.count - before;
@@ -676,7 +696,16 @@ export default {
         closeSearch() {
             this.searchOpen = false;
             this.query = "";
+            this.errors = false;
             this.onlyMatching = false;
+        },
+        // toggleErrors turns the search into one for what failed, or back
+        toggleErrors() {
+            this.errors = !this.errors;
+            if (this.errors) {
+                this.query = "";
+                this.openSearch();
+            }
         },
         // Ctrl+F and / inside the viewer search it: the browser can't find
         // lines that aren't drawn
@@ -697,8 +726,8 @@ export default {
             if (!this.view) {
                 return;
             }
-            const state = new LogSearch(this.query, this.caseSensitive);
-            if (this.query) {
+            const state = new LogSearch(this.query, this.caseSensitive, this.errors);
+            if (state.active) {
                 const lines = [];
                 for (const iter = this.view.state.doc.iterLines(); !iter.next().done;) {
                     lines.push(iter.value);
@@ -714,12 +743,12 @@ export default {
         showCount() {
             const state = this.searchState;
             this.matchCount = state?.count || 0;
-            if (!state?.query) {
+            if (!state?.active) {
                 this.countText = "";
             } else if (this.onlyMatching) {
                 this.countText = `${state.lines.length.toLocaleString("en-US")} matching lines of ${this.lineCount.toLocaleString("en-US")}`;
             } else if (state.count === 0) {
-                this.countText = "No matches";
+                this.countText = state.errors ? "No errors found" : "No matches";
             } else {
                 this.countText = `${(this.current + 1).toLocaleString("en-US")} of ${state.countText()}`;
             }
@@ -752,7 +781,7 @@ export default {
         updateGaps() {
             const doc = this.view.state.doc;
             const builder = new RangeSetBuilder();
-            if (this.onlyMatching && this.searchState?.query) {
+            if (this.onlyMatching && this.searchState?.active) {
                 let next = 1;
                 const hide = (fromLine, toLine) => {
                     if (toLine >= fromLine) {

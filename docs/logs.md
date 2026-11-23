@@ -69,6 +69,13 @@ The search box (Ctrl+F or `/`, since the browser can't find lines that
 aren't drawn) has `grep`'s rules: text, not a regex, ignoring case unless
 Aa is on, after the time prefix. A line never changes once it appears, so
 new lines are searched on their own and the current match stays.
+Errors turns the same search into one for what usually says a task failed
+(`errorMatches` in `log/search.js`): FAIL, FAILED, ERROR, FATAL, PANIC,
+`SomethingError` or `Exception`, `error:`, a Python traceback, `panic:`,
+`npm ERR!`, test runners' ✕ ✗ ✘, and wakeci's own "Exit code" but 0, "Timed
+out." and "Aborted". Case matters, so "0 errors" or "no failures" don't
+count; typing a query searches the text again. It is a search, not a
+second panel, so the count, Enter and "Only matching lines" work the same.
 "Only matching lines" hides the others behind "⋯ N lines". A jump to a
 match stops following. A click on a line number puts the task and line in
 the address (`#t13-L120`), Shift+click a range (`#t13-L120-L125`), with

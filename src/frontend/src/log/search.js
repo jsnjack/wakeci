@@ -23,13 +23,53 @@ export function lineMatches(line, query, caseSensitive = false) {
     return found;
 }
 
-// LogSearch holds the matches of a query in a log of lines numbered from 1.
-// A line never changes once it is written, so new lines are searched on
-// their own and the matches found before stay where they are.
+// ERROR_RE finds the words that usually say why a task failed: test
+// failures, errors and exceptions of common tools, a traceback or a panic.
+// Case matters, so "errors: 0" and "no failures" don't count.
+const ERROR_RE = new RegExp(
+    [
+        String.raw`\b(?:FAIL(?:ED|URE)?|ERROR|FATAL|PANIC)\b`,
+        String.raw`\b[A-Z]\w*(?:Error|Exception)\b`,
+        String.raw`\b(?:Error|Exception)\b`,
+        String.raw`\berror(?:\[\w+\])?:`,
+        String.raw`\bTraceback \(most recent call last\)`,
+        String.raw`\bpanic:`,
+        String.raw`\bfailed!`,
+        String.raw`npm ERR!`,
+        "[✕✗✘]",
+    ].join("|"),
+    "g",
+);
+
+// wakeci's own lines when a task ended badly: an exit code but 0, a time-out
+// or an abort
+const ENDED_BADLY_RE = /^> (?:Exit code: [1-9]\d*$|Timed out\.|Aborted)/;
+
+// errorMatches returns where a line says something failed, after the time
+// prefix, as lineMatches does; wakeci's own line about a failed exit is
+// matched whole
+export function errorMatches(line) {
+    const start = prefixEnd(line);
+    if (ENDED_BADLY_RE.test(line.slice(start))) {
+        return [[start, line.length]];
+    }
+    ERROR_RE.lastIndex = start;
+    const found = [];
+    for (let m = ERROR_RE.exec(line); m !== null; m = ERROR_RE.exec(line)) {
+        found.push([m.index, m.index + m[0].length]);
+    }
+    return found;
+}
+
+// LogSearch holds the matches of a query, or of errorMatches with errors, in
+// a log of lines numbered from 1. A line never changes once it is written,
+// so new lines are searched on their own and the matches found before stay
+// where they are.
 export class LogSearch {
-    constructor(query, caseSensitive = false) {
-        this.query = query;
+    constructor(query, caseSensitive = false, errors = false) {
+        this.query = errors ? "" : query;
         this.caseSensitive = caseSensitive;
+        this.errors = errors;
         // { line, from, to }, from and to within the line, in order
         this.matches = [];
         this.count = 0;
@@ -37,13 +77,23 @@ export class LogSearch {
         this.lines = [];
     }
 
+    // active is true when there is something to look for
+    get active() {
+        return this.errors || this.query !== "";
+    }
+
+    // find returns where the search matches a line's text
+    find(text) {
+        return this.errors ? errorMatches(text) : lineMatches(text, this.query, this.caseSensitive);
+    }
+
     // add searches lines, whose first is number first
     add(first, lines) {
-        if (!this.query) {
+        if (!this.active) {
             return;
         }
         lines.forEach((text, i) => {
-            const found = lineMatches(text, this.query, this.caseSensitive);
+            const found = this.find(text);
             if (found.length === 0) {
                 return;
             }
