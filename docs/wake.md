@@ -107,6 +107,25 @@ starts (`buildtoken.go`). The key router takes it like an API key
   analytics page (`TriggerBuild`). Failed tokens count on the same limiter as
   failed API keys; each token has its own request limit.
 
+## On another wakeci server
+
+A task starts a build on another server by pointing `wake` there with an
+API key of that server, kept in the secrets file:
+
+```yaml
+  - name: Deploy staging server
+    env:
+      WAKE_URL: https://build.example.com/
+      WAKE_TOKEN: "{{ secrets.BUILD_WAKE_KEY }}"
+    run: wake start pr_init NAME=pr$(<pr_number)
+```
+
+The task's `env` comes after wakeci's variables, so it wins. The other
+server sees the key, so the build has no parent there and the key's scopes
+and jobs apply; give it `run` on the jobs it starts only. The key is a
+secret, so logs redact it; the task's processes can still read it, as any
+secret a task uses.
+
 ## From your own machine
 
 `wake` is the wakeci binary under another name:
