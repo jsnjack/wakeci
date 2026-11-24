@@ -106,8 +106,8 @@
                         data-cy="interface"
                     >
                         <span>{{ vias[item.via] || item.via }}</span>
-                        <span class="bar"><span :style="{ width: share(item.requests, interfacesTotal) }"></span></span>
-                        <span class="muted right-align">{{ item.requests.toLocaleString() }} · {{ share(item.requests, interfacesTotal) }}</span>
+                        <span class="bar"><span :style="{ width: barWidth(item.requests, interfacesTotal) }"></span></span>
+                        <span class="muted right-align">{{ item.requests.toLocaleString() }} · {{ formatShare(item.requests, interfacesTotal) }}</span>
                     </div>
                     <p class="chart-note">
                         By the credentials a request carried, right or wrong: a session is the web UI, Basic auth with the password and API keys are the API.
@@ -130,7 +130,7 @@
                             <i class="tiny">{{ person.kind === "apikey" ? "key" : "person" }}</i>
                             {{ personName(person) }}
                         </span>
-                        <span class="bar"><span :style="{ width: share(person.requests, data.people[0].requests) }"></span></span>
+                        <span class="bar"><span :style="{ width: barWidth(person.requests, data.people[0].requests) }"></span></span>
                         <span class="muted right-align">{{ person.requests.toLocaleString() }}</span>
                     </div>
                     <p
@@ -200,7 +200,7 @@
 
 <script>
 import "@/assets/charts.css";
-import { OUTCOMES, VIAS, dayLabel, formatRate, perDay, plural } from "@/analytics";
+import { OUTCOMES, VIAS, barWidth, dayLabel, formatRate, formatShare, perDay, plural } from "@/analytics";
 import AnalyticsTabs from "@/components/AnalyticsTabs.vue";
 import SearchSelect from "@/components/SearchSelect.vue";
 import SparkLine from "@/components/charts/SparkLine.vue";
@@ -316,7 +316,9 @@ export default {
         this.fetch();
     },
     methods: {
+        barWidth,
         dayLabel,
+        formatShare,
         changed() {
             const query = {};
             if (this.days !== 30) {
@@ -358,12 +360,6 @@ export default {
                         this.loading = false;
                     }
                 });
-        },
-        share(part, whole) {
-            if (!whole) {
-                return "0%";
-            }
-            return `${Math.round((part / whole) * 100)}%`;
         },
         outcomeText(counts, total) {
             const parts = [`${counts.success.toLocaleString()} succeeded`];

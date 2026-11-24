@@ -55,6 +55,9 @@ test("analytics count a job's builds and open its insights", async ({ page, wake
     await expect(row.getByTestId("job-success")).toHaveText("50%");
     await expect(row.locator("[data-cy-status=failed]")).toHaveCount(1);
     await expect(row.locator("[data-cy-status=finished]")).toHaveCount(1);
+    // Build time is the job's own time; its share is in the bar and the tooltip
+    await expect(row.getByTestId("job-build-time")).toHaveText(/^\s*(<1s|\d+s)$/);
+    await expect(row.getByTestId("job-build-time")).toHaveAttribute("title", /^100% of all jobs' (<1s|\d+s)$/);
 
     await row.getByRole("link", { name }).click();
     await expect(page).toHaveURL(`/job/${encodeURIComponent(name)}/insights`);

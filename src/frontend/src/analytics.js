@@ -73,6 +73,29 @@ export function plural(count, one, many = `${one}s`) {
     return `${count.toLocaleString()} ${count === 1 ? one : many}`;
 }
 
+// formatShare writes part of whole as a percentage to read: "23%", "<1%" for
+// a part too small to round to 1%, "0%" for none. With precise, shares under
+// 10% keep a decimal: "0.4%", "<0.1%"
+export function formatShare(part, whole, precise = false) {
+    if (!whole || !part) {
+        return "0%";
+    }
+    const pct = (part / whole) * 100;
+    if (precise && pct < 10) {
+        return pct < 0.1 ? "<0.1%" : `${pct.toFixed(1)}%`;
+    }
+    return pct < 0.5 ? "<1%" : `${Math.round(pct)}%`;
+}
+
+// barWidth is part of whole as the CSS width of a bar; a part that isn't
+// zero stays visible, however small
+export function barWidth(part, whole) {
+    if (!whole || !part) {
+        return "0";
+    }
+    return `max(2px, ${(part / whole) * 100}%)`;
+}
+
 // formatLatency writes how long a request took, from nanoseconds: "0.4 ms",
 // "12 ms", "1.5 s", "2m 05s"
 export function formatLatency(ns) {
@@ -91,9 +114,13 @@ export function formatLatency(ns) {
     return formatDuration(ns);
 }
 
-// formatDuration writes nanoseconds as "45s", "5m 07s" or "1h 05m"
+// formatDuration writes nanoseconds as "45s", "5m 07s" or "1h 05m", and
+// "<1s" for a time that isn't zero but rounds to it
 export function formatDuration(ns) {
     const s = Math.round(ns / NS);
+    if (s === 0 && ns > 0) {
+        return "<1s";
+    }
     if (s < 60) {
         return `${s}s`;
     }
