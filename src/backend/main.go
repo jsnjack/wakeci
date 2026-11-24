@@ -526,8 +526,9 @@ func apiRoutes(router chi.Router) {
 	router.With(requireAccess(ScopeRead, nil)).Get("/feed", HandleFeedView)
 	// Counts only the jobs the user may read
 	router.With(requireAccess(ScopeRead, nil)).Get("/analytics/", HandleAnalytics)
-	// How everyone uses wakeci, so only for the admin, like who starts builds
-	router.With(requireAdmin).Get("/analytics/requests", HandleRequestStats)
+	// How everyone uses wakeci, so only for write (Access.SeesUsage), like
+	// who starts builds
+	router.With(requireAccess(ScopeWrite, nil)).Get("/analytics/requests", HandleRequestStats)
 
 	router.Route("/jobs", func(router chi.Router) {
 		router.With(requireAccess(ScopeRead, nil)).Get("/", HandleJobsView)

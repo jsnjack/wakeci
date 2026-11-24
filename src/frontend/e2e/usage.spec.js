@@ -85,3 +85,26 @@ test("API usage shows a key's requests and MCP tool calls by route and tool", as
     await expect(page).toHaveURL("/analytics");
     await expect(page.getByTestId("analytics-builds-tab")).toHaveClass(/active/);
 });
+
+// asMember makes the page believe it is logged in as a single sign-on user
+// whose groups allow grants. The backend still sees the admin session: this
+// checks what the pages show, the Go tests what the API allows.
+async function asMember(page, grants) {
+    await page.route("**/auth/_isLoggedIn", (route) => route.fulfill({ json: { user: "sam@example.com", admin: false, grants } }));
+}
+
+test("a single sign-on user with write gets the API usage tab, others don't", async ({ page }) => {
+    await asMember(page, [{ scopes: ["read", "run", "write"], allJobs: true, jobs: [], patterns: [] }]);
+    await page.goto("/analytics");
+    await page.getByTestId("analytics-usage-tab").click();
+    await expect(page).toHaveURL("/analytics/usage");
+    await expect(page.getByTestId("usage-filters")).toBeVisible();
+
+    await page.unrouteAll();
+    await asMember(page, [{ scopes: ["read", "run"], allJobs: true, jobs: [], patterns: [] }]);
+    await page.goto("/analytics");
+    await expect(page.getByTestId("tile-builds").or(page.getByTestId("analytics-empty"))).toBeVisible();
+    await expect(page.getByTestId("analytics-tabs")).toHaveCount(0);
+    await page.goto("/analytics/usage");
+    await expect(page).toHaveURL("/analytics");
+});

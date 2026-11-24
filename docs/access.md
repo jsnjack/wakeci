@@ -84,7 +84,8 @@ Every route then says what it needs with `requireAccess(scope, jobResolver)`
 on both routers, the same way: the job comes from `{name}`, or from the
 build's history entry for `/build/{id}` and `/storage/build/{id}/...`. A
 request without an `Access` in its context is refused, so a route can't be
-opened by a middleware that forgot to set one. Settings and updates need
+opened by a middleware that forgot to set one. Settings, updates and how
+people use wakeci (`Access.SeesUsage`: who starts builds, request stats) need
 `write`, since `write` can run any command on the server anyway; the queue
 status and a user's own keys are open to every logged-in user.
 `TestEveryAPIRouteChecksAccess` walks `apiRoutes` with a user whose grant

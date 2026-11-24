@@ -24,7 +24,7 @@ import (
 // in the server's time zone. They are kept in memory and saved to
 // RequestStatsBucket once a minute and when wakeci stops, so counting costs
 // no database write per request; a crash loses at most the last minute.
-// Only the admin password reads them (HandleRequestStats).
+// Only write and the admin password read them (HandleRequestStats).
 
 // requestStatsRetention is how long a day's counts are kept
 const requestStatsRetention = statsRetention
@@ -769,7 +769,7 @@ func addPersonKeyNames(tx *bolt.Tx, people []PersonUse) {
 
 // HandleRequestStats returns how wakeci was used
 // @Summary      How wakeci was used: requests and MCP tool calls over a range of days
-// @Description  Only with the admin password; not available with an API key. HTTP requests by day, how they came in (via: web for the web UI's session, basic for Basic auth with the password, key for an API key on a REST route, mcp for an API key on /mcp, none for no credentials), who made them, route and outcome, with the median, 95th percentile and slowest time of each route; and MCP tool calls the same way. An MCP tool call is also one request to /mcp; the API calls a tool makes aren't counted again. Outcomes: success below 400, refused 401, 403 or 429, clientError other 4xx, serverError 5xx. Times are estimated from buckets and leave out WebSockets and reads that waited for a build (wait). Days are in the server's time zone; the counts of the last minute are included.
+// @Description  Needs write: the admin password, or a single sign-on user whose groups allow write, who can read the database anyway. Not available with an API key. HTTP requests by day, how they came in (via: web for the web UI's session, basic for Basic auth with the password, key for an API key on a REST route, mcp for an API key on /mcp, none for no credentials), who made them, route and outcome, with the median, 95th percentile and slowest time of each route; and MCP tool calls the same way. An MCP tool call is also one request to /mcp; the API calls a tool makes aren't counted again. Outcomes: success below 400, refused 401, 403 or 429, clientError other 4xx, serverError 5xx. Times are estimated from buckets and leave out WebSockets and reads that waited for a build (wait). Days are in the server's time zone; the counts of the last minute are included.
 // @Tags         analytics
 // @Produce      json
 // @Param        days  query   integer   false  "How many days, the last one today, 1 to 365; 30 if not set"

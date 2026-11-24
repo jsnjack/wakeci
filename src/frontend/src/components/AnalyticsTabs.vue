@@ -1,6 +1,6 @@
 <template>
     <div
-        v-if="admin"
+        v-if="canAny('write')"
         class="tabs left-align"
         data-cy="analytics-tabs"
     >
@@ -24,13 +24,13 @@
 </template>
 
 <script>
+import vuex from "vuex";
+
 // AnalyticsTabs switches between the analytics of builds and of requests,
-// which only the admin password sees
+// which only write and the admin password see (Access.SeesUsage)
 export default {
     computed: {
-        admin() {
-            return this.$store.state.auth.admin;
-        },
+        ...vuex.mapGetters(["canAny"]),
     },
 };
 </script>

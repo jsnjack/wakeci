@@ -101,6 +101,14 @@ func (a *Access) Reads(name string) bool {
 	return a == nil || a.Allows(ScopeRead, name)
 }
 
+// SeesUsage reports whether the access may see how people use wakeci: who
+// starts builds and the request stats. The admin password and write may:
+// write runs commands on the server as wakeci, and so can read the database
+// these come from anyway.
+func (a *Access) SeesUsage() bool {
+	return a != nil && a.HasScope(ScopeWrite)
+}
+
 // Empty reports whether the access allows nothing at all
 func (a *Access) Empty() bool {
 	return !a.Full && !slices.ContainsFunc(apiKeyScopes, a.HasScope)

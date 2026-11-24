@@ -111,7 +111,8 @@ type AnalyticsData struct {
 	// Triggers counts the builds by who or what started them
 	Triggers []TriggerCount `json:"triggers"`
 	// People are the single sign-on users and API keys that started the
-	// most builds, for the admin password only (showsPeople)
+	// most builds, for those who may see how people use wakeci: the admin
+	// password and write (showsPeople)
 	People      []PersonCount `json:"people"`
 	ShowsPeople bool          `json:"showsPeople"`
 	// Jobs are the jobs with builds in the range
@@ -541,7 +542,7 @@ func addKeyNames(tx *bolt.Tx, people []PersonCount) {
 
 // HandleAnalytics returns what the analytics page shows
 // @Summary      Analytics of builds over a range of days
-// @Description  Builds by day and status, success rate, duration and queue wait, when builds start, who starts them, and each job's numbers, with the jobs that are failing now. Only the jobs the caller may read count. Days are in the server's time zone; the success rate, duration and wait of each day cover the 7 days up to it. people (who started builds, by person and API key) is filled for the admin password only. API key scope: read
+// @Description  Builds by day and status, success rate, duration and queue wait, when builds start, who starts them, and each job's numbers, with the jobs that are failing now. Only the jobs the caller may read count. Days are in the server's time zone; the success rate, duration and wait of each day cover the 7 days up to it. people (who started builds, by person and API key) is filled only with write or the admin password, which can read the database anyway. API key scope: read
 // @Tags         analytics
 // @Produce      json
 // @Param        days     query   integer   false  "How many days, the last one today, 1 to 365; 30 if not set"
@@ -564,7 +565,7 @@ func HandleAnalytics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	access := accessFromContext(r.Context())
-	withPeople := access != nil && access.Full
+	withPeople := access.SeesUsage()
 	now := time.Now()
 	var data *AnalyticsData
 	err = DB.View(func(tx *bolt.Tx) error {

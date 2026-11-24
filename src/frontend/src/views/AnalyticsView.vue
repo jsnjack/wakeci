@@ -198,7 +198,7 @@
                         v-else-if="!data.showsPeople"
                         class="chart-note"
                     >
-                        Only the admin sees which people and API keys start builds.
+                        Only those who can edit jobs see which people and API keys start builds.
                     </p>
                 </article>
             </div>

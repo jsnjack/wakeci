@@ -343,8 +343,14 @@ func TestRequestStatsAPI(t *testing.T) {
 			t.Errorf("%s: status %d, want %d", tt.target, rec.Code, tt.status)
 		}
 	}
-	if rec := statsRequest(t, "/api/analytics/requests", "ann@example.com"); rec.Code != http.StatusForbidden {
-		t.Errorf("a single sign-on user got %d, want 403", rec.Code)
+	// Write can read the database anyway; read and run can't
+	if rec := statsRequest(t, "/api/analytics/requests", "ann@example.com"); rec.Code != http.StatusOK {
+		t.Errorf("a single sign-on user with write got %d, want 200", rec.Code)
+	}
+	addTestGroup(t, "Runners", Grant{Scopes: []string{ScopeRead, ScopeRun}, AllJobs: true})
+	runner := apiCall("GET", "/api/analytics/requests", loginInGroups(t, "rob@example.com", "Runners"), nil, nil)
+	if runner.Code != http.StatusForbidden {
+		t.Errorf("a single sign-on user without write got %d, want 403", runner.Code)
 	}
 	all := createTestKey(t, url.Values{"name": {"all"}, "scope": {"read", "run", "write"}, "allJobs": {"true"}})
 	if rec := keyRequest(router, "GET", "/api/analytics/requests", all, nil); rec.Code != http.StatusForbidden {

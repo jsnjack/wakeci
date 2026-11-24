@@ -273,6 +273,12 @@ func TestAnalyticsAPI(t *testing.T) {
 		t.Errorf("single sign-on user: jobs %v, %d builds, people %+v", names, deployer.Totals.Builds, deployer.People)
 	}
 
+	// Write sees who started builds, like the admin password
+	writer := get(t, apiCall("GET", "/api/analytics/?days=30", loginAs(t, "wes@example.com"), nil, nil))
+	if writer.Totals.Builds != 2 || !writer.ShowsPeople || len(writer.People) == 0 {
+		t.Errorf("single sign-on user with write: %d builds, people shown %t: %+v", writer.Totals.Builds, writer.ShowsPeople, writer.People)
+	}
+
 	key := get(t, keyRequest(router, "GET", "/api/analytics/?trigger=apikey", token, nil))
 	if names := jobs(key); len(names) != 1 || names[0] != "deploy" || key.ShowsPeople {
 		t.Errorf("API key: jobs %v", names)

@@ -111,8 +111,10 @@ from each build's plan (`getBuildConfig`), read after the transaction.
   (`Access.Reads` while reading), not filtered afterwards, so someone limited
   to some jobs can't work out the others from the totals.
 - Everyone sees trigger kinds. Who started builds (`people`: emails and API
-  key names) is filled only for the admin password (`Access.Full`), because
-  the feed doesn't show who started a build either.
+  key names) is filled only for those who may see how people use wakeci
+  (`Access.SeesUsage`): the admin password and `write`, also a `write` key.
+  The feed doesn't show who started a build, but `write` runs commands on
+  the server as wakeci and can read the database these come from anyway.
 - Both routes need the `read` scope and are in both routers; insights also
   check the job (`jobFromName`). `/api/analytics/` is open to anyone with
   `read` on some job, like the feed, so it is listed as open in
@@ -159,16 +161,17 @@ often do they fail".
   stops, into `requeststats`, one record per day; a crash loses at most a
   minute. The read merges the counts not saved yet. The cleaner deletes days
   older than `requestStatsRetention` (400 days, like build stats).
-- **Only the admin password** reads them (`GET /api/analytics/requests`,
-  `requireAdmin`): they show how every person and key uses wakeci. Keys and
-  so MCP can't. `via` and `who` filter the answer; `interfaces` ignores
+- **Only `write` and the admin password** read them
+  (`GET /api/analytics/requests`, `requireAccess(ScopeWrite, nil)`), for the
+  reason above: they show how every person and key uses wakeci. The route
+  isn't in the key router, so keys and MCP can't. `via` and `who` filter the answer; `interfaces` ignores
   `via` and `people` ignores `who`, so the page's pickers keep their
   choices.
 
 ## Frontend
 
 `AnalyticsView.vue`, `UsageView.vue` (with `UsageTable.vue`; the tabs are
-`AnalyticsTabs.vue`, shown to the admin only) and `JobInsightsView.vue`, with
+`AnalyticsTabs.vue`, shown with `write`) and `JobInsightsView.vue`, with
 `analytics.js` for formatting. The charts are small SVG components in `components/charts/`, not
 a chart library, which would be the largest chunk under Vite's 500 kB limit.
 They take their width from their element (`chartWidth.js`), so text keeps

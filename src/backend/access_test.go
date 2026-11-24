@@ -106,6 +106,28 @@ func TestAccessHasScopeAndEmpty(t *testing.T) {
 	}
 }
 
+func TestAccessSeesUsage(t *testing.T) {
+	write := Grant{Scopes: []string{ScopeRead, ScopeWrite}, AllJobs: true}
+	tests := []struct {
+		name   string
+		access *Access
+		want   bool
+	}{
+		{"admin password", fullAccess, true},
+		{"write on all jobs", &Access{Grants: []Grant{write}}, true},
+		{"read and run", &Access{Grants: []Grant{{Scopes: []string{ScopeRead, ScopeRun}, AllJobs: true}}}, false},
+		{"write on some jobs, which isn't write", &Access{Grants: []Grant{{Scopes: []string{ScopeWrite}, Jobs: []string{"deploy"}}}}, false},
+		// A write key whose creator's groups lost write
+		{"write within groups without it", &Access{Grants: []Grant{write}, Within: &Access{Grants: []Grant{{Scopes: []string{ScopeRead}, AllJobs: true}}}}, false},
+		{"no access", nil, false},
+	}
+	for _, tt := range tests {
+		if got := tt.access.SeesUsage(); got != tt.want {
+			t.Errorf("%s: SeesUsage() = %t, want %t", tt.name, got, tt.want)
+		}
+	}
+}
+
 func TestAccessCheckWithin(t *testing.T) {
 	groups := &Access{Grants: []Grant{
 		{Scopes: []string{ScopeRead, ScopeRun}, Jobs: []string{"deploy"}},

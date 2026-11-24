@@ -1,4 +1,5 @@
 import state from "./store/state";
+import { grantHasScope } from "./store/utils";
 
 // Guards return where to go instead, or nothing to let the navigation through
 
@@ -19,10 +20,11 @@ export function requireAdmin() {
     }
 }
 
-// requireAdminForAnalytics sends others from the analytics tabs only the
-// admin password sees to the analytics of builds
-export function requireAdminForAnalytics() {
-    if (!state.auth.admin) {
+// requireUsageAccess sends those without write from the analytics of
+// requests, which only write and the admin password see, to the analytics of
+// builds
+export function requireUsageAccess() {
+    if (!state.auth.admin && !state.auth.grants.some((grant) => grantHasScope(grant, "write"))) {
         return { name: "analytics", replace: true };
     }
 }
