@@ -136,6 +136,54 @@ tasks:
     await expect(log).toBeVisible();
 });
 
+// Two batches of live lines in one frame: the first waits for the next
+// animation frame, and the second isn't a gap after it
+test("should take two batches of live lines at once without reading the log again", async ({ page, wake }) => {
+    const gate = await wake.gate();
+    const name = await wake.createJob(`
+tasks:
+  - name: Talk
+    run: echo "n""=1."; ${gate.command}; for i in $(seq 2 4); do echo "n""=$i."; sleep 0.3; done; sleep 1
+`);
+    const id = await wake.runJob(name);
+    await wake.waitForBuild(id, "running");
+    let reads = 0;
+    page.on("request", (request) => {
+        if (new URL(request.url()).pathname.startsWith(`/api/build/${id}/log/`)) {
+            reads++;
+        }
+    });
+    let subscribed = false;
+    const held = [];
+    await page.routeWebSocket(/\/ws$/, (ws) => {
+        const server = ws.connectToServer();
+        ws.onMessage((message) => {
+            subscribed ||= message.includes(`"build:log:${id}"`);
+            server.send(message);
+        });
+        server.onMessage((message) => {
+            if (held.length < 2 && message.includes(`"type":"build:log:${id}"`)) {
+                held.push(message);
+                if (held.length === 2) {
+                    ws.send(held.join("\n"));
+                }
+                return;
+            }
+            ws.send(message);
+        });
+    });
+    await page.goto(`/build/${id}`);
+    await page.getByTestId("log-search-open").click();
+    await page.getByTestId("log-search").fill("n=");
+    await expect(page.getByTestId("log-search-count")).toHaveText("1 of 1");
+    // Lines sent before the page subscribed would be a real gap
+    await expect.poll(() => subscribed).toBe(true);
+    await gate.release();
+    await expect.poll(() => held.length).toBe(2);
+    await expect(page.getByTestId("log-search-count")).toHaveText(/ of 4$/);
+    expect(reads).toBe(1);
+});
+
 test("should open a failed log at its end without moving the page", async ({ page, wake }) => {
     const name = await wake.createJob(`
 tasks:

@@ -528,6 +528,9 @@ export default {
         load() {
             this.loading = true;
             this.pending = [];
+            // The log read has them; appended after it, they'd show twice
+            cancelAnimationFrame(this.frame);
+            this.queued = [];
             const size = this.task.logSize || 0;
             const tail = size > MAX_LOG_BYTES;
             const url = `/api/build/${this.buildId}/log/${this.task.id}?${tail ? `tail=${TAIL_LINES}` : "ansi=1"}`;
@@ -583,7 +586,9 @@ export default {
                 return;
             }
             const lines = (msg.ansi || msg.data).replace(/\n$/, "").split("\n");
-            const have = this.dropped + this.lineCount;
+            // With the lines that wait for the next frame (appendQueued):
+            // two batches in one frame, or in a background tab, are no gap
+            const have = this.dropped + this.lineCount + (this.queued?.length || 0);
             let start = 0;
             if (!this.tail) {
                 if (msg.id > have + 1) {
