@@ -122,3 +122,14 @@ export function toggleTerms(query, terms) {
 
 // The statuses of builds that ended, which "Running and queued" leaves out
 export const DONE_STATUSES = ["finished", "failed", "aborted", "timed out", "skipped"];
+
+// runValues returns the values to run a build again with, from its
+// [{ NAME: value }], as [name, value] pairs, without those at the job's
+// defaults ({ NAME: value }, null while unknown): the server uses them
+// anyway, and one who may not edit jobs can't send a default that holds a
+// quote or a secret reference, as wake leaves them out too
+export function runValues(params, defaults) {
+    return (params || [])
+        .flatMap((param) => Object.entries(param))
+        .filter(([name, value]) => !defaults || !Object.hasOwn(defaults, name) || defaults[name] !== value);
+}

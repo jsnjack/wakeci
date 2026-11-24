@@ -147,6 +147,7 @@
 
 <script>
 import UiDialog from "@/components/ui/UiDialog.vue";
+import { runValues } from "@/feed.js";
 import { escapeHtml } from "@/store/utils.js";
 import axios from "axios";
 
@@ -252,9 +253,10 @@ export default {
             }
         },
         run() {
-            const values = Object.fromEntries(this.fields.map((field) => [field.name, this.values[field.name] ?? ""]));
+            // Values at the job's default are left out (runValues)
+            const values = this.fields.map((field) => ({ [field.name]: this.values[field.name] ?? "" }));
             this.$emit("update:open", false);
-            const query = new URLSearchParams(Object.entries(values));
+            const query = new URLSearchParams(runValues(values, this.defaults));
             if (this.again) {
                 query.set("WAKE_AGAIN", this.again);
             }

@@ -180,7 +180,7 @@
 import { ago, dateTime, formatDuration, isZeroTime } from "@/analytics.js";
 import StatusIcon from "@/components/StatusIcon.vue";
 import UiMenu from "@/components/ui/UiMenu.vue";
-import { MAX_ROW_VALUES, ordinal, rowValues } from "@/feed.js";
+import { MAX_ROW_VALUES, ordinal, rowValues, runValues } from "@/feed.js";
 import { groupStatus, isFailure, latestAttempts } from "@/groups.js";
 import { escapeHtml, searchTerm } from "@/store/utils.js";
 import axios from "axios";
@@ -380,7 +380,7 @@ export default {
                 .catch(() => {});
         },
         runAgain() {
-            const params = new URLSearchParams((this.build.params || []).map((param) => Object.entries(param)[0]));
+            const params = new URLSearchParams(runValues(this.build.params, this.job?.defaults || null));
             // A build that another build started stays under its parent
             if (this.build.parent) {
                 params.set("WAKE_AGAIN", this.build.id);

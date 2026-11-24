@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { ordinal, rowValues, shortValue } from "../src/feed.js";
+import { ordinal, rowValues, runValues, shortValue } from "../src/feed.js";
 
 // What a feed row shows of a build's params (F1)
 test("labels come first, then the other changed params", () => {
@@ -29,4 +29,16 @@ test("long values are shortened", () => {
 
 test("places in the queue read as ordinals", () => {
     expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 101].map(ordinal)).toEqual(["1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "101st"]);
+});
+
+// Running a build again leaves out its values at the job's defaults, so one
+// who may not edit jobs isn't refused a default that holds a quote
+test("running again sends only values that differ from the job's defaults", () => {
+    const params = [{ MSG: "it's ok" }, { TARGET: "prod" }, { NEW: "x" }];
+    expect(runValues(params, { MSG: "it's ok", TARGET: "staging" })).toEqual([
+        ["TARGET", "prod"],
+        ["NEW", "x"],
+    ]);
+    // Defaults not known yet: every value
+    expect(runValues(params, null)).toHaveLength(3);
 });

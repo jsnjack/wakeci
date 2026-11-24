@@ -173,6 +173,7 @@
 import { formatDuration } from "@/analytics.js";
 import StatusIcon from "@/components/StatusIcon.vue";
 import UiDialog from "@/components/ui/UiDialog.vue";
+import { runValues } from "@/feed.js";
 import { escapeHtml } from "@/store/utils.js";
 import { groupTree, isFailure, latestAttempts, MAX_DEPTH, memberValues } from "@/groups.js";
 import axios from "axios";
@@ -280,7 +281,7 @@ export default {
             const started = [];
             const refused = [];
             for (const build of this.failedToRun) {
-                const query = new URLSearchParams(Object.entries(Object.assign({}, ...(build.params || []))));
+                const query = new URLSearchParams(runValues(build.params, this.jobs.get(build.name)?.defaults || null));
                 query.set("WAKE_AGAIN", build.id);
                 try {
                     const response = await axios.post(`/api/job/${encodeURIComponent(build.name)}/run?${query}`);
