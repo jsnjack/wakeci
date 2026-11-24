@@ -827,6 +827,10 @@ func (b *Build) BroadcastUpdate() {
 		if err := hb.Put(Itob(bID), data); err != nil {
 			return err
 		}
+		stats, err := withSavedDisk(tx, bID, stats)
+		if err != nil {
+			return err
+		}
 		if err := putBuildStats(tx, stats, bID); err != nil {
 			return err
 		}

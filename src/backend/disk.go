@@ -72,6 +72,23 @@ func walkFiles(dir string) func(yield func(int64, string) bool) {
 	}
 }
 
+// withSavedDisk returns stats, a build's new stats record, with the size
+// that saveDiskLater saved in the old one. An update after the build left
+// the queue, such as RunJob's for a build that aborted itself as it was
+// queued, would drop it otherwise.
+func withSavedDisk(tx *bolt.Tx, id int, stats []byte) ([]byte, error) {
+	old := getBuildStats(tx, id)
+	if old == nil || old.Disk == nil {
+		return stats, nil
+	}
+	var record buildStats
+	if err := json.Unmarshal(stats, &record); err != nil {
+		return nil, err
+	}
+	record.Disk = old.Disk
+	return json.Marshal(&record)
+}
+
 // diskMeasures lets one build be measured at a time, so builds that end
 // together don't walk their files at once
 var diskMeasures sync.Mutex

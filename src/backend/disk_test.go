@@ -145,3 +145,33 @@ func TestSaveDiskLater(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 }
+
+// An update after the build was measured keeps the size, as RunJob's does
+// for a build that aborted itself as it was queued
+func TestBuildUpdateKeepsTheSavedDisk(t *testing.T) {
+	newTestBuildEnv(t)
+	useQueue(t, &Queue{})
+	build := queueTestBuild(t, &Job{Name: "measured", Tasks: []*Task{{ID: 0, Command: "true", Kind: KindMain}}})
+	build.BroadcastUpdate()
+	saved := buildDisk{Logs: 1, Artifacts: 2, Workspace: 3}
+	if err := DB.Update(func(tx *bolt.Tx) error {
+		record := getBuildStats(tx, build.ID)
+		record.Disk = &saved
+		data, err := json.Marshal(record)
+		if err != nil {
+			return err
+		}
+		return putBuildStats(tx, data, build.ID)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	build.BroadcastUpdate()
+	if err := DB.View(func(tx *bolt.Tx) error {
+		if record := getBuildStats(tx, build.ID); record == nil || record.Disk == nil || *record.Disk != saved {
+			t.Errorf("stats record after an update: %+v, want disk %+v", record, saved)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
