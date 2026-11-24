@@ -43,6 +43,17 @@ type supersede struct {
 // setQueueKeys works out the build's keys. A key that names a param that is
 // empty or missing is no key: a build without a branch cancels nothing.
 func (b *Build) setQueueKeys() {
+	b.setKeys(true)
+}
+
+// setHookKeys works out the keys of a build that only runs its hooks
+// (FinishInterruptedBuilds): its concurrency key, but no cancel key, since
+// it cancels no other, so cancel_unless doesn't run before startup ends
+func (b *Build) setHookKeys() {
+	b.setKeys(false)
+}
+
+func (b *Build) setKeys(cancels bool) {
 	b.mutex.Lock()
 	values := map[string]string{}
 	for _, param := range b.Params {
@@ -57,7 +68,7 @@ func (b *Build) setQueueKeys() {
 	}
 	keys := queueKeys{root: root}
 	keys.concurrencyKey, _ = expandKey(b.Job.ConcurrencyKey, values)
-	if key, ok := expandKey(b.Job.CancelGroup, values); ok {
+	if key, ok := expandKey(b.Job.CancelGroup, values); ok && cancels {
 		spared, err := b.cancelSpared(values)
 		switch {
 		case err != nil:

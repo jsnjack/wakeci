@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 )
@@ -185,5 +186,31 @@ func TestConcurrencyKeyCountsHooksOfAbortedBuilds(t *testing.T) {
 	q = &Queue{running: []*Build{{ID: 6, Job: &Job{Name: "nightly"}}}, aborting: []*Build{{ID: 7, Job: &Job{Name: "nightly"}}}}
 	if !q.concurrencyFull(plain) {
 		t.Error("job concurrency 1 lets a second build start")
+	}
+}
+
+// A build that only runs its hooks after a restart cancels no other, so
+// cancel_unless doesn't run for it; its concurrency key still holds
+func TestHookKeysRunNoCancelUnless(t *testing.T) {
+	marker := filepath.Join(t.TempDir(), "ran")
+	build := &Build{ID: 3, Logger: L, Params: []map[string]string{{"BRANCH": "main"}}, Job: &Job{
+		Name:           "tests",
+		CancelGroup:    "tests/$BRANCH",
+		CancelUnless:   "touch " + marker + "; false",
+		ConcurrencyKey: "env/$BRANCH",
+	}}
+	build.setHookKeys()
+	if build.keys.cancelKey != "" || build.keys.concurrencyKey != "env/main" {
+		t.Errorf("keys %+v, want only the concurrency key env/main", build.keys)
+	}
+	if _, err := os.Stat(marker); err == nil {
+		t.Error("cancel_unless ran")
+	}
+	build.setQueueKeys()
+	if build.keys.cancelKey != "tests/main" {
+		t.Errorf("queued, cancel key %q, want tests/main", build.keys.cancelKey)
+	}
+	if _, err := os.Stat(marker); err != nil {
+		t.Errorf("queued, cancel_unless didn't run: %v", err)
 	}
 }

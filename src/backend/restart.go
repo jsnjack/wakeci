@@ -220,7 +220,7 @@ func FinishInterruptedBuilds(q *Queue) ([]*Build, error) {
 			continue
 		}
 		// Its hooks hold its concurrency key, as after any abort
-		build.setQueueKeys()
+		build.setHookKeys()
 		q.addInterrupted(build)
 		builds = append(builds, build)
 	}
