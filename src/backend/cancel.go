@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -182,12 +183,16 @@ func (q *Queue) applySupersede(b *Build, found supersede) {
 		return
 	}
 	for _, old := range found.older {
-		if q.AbortBy(old.ID, StatusAborted, fmt.Sprintf("as superseded by #%d (%s)", b.ID, key)) != nil {
+		// A child with its parent's key is one of found.older too
+		if slices.Contains(b.cancelled, old.ID) || q.AbortBy(old.ID, StatusAborted, fmt.Sprintf("as superseded by #%d (%s)", b.ID, key)) != nil {
 			continue
 		}
 		old.Logger.Info("build superseded by a newer one", "by", b.ID, "cancelGroup", key)
 		b.cancelled = append(b.cancelled, old.ID)
 		for _, id := range startedUnder(old) {
+			if slices.Contains(b.cancelled, id) {
+				continue
+			}
 			if q.AbortBy(id, StatusAborted, fmt.Sprintf("as part of #%d, superseded by #%d (%s)", old.ID, b.ID, key)) == nil {
 				b.cancelled = append(b.cancelled, id)
 			}

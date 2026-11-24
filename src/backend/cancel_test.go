@@ -98,14 +98,20 @@ func TestCancelGroupTakesTheBuildsItStarted(t *testing.T) {
 	}
 	unrelated := runBranch(t, "deploy", "", nil)
 
-	newer := runBranch(t, "tests", "main", nil)
+	newer := GlobalQueue.Live(runBranch(t, "tests", "main", nil))
 	for _, id := range []int{root, child, sameKey, grandchild} {
 		if status := ended(t, id); status != StatusAborted {
 			t.Errorf("build %d of the old group: %s, want aborted", id, status)
 		}
 	}
-	if GlobalQueue.Live(newer) == nil || GlobalQueue.Live(unrelated) == nil {
-		t.Error("the newer build, or a build of no group, left the queue")
+	if newer == nil || GlobalQueue.Live(unrelated) == nil {
+		t.Fatal("the newer build, or a build of no group, left the queue")
+	}
+	// sameKey is an older build with the key and one root started: once
+	cancelled := slices.Clone(newer.cancelled)
+	slices.Sort(cancelled)
+	if want := []int{root, child, sameKey, grandchild}; !slices.Equal(cancelled, want) {
+		t.Errorf("cancelled %v, want %v, each once", newer.cancelled, want)
 	}
 }
 
