@@ -269,6 +269,11 @@ func HandleAbortBuild(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.URL.Query().Get("group") == "1" {
 		aborted, err := abortGroup(r, id)
+		if errors.Is(err, errBuildNotFound) {
+			// As the plain abort answers, so a mistyped ID isn't a success
+			writePlainText(w, logger, http.StatusNotFound, err.Error())
+			return
+		}
 		if err != nil {
 			logger.Error("abort group", "build", id, "err", err)
 			writePlainText(w, logger, http.StatusInternalServerError, err.Error())

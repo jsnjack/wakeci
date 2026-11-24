@@ -303,9 +303,6 @@ func readGroup(id int, access *Access) (*GroupPayload, error) {
 func abortGroup(r *http.Request, id int) ([]int, error) {
 	access := accessFromContext(r.Context())
 	payload, err := readGroup(id, access)
-	if errors.Is(err, errBuildNotFound) {
-		return nil, nil
-	}
 	if err != nil {
 		return nil, err
 	}

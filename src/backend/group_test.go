@@ -402,3 +402,13 @@ func TestAnAbortedParentStartsNoBuilds(t *testing.T) {
 	parent.nextAbortScope()
 	runAs(t, nil, "nightly", url.Values{parentParam: {strconv.Itoa(root)}}, http.StatusOK)
 }
+
+// A group abort of a build that doesn't exist answers 404, as a plain abort
+// does, not 200 with nothing aborted
+func TestGroupAbortOfAMissingBuild(t *testing.T) {
+	groupEnv(t)
+	rec := apiCall("POST", "/api/build/999999/abort?group=1", nil, nil, func(r *http.Request) { r.SetBasicAuth("", "admin") })
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("group abort of a missing build: %d %q, want 404", rec.Code, rec.Body.String())
+	}
+}
