@@ -59,9 +59,10 @@ func (rec *statusRecorder) Flush() {
 }
 
 // LogMi is a middleware that creates a new logger per request and writes an
-// access log line (method, path, status, duration, and who made the request
-// once the auth middleware knows) unconditionally, since request traffic is
-// core operational visibility for an HTTP service.
+// access log line (method, path, how the request came in, its route, status,
+// duration, and who made the request once the auth middleware knows)
+// unconditionally, since request traffic is core operational visibility for
+// an HTTP service. It also counts the request in the request stats.
 func LogMi(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		startTime := time.Now()
@@ -77,7 +78,12 @@ func LogMi(next http.Handler) http.Handler {
 
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		defer func() {
+			took := time.Since(startTime)
+			route := requestRoute(r)
+			via := requestVia(r)
+			countRequest(r, route, via, rec.status, startTime, took)
 			attrs := []any{"logID", info.logID, "host", info.ip, "method", r.Method, "path", r.URL.Path}
+			attrs = append(attrs, requestLineAttrs(r, info, route, via)...)
 			// Only reads: a run takes its parameters from the query too, and a
 			// job's parameter may share a name with a logged one
 			if r.Method == http.MethodGet || r.Method == http.MethodHead {
@@ -85,7 +91,7 @@ func LogMi(next http.Handler) http.Handler {
 					attrs = append(attrs, "query", query)
 				}
 			}
-			attrs = append(attrs, "status", rec.status, "bytes", rec.bytes, "took", time.Since(startTime))
+			attrs = append(attrs, "status", rec.status, "bytes", rec.bytes, "took", took)
 			attrs = append(attrs, info.who()...)
 			if info.forwardedFor != "" {
 				attrs = append(attrs, "forwardedFor", info.forwardedFor)

@@ -37,6 +37,7 @@ src/backend/                 Go server (package main, module "wakeci")
   update.go                  Self-update: latest GitHub release, download + checks, binary swap, handlers
   cleanup.go                 Periodic removal of old build workspaces/history
   stats.go, analytics.go     Build stats kept past cleanup; analytics page and job insights (insights.go)
+  request_stats.go           Counts requests and MCP tool calls for the API usage tab
   eta.go                     Rolling average build duration, used for ETA display
   secrets.go                 injectSecrets: redacts/substitutes secret values in commands
   session.go                 Cookie sessions by token hash, saved in the sessions bucket, per-session TTL
@@ -69,7 +70,7 @@ src/frontend/                Vue 3 + Vite SPA
 | [docs/access.md](docs/access.md) | Single sign-on groups and their permissions, API key scopes, access checks on routes and live updates |
 | [docs/deprecations.md](docs/deprecations.md) | Old parameters and fields that still work, their users and their removal |
 | [docs/settings.md](docs/settings.md) | Wakefile.yaml or the settings page, the settings file, `--import-settings` |
-| [docs/analytics.md](docs/analytics.md) | Build stats, who started a build, the analytics page, job insights |
+| [docs/analytics.md](docs/analytics.md) | Build stats, who started a build, request stats (web UI, API, MCP), the analytics page, job insights |
 | [docs/ui-roadmap.md](docs/ui-roadmap.md) | The feed, labels, live updates, the build page, task logs, the jobs page, the run form or the styles (replacing BeerCSS): the planned changes and their evidence |
 
 ---
@@ -386,9 +387,10 @@ AGENTS.universal.md for the general contract.
 - Swagger `@Router` paths start with `/api` or `/storage` (basePath is `/`)
   and must be routes as written, slash included; `TestAPISpecMatchesTheRoutes`
   checks the generated spec. Name the API key scope in `@Description`.
-- Every MCP tool sets `Meta: mcp.Meta{"scope": ...}`: `/docs/mcp.json` and
-  the Help page's MCP tab are built from the tools (`TestMCPDocs`), and
-  every route must be in the spec (`TestEveryRouteIsDocumented`).
+- Every MCP tool is added with `addTool` (request stats count it) and sets
+  `Meta: mcp.Meta{"scope": ...}`: `/docs/mcp.json` and the Help page's MCP
+  tab are built from the tools (`TestMCPDocs`), and every route must be in
+  the spec (`TestEveryRouteIsDocumented`).
 - A new route that changes something needs an entry in `auditedRoutes`
   (`TestAuditedRoutes` fails without one). Audit attrs carry names and IDs,
   never passwords, tokens, secrets or run parameter values, nor names a

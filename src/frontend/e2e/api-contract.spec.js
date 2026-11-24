@@ -179,6 +179,7 @@ test("should answer every documented operation as the spec says", async ({ wake,
         "DELETE /api/nogroup": async () => ({ target: "/api/nogroup" }),
         "GET /api/whoami": async () => ({ target: "/api/whoami" }),
         "GET /api/analytics/": async () => ({ target: "/api/analytics/?days=7" }),
+        "GET /api/analytics/requests": async () => ({ target: "/api/analytics/requests?days=7" }),
         "GET /api/job/{name}/insights": async () => ({ target: `/api/job/${job}/insights` }),
         "GET /storage/build/{id}/{path}": async () => ({ target: `/storage/build/${build}/task_0.log` }),
     };
@@ -237,6 +238,8 @@ test("should answer every documented operation as the spec says", async ({ wake,
         ["GET /storage/build/{id}/{path}", `/storage/build/${build}/nosuch.txt`, 404],
         ["GET /api/analytics/", "/api/analytics/?days=0", 400],
         ["GET /api/analytics/", "/api/analytics/?trigger=robot", 400],
+        ["GET /api/analytics/requests", "/api/analytics/requests?days=0", 400],
+        ["GET /api/analytics/requests", "/api/analytics/requests?via=robot", 400],
         ["GET /api/job/{name}/insights", `/api/job/${job}/insights?builds=0`, 400],
     ];
     for (const [opKey, target, status, form, body] of errors) {
@@ -342,6 +345,17 @@ test("should answer every documented operation as the spec says", async ({ wake,
     await expect.poll(async () => (await json("/api/analytics/?days=7")).people.some((p) => p.keyName), { intervals: [100, 200, 500] }).toBe(true);
     expectStatus(await call("admin", "GET /api/analytics/", "/api/analytics/?days=7"), [200], "GET /api/analytics/ with builds started by keys");
     await expect.poll(async () => (await json(`/api/job/${job}/insights`)).params.length, { intervals: [100, 200, 500] }).toBe(1);
+    // Request stats again, now that keys made requests and called an MCP tool
+    const tool = await contexts.read.post("/mcp", {
+        data: { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "whoami", arguments: {} } },
+        headers: { Accept: "application/json, text/event-stream" },
+    });
+    expectStatus(tool, [200], "MCP tool call");
+    expectStatus(
+        await call("admin", "GET /api/analytics/requests", "/api/analytics/requests?days=7"),
+        [200],
+        "GET /api/analytics/requests with keys' requests and a tool call",
+    );
     expectStatus(await call("admin", "GET /api/job/{name}/insights", `/api/job/${job}/insights`), [200], "GET /api/job/{name}/insights with two TARGETs");
 
     // 5. Every documented field shows up in some answer, except those of

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -51,9 +52,25 @@ func (b *bufferedResponse) Header() http.Header            { return b.header }
 func (b *bufferedResponse) Write(data []byte) (int, error) { return b.body.Write(data) }
 func (b *bufferedResponse) WriteHeader(status int)         { b.status = status }
 
+// mcpRoute is where the MCP server answers API keys
+const mcpRoute = "/mcp"
+
 // mcpCallKey marks the requests an MCP tool makes, which APIKeyAuthMi
-// doesn't count or limit again; only code in wakeci can set it
+// doesn't count or limit again and the request stats don't count; its value
+// is the tool's name. Only code in wakeci can set it.
 type mcpCallKey struct{}
+
+// mcpToolKey carries the name of the tool being called to its API calls
+type mcpToolKey struct{}
+
+// mcpAPIError is an error answer of the API to a tool's call, or a tool's
+// own refusal of what it was asked, with the HTTP status it stands for
+type mcpAPIError struct {
+	status int
+	msg    string
+}
+
+func (e *mcpAPIError) Error() string { return e.msg }
 
 // call sends a request to the API with the MCP request's key and client,
 // and returns the body of a successful response or the API's error
@@ -65,7 +82,8 @@ func (c *mcpCaller) call(ctx context.Context, method, target string, form url.Va
 	// A fresh context that only follows ctx's cancellation: the MCP
 	// request's carries its chi route, log ID and audit record, which the
 	// API request must not share
-	inner, cancel := context.WithCancel(context.WithValue(context.Background(), mcpCallKey{}, true))
+	tool, _ := ctx.Value(mcpToolKey{}).(string)
+	inner, cancel := context.WithCancel(context.WithValue(context.Background(), mcpCallKey{}, tool))
 	defer cancel()
 	stop := context.AfterFunc(ctx, cancel)
 	defer stop()
@@ -85,7 +103,8 @@ func (c *mcpCaller) call(ctx context.Context, method, target string, form url.Va
 	resp := &bufferedResponse{header: http.Header{}, status: http.StatusOK}
 	c.router.ServeHTTP(resp, req)
 	if resp.status >= http.StatusBadRequest {
-		return nil, fmt.Errorf("%d %s: %s", resp.status, http.StatusText(resp.status), strings.TrimSpace(resp.body.String()))
+		return nil, &mcpAPIError{status: resp.status,
+			msg: fmt.Sprintf("%d %s: %s", resp.status, http.StatusText(resp.status), strings.TrimSpace(resp.body.String()))}
 	}
 	return resp.body.Bytes(), nil
 }
@@ -183,12 +202,49 @@ type mcpBuildInput struct {
 	ID int `json:"id" jsonschema:"build ID"`
 }
 
+// waitsForBuild says whether the call waits for the build to end, so that
+// its time says how long the build took, not wakeci
+func (in mcpBuildSummaryInput) waitsForBuild() bool {
+	return in.Wait > 0
+}
+
+// addTool adds a tool whose calls are counted in the request stats and named
+// in the request line of their request to /mcp
+func addTool[In, Out any](server *mcp.Server, c *mcpCaller, tool *mcp.Tool, handler mcp.ToolHandlerFor[In, Out]) {
+	mcp.AddTool(server, tool, func(ctx context.Context, req *mcp.CallToolRequest, in In) (*mcp.CallToolResult, Out, error) {
+		started := time.Now()
+		requestInfoOf(c.parent).mcpTool = tool.Name
+		result, out, err := handler(context.WithValue(ctx, mcpToolKey{}, tool.Name), req, in)
+		waits, _ := any(in).(interface{ waitsForBuild() bool })
+		timed := waits == nil || !waits.waitsForBuild()
+		countToolCall(c.parent, tool.Name, toolOutcome(result, err), started, time.Since(started), timed)
+		return result, out, err
+	})
+}
+
+// toolOutcome names the outcome of a tool call: that of the API's answer
+// when the API refused it, a client error when the client went away, and a
+// server error for any other error
+func toolOutcome(result *mcp.CallToolResult, err error) string {
+	if err == nil && (result == nil || !result.IsError) {
+		return OutcomeSuccess
+	}
+	var apiErr *mcpAPIError
+	if errors.As(err, &apiErr) {
+		return statusOutcome(apiErr.status)
+	}
+	if errors.Is(err, context.Canceled) {
+		return OutcomeClientError
+	}
+	return OutcomeServerError
+}
+
 // newMCPServer makes the tools for one MCP request
 func newMCPServer(c *mcpCaller) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{Name: "wakeci", Version: Version}, &mcp.ServerOptions{Instructions: mcpInstructions})
 	readOnly := &mcp.ToolAnnotations{ReadOnlyHint: true}
 
-	mcp.AddTool(server, &mcp.Tool{Name: "whoami", Meta: mcp.Meta{"scope": "any"}, Annotations: readOnly,
+	addTool(server, c, &mcp.Tool{Name: "whoami", Meta: mcp.Meta{"scope": "any"}, Annotations: readOnly,
 		Description: "What this API key may do, and which server answers: its hostname, version and the range of build IDs it has."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, _ mcpNoInput) (*mcp.CallToolResult, WhoAmIData, error) {
 			var data WhoAmIData
@@ -196,7 +252,7 @@ func newMCPServer(c *mcpCaller) *mcp.Server {
 			return nil, data, err
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "list_jobs", Meta: mcp.Meta{"scope": "read"}, Annotations: readOnly,
+	addTool(server, c, &mcp.Tool{Name: "list_jobs", Meta: mcp.Meta{"scope": "read"}, Annotations: readOnly,
 		Description: "The jobs this key may read, with their descriptions and default parameters."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in mcpListJobsInput) (*mcp.CallToolResult, mcpJobs, error) {
 			var jobs []*JobsListData
@@ -212,7 +268,7 @@ func newMCPServer(c *mcpCaller) *mcp.Server {
 			return nil, out, nil
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "find_builds", Meta: mcp.Meta{"scope": "read"}, Annotations: readOnly,
+	addTool(server, c, &mcp.Tool{Name: "find_builds", Meta: mcp.Meta{"scope": "read"}, Annotations: readOnly,
 		Description: "Builds, newest first, by job, status or search words."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in mcpFindBuildsInput) (*mcp.CallToolResult, mcpBuilds, error) {
 			query := url.Values{}
@@ -239,7 +295,7 @@ func newMCPServer(c *mcpCaller) *mcp.Server {
 			return nil, out, nil
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "build_summary", Meta: mcp.Meta{"scope": "read"}, Annotations: readOnly,
+	addTool(server, c, &mcp.Tool{Name: "build_summary", Meta: mcp.Meta{"scope": "read"}, Annotations: readOnly,
 		Description: "A build's status, tasks, artifacts, the summary the job wrote, and the end of the log of each task that failed, timed out or was aborted. With wait, it first waits for a running build to end."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in mcpBuildSummaryInput) (*mcp.CallToolResult, BuildSummary, error) {
 			query := url.Values{}
@@ -254,7 +310,7 @@ func newMCPServer(c *mcpCaller) *mcp.Server {
 			return nil, summary, err
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "analytics", Meta: mcp.Meta{"scope": "read"}, Annotations: readOnly,
+	addTool(server, c, &mcp.Tool{Name: "analytics", Meta: mcp.Meta{"scope": "read"}, Annotations: readOnly,
 		Description: "Builds over a range of days: by day and status, success rate, duration, queue wait, and each job's numbers with the jobs failing now. Use it for questions such as which jobs fail most or got slower."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in mcpAnalyticsInput) (*mcp.CallToolResult, AnalyticsData, error) {
 			query := url.Values{}
@@ -272,7 +328,7 @@ func newMCPServer(c *mcpCaller) *mcp.Server {
 			return nil, data, err
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "job_insights", Meta: mcp.Meta{"scope": "read"}, Annotations: readOnly,
+	addTool(server, c, &mcp.Tool{Name: "job_insights", Meta: mcp.Meta{"scope": "read"}, Annotations: readOnly,
 		Description: "A job's last builds in the history with their tasks: each task's runs, failures, durations and change, the task that stopped failed builds, flaky failures, the time to fix a failure, and the success rate of each parameter value."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in mcpJobInsightsInput) (*mcp.CallToolResult, JobInsights, error) {
 			query := url.Values{}
@@ -284,7 +340,7 @@ func newMCPServer(c *mcpCaller) *mcp.Server {
 			return nil, data, err
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "read_log", Meta: mcp.Meta{"scope": "read"}, Annotations: readOnly,
+	addTool(server, c, &mcp.Tool{Name: "read_log", Meta: mcp.Meta{"scope": "read"}, Annotations: readOnly,
 		Description: "Part of a task's log: its last lines, or the lines that contain a text."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in mcpReadLogInput) (*mcp.CallToolResult, any, error) {
 			query := url.Values{}
@@ -305,7 +361,7 @@ func newMCPServer(c *mcpCaller) *mcp.Server {
 			return textResult(string(data)), nil, nil
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "read_artifact", Meta: mcp.Meta{"scope": "read"}, Annotations: readOnly,
+	addTool(server, c, &mcp.Tool{Name: "read_artifact", Meta: mcp.Meta{"scope": "read"}, Annotations: readOnly,
 		Description: "A text artifact of a build, such as a JSON report, up to 256 KB."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in mcpReadArtifactInput) (*mcp.CallToolResult, any, error) {
 			target := storageURL(in.Build, "artifacts/"+strings.TrimPrefix(in.Path, "/"))
@@ -314,7 +370,7 @@ func newMCPServer(c *mcpCaller) *mcp.Server {
 				return nil, nil, err
 			}
 			if !utf8.Valid(data) || bytes.IndexByte(data, 0) >= 0 {
-				return nil, nil, fmt.Errorf("%s isn't text; download it from %s", in.Path, target)
+				return nil, nil, &mcpAPIError{status: http.StatusUnsupportedMediaType, msg: fmt.Sprintf("%s isn't text; download it from %s", in.Path, target)}
 			}
 			text := string(data)
 			if len(text) > mcpArtifactLimit {
@@ -323,7 +379,7 @@ func newMCPServer(c *mcpCaller) *mcp.Server {
 			return textResult(text), nil, nil
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "run_job", Meta: mcp.Meta{"scope": "run"}, Annotations: &mcp.ToolAnnotations{DestructiveHint: ptr(false)},
+	addTool(server, c, &mcp.Tool{Name: "run_job", Meta: mcp.Meta{"scope": "run"}, Annotations: &mcp.ToolAnnotations{DestructiveHint: ptr(false)},
 		Description: "Start a build of a job. Needs the run scope. Parameters can't reference secrets or contain quotes or line breaks."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in mcpRunJobInput) (*mcp.CallToolResult, mcpStartedBuild, error) {
 			form := url.Values{}
@@ -341,7 +397,7 @@ func newMCPServer(c *mcpCaller) *mcp.Server {
 			return nil, mcpStartedBuild{ID: id, Page: "/build/" + strconv.Itoa(id)}, nil
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "abort_build", Meta: mcp.Meta{"scope": "run"}, Annotations: &mcp.ToolAnnotations{DestructiveHint: ptr(true)},
+	addTool(server, c, &mcp.Tool{Name: "abort_build", Meta: mcp.Meta{"scope": "run"}, Annotations: &mcp.ToolAnnotations{DestructiveHint: ptr(true)},
 		Description: "Abort a pending or running build. Needs the run scope."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in mcpBuildInput) (*mcp.CallToolResult, any, error) {
 			if _, err := c.call(ctx, http.MethodPost, "/api/build/"+strconv.Itoa(in.ID)+"/abort", nil); err != nil {

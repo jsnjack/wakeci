@@ -56,6 +56,10 @@ var SessionsBucket = []byte("sessions")
 // cleanup deletes its history entry, see buildStats
 var BuildStatsBucket = []byte("buildstats")
 
+// RequestStatsBucket holds the counts of each day's requests and MCP tool
+// calls by the day, such as 2026-11-24, see requestDayRecord
+var RequestStatsBucket = []byte("requeststats")
+
 // SSOGroupsBucket holds the single sign-on groups that may log in and what
 // their members may do, by the lowercased group name
 var SSOGroupsBucket = []byte("ssogroups")
@@ -197,7 +201,7 @@ func bootstrapDB(tx *bolt.Tx) error {
 			}
 		}
 	}
-	for _, bucket := range [][]byte{JobsBucket, HistoryBucket, APIKeysBucket, QueueBucket, StartedBucket, SessionsBucket, SSOGroupsBucket, BuildStatsBucket} {
+	for _, bucket := range [][]byte{JobsBucket, HistoryBucket, APIKeysBucket, QueueBucket, StartedBucket, SessionsBucket, SSOGroupsBucket, BuildStatsBucket, RequestStatsBucket} {
 		if _, err := tx.CreateBucketIfNotExists(bucket); err != nil {
 			return err
 		}

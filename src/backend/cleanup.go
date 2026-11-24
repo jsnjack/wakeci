@@ -27,6 +27,9 @@ func (cl *Cleaner) Clean() {
 		if err := pruneBuildStats(tx, time.Now(), cl.Logger); err != nil {
 			return err
 		}
+		if err := pruneRequestStats(tx, time.Now(), cl.Logger); err != nil {
+			return err
+		}
 		b := tx.Bucket([]byte(GlobalBucket))
 
 		preserve, err := ByteToInt(b.Get([]byte("buildHistorySize")))

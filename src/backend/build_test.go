@@ -51,6 +51,9 @@ func newTestBuildEnv(t *testing.T) {
 		if _, err := tx.CreateBucketIfNotExists(BuildStatsBucket); err != nil {
 			return err
 		}
+		if _, err := tx.CreateBucketIfNotExists(RequestStatsBucket); err != nil {
+			return err
+		}
 		_, err := tx.CreateBucketIfNotExists(JobsBucket)
 		return err
 	})

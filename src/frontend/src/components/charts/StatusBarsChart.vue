@@ -76,15 +76,27 @@ import chartWidth from "./chartWidth";
 import HatchPattern from "./HatchPattern.vue";
 
 // StatusBarsChart shows the builds of each day as a bar, stacked by status
-// with failures at the baseline
+// with failures at the baseline, or the counts of other series the same way
 export default {
     components: { HatchPattern },
     mixins: [chartWidth],
     props: {
-        // AnalyticsDay of the API, oldest first
+        // AnalyticsDay of the API, oldest first, or any days with a count
+        // under each series' key
         days: {
             type: Array,
             required: true,
+        },
+        // What the bars stack, from the baseline: build statuses unless
+        // given, such as OUTCOMES for requests
+        series: {
+            type: Array,
+            default: () => STATUSES,
+        },
+        // What a bar counts, for its tooltip
+        noun: {
+            type: String,
+            default: "builds",
         },
         height: {
             type: Number,
@@ -111,13 +123,15 @@ export default {
             return niceMax(Math.max(0, ...this.days.map((day) => this.total(day))));
         },
         ticks() {
-            return [0, 0.5, 1].map((f) => ({ value: Math.round(this.max * f), y: this.top + this.inner - f * this.inner }));
+            // Counts are whole, so a half that isn't, such as 0.5 of 1, gets
+            // no label rather than a rounded one in the wrong place
+            return [0, 0.5, 1].map((f) => ({ value: this.max * f, y: this.top + this.inner - f * this.inner })).filter((tick) => Number.isInteger(tick.value));
         },
         bars() {
             return this.days.map((day, i) => {
                 let y = this.top + this.inner;
                 const segments = [];
-                for (const status of STATUSES) {
+                for (const status of this.series) {
                     const count = day[status.key];
                     if (!count) {
                         continue;
@@ -127,12 +141,12 @@ export default {
                     segments.push({
                         key: status.key,
                         cls: status.cls,
-                        style: status.key === "failed" ? { fill: `url(#${this.hatchID})` } : null,
+                        style: status.hatched ? { fill: `url(#${this.hatchID})` } : null,
                         y: y + (height > 3 ? 1 : 0),
                         height: Math.max(1, height - (height > 3 ? 1 : 0)),
                     });
                 }
-                const lines = [...STATUSES]
+                const lines = [...this.series]
                     .reverse()
                     .filter((s) => day[s.key])
                     .map((s) => `${day[s.key]} ${s.label}`);
@@ -140,7 +154,7 @@ export default {
                     day: day.day,
                     x: this.left + i * this.step,
                     segments,
-                    title: `${dayLabel(day.day, true)}: ${this.total(day)} builds${lines.length ? "\n" + lines.join("\n") : ""}`,
+                    title: `${dayLabel(day.day, true)}: ${this.total(day)} ${this.noun}${lines.length ? "\n" + lines.join("\n") : ""}`,
                 };
             });
         },
@@ -154,12 +168,12 @@ export default {
         },
         summary() {
             const total = this.days.reduce((sum, day) => sum + this.total(day), 0);
-            return `${total} builds in ${this.days.length} days`;
+            return `${total} ${this.noun} in ${this.days.length} days`;
         },
     },
     methods: {
         total(day) {
-            return STATUSES.reduce((sum, status) => sum + (day[status.key] || 0), 0);
+            return this.series.reduce((sum, status) => sum + (day[status.key] || 0), 0);
         },
     },
 };

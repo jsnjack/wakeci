@@ -16,11 +16,18 @@
 <script>
 import { STATUSES } from "@/analytics";
 
-// StatusLegend names the colours of the build statuses, finished first
+// StatusLegend names the colours of the build statuses, finished first, or
+// of other series that StatusBarsChart stacks
 export default {
+    props: {
+        series: {
+            type: Array,
+            default: () => STATUSES,
+        },
+    },
     computed: {
         statuses() {
-            return [...STATUSES].reverse();
+            return [...this.series].reverse();
         },
     },
 };

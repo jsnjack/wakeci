@@ -1,8 +1,9 @@
-# Analytics: build stats, the analytics page and job insights
+# Analytics: build stats, request stats, the analytics page and job insights
 
-Read this before changing what wakeci records about builds, the analytics
-page (`/analytics`), a job's Insights tab (`/job/{name}/insights`), or their
-API routes and MCP tools.
+Read this before changing what wakeci records about builds or requests, the
+analytics page (`/analytics`, and its API usage tab `/analytics/usage`), a
+job's Insights tab (`/job/{name}/insights`), or their API routes and MCP
+tools.
 
 ## Two sources
 
@@ -118,10 +119,57 @@ from each build's plan (`getBuildConfig`), read after the transaction.
   `TestEveryAPIRouteChecksAccess`. They change nothing, so they aren't
   audited. MCP has them as `analytics` and `job_insights`.
 
+## Request stats
+
+`request_stats.go` counts how people and programs use wakeci: every HTTP
+request, and every MCP tool call, by day, how it came in (`via`), route or
+tool, who made it and outcome, with its time in buckets. It answers "is the
+web UI, the REST API or MCP used, which routes and tools, how fast, and how
+often do they fail".
+
+- **Counted in `LogMi`**, which already has the status and the time, so the
+  request line and the stats agree. The line gets `via`, `route` and, for
+  MCP, `tool`.
+- **`via` comes from the credentials sent, right or wrong**: a session
+  cookie is `web`, Basic auth `basic`, an API key `key`, an API key on
+  `/mcp` `mcp`, nothing `none`. So a refused request still counts where it
+  was aimed. Who made it (`triggerOf`) is known only once the auth
+  middleware accepted the credentials.
+- **The route is the chi pattern** (`GET /api/build/{id}`), found with
+  `Routes.Find` because `AuthMi` refuses requests before chi has matched
+  them. An empty route is a path no route matches; on the key router that
+  includes routes keys can't use. The web UI's files and pages (`/*`) aren't
+  counted.
+- **MCP**: `addTool` wraps every tool, so each call counts once by name, with
+  the outcome of the API call that failed in it (`mcpAPIError`); the API
+  calls a tool makes aren't counted again (`mcpCallKey`), but their request
+  lines name the tool. The request to `/mcp` counts as a request too. A call
+  the SDK turns down for its arguments never reaches the wrapper.
+- **A client can't grow them.** Every part of a row comes from a fixed set:
+  route patterns (never raw paths), the five ways in, the four outcomes,
+  registered tools, and people whose credentials were accepted. Keep it so
+  when adding a dimension: a value a client makes up must not become a row.
+- **Outcomes**: `success` below 400, `refused` 401, 403 or 429,
+  `clientError` other 4xx, `serverError` 5xx.
+- **Times** go into buckets (`requestTimeBounds`), each bound at most twice
+  the last, so p50 and p95 are estimates; the slowest is exact. WebSockets
+  and reads with `wait` count but their time doesn't, as it measures the
+  build.
+- **Saved once a minute** (`startRequestStatsFlusher`) and when wakeci
+  stops, into `requeststats`, one record per day; a crash loses at most a
+  minute. The read merges the counts not saved yet. The cleaner deletes days
+  older than `requestStatsRetention` (400 days, like build stats).
+- **Only the admin password** reads them (`GET /api/analytics/requests`,
+  `requireAdmin`): they show how every person and key uses wakeci. Keys and
+  so MCP can't. `via` and `who` filter the answer; `interfaces` ignores
+  `via` and `people` ignores `who`, so the page's pickers keep their
+  choices.
+
 ## Frontend
 
-`AnalyticsView.vue` and `JobInsightsView.vue`, with `analytics.js` for
-formatting. The charts are small SVG components in `components/charts/`, not
+`AnalyticsView.vue`, `UsageView.vue` (with `UsageTable.vue`; the tabs are
+`AnalyticsTabs.vue`, shown to the admin only) and `JobInsightsView.vue`, with
+`analytics.js` for formatting. The charts are small SVG components in `components/charts/`, not
 a chart library, which would be the largest chunk under Vite's 500 kB limit.
 They take their width from their element (`chartWidth.js`), so text keeps
 its size on a phone. Colours are in `assets/charts.css`; failures are also
@@ -129,6 +177,6 @@ hatched, outcome strips also use height (short finished, full failed), and
 every chart has a legend and a tooltip per mark (`<title>`), so colour
 never carries meaning alone.
 
-Both pages subscribe to `build:update:` and fetch again, at most every few
+The builds' pages subscribe to `build:update:` and fetch again, at most every few
 seconds, when a build ends (final status and a duration), and when the
 WebSocket reconnects.
