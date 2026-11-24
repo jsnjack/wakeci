@@ -436,16 +436,6 @@ func (c *wakeClient) planStarts(opts *startOptions, getenv func(string) string, 
 			byName[job.Name] = job
 		}
 	}
-	var who WhoAmIData
-	if err := c.getJSON("api/whoami", wakeRequestTimeout, &who); err != nil {
-		return nil, nil, fmt.Errorf("read what this token may do: %w", err)
-	}
-	// The server checks it again; this only saves a fan-out stopped halfway
-	trusted := who.Admin
-	for _, grant := range who.Grants {
-		trusted = trusted || grant.HasScope(ScopeWrite)
-	}
-
 	var problems []string
 	var fileParams []wakeParam
 	if opts.paramsFile != "" {
@@ -563,12 +553,13 @@ func (c *wakeClient) planStarts(opts *startOptions, getenv func(string) string, 
 			starts = append(starts, wakeStart{job: name, params: each, line: opts.each + "=" + line})
 		}
 	}
-	if !trusted {
-		for _, s := range starts {
-			for paramName, values := range s.params {
-				if problem := untrustedParamProblem(values[0]); problem != "" {
-					problems = append(problems, fmt.Sprintf("%s: parameter %s %s, which only those who may edit jobs may send; %s= leaves it at the job's default.", s, paramName, problem, paramName))
-				}
+	// wake sends a build's token or an API key, and the server takes runs
+	// with either as untrusted (paramsUntrusted), write keys too; checked
+	// here as well, so a fan-out can't stop halfway
+	for _, s := range starts {
+		for paramName, values := range s.params {
+			if problem := untrustedParamProblem(values[0]); problem != "" {
+				problems = append(problems, fmt.Sprintf("%s: parameter %s %s, which only those who may edit jobs may send; %s= leaves it at the job's default.", s, paramName, problem, paramName))
 			}
 		}
 	}

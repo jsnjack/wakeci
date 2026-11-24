@@ -50,9 +50,9 @@ Parameters come in this order, later ones winning: inherited, the build
 run again, the file, the arguments, the `--each` line.
 
 **Everything is checked before the first build starts**: that each job
-exists and is enabled, that each parameter is one the job has, and, for
-callers who may not edit jobs (a build's token, a key without `write`), that
-no value breaks the rule for untrusted parameters. If anything is wrong,
+exists and is enabled, that each parameter is one the job has, and that no
+value breaks the rule for untrusted parameters, which every run with a
+build's token or an API key follows, a `write` key's too. If anything is wrong,
 `wake` prints every problem and `Nothing was started.`, so a typo in a job
 name or in line 40 of a list starts nothing.
 

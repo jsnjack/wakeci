@@ -274,7 +274,9 @@ func (f *fakeWake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		_ = json.NewEncoder(w).Encode(jobs)
 	case r.URL.Path == "/api/whoami":
-		_ = json.NewEncoder(w).Encode(WhoAmIData{Auth: "build", Build: 1})
+		// As for an API key with write, which the server still takes as
+		// untrusted for runs (paramsUntrusted)
+		_ = json.NewEncoder(w).Encode(WhoAmIData{Auth: "apikey", Grants: []Grant{{Scopes: []string{ScopeRead, ScopeRun, ScopeWrite}, AllJobs: true}}})
 	case strings.HasSuffix(r.URL.Path, "/run"):
 		_ = r.ParseForm()
 		status := http.StatusOK
@@ -427,6 +429,16 @@ func TestWakeWaitsOnAnOldServer(t *testing.T) {
 	}
 	if want := []time.Duration{wakeOldServerPoll, wakeOldServerPoll}; !slices.Equal(waits, want) {
 		t.Errorf("waits %v, want %v", waits, want)
+	}
+}
+
+// Every run wake sends is untrusted to the server, a write key's too, so
+// wake checks every value before it starts anything
+func TestWakeChecksValuesForWriteKeysToo(t *testing.T) {
+	f := &fakeWake{}
+	status, stdout, stderr, _ := fakeWakeRun(t, f, "web-1\nweb'2\n", "deploy", "--each", "NODE")
+	if status != 1 || len(f.ran) != 0 || !strings.Contains(stderr, "parameter NODE has a quote") {
+		t.Errorf("wake start: %d %q %q, ran %v; want nothing started", status, stdout, stderr, f.ran)
 	}
 }
 
