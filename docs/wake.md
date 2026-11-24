@@ -71,6 +71,8 @@ twice, are retried after those as well.
 
 Exit status: 0 if every build started (and, with `--wait`, finished), 1 if
 something failed or nothing was started, 2 if `wake` was called wrongly.
+`--each` without lines starts nothing and exits 0: an empty list is no
+failure.
 
 **A build that waits keeps its place in the queue.** While a task runs
 `wake start --wait`, its build still counts against the concurrent builds
