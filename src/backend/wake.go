@@ -80,8 +80,10 @@ var wakeRetryDelays = []time.Duration{2 * time.Second, 4 * time.Second, 8 * time
 const (
 	// wakeRequestTimeout is how long wake waits for one answer
 	wakeRequestTimeout = 30 * time.Second
-	// wakeWaitSeconds is how long one request of --wait waits for a build
-	wakeWaitSeconds = maxBuildWait
+	// wakeWaitSeconds is how long one request of --wait waits for a build:
+	// under the 60 s a proxy such as nginx waits for an answer by default,
+	// which would answer 504 to a longer wait, and wake would give up
+	wakeWaitSeconds = 50
 	// maxWakeAnswer is the most of an answer wake reads, except from api
 	maxWakeAnswer = 64 << 20
 )
