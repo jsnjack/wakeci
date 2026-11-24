@@ -273,7 +273,7 @@
                                     data-cy="job-build-time"
                                 >
                                     <span class="share-bar"><span :style="{ width: barWidth(row.buildTime, totalBuildTime) }"></span></span>
-                                    {{ formatDuration(row.buildTime) }}
+                                    <span class="build-time">{{ formatDuration(row.buildTime) }}</span>
                                 </td>
                                 <td class="nowrap">{{ ago(lastStarted(row)) }}</td>
                             </tr>
@@ -754,6 +754,14 @@ export default {
     width: 3.5rem;
     vertical-align: middle;
     margin-right: 0.4rem;
+}
+/* As wide as the longest time, "87600h 00m", so the bars before it line up
+   whatever the time */
+.build-time {
+    display: inline-block;
+    min-width: 10ch;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
 }
 .table-scroll {
     overflow-x: auto;

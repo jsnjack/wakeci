@@ -73,6 +73,28 @@ test("analytics count a job's builds and open its insights", async ({ page, wake
     await expect(page).toHaveURL(`/build/${failed}`);
 });
 
+test("the jobs table's build time bars line up whatever the time", async ({ page, wake }) => {
+    for (let i = 0; i < 2; i++) {
+        const job = await wake.createJob("tasks:\n  - name: hi\n    run: echo hi\n");
+        await wake.waitForBuild(await wake.runJob(job));
+    }
+    // Times as short and as long as a busy server has: 5s and 170h 51m
+    const times = [5e9, 615060e9];
+    await page.route("**/api/analytics/?*", async (route) => {
+        const response = await route.fetch();
+        const json = await response.json();
+        json.jobs.forEach((job, i) => (job.buildTime = times[i % 2]));
+        await route.fulfill({ response, json });
+    });
+    await page.goto("/analytics");
+    const cells = page.getByTestId("job-build-time");
+    await expect(cells.filter({ hasText: "170h 51m" }).first()).toBeVisible();
+    await expect(cells.filter({ hasText: /^\s*5s$/ }).first()).toBeVisible();
+    const lefts = await cells.locator(".share-bar").evaluateAll((bars) => bars.map((bar) => bar.getBoundingClientRect().left));
+    expect(lefts.length).toBeGreaterThan(1);
+    expect(Math.max(...lefts) - Math.min(...lefts)).toBeLessThan(1);
+});
+
 test("analytics filter the jobs table by name", async ({ page, wake }) => {
     const tag = randomUUID().slice(0, 8);
     const deploy = await wake.createJob(`tasks:\n  - name: ok\n    run: "true"\n`, `deploy-${tag}`);
