@@ -25,6 +25,14 @@ func TestColorLine(t *testing.T) {
 		// Colour codes inside a secret hid it from the redaction, and
 		// stripping them joined it again in the plain log
 		{"a secret split by colours redacted, the codes before it", "x hun\x1b[1mter2\x1b[0m y", "x " + redactedSecret + " y", "x \x1b[1m" + redactedSecret + "\x1b[0m y", true},
+		// The colour log, the live log and the viewer's link had it
+		{
+			"a secret in a hyperlink's URL redacted",
+			"\x1b]8;;https://example.com/?token=hunter2\x1b\\report\x1b]8;;\x1b\\",
+			"report",
+			"\x1b]8;;https://example.com/?token=" + redactedSecret + "\x1b\\report\x1b]8;;\x1b\\",
+			true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

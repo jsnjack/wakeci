@@ -33,7 +33,9 @@ func colorLine(line string) (plain, ansi string, colored bool) {
 	for _, m := range anyEscapeRE.FindAllStringIndex(line, -1) {
 		visible.WriteString(line[last:m[0]])
 		if seq := line[m[0]:m[1]]; keptEscapeRE.MatchString(seq) {
-			codes = append(codes, colorCode{visible.Len(), seq})
+			// A hyperlink's URL can hold a secret too; the redaction
+			// keeps the sequence whole, since it holds no \x07 or \x1b
+			codes = append(codes, colorCode{visible.Len(), redactSecrets(seq)})
 		}
 		last = m[1]
 	}
