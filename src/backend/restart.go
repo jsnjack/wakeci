@@ -286,6 +286,10 @@ func (b *Build) noteInterrupted(task *Task) {
 		return
 	}
 	log := &taskLogWriter{file: file, w: bufio.NewWriter(file)}
+	// Numbered after the lines the log has, as the live log expects
+	if lines, err := countFileLines(b.taskLogPath(task.ID)); err == nil {
+		log.lines = lines
+	}
 	// The colour log, which the log viewer shows if the task wrote one,
 	// ends with the note too
 	ansi, err := os.OpenFile(b.taskANSILogPath(task.ID), os.O_APPEND|os.O_WRONLY, privateBuildFileMode)

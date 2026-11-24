@@ -332,3 +332,25 @@ func TestFinishInterruptedBuildsDropsBrokenRecords(t *testing.T) {
 		t.Errorf("history status = %q, want %q", status, StatusAborted)
 	}
 }
+
+// The note goes out numbered after the lines the task's log has, so a
+// viewer that has them takes it
+func TestInterruptedNoteIsNumberedAfterTheLog(t *testing.T) {
+	newTestBuildEnv(t)
+	build, err := CreateBuild(&Job{Name: "cut", Tasks: []*Task{{ID: 0, Command: "true", Kind: KindMain}}}, filepath.Join(Config.JobDir, "cut.yaml"), false)
+	if err != nil {
+		t.Fatalf("CreateBuild: %v", err)
+	}
+	build.pendingTasksWG.Wait()
+	if err := os.WriteFile(build.taskLogPath(0), []byte("[ 1s] a\n[ 2s] b\n[ 3s] c\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	oldHub := WSHub
+	WSHub = &Hub{broadcast: make(chan *MsgBroadcast, 1)}
+	t.Cleanup(func() { WSHub = oldHub })
+	build.noteInterrupted(build.Job.Tasks[0])
+	msg := <-WSHub.broadcast
+	if data, ok := msg.Data.(*CommandLogData); !ok || data.ID != 4 {
+		t.Errorf("note sent as %+v, want line 4", msg.Data)
+	}
+}

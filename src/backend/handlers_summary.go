@@ -319,6 +319,16 @@ func tailLines(path string, n int, numbered bool) (string, int, error) {
 	return text, last - strings.Count(text, "\n"), nil
 }
 
+// countFileLines counts the line breaks of the file at path
+func countFileLines(path string) (int, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, err
+	}
+	defer closeLog(f, path)
+	return countLines(f)
+}
+
 // countLines counts the line breaks r holds
 func countLines(r io.Reader) (int, error) {
 	buf := make([]byte, 256*1024)
