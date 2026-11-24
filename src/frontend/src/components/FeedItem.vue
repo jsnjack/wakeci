@@ -269,8 +269,9 @@ export default {
         canStartNow() {
             return this.canRun && this.build.status === "pending" && this.queue.queuedIDs.includes(this.build.id);
         },
+        // Once the job's defaults are known, which runAgain leaves out
         canRunAgain() {
-            return this.canRun && this.isDone;
+            return this.canRun && this.isDone && this.job !== null;
         },
         started() {
             return !isZeroTime(this.build.startedAt);
