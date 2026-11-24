@@ -95,7 +95,7 @@ screens:
 	base=$$(mktemp -d)
 	trap 'rm -f "$$base/src/frontend/node_modules"; git worktree remove --force "$$base"' EXIT
 	git worktree add --detach "$$base" $(BASE)
-	ln -s "$(PWD)/src/frontend/node_modules" "$$base/src/frontend/node_modules"
+	ln -s "$(CURDIR)/src/frontend/node_modules" "$$base/src/frontend/node_modules"
 	$(MAKE) -C "$$base" --no-print-directory build
 	rm -rf src/frontend/screens
 	(cd src/frontend && E2E_SCREENS=1 WAKECI_BIN="$$base/bin/wakeci" npx playwright test e2e/screens.spec.js --update-snapshots --reporter=dot $(E2E_ARGS))
