@@ -4,17 +4,20 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"io/fs"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
+	berrors "go.etcd.io/bbolt/errors"
 )
 
-// Disk use per job (job insights): a build's size on disk is measured when
-// it ends and kept in its stats record; the insights add up the job's builds
+// Disk use per job (job insights): a build's size on disk is measured right
+// after it left the queue and kept in its stats record; the insights add up the job's builds
 // still in the history, whose files cleanup hasn't removed. Builds from
 // before wakeci measured them are measured once after startup.
 
@@ -28,8 +31,13 @@ type buildDisk struct {
 
 // measureBuildDisk adds up the sizes of build id's files
 func measureBuildDisk(id int) *buildDisk {
+	return measureDirs(wakespaceDir(id), Config.WorkDir+"workspace/"+strconv.Itoa(id)+"/")
+}
+
+// measureDirs adds up the sizes of the files of a build's wakespace and
+// workspace
+func measureDirs(wakespace, workspace string) *buildDisk {
 	disk := &buildDisk{}
-	wakespace := wakespaceDir(id)
 	artifacts := wakespace + "artifacts" + string(filepath.Separator)
 	for size, path := range walkFiles(wakespace) {
 		if strings.HasPrefix(path, artifacts) {
@@ -38,7 +46,7 @@ func measureBuildDisk(id int) *buildDisk {
 			disk.Logs += size
 		}
 	}
-	for size := range walkFiles(Config.WorkDir + "workspace/" + strconv.Itoa(id) + "/") {
+	for size := range walkFiles(workspace) {
 		disk.Workspace += size
 	}
 	return disk
@@ -64,12 +72,45 @@ func walkFiles(dir string) func(yield func(int64, string) bool) {
 	}
 }
 
-// setDisk measures the build as it ends, for its last stats record
-func (b *Build) setDisk() {
-	disk := measureBuildDisk(b.ID)
-	b.mutex.Lock()
-	b.disk = disk
-	b.mutex.Unlock()
+// diskMeasures lets one build be measured at a time, so builds that end
+// together don't walk their files at once
+var diskMeasures sync.Mutex
+
+// saveDiskLater measures build b, which has left the queue, in the
+// background and saves its size in its stats record. A walk of a large
+// workspace takes long, so the build doesn't hold its place in the queue
+// for it. A stop may close the database first; BackfillBuildDisk then
+// measures the build at the next start. What it needs is read now, so the
+// walk doesn't read globals a restart (or a test) changes.
+func saveDiskLater(b *Build) {
+	db, id, logger := DB, b.ID, b.Logger
+	wakespace, workspace := b.GetWakespaceDir(), b.GetWorkspaceDir()
+	if db == nil {
+		return
+	}
+	go func() {
+		diskMeasures.Lock()
+		defer diskMeasures.Unlock()
+		disk := measureDirs(wakespace, workspace)
+		err := db.Update(func(tx *bolt.Tx) error {
+			record := getBuildStats(tx, id)
+			if record == nil {
+				return nil
+			}
+			record.Disk = disk
+			data, err := json.Marshal(record)
+			if err != nil {
+				return err
+			}
+			return putBuildStats(tx, data, id)
+		})
+		switch {
+		case errors.Is(err, berrors.ErrDatabaseNotOpen):
+			logger.Debug("save build size: wakeci stopped first")
+		case err != nil:
+			logger.Error("save build size", "err", err)
+		}
+	}()
 }
 
 // diskBackfillBatch is how many builds one transaction of the backfill

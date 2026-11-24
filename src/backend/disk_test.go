@@ -116,3 +116,32 @@ func TestBackfillBuildDisk(t *testing.T) {
 		return nil
 	})
 }
+
+// A build is measured once it has left the queue, in the background, and
+// its stats record gets the size
+func TestSaveDiskLater(t *testing.T) {
+	newTestBuildEnv(t)
+	putTestStats(t, &buildStats{ID: 5, Job: "deploy", Status: StatusFinished})
+	writeTestBuildFiles(t, 5, 10, 100, 7)
+	saveDiskLater(&Build{ID: 5, Logger: L})
+	want := buildDisk{Logs: 10, Artifacts: 100, Workspace: 7}
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		var got *buildDisk
+		if err := DB.View(func(tx *bolt.Tx) error {
+			if record := getBuildStats(tx, 5); record != nil {
+				got = record.Disk
+			}
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if got != nil && *got == want {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("stats record's disk %+v, want %+v", got, want)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}

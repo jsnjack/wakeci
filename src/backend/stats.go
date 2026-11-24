@@ -87,7 +87,7 @@ type buildStats struct {
 	// Parent and Root are the build's group, 0 if no build started it
 	Parent int `json:"parent,omitempty"`
 	Root   int `json:"root,omitempty"`
-	// Disk is what the build keeps on disk, measured when it ended (disk.go)
+	// Disk is what the build keeps on disk, measured once it ended (disk.go)
 	Disk *buildDisk `json:"disk,omitempty"`
 }
 
