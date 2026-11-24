@@ -745,11 +745,16 @@ func TestLogLinesGoOutNumberedInBatches(t *testing.T) {
 
 // The "Expanded command" log line fills in the build's variables and keeps
 // the ones bash will fill in, such as a shell function's arguments
-func TestLogEnvMapperKeepsUnknownVariables(t *testing.T) {
+func TestExpandForLogKeepsUnknownVariables(t *testing.T) {
 	env := []string{"WAKE_BUILD_ID=7", "TARGET=prod"}
-	got := os.Expand(`start() { curl "$1/$TARGET"; }; start x; echo ${WAKE_BUILD_ID} $failed`, logEnvMapper(env))
-	want := `start() { curl "$1/prod"; }; start x; echo 7 $failed`
-	if got != want {
-		t.Errorf("expanded\n%s\nwant\n%s", got, want)
+	for command, want := range map[string]string{
+		`start() { curl "$1/$TARGET"; }; start x; echo ${WAKE_BUILD_ID} $failed`: `start() { curl "$1/prod"; }; start x; echo 7 $failed`,
+		// os.Expand dropped the braces: $DEST_backup, $VAR:-x
+		`cp a ${DEST}_backup ${VAR:-x} $TARGET-$$ $ end $`: `cp a ${DEST}_backup ${VAR:-x} prod-$$ $ end $`,
+		`echo ${unclosed`: `echo ${unclosed`,
+	} {
+		if got := expandForLog(command, env); got != want {
+			t.Errorf("expanded\n%s\nwant\n%s", got, want)
+		}
 	}
 }

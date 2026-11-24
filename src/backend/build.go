@@ -433,7 +433,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 
 	// Add executed command to logs
 	b.ProcessLogEntry("> Running command: "+task.Command, bw, task.ID, task.startedAt)
-	expandedTaskCmd := os.Expand(task.Command, logEnvMapper(taskCmd.Env))
+	expandedTaskCmd := expandForLog(task.Command, taskCmd.Env)
 	if expandedTaskCmd != task.Command {
 		b.ProcessLogEntry(
 			"> Expanded command: "+injectSecrets(expandedTaskCmd), bw, task.ID, task.startedAt,
@@ -1472,24 +1472,53 @@ type ArtifactInfo struct {
 	URL string `json:"url,omitempty"`
 }
 
-// Used to expand env variables in commands
-// logEnvMapper expands the variables a task's environment has, for the
-// "Expanded command" log line, and leaves the others as written: bash runs
-// the command as written, where $1 in a shell function or a variable the
-// command sets itself has a value that the log line can't know
-func logEnvMapper(env []string) func(string) string {
+// expandForLog fills the variables a task's environment has into command,
+// for the "Expanded command" log line, and leaves every other reference
+// exactly as written: bash runs the command as written, where $1 in a shell
+// function or a variable the command sets itself has a value that the log
+// line can't know. Not os.Expand, which drops the braces of ${OUT}dir and
+// ${VAR:-x} before its mapper sees them. Names are read as os.Expand does.
+func expandForLog(command string, env []string) string {
 	known := map[string]bool{}
 	for _, pair := range env {
 		name, _, _ := strings.Cut(pair, "=")
 		known[name] = true
 	}
-	mapper := getEnvMapper(env)
-	return func(name string) string {
-		if !known[name] {
-			return "$" + name
+	value := getEnvMapper(env)
+	var b strings.Builder
+	for i := 0; i < len(command); {
+		if command[i] != '$' || i+1 == len(command) {
+			b.WriteByte(command[i])
+			i++
+			continue
 		}
-		return mapper(name)
+		var name string
+		end := i + 1
+		switch c := command[i+1]; {
+		case c == '{':
+			closing := strings.IndexByte(command[i+2:], '}')
+			if closing < 0 {
+				b.WriteString(command[i:])
+				return b.String()
+			}
+			name, end = command[i+2:i+2+closing], i+3+closing
+		case strings.IndexByte("*#$@!?-0123456789", c) >= 0:
+			name, end = command[i+1:i+2], i+2
+		default:
+			for end < len(command) && (command[end] == '_' || command[end] >= '0' && command[end] <= '9' ||
+				command[end] >= 'a' && command[end] <= 'z' || command[end] >= 'A' && command[end] <= 'Z') {
+				end++
+			}
+			name = command[i+1 : end]
+		}
+		if known[name] {
+			b.WriteString(value(name))
+		} else {
+			b.WriteString(command[i:end])
+		}
+		i = max(end, i+1)
 	}
+	return b.String()
 }
 
 func getEnvMapper(env []string) func(string) string {
