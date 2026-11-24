@@ -5,8 +5,11 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"testing"
+
+	bolt "go.etcd.io/bbolt"
 )
 
 // cancelEnv is tokenEnv with jobs that share the cancel group tests/$BRANCH,
@@ -212,5 +215,23 @@ func TestHookKeysRunNoCancelUnless(t *testing.T) {
 	}
 	if _, err := os.Stat(marker); err != nil {
 		t.Errorf("queued, cancel_unless didn't run: %v", err)
+	}
+}
+
+// Cleanup may remove a chain's root from the history while the chain runs;
+// a superseded member still finds the builds it started
+func TestStartedUnderWithoutTheRootsHistory(t *testing.T) {
+	groupEnv(t)
+	root, _ := runAs(t, nil, "deploy", nil, http.StatusOK)
+	child, _ := runAs(t, nil, "nightly", url.Values{parentParam: {strconv.Itoa(root)}}, http.StatusOK)
+	grandchild, _ := runAs(t, nil, "deploy", url.Values{parentParam: {strconv.Itoa(child)}}, http.StatusOK)
+	other, _ := runAs(t, nil, "deploy", url.Values{parentParam: {strconv.Itoa(root)}}, http.StatusOK)
+	if err := DB.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket(HistoryBucket).Delete(Itob(root))
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if got := startedUnder(GlobalQueue.Live(child)); !slices.Equal(got, []int{grandchild}) {
+		t.Errorf("started under %d: %v, want [%d], not %d", child, got, grandchild, other)
 	}
 }

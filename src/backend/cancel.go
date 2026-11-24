@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -9,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	bolt "go.etcd.io/bbolt"
 )
 
 // Cancel groups (docs/wake.md): with cancel_group: tests/$BRANCH, a build
@@ -177,20 +180,35 @@ func (q *Queue) applySupersede(b *Build, found supersede) {
 }
 
 // startedUnder returns the builds that build started, and the builds they
-// started, in the order they were created
+// started, in the order they were created. It reads the group's members
+// directly, not through readGroup, which needs the root's history entry:
+// cleanup may have removed the root while its chain still runs.
 func startedUnder(build *Build) []int {
-	group, err := readGroup(build.keys.root, nil)
-	if err != nil {
-		build.Logger.Error("read the builds this build started", "err", err)
-		return nil
-	}
 	under := map[int]bool{build.ID: true}
 	var ids []int
-	for _, member := range group.Builds {
-		if under[member.Parent] && !under[member.ID] {
-			under[member.ID] = true
-			ids = append(ids, member.ID)
+	err := DB.View(func(tx *bolt.Tx) error {
+		history := tx.Bucket(HistoryBucket)
+		// In ID order, so a parent comes before the builds it started
+		for _, id := range groupMembers(tx, build.keys.root) {
+			data := history.Get(Itob(id))
+			if data == nil {
+				continue
+			}
+			var member struct {
+				Parent int `json:"parent"`
+			}
+			if err := json.Unmarshal(data, &member); err != nil {
+				return fmt.Errorf("decode build %d: %w", id, err)
+			}
+			if under[member.Parent] && !under[id] {
+				under[id] = true
+				ids = append(ids, id)
+			}
 		}
+		return nil
+	})
+	if err != nil {
+		build.Logger.Error("read the builds this build started", "err", err)
 	}
 	return ids
 }
