@@ -12,7 +12,7 @@ const timeAgo = new TimeAgo("en-US");
 // failures first, so they line up and compare across days. key is the field
 // of the API's counts, cls the class that colours a mark
 export const STATUSES = [
-    { key: "failed", status: "failed", label: "failed", icon: "cancel", cls: "s-failed" },
+    { key: "failed", status: "failed", label: "failed", icon: "cancel", cls: "s-failed", hatched: true },
     { key: "timedOut", status: "timed out", label: "timed out", icon: "acute", cls: "s-timed-out" },
     { key: "aborted", status: "aborted", label: "aborted", icon: "do_not_disturb_on", cls: "s-aborted" },
     { key: "finished", status: "finished", label: "finished", icon: "check_circle", cls: "s-finished" },
@@ -25,13 +25,71 @@ export function statusOf(status) {
 // Who or what starts builds, by the API's trigger kind
 export const TRIGGERS = {
     interval: "Schedule (interval)",
-    password: "Admin password",
+    password: "Password (web or API)",
     sso: "Single sign-on",
-    apikey: "API keys",
+    apikey: "API keys (REST or MCP)",
     unknown: "Not recorded (older builds)",
 };
 
+// How requests come in, by the credentials they carried (the API's via)
+export const VIAS = {
+    web: "Web UI",
+    basic: "API with password",
+    key: "API with key",
+    mcp: "MCP",
+    none: "No credentials",
+};
+
+// The outcomes of requests, in the order the charts stack them from the
+// baseline: failures first, like STATUSES, whose colours they borrow
+export const OUTCOMES = [
+    { key: "serverError", label: "server error", icon: "error", cls: "s-failed", hatched: true },
+    { key: "clientError", label: "client error", icon: "help", cls: "s-timed-out" },
+    { key: "refused", label: "refused", icon: "block", cls: "s-aborted" },
+    { key: "success", label: "success", icon: "check_circle", cls: "s-finished" },
+];
+
 const NS = 1e9;
+const MS = 1e6;
+
+// perDay writes how often something happened over days: "about 5 a day",
+// "about 2 a week", "less than 1 a week", or "today" for a range of one day
+export function perDay(total, days) {
+    if (days <= 1) {
+        return "today";
+    }
+    const rate = total / days;
+    if (Math.round(rate) >= 1) {
+        return `about ${Math.round(rate).toLocaleString()} a day`;
+    }
+    if (Math.round(rate * 7) >= 1) {
+        return `about ${Math.round(rate * 7)} a week`;
+    }
+    return "less than 1 a week";
+}
+
+// plural writes a count with its noun: "1 build", "2 builds"
+export function plural(count, one, many = `${one}s`) {
+    return `${count.toLocaleString()} ${count === 1 ? one : many}`;
+}
+
+// formatLatency writes how long a request took, from nanoseconds: "0.4 ms",
+// "12 ms", "1.5 s", "2m 05s"
+export function formatLatency(ns) {
+    if (ns < 0.1 * MS) {
+        return "<0.1 ms";
+    }
+    if (ns < 10 * MS) {
+        return `${(ns / MS).toFixed(1)} ms`;
+    }
+    if (ns < NS) {
+        return `${Math.round(ns / MS)} ms`;
+    }
+    if (ns < 60 * NS) {
+        return `${(ns / NS).toFixed(1)} s`;
+    }
+    return formatDuration(ns);
+}
 
 // formatDuration writes nanoseconds as "45s", "5m 07s" or "1h 05m"
 export function formatDuration(ns) {

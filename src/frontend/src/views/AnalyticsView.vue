@@ -1,5 +1,7 @@
 <template>
     <div class="analytics-page">
+        <AnalyticsTabs />
+
         <nav
             class="wrap analytics-filters"
             data-cy="analytics-filters"
@@ -93,7 +95,7 @@
                         label="Success rate per day, over the 7 days up to it"
                     />
                     <p class="chart-note">
-                        Finished builds among finished, failed and timed out ones; aborted builds don't count.<span v-if="rateMin > 0">
+                        Successful (finished) builds as a share of finished, failed and timed out ones; aborted builds don't count.<span v-if="rateMin > 0">
                             The axis starts at {{ formatRate(rateMin) }}.</span
                         >
                     </p>
@@ -130,11 +132,12 @@
                         <progress class="circle small"></progress>
                     </div>
                     <BandLegend />
+                    <p class="chart-note">Only builds that finished successfully.</p>
                 </article>
             </div>
 
             <article class="border no-elevate padding chart-card">
-                <h6 class="small no-margin">When builds start</h6>
+                <h6 class="small no-margin">When builds start (server time)</h6>
                 <StartsHeatmap :starts="data.starts" />
             </article>
 
@@ -157,7 +160,7 @@
                         v-else
                         class="chart-note"
                     >
-                        wakeci records queue times of builds queued from this version on.
+                        None of these builds has a queue time: wakeci versions from before mid-November 2026 didn't record it.
                     </p>
                 </article>
                 <article
@@ -228,6 +231,7 @@
                                     v-for="column in columns"
                                     :key="column.key"
                                     :class="{ 'right-align': column.numeric, sortable: column.sort }"
+                                    :title="column.title"
                                     :aria-sort="sortKey === column.key ? (sortAsc ? 'ascending' : 'descending') : null"
                                     @click="column.sort && sortBy(column.key)"
                                 >
@@ -263,7 +267,10 @@
                                 <td class="right-align">{{ row.builds }}</td>
                                 <td class="right-align">{{ row.duration.count ? formatDuration(row.duration.p50) : "—" }}</td>
                                 <td class="right-align">{{ row.duration.count ? formatDuration(row.duration.p95) : "—" }}</td>
-                                <td class="right-align nowrap">
+                                <td
+                                    class="right-align nowrap"
+                                    :title="`${formatDuration(row.buildTime)} of ${formatDuration(totalBuildTime)}`"
+                                >
                                     <span class="share-bar"><span :style="{ width: share(row.buildTime, totalBuildTime) }"></span></span>
                                     {{ share(row.buildTime, totalBuildTime) }}
                                 </td>
@@ -304,7 +311,8 @@
 
 <script>
 import "@/assets/charts.css";
-import { STATUSES, TRIGGERS, ago, axisDuration, dayLabel, formatDuration, formatRate, isZeroTime, niceDurationMax } from "@/analytics";
+import { STATUSES, TRIGGERS, ago, axisDuration, dayLabel, formatDuration, formatRate, isZeroTime, niceDurationMax, perDay, plural } from "@/analytics";
+import AnalyticsTabs from "@/components/AnalyticsTabs.vue";
 import BandLegend from "@/components/charts/BandLegend.vue";
 import LineChart from "@/components/charts/LineChart.vue";
 import OutcomeStrip from "@/components/charts/OutcomeStrip.vue";
@@ -321,7 +329,7 @@ const RANGES = [7, 30, 90, 365];
 const FINAL = new Set(STATUSES.map((s) => s.status));
 
 export default {
-    components: { BandLegend, LineChart, OutcomeStrip, SearchSelect, SparkLine, StartsHeatmap, StatusBarsChart, StatusLegend },
+    components: { AnalyticsTabs, BandLegend, LineChart, OutcomeStrip, SearchSelect, SparkLine, StartsHeatmap, StatusBarsChart, StatusLegend },
     data() {
         return {
             ranges: RANGES,
@@ -348,7 +356,13 @@ export default {
                 { key: "builds", label: "Builds", numeric: true, sort: true },
                 { key: "p50", label: "Median", numeric: true, sort: true },
                 { key: "p95", label: "p95", numeric: true, sort: true },
-                { key: "buildTime", label: "Build time", numeric: true, sort: true },
+                {
+                    key: "buildTime",
+                    label: "Share of build time",
+                    title: "The job's share of the time all jobs' builds took, failed ones included",
+                    numeric: true,
+                    sort: true,
+                },
                 { key: "last", label: "Last build", sort: true },
             ],
         };
@@ -367,17 +381,17 @@ export default {
         tiles() {
             const t = this.data.totals;
             const days = this.data.byDay;
-            let rateSub = `of ${t.finished + t.failed + t.timedOut} that ran to the end`;
+            let rateSub = `of ${plural(t.finished + t.failed + t.timedOut, "build")}, aborted ones left out`;
             if (t.successRate !== null && this.data.previousSuccessRate !== null) {
                 const diff = (t.successRate - this.data.previousSuccessRate) * 100;
-                rateSub = `${diff >= 0 ? "▲" : "▼"} ${Math.abs(diff).toFixed(1)} pts against the ${this.days} days before`;
+                rateSub = `${diff >= 0 ? "▲" : "▼"} ${Math.abs(diff).toFixed(1)} percentage points vs the previous ${this.days} days`;
             }
             return [
                 {
                     key: "builds",
                     label: "Builds",
                     value: t.builds.toLocaleString(),
-                    sub: this.days > 1 ? `about ${Math.round(t.builds / this.days).toLocaleString()} a day` : "today",
+                    sub: perDay(t.builds, this.days),
                     spark: days.map((d) => d.finished + d.failed + d.timedOut + d.aborted),
                 },
                 {
@@ -391,14 +405,14 @@ export default {
                     key: "duration",
                     label: "Median duration",
                     value: t.duration.count ? formatDuration(t.duration.p50) : "—",
-                    sub: t.duration.count ? `p95 ${formatDuration(t.duration.p95)} · finished builds` : "no finished builds",
+                    sub: t.duration.count ? `p95 ${formatDuration(t.duration.p95)} · successful builds` : "no successful builds",
                     spark: days.map((d) => (d.duration.count ? d.duration.p50 : null)),
                 },
                 {
                     key: "wait",
                     label: "Queue wait",
                     value: t.wait.count ? formatDuration(t.wait.p50) : "—",
-                    sub: t.wait.count ? `median · p95 ${formatDuration(t.wait.p95)}` : "recorded from this version on",
+                    sub: t.wait.count ? `median · p95 ${formatDuration(t.wait.p95)}` : "not recorded for these builds",
                     spark: days.map((d) => (d.wait.count ? d.wait.p50 : null)),
                 },
             ];

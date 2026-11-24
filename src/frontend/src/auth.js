@@ -18,3 +18,11 @@ export function requireAdmin() {
         return { path: "/settings", replace: true };
     }
 }
+
+// requireAdminForAnalytics sends others from the analytics tabs only the
+// admin password sees to the analytics of builds
+export function requireAdminForAnalytics() {
+    if (!state.auth.admin) {
+        return { name: "analytics", replace: true };
+    }
+}

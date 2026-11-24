@@ -308,7 +308,7 @@ export default {
                     key: "duration",
                     label: "Median duration",
                     value: d.duration.count ? formatDuration(d.duration.p50) : "—",
-                    sub: d.duration.count ? `p95 ${formatDuration(d.duration.p95)} · finished builds` : "no finished builds",
+                    sub: d.duration.count ? `p95 ${formatDuration(d.duration.p95)} · successful builds` : "no successful builds",
                 },
             ];
         },

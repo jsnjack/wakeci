@@ -70,6 +70,8 @@ type requestInfo struct {
 	user string
 	// apiKey is the ID of the API key the request carries
 	apiKey string
+	// mcpTool is the tool a request to /mcp called
+	mcpTool string
 	// attrs are added by the handler to the request's audit event
 	attrs []any
 }

@@ -252,6 +252,10 @@ func run(cleanup func()) (tasksLeft bool) {
 		if err := flushAPIKeyUses(); err != nil {
 			L.Error("save api key uses", "err", err)
 		}
+		// The requests counted since the last save
+		if err := flushRequestStats(); err != nil {
+			L.Error("save request stats", "err", err)
+		}
 		if err := DB.Close(); err != nil {
 			L.Error("close db", "err", err)
 		}
@@ -263,6 +267,8 @@ func run(cleanup func()) (tasksLeft bool) {
 	if err != nil {
 		fatal("bootstrap db", err)
 	}
+	// Stopped before the deferred save above, which runs later
+	defer startRequestStatsFlusher(requestStatsFlushInterval)()
 
 	GlobalSessionStorage, err = CreateSessionStorage(SessionCleanupPeriod, DB)
 	if err != nil {
@@ -520,6 +526,8 @@ func apiRoutes(router chi.Router) {
 	router.With(requireAccess(ScopeRead, nil)).Get("/feed", HandleFeedView)
 	// Counts only the jobs the user may read
 	router.With(requireAccess(ScopeRead, nil)).Get("/analytics/", HandleAnalytics)
+	// How everyone uses wakeci, so only for the admin, like who starts builds
+	router.With(requireAdmin).Get("/analytics/requests", HandleRequestStats)
 
 	router.Route("/jobs", func(router chi.Router) {
 		router.With(requireAccess(ScopeRead, nil)).Get("/", HandleJobsView)

@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory, isNavigationFailure, NavigationFailureType } from "vue-router";
 import { notify } from "@kyvg/vue3-notification";
 
-import { requireAdmin, requireAuth } from "./auth";
+import { requireAdmin, requireAdminForAnalytics, requireAuth } from "./auth";
 import { store } from "./store/index";
 // Every full page load passes through /login while the session is checked,
 // so the login page is in the main chunk instead of one more request
@@ -34,6 +34,12 @@ const router = createRouter({
             name: "analytics",
             component: () => import("./views/AnalyticsView.vue"),
             beforeEnter: requireAuth,
+        },
+        {
+            path: "/analytics/usage",
+            name: "analyticsUsage",
+            component: () => import("./views/UsageView.vue"),
+            beforeEnter: [requireAuth, requireAdminForAnalytics],
         },
         {
             path: "/job/:name/insights",
