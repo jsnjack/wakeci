@@ -174,8 +174,8 @@
                         class="bar-row"
                     >
                         <span>{{ triggers[item.kind] || item.kind }}</span>
-                        <span class="bar"><span :style="{ width: share(item.builds, data.totals.builds) }"></span></span>
-                        <span class="muted right-align">{{ item.builds }} · {{ share(item.builds, data.totals.builds) }}</span>
+                        <span class="bar"><span :style="{ width: barWidth(item.builds, data.totals.builds) }"></span></span>
+                        <span class="muted right-align">{{ item.builds }} · {{ formatShare(item.builds, data.totals.builds) }}</span>
                     </div>
                     <template v-if="data.showsPeople && data.people.length">
                         <div class="small-space"></div>
@@ -190,7 +190,7 @@
                                 <i class="tiny">{{ person.kind === "apikey" ? "key" : "person" }}</i>
                                 {{ personName(person) }}
                             </span>
-                            <span class="bar"><span :style="{ width: share(person.builds, data.people[0].builds) }"></span></span>
+                            <span class="bar"><span :style="{ width: barWidth(person.builds, data.people[0].builds) }"></span></span>
                             <span class="muted right-align">{{ person.builds }}</span>
                         </div>
                     </template>
@@ -269,10 +269,11 @@
                                 <td class="right-align">{{ row.duration.count ? formatDuration(row.duration.p95) : "—" }}</td>
                                 <td
                                     class="right-align nowrap"
-                                    :title="`${formatDuration(row.buildTime)} of ${formatDuration(totalBuildTime)}`"
+                                    :title="`${formatShare(row.buildTime, totalBuildTime, true)} of all jobs' ${formatDuration(totalBuildTime)}`"
+                                    data-cy="job-build-time"
                                 >
-                                    <span class="share-bar"><span :style="{ width: share(row.buildTime, totalBuildTime) }"></span></span>
-                                    {{ share(row.buildTime, totalBuildTime) }}
+                                    <span class="share-bar"><span :style="{ width: barWidth(row.buildTime, totalBuildTime) }"></span></span>
+                                    {{ formatDuration(row.buildTime) }}
                                 </td>
                                 <td class="nowrap">{{ ago(lastStarted(row)) }}</td>
                             </tr>
@@ -290,7 +291,8 @@
                 </div>
                 <StatusLegend />
                 <p class="chart-note">
-                    A short bar is a finished build, a full one failed or timed out. Click a bar to open the build, or a job to see its tasks.
+                    A short bar is a finished build, a full one failed or timed out. Click a bar to open the build, or a job to see its tasks. Build time is how
+                    long the job's builds ran; its bar is the job's share of all jobs' build time.
                 </p>
             </article>
         </template>
@@ -311,7 +313,21 @@
 
 <script>
 import "@/assets/charts.css";
-import { STATUSES, TRIGGERS, ago, axisDuration, dayLabel, formatDuration, formatRate, isZeroTime, niceDurationMax, perDay, plural } from "@/analytics";
+import {
+    STATUSES,
+    TRIGGERS,
+    ago,
+    axisDuration,
+    barWidth,
+    dayLabel,
+    formatDuration,
+    formatRate,
+    formatShare,
+    isZeroTime,
+    niceDurationMax,
+    perDay,
+    plural,
+} from "@/analytics";
 import AnalyticsTabs from "@/components/AnalyticsTabs.vue";
 import BandLegend from "@/components/charts/BandLegend.vue";
 import LineChart from "@/components/charts/LineChart.vue";
@@ -358,8 +374,8 @@ export default {
                 { key: "p95", label: "p95", numeric: true, sort: true },
                 {
                     key: "buildTime",
-                    label: "Share of build time",
-                    title: "The job's share of the time all jobs' builds took, failed ones included",
+                    label: "Build time",
+                    title: "How long the job's builds ran, failed and aborted ones included; the bar is its share of all jobs' build time",
                     numeric: true,
                     sort: true,
                 },
@@ -560,6 +576,8 @@ export default {
     },
     methods: {
         ago,
+        barWidth,
+        formatShare,
         axisDuration,
         formatDuration,
         formatRate,
@@ -652,12 +670,6 @@ export default {
                         : `7 days to ${dayLabel(d.day, true)}: no builds`,
                 };
             });
-        },
-        share(part, whole) {
-            if (!whole) {
-                return "0%";
-            }
-            return `${Math.round((part / whole) * 100)}%`;
         },
         personName(person) {
             if (person.kind === "apikey") {
