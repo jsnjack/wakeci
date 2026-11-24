@@ -182,7 +182,9 @@ API key of that server, kept in the secrets file:
 
 The task's `env` comes after wakeci's variables, so it wins. The other
 server sees the key, so the build has no parent there and the key's scopes
-and jobs apply; give it `run` on the jobs it starts only. The key is a
+and jobs apply; give it `read` and `run` on the jobs it starts only: `wake`
+reads the jobs to check every start before the first, and `--wait` and
+`--again` read builds. The key is a
 secret, so logs redact it; the task's processes can still read it, as any
 secret a task uses.
 

@@ -427,7 +427,8 @@ func (c *wakeClient) notStarted(rest []wakeStart) {
 func (c *wakeClient) planStarts(opts *startOptions, getenv func(string) string, stdin io.Reader) ([]wakeStart, []string, error) {
 	var jobs []*JobsListData
 	if err := c.getJSON("api/jobs/", wakeRequestTimeout, &jobs); err != nil {
-		return nil, nil, fmt.Errorf("read the jobs: %w", err)
+		// It checks the jobs and parameters with them, before it starts any
+		return nil, nil, fmt.Errorf("read the jobs (wake needs read and run on the jobs it starts): %w", err)
 	}
 	byName := make(map[string]*JobsListData, len(jobs))
 	for _, job := range jobs {
