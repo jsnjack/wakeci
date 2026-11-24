@@ -235,13 +235,22 @@ func TestBuildTokenOfAbortedTasksStartsNothing(t *testing.T) {
 }
 
 // A token checked as the request came starts nothing once its build has
-// left the queue
+// left the queue, which revokes it first; before the build is queued its
+// on_pending tasks may start builds
 func TestBuildTokenStartsNothingUnderAnEndedBuild(t *testing.T) {
 	router := tokenEnv(t)
 	root, _ := runAs(t, nil, "deploy", nil, http.StatusOK)
+	build := GlobalQueue.Live(root)
 	token := liveToken(t, root)
-	// As if Cleanup had removed it while the request was on its way
+	// As if its on_pending tasks ran: not queued yet
 	GlobalQueue.Remove(root)
+	if rec := tokenCall(router, "POST", "/api/job/nightly/run", token, url.Values{}); rec.Code != http.StatusOK {
+		t.Errorf("run from an on_pending task: %d %q, want 200", rec.Code, rec.Body.String())
+	}
+	// As if Cleanup revoked it while the request was on its way
+	build.mutex.Lock()
+	build.tokenRevoked = true
+	build.mutex.Unlock()
 	if rec := tokenCall(router, "POST", "/api/job/nightly/run", token, url.Values{}); rec.Code != http.StatusBadRequest ||
 		strings.TrimSpace(rec.Body.String()) != "build "+strconv.Itoa(root)+" has ended" {
 		t.Errorf("run under the ended build: %d %q, want 400 build %d has ended", rec.Code, rec.Body.String(), root)

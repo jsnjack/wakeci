@@ -85,6 +85,14 @@ func (b *Build) revokeBuildToken() {
 	buildTokens.mu.Unlock()
 }
 
+// tokenEnded reports whether the build's tokens were revoked, as it left
+// the queue
+func (b *Build) tokenEnded() bool {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+	return b.tokenRevoked
+}
+
 // verifyBuildToken returns the build whose token is token, and the abort
 // scope of the tasks that got it
 func verifyBuildToken(token string) (*Build, *abortScope, error) {

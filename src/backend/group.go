@@ -47,15 +47,15 @@ func errNoParent(id int) error {
 // jobs under a group either. Both must be builds the caller may read.
 func groupOf(r *http.Request, job string) (buildGroup, error) {
 	parentValue, againValue := r.Form.Get(parentParam), r.Form.Get(againParam)
-	// A build's token starts builds under its build, which is in the queue
-	// while the token works
+	// A build's token starts builds under its build, which works until the
+	// build leaves the queue; its on_pending tasks run before it is queued
 	if tokenBuild := tokenBuildFromContext(r.Context()); tokenBuild != nil && againValue == "" {
 		if parentValue != "" && parentValue != strconv.Itoa(tokenBuild.ID) {
 			return buildGroup{}, fmt.Errorf("a build's token starts builds under its own build, %d, not %s", tokenBuild.ID, parentValue)
 		}
 		// The token was checked as the request came; the build may have
-		// left the queue since
-		if GlobalQueue.Live(tokenBuild.ID) == nil {
+		// left the queue since, which revokes it first (Cleanup)
+		if tokenBuild.tokenEnded() {
 			return buildGroup{}, fmt.Errorf("build %d has ended", tokenBuild.ID)
 		}
 		return groupUnder(tokenBuild), nil

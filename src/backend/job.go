@@ -437,17 +437,15 @@ func RunJob(name string, params url.Values, untrustedParams bool, trigger buildT
 	// started just before goes with them (abortLeftover), since an abort of
 	// their group may miss it. Its on_aborted and finally tasks run in a new
 	// scope, with a new token, and may start builds.
-	if group.Parent != 0 {
+	// A token's scope needs no queue: on_pending tasks run before their
+	// build is queued
+	if group.Parent != 0 && startedIn == nil {
 		if parent := GlobalQueue.Live(group.Parent); parent != nil {
-			if startedIn == nil {
-				startedIn = parent.currentAbort()
-			}
-			if startedIn.stopped() != "" {
-				return nil, fmt.Errorf("build %d was aborted", group.Parent)
-			}
-		} else {
-			startedIn = nil
+			startedIn = parent.currentAbort()
 		}
+	}
+	if startedIn != nil && startedIn.stopped() != "" {
+		return nil, fmt.Errorf("build %d was aborted", group.Parent)
 	}
 	build, err := GlobalQueue.addNewBuild(func() (*Build, error) {
 		build, err := createBuild(job, jobFile, untrustedParams, params, group)
