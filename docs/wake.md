@@ -69,6 +69,16 @@ can't start a build twice; `wake` then says the build may have started.
 Exit status: 0 if every build started (and, with `--wait`, finished), 1 if
 something failed or nothing was started, 2 if `wake` was called wrongly.
 
+**A build that waits keeps its place in the queue.** While a task runs
+`wake start --wait`, its build still counts against the concurrent builds
+in the settings, its job's `concurrency` and its `concurrency_key`, and the
+build it waits for needs a place of its own. So leave room for both: if as
+many builds wait as there are places, the builds they wait for stay queued
+until the job's `timeout`. Set the concurrent builds above the number of
+builds that may wait at once, and don't let the build it waits for share
+the waiting build's `concurrency_key`, or its job if that job's
+`concurrency` is 1.
+
 ## wake api
 
 ```
