@@ -307,20 +307,10 @@ AGENTS.universal.md for the general contract.
   revoke), and only the hash of the secret is stored.
 - **Who may not edit jobs (keys, SSO users without write) can't send run
   parameters that reference a secret or hold a quote, line break or NUL**
-  (`rejectUnsafeParams`, `paramsUntrusted`). Run parameters go
-  through `injectSecrets`, so they could otherwise send any secret
-  wherever the job sends that parameter. A line break, or a quote on one
-  line, would let them add variables such as `BASH_ENV` to `build.env` through
-  the documented `echo "NAME=$VALUE"`: godotenv starts a new variable after
-  a quoted value (`TARGET="a" BASH_ENV=...`). Without quotes it reads the
-  rest of the line as one value, checked for godotenv v1.5.1. In
-  their builds (`Build.untrustedParams`, passed to `CreateBuild`
-  because it starts the `on_pending` tasks), `build.env` values skip
-  `injectSecrets`, because godotenv expands variables and a job can rewrite a
-  param, so a reference could be put together after the check. Cron, the
-  password and write keep the old rules. This can't stop a job
-  that sends a secret to a destination taken from a parameter; such a job
-  trusts whoever can run it.
+  (`rejectUnsafeParams`, `paramsUntrusted`), and `build.env` skips
+  `injectSecrets` in their builds, or they could read any secret or add
+  variables such as `BASH_ENV`. Why each rule, and what it can't stop:
+  [docs/access.md](docs/access.md#untrusted-run-parameters).
 - **Build artifacts run sandboxed on wakeci's own origin**
   (`storageCSP` in `StorageSecurityMi`). An HTML report is built by a job and
   opened by a logged-in user, so it must not act as that user. It can't send

@@ -44,6 +44,22 @@ and `build.env` isn't expanded in their builds (`paramsUntrusted`,
 only `run` could read any secret through a job's parameter, or run commands
 through `build.env`, which only `write` should allow.
 
+## Untrusted run parameters
+
+Run parameters go through `injectSecrets`, so a reference to a secret
+would send it wherever the job sends that parameter. A line break, or a
+quote on one line, would let the caller add variables such as `BASH_ENV`
+to `build.env` through the documented `echo "NAME=$VALUE"`: godotenv
+starts a new variable after a quoted value (`TARGET="a" BASH_ENV=...`).
+Without quotes it reads the rest of the line as one value, checked for
+godotenv v1.5.1. In their builds (`Build.untrustedParams`, passed to
+`CreateBuild` because it starts the `on_pending` tasks), `build.env` values
+skip `injectSecrets`, because godotenv expands variables and a job can
+rewrite a param, so a reference could be put together after the check.
+Cron, the password and write keep the old rules. This can't stop a job
+that sends a secret to a destination taken from a parameter; such a job
+trusts whoever can run it.
+
 ## Groups
 
 Groups live in the `ssogroups` bucket under their lowercased name, each with
