@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/url"
 	"os"
@@ -985,21 +986,24 @@ func (l *taskLogWriter) writeLines(plain, ansi string, colored bool) (int, error
 	return first, nil
 }
 
-// startANSILocked creates the colour log with the lines the log has so far
+// startANSILocked creates the colour log with the lines the log has so far,
+// copied from the file, not read into memory: a task may print a lot before
+// its first colour
 func (l *taskLogWriter) startANSILocked() error {
 	if err := l.w.Flush(); err != nil {
 		return err
 	}
-	before, err := os.ReadFile(l.path)
+	before, err := os.Open(l.path)
 	if err != nil {
 		return err
 	}
+	defer func() { _ = before.Close() }()
 	file, err := os.OpenFile(l.ansiPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, privateBuildFileMode)
 	if err != nil {
 		return err
 	}
 	l.ansiFile, l.ansi = file, bufio.NewWriter(file)
-	_, err = l.ansi.Write(before)
+	_, err = io.Copy(l.ansi, before)
 	return err
 }
 
