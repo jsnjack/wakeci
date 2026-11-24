@@ -134,8 +134,10 @@ func usedParams(build *Build, params url.Values) ([]string, int) {
 	slices.Sort(used)
 	used = slices.Compact(used)
 	ignored := len(params) - len(used)
+	// The run's own names, unless the job has a parameter so named, which
+	// used already counts
 	for _, name := range []string{parentParam, againParam} {
-		if params.Has(name) {
+		if params.Has(name) && !slices.Contains(used, name) {
 			ignored--
 		}
 	}
