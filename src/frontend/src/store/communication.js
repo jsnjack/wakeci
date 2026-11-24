@@ -17,7 +17,11 @@ const handleSystemNotification = function (app, data) {
     }
     const watches = app.$store.state.watches;
     const watched = watches.builds.includes(data.id);
-    const search = watches.searches.find((query) => matchesFilter(data, createFilterObj(query)));
+    // A search tells only of builds this page saw before they ended: one
+    // that ended before it was opened still sends updates while its hooks
+    // run, and would tell again on every reload. A bell is the user's own,
+    // and goes once it told
+    const search = last === undefined ? undefined : watches.searches.find((query) => matchesFilter(data, createFilterObj(query)));
     if (!watched && search === undefined) {
         return;
     }

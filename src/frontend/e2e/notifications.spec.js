@@ -62,3 +62,21 @@ test("the bell still tells after leaving the insights and analytics pages", asyn
     await gate.release();
     await expect(page.locator(".toast", { hasText: `${name} finished` })).toBeVisible();
 });
+
+// A build that ended before the page was opened still sends updates while
+// its hooks run; a watched search doesn't tell of it again on a reload
+test("a watched search doesn't tell of a build that ended before the page opened", async ({ page, wake }) => {
+    const gate = await wake.gate();
+    const name = await wake.createJob(`tasks:\n  - name: fail\n    run: exit 1\nfinally:\n  - name: wait\n    run: ${gate.command}\n`);
+    await wake.showFeed(name);
+    await page.getByTestId("watch-search").click();
+    await expect(page.getByTestId("watch-search")).toHaveAttribute("aria-pressed", "true");
+    const id = await wake.runJob(name);
+    await wake.waitForBuild(id, "failed");
+
+    await wake.livePage("/jobs");
+    await gate.release();
+    await expect.poll(async () => (await (await page.request.get(`/api/build/${id}`)).json()).ended).toBe(true);
+    await page.waitForTimeout(500);
+    await expect(page.locator(".toast", { hasText: `${name} failed` })).toHaveCount(0);
+});
