@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"time"
 
@@ -280,6 +281,15 @@ func (b *Build) noteInterrupted(task *Task) {
 		return
 	}
 	log := &taskLogWriter{file: file, w: bufio.NewWriter(file)}
+	// The colour log, which the log viewer shows if the task wrote one,
+	// ends with the note too
+	ansi, err := os.OpenFile(b.taskANSILogPath(task.ID), os.O_APPEND|os.O_WRONLY, privateBuildFileMode)
+	switch {
+	case err == nil:
+		log.ansiFile, log.ansi = ansi, bufio.NewWriter(ansi)
+	case !errors.Is(err, fs.ErrNotExist):
+		b.Logger.Error("open task colour log", "task", task.ID, "err", err)
+	}
 	b.ProcessLogEntry("> "+interruptedTaskNote+".", log, task.ID, task.startedAt)
 	if err := log.Close(); err != nil {
 		b.Logger.Error("close task log", "task", task.ID, "err", err)

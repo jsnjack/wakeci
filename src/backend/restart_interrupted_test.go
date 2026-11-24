@@ -126,6 +126,11 @@ func TestInterruptedBuildRunsItsHooks(t *testing.T) {
 	build.Params[0]["TARGET"] = "custom"
 	build.mutex.Unlock()
 	interruptBuild(t, build, StatusRunning, []int{0}, 1, nil)
+	// The cut task wrote colours, so the log viewer shows its colour log
+	const colourLog = "[ 1s] \x1b[1mworking\x1b[0m\n"
+	if err := os.WriteFile(build.taskANSILogPath(1), []byte(colourLog), 0600); err != nil {
+		t.Fatal(err)
+	}
 	// An older wakeci queues every build in QueueBucket again after a
 	// rollback, so it would run this one twice
 	if ids := queuedRecordIDs(t); len(ids) != 0 {
@@ -169,6 +174,11 @@ func TestInterruptedBuildRunsItsHooks(t *testing.T) {
 	if err != nil || !strings.HasPrefix(string(cutLog), "[ 1s] working\n") ||
 		!strings.Contains(string(cutLog), "> "+interruptedTaskNote+".") {
 		t.Errorf("log of the cut task = %q, %v; want its output, then the note", cutLog, err)
+	}
+	cutColours, err := os.ReadFile(build.taskANSILogPath(1))
+	if err != nil || !strings.HasPrefix(string(cutColours), colourLog) ||
+		!strings.Contains(string(cutColours), "> "+interruptedTaskNote+".") {
+		t.Errorf("colour log of the cut task = %q, %v; want its output, then the note", cutColours, err)
 	}
 	hookLog, err := os.ReadFile(build.taskLogPath(4))
 	if err != nil || !strings.Contains(string(hookLog), "> "+interruptedRunNote+".") {
