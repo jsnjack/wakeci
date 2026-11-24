@@ -1,22 +1,20 @@
 import state from "./store/state";
 
-export function requireAuth(to, from, next) {
+// Guards return where to go instead, or nothing to let the navigation through
+
+export function requireAuth(to) {
     if (!state.auth.isLoggedIn) {
-        next({
+        return {
             path: "/login",
             query: { redirect: to.fullPath },
             replace: true,
-        });
-    } else {
-        next();
+        };
     }
 }
 
 // requireAdmin keeps the pages only the admin password can use from others
-export function requireAdmin(to, from, next) {
+export function requireAdmin() {
     if (!state.auth.admin) {
-        next({ path: "/settings", replace: true });
-    } else {
-        next();
+        return { path: "/settings", replace: true };
     }
 }
