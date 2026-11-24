@@ -253,6 +253,7 @@ type fakeWake struct {
 	// "" for one that hasn't ended
 	builds map[int][]ItemStatus
 	ran    []string
+	sent   []url.Values
 	// odd answers {} for a build and puts a null in the job list, as a
 	// proxy's page or another server might
 	odd bool
@@ -264,7 +265,7 @@ func (f *fakeWake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.URL.Path == "/api/jobs/":
 		jobs := []*JobsListData{
-			{Name: "deploy", Active: "true", DefaultParams: []map[string]string{{"NODE": ""}}},
+			{Name: "deploy", Active: "true", DefaultParams: []map[string]string{{"NODE": ""}, {"MSG": "it's ok"}}},
 		}
 		if f.odd {
 			jobs = append(jobs, nil)
@@ -285,6 +286,7 @@ func (f *fakeWake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case http.StatusOK:
 			f.nextID++
 			f.ran = append(f.ran, r.Form.Get("NODE"))
+			f.sent = append(f.sent, r.Form)
 			_, _ = fmt.Fprint(w, f.nextID)
 		case http.StatusTooManyRequests:
 			w.Header().Set("Retry-After", "7")
@@ -304,7 +306,7 @@ func (f *fakeWake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			status, f.builds[id] = statuses[0], statuses[1:]
 		}
 		_ = json.NewEncoder(w).Encode(GetBuildPayload{
-			StatusUpdate: &BuildUpdateData{ID: id, Name: "deploy", Status: status},
+			StatusUpdate: &BuildUpdateData{ID: id, Name: "deploy", Status: status, Params: []map[string]string{{"NODE": "web-1"}, {"MSG": "it's ok"}}},
 			Ended:        status != "",
 		})
 	default:
@@ -406,6 +408,19 @@ func TestWakeStopsAtAnAnswerWithoutABuild(t *testing.T) {
 	status, stdout, stderr, _ = fakeWakeRun(t, f, "", "--again", "5")
 	if status != 1 || len(f.ran) != 0 || !strings.Contains(stderr, "read build 5: the answer has no status_update") {
 		t.Errorf("wake start --again: %d %q %q, ran %v", status, stdout, stderr, f.ran)
+	}
+}
+
+// A build token may not send a value with a quote, but a value at the
+// job's default isn't sent at all, so running a build again works
+func TestWakeLeavesOutDefaults(t *testing.T) {
+	f := &fakeWake{}
+	status, stdout, stderr, _ := fakeWakeRun(t, f, "", "--again", "5")
+	if status != 0 || !slices.Equal(f.ran, []string{"web-1"}) {
+		t.Fatalf("wake start --again: %d %q %q, ran %v", status, stdout, stderr, f.ran)
+	}
+	if f.sent[0].Has("MSG") {
+		t.Errorf("sent MSG=%q, the job's default", f.sent[0].Get("MSG"))
 	}
 }
 

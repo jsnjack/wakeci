@@ -503,20 +503,32 @@ func (c *wakeClient) planStarts(opts *startOptions, getenv func(string) string, 
 			problems = append(problems, name+" is disabled.")
 		}
 		has := map[string]bool{}
+		defaults := map[string]string{}
 		for _, param := range job.DefaultParams {
-			for paramName := range param {
+			for paramName, value := range param {
 				has[paramName] = true
+				defaults[paramName] = value
 			}
 		}
+		// An inherited or repeated value at the job's default is left out:
+		// the server uses it anyway, and a caller who may not edit jobs
+		// couldn't send a default that holds a quote or a secret reference
 		params := url.Values{}
+		take := func(paramName, value string) {
+			if value == defaults[paramName] {
+				params.Del(paramName)
+			} else {
+				params.Set(paramName, value)
+			}
+		}
 		for paramName, values := range inherited {
 			if has[paramName] && len(values) > 0 {
-				params.Set(paramName, values[0])
+				take(paramName, values[0])
 			}
 		}
 		for paramName, values := range again {
 			if has[paramName] {
-				params.Set(paramName, values[0])
+				take(paramName, values[0])
 			}
 		}
 		for _, sets := range [][]wakeParam{fileParams, opts.params} {
