@@ -291,6 +291,9 @@ func (b *Build) noteInterrupted(task *Task) {
 		b.Logger.Error("open task colour log", "task", task.ID, "err", err)
 	}
 	b.ProcessLogEntry("> "+interruptedTaskNote+".", log, task.ID, task.startedAt)
+	// At once, as runTask does: the task doesn't run again, so nothing else
+	// would send it before its batch's timer, which would outlive the call
+	b.flushLog()
 	if err := log.Close(); err != nil {
 		b.Logger.Error("close task log", "task", task.ID, "err", err)
 	}
