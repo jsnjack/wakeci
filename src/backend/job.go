@@ -431,6 +431,20 @@ func RunJob(name string, params url.Values, untrustedParams bool, trigger buildT
 		// Says which file, since the error may only name a line
 		return nil, fmt.Errorf("%s%s can't be read: %w", name, Config.jobsExt, err)
 	}
+	// The parent's tasks that start this build. An abort stops them, so
+	// a build they start then is refused; one they started just before goes
+	// with them (abortLeftover), since an abort of their group may miss it.
+	// Its on_aborted and finally tasks run in a new scope, and may start
+	// builds.
+	var startedIn *abortScope
+	if group.Parent != 0 {
+		if parent := GlobalQueue.Live(group.Parent); parent != nil {
+			startedIn = parent.currentAbort()
+			if startedIn.stopped() != "" {
+				return nil, fmt.Errorf("build %d was aborted", group.Parent)
+			}
+		}
+	}
 	build, err := GlobalQueue.addNewBuild(func() (*Build, error) {
 		build, err := createBuild(job, jobFile, untrustedParams, params, group)
 		if err != nil {
@@ -444,9 +458,25 @@ func RunJob(name string, params url.Values, untrustedParams bool, trigger buildT
 	if err != nil {
 		return nil, err
 	}
+	abortLeftover(build, group.Parent, startedIn)
 	build.BroadcastUpdate()
 	GlobalQueue.Take()
 	return build, nil
+}
+
+// abortLeftover aborts build, now queued, if the tasks of its parent that
+// started it (startedIn) were aborted meanwhile. A cancel_group abort reads
+// the parent's group after it aborts them (applySupersede), and build joined
+// the group before it was queued, so either that read finds build in the
+// queue or this sees the abort.
+func abortLeftover(build *Build, parent int, startedIn *abortScope) {
+	if startedIn == nil || startedIn.stopped() == "" {
+		return
+	}
+	build.Logger.Info("aborting a build its parent started as it was aborted", "parent", parent)
+	if err := GlobalQueue.AbortBy(build.ID, StatusAborted, fmt.Sprintf("as part of #%d, which was aborted", parent)); err != nil {
+		build.Logger.Info("abort a build its parent started as it was aborted", "err", err)
+	}
 }
 
 // InitJobWatcher initializes watcher which uses fsnotify to watch for changes

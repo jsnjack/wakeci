@@ -128,6 +128,11 @@ starts (`buildtoken.go`). The key router takes it like an API key
   secrets; limiting the token would add no protection.
 - The builds it starts are its build's children, without `WAKE_PARENT`; a
   different `WAKE_PARENT` is refused.
+- **An abort stops it starting builds** until the build's on_aborted and
+  finally tasks run, which may start builds again (`RunJob`). A build its
+  tasks started as the abort came is aborted too ("Aborted as part of #N,
+  which was aborted"), so a cancel group can't miss one that was on its
+  way. A run with `WAKE_PARENT` follows the same rule.
 - It can't edit jobs, so the builds it starts follow the rules for untrusted
   parameters ([docs/access.md](access.md)), as builds started with a run key
   always did.

@@ -377,3 +377,28 @@ func waitLeftQueue(t *testing.T, ids ...int) {
 		}
 	}
 }
+
+// An abort stops the parent's tasks, so they can't start builds; one they
+// started just before goes with them, since an abort of their group
+// (cancel_group) may have read the group before it joined
+func TestAnAbortedParentStartsNoBuilds(t *testing.T) {
+	groupEnv(t)
+	root, _ := runAs(t, nil, "deploy", nil, http.StatusOK)
+	parent := GlobalQueue.Live(root)
+	startedIn := parent.currentAbort()
+	child, _ := runAs(t, nil, "nightly", url.Values{parentParam: {strconv.Itoa(root)}}, http.StatusOK)
+
+	parent.requestAbort(StatusAborted, "", "")
+	_, refused := runAs(t, nil, "nightly", url.Values{parentParam: {strconv.Itoa(root)}}, http.StatusBadRequest)
+	if want := "build " + strconv.Itoa(root) + " was aborted"; refused != want {
+		t.Errorf("run under the aborted build: %q, want %q", refused, want)
+	}
+
+	abortLeftover(GlobalQueue.Live(child), root, startedIn)
+	if status := ended(t, child); status != StatusAborted {
+		t.Errorf("the build its aborted tasks started: %s, want aborted", status)
+	}
+	// Its on_aborted and finally tasks may start builds
+	parent.nextAbortScope()
+	runAs(t, nil, "nightly", url.Values{parentParam: {strconv.Itoa(root)}}, http.StatusOK)
+}
