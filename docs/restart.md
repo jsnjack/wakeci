@@ -73,8 +73,9 @@ or in `--import-settings`, `backupForNewVersion` writes a copy next to it,
   `on_aborted`/`finally` run; it never reruns them, since jobs such as deploys
   may not be safe to repeat. Queued builds are what survives: they are saved
   in the `queue` bucket by `BroadcastUpdate` (one transaction with the history
-  entry) and restored with their job snapshot, params and API key flag. Their
-  `on_pending` tasks don't run again. Builds, scheduled ones too (cron starts
+  entry) and restored with their job snapshot, params, API key flag and
+  cancel key (`setRestoredKeys`, so `cancel_unless` doesn't run before the
+  port is bound). Their `on_pending` tasks don't run again. Builds, scheduled ones too (cron starts
   there), are started only after the port is bound, so a failed listen can't
   cut them short. A build is saved before it leaves the queue
   (`BroadcastUpdate` before `Cleanup`), since a stop closes the DB once the

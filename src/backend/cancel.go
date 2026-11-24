@@ -82,7 +82,23 @@ func (b *Build) setKeys(cancels bool) {
 			keys.cancelKey = key
 		}
 	}
-	b.keys = keys
+	b.mutex.Lock()
+	b.keys, b.keysSet = keys, true
+	b.mutex.Unlock()
+}
+
+// setRestoredKeys gives a queued build that a restart restored the cancel
+// key it was queued with, so cancel_unless doesn't run again before startup
+// ends; a record without it (an older version's) works it out again
+func (b *Build) setRestoredKeys() {
+	if b.savedCancelKey == nil {
+		b.setQueueKeys()
+		return
+	}
+	b.setKeys(false)
+	b.mutex.Lock()
+	b.keys.cancelKey = *b.savedCancelKey
+	b.mutex.Unlock()
 }
 
 // expandKey fills the params into key; ok is false if key is empty or names

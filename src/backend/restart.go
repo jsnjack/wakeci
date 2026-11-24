@@ -54,6 +54,10 @@ type queuedBuild struct {
 	// Parent and Root are the build's group, 0 if no build started it
 	Parent int `json:"parent,omitempty"`
 	Root   int `json:"root,omitempty"`
+	// CancelKey is the cancel key the build was queued with, "" for none,
+	// so a restore doesn't run cancel_unless again; nil in a record saved
+	// before it was queued, or by an older version
+	CancelKey *string `json:"cancelKey,omitempty"`
 }
 
 // RestoreQueue queues the builds that were queued when wakeci stopped, in
@@ -86,7 +90,7 @@ func RestoreQueue(q *Queue) error {
 			}
 			continue
 		}
-		build.setQueueKeys()
+		build.setRestoredKeys()
 		q.Add(build)
 		build.BroadcastUpdate()
 		restored++
@@ -123,6 +127,7 @@ func newRestoredBuild(id int, saved *queuedBuild) (*Build, error) {
 		queuedAt:        saved.QueuedAt,
 		trigger:         saved.Trigger,
 		group:           buildGroup{Parent: saved.Parent, Root: saved.Root},
+		savedCancelKey:  saved.CancelKey,
 	}
 	build.Logger = L.With("build", id)
 	ran := map[int]*TaskStatus{}

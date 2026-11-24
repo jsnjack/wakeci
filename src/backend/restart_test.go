@@ -1056,3 +1056,41 @@ func TestQueuedBuildOfAnOlderVersionKeepsItsMark(t *testing.T) {
 		}
 	}
 }
+
+// A restored queued build keeps the cancel key it was queued with, so its
+// cancel_unless doesn't run again before startup ends
+func TestRestoredBuildKeepsItsCancelKey(t *testing.T) {
+	newTestBuildEnv(t)
+	useQueue(t, &Queue{})
+	marker := filepath.Join(t.TempDir(), "ran")
+	job := &Job{
+		Name:          "tests",
+		DefaultParams: []map[string]string{{"BRANCH": "main"}},
+		CancelGroup:   "tests/$BRANCH",
+		CancelUnless:  "touch " + marker + "; false",
+		Tasks:         []*Task{{ID: 0, Command: "true", Kind: KindMain}},
+	}
+	build, err := CreateBuild(job, filepath.Join(Config.JobDir, "tests.yaml"), false)
+	if err != nil {
+		t.Fatalf("CreateBuild: %v", err)
+	}
+	build.setQueueKeys()
+	GlobalQueue.Add(build)
+	build.BroadcastUpdate()
+	if err := os.Remove(marker); err != nil {
+		t.Fatalf("cancel_unless didn't run as the build was queued: %v", err)
+	}
+
+	restarted := &Queue{}
+	GlobalQueue = restarted
+	if err := RestoreQueue(restarted); err != nil {
+		t.Fatalf("RestoreQueue: %v", err)
+	}
+	restored := restarted.Live(build.ID)
+	if restored == nil || restored.keys.cancelKey != "tests/main" {
+		t.Fatalf("restored build %v, want it queued with cancel key tests/main", restored)
+	}
+	if _, err := os.Stat(marker); err == nil {
+		t.Error("cancel_unless ran again at the restore")
+	}
+}

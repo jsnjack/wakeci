@@ -113,8 +113,13 @@ type Build struct {
 	// Set before the build is shared, never changed
 	interrupted bool
 	// keys are the build's cancel and concurrency keys (cancel.go), set
-	// before it is queued, never changed
-	keys queueKeys
+	// before it is queued, never changed; keysSet says they were, for its
+	// queue record. Written under mutex
+	keys    queueKeys
+	keysSet bool
+	// savedCancelKey is a restored build's cancel key from its queue
+	// record (setRestoredKeys)
+	savedCancelKey *string
 	// cancelled are the builds this one cancelled as it was queued, and
 	// supersededBy the newer build that cancelled it then; for the run's
 	// audit event, written by the goroutine that queues the build
@@ -918,6 +923,10 @@ func (b *Build) records() (data, queued, started, stats []byte, err error) {
 		Tasks:             b.GetTasksStatus(),
 		Parent:            b.group.Parent,
 		Root:              b.group.Root,
+	}
+	if b.keysSet {
+		cancelKey := b.keys.cancelKey
+		saved.CancelKey = &cancelKey
 	}
 	switch {
 	case b.Status == StatusPending && !b.abortedWhileQueued:
