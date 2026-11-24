@@ -6,21 +6,6 @@
         @update:open="$emit('update:open', $event)"
     >
         <p
-            v-if="fromLast"
-            class="cluster between gap-2 text-sm muted"
-            data-cy="run-last-values"
-        >
-            <span>The values you used last time</span>
-            <button
-                type="button"
-                class="btn btn-sm btn-ghost"
-                data-cy="run-use-defaults"
-                @click="useDefaults"
-            >
-                Use the job's defaults
-            </button>
-        </p>
-        <p
             v-if="suggestions.length"
             class="cluster between gap-2 text-sm"
             data-cy="run-suggested"
@@ -166,20 +151,12 @@ import { escapeHtml } from "@/store/utils.js";
 import axios from "axios";
 
 let forms = 0;
-const LAST_KEY = "runValues:";
-
-function loadLast(job) {
-    try {
-        const last = JSON.parse(window.localStorage.getItem(LAST_KEY + job) || "null");
-        return last && typeof last === "object" ? last : null;
-    } catch {
-        return null;
-    }
-}
 
 // RunDialog asks for a job's parameters and queues a build of it (J2): the
-// labels first, what param_info says about each, which values differ from
-// the job's defaults, and the values used last time
+// labels first, what param_info says about each, and which values differ
+// from the job's defaults. It remembers no values: they can hold secrets,
+// and build artifacts run on wakeci's origin, so they can read and write
+// localStorage
 export default {
     components: { UiDialog },
     props: {
@@ -211,11 +188,6 @@ export default {
             type: Object,
             default: () => ({}),
         },
-        // Starts from the values used last time instead of params
-        rememberLast: {
-            type: Boolean,
-            default: false,
-        },
         // The build this run runs again, if another build started it: the
         // new build stays under the same parent
         again: {
@@ -230,7 +202,7 @@ export default {
     },
     emits: ["update:open"],
     data() {
-        return { values: {}, fromLast: false, formID: `run-form-${++forms}` };
+        return { values: {}, formID: `run-form-${++forms}` };
     },
     computed: {
         // The suggested values the form doesn't have yet
@@ -264,16 +236,6 @@ export default {
                     return;
                 }
                 this.values = Object.fromEntries(this.fields.map((field) => [field.name, field.value]));
-                this.fromLast = false;
-                const last = this.rememberLast ? loadLast(this.jobName) : null;
-                if (last) {
-                    for (const field of this.fields) {
-                        if (typeof last[field.name] === "string") {
-                            this.values[field.name] = last[field.name];
-                        }
-                    }
-                    this.fromLast = this.fields.some((field) => this.values[field.name] !== field.value);
-                }
             },
         },
     },
@@ -289,17 +251,8 @@ export default {
                 this.values[field.name] = this.suggested[field.name];
             }
         },
-        useDefaults() {
-            this.values = Object.fromEntries(this.fields.map((field) => [field.name, field.default]));
-            this.fromLast = false;
-        },
         run() {
             const values = Object.fromEntries(this.fields.map((field) => [field.name, this.values[field.name] ?? ""]));
-            try {
-                window.localStorage.setItem(LAST_KEY + this.jobName, JSON.stringify(values));
-            } catch {
-                // A browser that keeps nothing doesn't remember them
-            }
             this.$emit("update:open", false);
             const query = new URLSearchParams(Object.entries(values));
             if (this.again) {

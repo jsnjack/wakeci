@@ -57,7 +57,7 @@ test("should group jobs by their group or the start of their names", async ({ pa
     await expect(page.getByTestId("job-group")).toHaveCount(0);
 });
 
-test("should explain the run form's parameters and remember the last values", async ({ page, wake }) => {
+test("should explain the run form's parameters and start each run from the defaults", async ({ page, wake }) => {
     const name = await wake.createJob(`
 params:
   - TARGET: staging
@@ -84,12 +84,11 @@ tasks:
     await page.getByTestId("start-job-confirm").click();
     await expect(page.locator(".notification-content")).toContainText(`${name} has been scheduled`);
 
-    // The next run starts from these values
+    // The next run starts from the job's defaults again: the browser keeps
+    // no values, since they can hold secrets and artifacts can read them
     await page.getByTestId(name).getByTestId("run-job-button").click();
-    await expect(page.getByTestId("run-last-values")).toBeVisible();
-    await expect(page.getByTestId("run-param-TARGET")).toHaveValue("prod");
-    await expect(page.getByTestId("run-param-CLEANUP")).toBeChecked();
-    await page.getByTestId("run-use-defaults").click();
     await expect(page.getByTestId("run-param-TARGET")).toHaveValue("staging");
+    await expect(page.getByTestId("run-param-CLEANUP")).not.toBeChecked();
     await expect(page.getByTestId("run-changed")).toHaveCount(0);
+    expect(await page.evaluate(() => Object.keys(window.localStorage).filter((key) => key.startsWith("runValues:")))).toEqual([]);
 });

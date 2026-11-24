@@ -220,7 +220,6 @@
             :defaults="Object.assign({}, ...(runJob.defaultParams || []))"
             :labels="runJob.labels || []"
             :param-info="runJob.paramInfo || {}"
-            remember-last
         />
 
         <UiDialog
