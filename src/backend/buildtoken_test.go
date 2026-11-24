@@ -202,6 +202,38 @@ func TestBuildTokenInTasksAndRedacted(t *testing.T) {
 	}
 }
 
+// An abort gives the build's hooks a new token: a run sent with the aborted
+// tasks' token is theirs, however late it arrives, so it is refused, while
+// the hooks may start builds. The old token still reads.
+func TestBuildTokenOfAbortedTasksStartsNothing(t *testing.T) {
+	router := tokenEnv(t)
+	root, _ := runAs(t, nil, "deploy", nil, http.StatusOK)
+	build := GlobalQueue.Live(root)
+	mainToken := liveToken(t, root)
+
+	build.requestAbort(StatusAborted, "", "")
+	build.nextAbortScope()
+	hookToken := liveToken(t, root)
+	if hookToken == mainToken {
+		t.Fatal("the hooks got the aborted tasks' token")
+	}
+	if rec := tokenCall(router, "POST", "/api/job/nightly/run", mainToken, url.Values{}); rec.Code != http.StatusBadRequest ||
+		strings.TrimSpace(rec.Body.String()) != "build "+strconv.Itoa(root)+" was aborted" {
+		t.Errorf("run with the aborted tasks' token: %d %q, want 400 build %d was aborted", rec.Code, rec.Body.String(), root)
+	}
+	if rec := tokenCall(router, "GET", "/api/whoami", mainToken, nil); rec.Code != http.StatusOK {
+		t.Errorf("the aborted tasks' token reads: %d, want 200", rec.Code)
+	}
+	if rec := tokenCall(router, "POST", "/api/job/nightly/run", hookToken, url.Values{}); rec.Code != http.StatusOK {
+		t.Errorf("run with the hooks' token: %d %q, want 200", rec.Code, rec.Body.String())
+	}
+	// Both are redacted in logs
+	values := buildTokenValues()
+	if !slices.Contains(values, mainToken) || !slices.Contains(values, hookToken) {
+		t.Error("a token of the build isn't redacted")
+	}
+}
+
 // A token checked as the request came starts nothing once its build has
 // left the queue
 func TestBuildTokenStartsNothingUnderAnEndedBuild(t *testing.T) {

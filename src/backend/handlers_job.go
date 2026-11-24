@@ -85,7 +85,13 @@ func HandleRunJob(w http.ResponseWriter, r *http.Request) {
 	if group.Parent != 0 {
 		addAuditAttrs(r, "parent", group.Parent)
 	}
-	build, err := RunJob(name, r.Form, paramsUntrusted(r), triggerOf(r), group)
+	// A token's run under its build comes from the tasks that got it, which
+	// an abort may have stopped since, however late the run arrives
+	var startedIn *abortScope
+	if tokenBuild := tokenBuildFromContext(r.Context()); tokenBuild != nil && group.Parent == tokenBuild.ID {
+		startedIn = tokenScopeFromContext(r.Context())
+	}
+	build, err := RunJob(name, r.Form, paramsUntrusted(r), triggerOf(r), group, startedIn)
 	if err != nil {
 		logger.Error("run job", "job", name, "err", err)
 		w.WriteHeader(http.StatusBadRequest)

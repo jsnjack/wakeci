@@ -1050,7 +1050,7 @@ func limitBearer(w http.ResponseWriter, logger *slog.Logger, id, subject string,
 // context. Never log the token; the build ID is fine.
 func buildTokenAuth(w http.ResponseWriter, r *http.Request, next http.Handler, token string) {
 	logger := requestLogger(r)
-	build, err := verifyBuildToken(token)
+	build, scope, err := verifyBuildToken(token)
 	if err != nil {
 		rejectBearer(w, r, "login.buildtoken", err, "Invalid build token, or its build has ended")
 		return
@@ -1062,7 +1062,7 @@ func buildTokenAuth(w http.ResponseWriter, r *http.Request, next http.Handler, t
 		return
 	}
 	ctx := context.WithValue(r.Context(), HL, logger)
-	ctx = context.WithValue(ctx, tokenBuildContextKey{}, build)
+	ctx = context.WithValue(ctx, tokenBuildContextKey{}, tokenAuth{build, scope})
 	ctx = context.WithValue(ctx, accessContextKey{}, buildTokenAccess())
 	next.ServeHTTP(w, r.WithContext(ctx))
 }

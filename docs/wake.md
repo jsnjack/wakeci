@@ -145,11 +145,14 @@ starts (`buildtoken.go`). The key router takes it like an API key
   different `WAKE_PARENT` is refused. `--again` (`WAKE_AGAIN`) is the
   exception: the new build keeps the parent of the build it runs again, so
   an abort of the calling build doesn't reach it.
-- **An abort stops it starting builds** until the build's on_aborted and
-  finally tasks run, which may start builds again (`RunJob`). A build its
-  tasks started as the abort came is aborted too ("Aborted as part of #N,
-  which was aborted"), so a cancel group can't miss one that was on its
-  way. A run with `WAKE_PARENT` follows the same rule.
+- **An abort stops it starting builds.** The build's on_aborted and
+  finally tasks get a new token, which may start builds again; the aborted
+  tasks' token still reads, but a run sent with it is refused ("build N was
+  aborted"), however late it arrives. A build those tasks started as the
+  abort came is aborted too ("Aborted as part of #N, which was aborted"),
+  so a cancel group can't miss one that was on its way. A run with
+  `WAKE_PARENT` follows the same rule, judged by the parent's tasks that
+  run when it arrives.
 - It can't edit jobs, so the builds it starts follow the rules for untrusted
   parameters ([docs/access.md](access.md)), as builds started with a run key
   always did.

@@ -258,7 +258,7 @@ func TestRunJobGivesTheFirstUpdateAndPendingTasksTheRunParams(t *testing.T) {
 		t.Fatalf("register job: %v", err)
 	}
 
-	build, err := RunJob("pending-params", url.Values{"CITY": {"minsk"}}, false, buildTrigger{Kind: TriggerPassword}, buildGroup{})
+	build, err := RunJob("pending-params", url.Values{"CITY": {"minsk"}}, false, buildTrigger{Kind: TriggerPassword}, buildGroup{}, nil)
 	if err != nil {
 		t.Fatalf("RunJob: %v", err)
 	}
@@ -295,7 +295,7 @@ func TestRunJobNamesTheFileThatDoesntParse(t *testing.T) {
 	if err := os.WriteFile(path, []byte("tasks:\n  - name: x\n    run: curl -H \"a: b\"\n  bad: [\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	_, err := RunJob("deploy", nil, false, buildTrigger{Kind: TriggerPassword}, buildGroup{})
+	_, err := RunJob("deploy", nil, false, buildTrigger{Kind: TriggerPassword}, buildGroup{}, nil)
 	if err == nil || !strings.HasPrefix(err.Error(), "deploy"+Config.jobsExt+" can't be read: ") {
 		t.Errorf("run of a broken job: %v", err)
 	}

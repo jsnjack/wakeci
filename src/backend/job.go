@@ -141,7 +141,7 @@ func (j *Job) AddToCron() error {
 // Run is used to run a job via cron
 func (j *Job) Run() {
 	var params url.Values
-	build, err := RunJob(j.Name, params, false, buildTrigger{Kind: TriggerInterval}, buildGroup{})
+	build, err := RunJob(j.Name, params, false, buildTrigger{Kind: TriggerInterval}, buildGroup{}, nil)
 	if err != nil {
 		L.Error("schedule build via cron", "job", j.Name, "err", err)
 		auditScheduled("build.run", "failed", "trigger", "interval", "job", j.Name, "reason", err.Error())
@@ -404,7 +404,7 @@ func RemoveJobFromCron(name string) {
 
 // RunJob creates a new build and schedules it for execution. trigger says
 // who or what started it, and group which build, if one did
-func RunJob(name string, params url.Values, untrustedParams bool, trigger buildTrigger, group buildGroup) (*Build, error) {
+func RunJob(name string, params url.Values, untrustedParams bool, trigger buildTrigger, group buildGroup, startedIn *abortScope) (*Build, error) {
 	// Check if job is enabled
 	err := DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(JobsBucket))
@@ -431,18 +431,22 @@ func RunJob(name string, params url.Values, untrustedParams bool, trigger buildT
 		// Says which file, since the error may only name a line
 		return nil, fmt.Errorf("%s%s can't be read: %w", name, Config.jobsExt, err)
 	}
-	// The parent's tasks that start this build. An abort stops them, so
-	// a build they start then is refused; one they started just before goes
-	// with them (abortLeftover), since an abort of their group may miss it.
-	// Its on_aborted and finally tasks run in a new scope, and may start
-	// builds.
-	var startedIn *abortScope
+	// startedIn is the abort scope of the parent's tasks that start this
+	// build: their token's (HandleRunJob), else the parent's current one. An
+	// abort stops them, so a build they start then is refused; one they
+	// started just before goes with them (abortLeftover), since an abort of
+	// their group may miss it. Its on_aborted and finally tasks run in a new
+	// scope, with a new token, and may start builds.
 	if group.Parent != 0 {
 		if parent := GlobalQueue.Live(group.Parent); parent != nil {
-			startedIn = parent.currentAbort()
+			if startedIn == nil {
+				startedIn = parent.currentAbort()
+			}
 			if startedIn.stopped() != "" {
 				return nil, fmt.Errorf("build %d was aborted", group.Parent)
 			}
+		} else {
+			startedIn = nil
 		}
 	}
 	build, err := GlobalQueue.addNewBuild(func() (*Build, error) {

@@ -122,10 +122,8 @@ type Build struct {
 	// group is the build that started this one and the root of its chain,
 	// set before the build's tasks start. Guarded by mutex
 	group buildGroup
-	// token is the build's WAKE_TOKEN, created when its first task starts,
-	// and tokenRevoked is set once the build left the queue (buildtoken.go).
-	// Guarded by mutex
-	token        string
+	// tokenRevoked is set once the build left the queue; its tokens, one
+	// per abort scope, are in the scopes (buildtoken.go). Guarded by mutex
 	tokenRevoked bool
 	// updateMu is held by BroadcastUpdate from taking the build's state until
 	// it is saved, so updates are saved in the order they were taken: an
@@ -148,6 +146,9 @@ type abortScope struct {
 	// sam@example.com"; empty if unknown. Set with reason
 	by string
 	c  chan struct{}
+	// token is the WAKE_TOKEN of the tasks that run in this scope, created
+	// when the first starts (buildtoken.go). Guarded by the build's mutex
+	token string
 }
 
 func newAbortScope() *abortScope {

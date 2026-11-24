@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -29,44 +30,52 @@ const (
 )
 
 // buildTokens are the tokens of the builds that haven't left the queue, by
-// build ID, with a hash of each secret
+// build ID, with a hash of each secret. A build has one per abort scope: an
+// abort gives its on_aborted and finally tasks a new one, so a run sent
+// with the aborted tasks' token counts as theirs, however late it arrives
 var buildTokens = struct {
 	mu   deadlock.Mutex
-	byID map[int]buildTokenEntry
-}{byID: map[int]buildTokenEntry{}}
+	byID map[int][]buildTokenEntry
+}{byID: map[int][]buildTokenEntry{}}
 
 type buildTokenEntry struct {
 	token string
 	hash  [sha256.Size]byte
 	build *Build
+	// scope is the abort scope of the tasks that got the token
+	scope *abortScope
 }
 
 var errBuildToken = errors.New("invalid build token, or its build has ended")
 
-// buildToken returns the build's token, created on first use, or "" once
-// the build left the queue
+// buildToken returns the token of the build's tasks that run now, in its
+// current abort scope, created on first use, or "" once the build left the
+// queue
 func (b *Build) buildToken() (string, error) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	if b.tokenRevoked {
 		return "", nil
 	}
-	if b.token != "" {
-		return b.token, nil
+	scope := b.abortLocked()
+	if scope.token != "" {
+		return scope.token, nil
 	}
 	secret := make([]byte, buildTokenSecretBytes)
 	if _, err := rand.Read(secret); err != nil {
 		return "", fmt.Errorf("create build token: %w", err)
 	}
 	encoded := base64.RawURLEncoding.EncodeToString(secret)
-	b.token = buildTokenPrefix + strconv.Itoa(b.ID) + "_" + encoded
+	scope.token = buildTokenPrefix + strconv.Itoa(b.ID) + "_" + encoded
 	buildTokens.mu.Lock()
-	buildTokens.byID[b.ID] = buildTokenEntry{token: b.token, hash: sha256.Sum256([]byte(encoded)), build: b}
+	buildTokens.byID[b.ID] = append(buildTokens.byID[b.ID], buildTokenEntry{
+		token: scope.token, hash: sha256.Sum256([]byte(encoded)), build: b, scope: scope,
+	})
 	buildTokens.mu.Unlock()
-	return b.token, nil
+	return scope.token, nil
 }
 
-// revokeBuildToken ends the build's token, as the build leaves the queue
+// revokeBuildToken ends the build's tokens, as the build leaves the queue
 func (b *Build) revokeBuildToken() {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
@@ -76,25 +85,28 @@ func (b *Build) revokeBuildToken() {
 	buildTokens.mu.Unlock()
 }
 
-// verifyBuildToken returns the build whose token is token
-func verifyBuildToken(token string) (*Build, error) {
+// verifyBuildToken returns the build whose token is token, and the abort
+// scope of the tasks that got it
+func verifyBuildToken(token string) (*Build, *abortScope, error) {
 	rest, ok := strings.CutPrefix(token, buildTokenPrefix)
 	if !ok {
-		return nil, errBuildToken
+		return nil, nil, errBuildToken
 	}
 	idText, secret, ok := strings.Cut(rest, "_")
 	id, err := strconv.Atoi(idText)
 	if !ok || err != nil || id < 1 || strconv.Itoa(id) != idText {
-		return nil, errBuildToken
+		return nil, nil, errBuildToken
 	}
 	buildTokens.mu.Lock()
-	entry, found := buildTokens.byID[id]
+	entries := slices.Clone(buildTokens.byID[id])
 	buildTokens.mu.Unlock()
 	hash := sha256.Sum256([]byte(secret))
-	if !found || subtle.ConstantTimeCompare(hash[:], entry.hash[:]) != 1 {
-		return nil, errBuildToken
+	for _, entry := range entries {
+		if subtle.ConstantTimeCompare(hash[:], entry.hash[:]) == 1 {
+			return entry.build, entry.scope, nil
+		}
 	}
-	return entry.build, nil
+	return nil, nil, errBuildToken
 }
 
 // buildTokenValues are the tokens of the builds in the queue, which build
@@ -104,8 +116,10 @@ func buildTokenValues() []string {
 	buildTokens.mu.Lock()
 	defer buildTokens.mu.Unlock()
 	values := make([]string, 0, len(buildTokens.byID))
-	for _, entry := range buildTokens.byID {
-		values = append(values, entry.token)
+	for _, entries := range buildTokens.byID {
+		for _, entry := range entries {
+			values = append(values, entry.token)
+		}
 	}
 	return values
 }
@@ -120,9 +134,23 @@ func buildTokenAccess() *Access {
 
 type tokenBuildContextKey struct{}
 
+// tokenAuth is the build whose token authorized a request, and the abort
+// scope of the tasks that got the token
+type tokenAuth struct {
+	build *Build
+	scope *abortScope
+}
+
 // tokenBuildFromContext returns the build whose token authorized the
 // request, or nil
 func tokenBuildFromContext(ctx context.Context) *Build {
-	build, _ := ctx.Value(tokenBuildContextKey{}).(*Build)
-	return build
+	auth, _ := ctx.Value(tokenBuildContextKey{}).(tokenAuth)
+	return auth.build
+}
+
+// tokenScopeFromContext returns the abort scope of the tasks whose token
+// authorized the request, or nil
+func tokenScopeFromContext(ctx context.Context) *abortScope {
+	auth, _ := ctx.Value(tokenBuildContextKey{}).(tokenAuth)
+	return auth.scope
 }
