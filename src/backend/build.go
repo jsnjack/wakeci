@@ -1102,10 +1102,12 @@ type logBatch struct {
 // lines that wait to be sent: text, and ansi with their colours if colored
 func (b *Build) queueLog(task, first int, text, ansi string, colored bool) {
 	batch := &b.logBatch
-	var ready []*MsgBroadcast
+	// Held until the batches it takes are sent, as in flushLog, so the timer
+	// and the task's output can't send theirs out of order
 	batch.mu.Lock()
+	defer batch.mu.Unlock()
 	if batch.text.Len() > 0 && batch.task != task {
-		ready = append(ready, b.takeLogBatchLocked())
+		WSHub.broadcast <- b.takeLogBatchLocked()
 	}
 	if batch.text.Len() == 0 {
 		batch.task, batch.first = task, first
@@ -1114,28 +1116,24 @@ func (b *Build) queueLog(task, first int, text, ansi string, colored bool) {
 	batch.ansi.WriteString(ansi)
 	batch.colored = batch.colored || colored
 	if batch.text.Len() >= logBatchMax {
-		ready = append(ready, b.takeLogBatchLocked())
+		WSHub.broadcast <- b.takeLogBatchLocked()
 	} else if batch.timer == nil {
 		batch.timer = time.AfterFunc(logBatchDelay, b.flushLog)
 	}
-	batch.mu.Unlock()
-	for _, msg := range ready {
-		WSHub.broadcast <- msg
-	}
 }
 
-// flushLog sends the lines that wait, at once
+// flushLog sends the lines that wait, at once. It holds batch.mu until they
+// are sent, so runTask's last flush waits for a batch the timer is sending,
+// and the task's last lines go out before its status changes
 func (b *Build) flushLog() {
 	batch := &b.logBatch
 	batch.mu.Lock()
+	defer batch.mu.Unlock()
 	if batch.text.Len() == 0 {
 		batch.timer = nil
-		batch.mu.Unlock()
 		return
 	}
-	msg := b.takeLogBatchLocked()
-	batch.mu.Unlock()
-	WSHub.broadcast <- msg
+	WSHub.broadcast <- b.takeLogBatchLocked()
 }
 
 // takeLogBatchLocked empties the batch into a message; batch.mu is held
