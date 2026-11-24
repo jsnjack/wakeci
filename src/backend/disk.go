@@ -16,8 +16,8 @@ import (
 	berrors "go.etcd.io/bbolt/errors"
 )
 
-// Disk use per job (job insights): a build's size on disk is measured right
-// after it left the queue and kept in its stats record; the insights add up the job's builds
+// Disk use per job (job insights): a build's size on disk is measured in
+// the background as it leaves the queue and kept in its stats record; the insights add up the job's builds
 // still in the history, whose files cleanup hasn't removed. Builds from
 // before wakeci measured them are measured once after startup.
 
@@ -93,8 +93,9 @@ func withSavedDisk(tx *bolt.Tx, id int, stats []byte) ([]byte, error) {
 // together don't walk their files at once
 var diskMeasures sync.Mutex
 
-// saveDiskLater measures build b, which has left the queue, in the
-// background and saves its size in its stats record. A walk of a large
+// saveDiskLater measures build b, whose tasks have ended, in the
+// background and saves its size in its stats record; call it before the
+// build leaves the queue. A walk of a large
 // workspace takes long, so the build doesn't hold its place in the queue
 // for it. A stop may close the database first; BackfillBuildDisk then
 // measures the build at the next start. What it needs is read now, so the

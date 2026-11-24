@@ -1327,8 +1327,10 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		// Saved before the build leaves the queue: a stop waits only for
 		// builds in the queue, then closes the database
 		b.BroadcastUpdate()
-		b.Cleanup()
+		// Before it leaves the queue, which tests and a stop take as the
+		// end: it reads what it needs now, and measures in the background
 		saveDiskLater(b)
+		b.Cleanup()
 	case StatusFailed:
 		b.runOnStatusTasks(status)
 		b.CollectArtifacts()
@@ -1337,8 +1339,10 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		b.runOnStatusTasks(FinalTask)
 		b.setDuration()
 		b.BroadcastUpdate()
-		b.Cleanup()
+		// Before it leaves the queue, which tests and a stop take as the
+		// end: it reads what it needs now, and measures in the background
 		saveDiskLater(b)
+		b.Cleanup()
 	case StatusFinished:
 		b.runOnStatusTasks(status)
 		b.CollectArtifacts()
@@ -1353,8 +1357,10 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 			}
 		}
 		b.BroadcastUpdate()
-		b.Cleanup()
+		// Before it leaves the queue, which tests and a stop take as the
+		// end: it reads what it needs now, and measures in the background
 		saveDiskLater(b)
+		b.Cleanup()
 	}
 
 }
