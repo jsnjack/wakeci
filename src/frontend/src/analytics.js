@@ -31,13 +31,13 @@ export const TRIGGERS = {
     unknown: "Not recorded (older builds)",
 };
 
-// How requests come in, by the credentials they carried (the API's via)
+// How requests reach wakeci, by how they sign in (the API's via)
 export const VIAS = {
     web: "Web UI",
     basic: "API with password",
     key: "API with key",
     mcp: "MCP",
-    none: "No credentials",
+    none: "Not signed in",
 };
 
 // The outcomes of requests, in the order the charts stack them from the

@@ -95,7 +95,7 @@
                         label="Success rate per day, over the 7 days up to it"
                     />
                     <p class="chart-note">
-                        Successful (finished) builds as a share of finished, failed and timed out ones; aborted builds don't count.<span v-if="rateMin > 0">
+                        Share of builds that succeeded. Aborted builds don't count.<span v-if="rateMin > 0">
                             The axis starts at {{ formatRate(rateMin) }}.</span
                         >
                     </p>
@@ -132,7 +132,7 @@
                         <progress class="circle small"></progress>
                     </div>
                     <BandLegend />
-                    <p class="chart-note">Only builds that finished successfully.</p>
+                    <p class="chart-note">Successful builds only.</p>
                 </article>
             </div>
 
@@ -160,7 +160,7 @@
                         v-else
                         class="chart-note"
                     >
-                        None of these builds has a queue time: wakeci versions from before mid-November 2026 didn't record it.
+                        No queue times for these builds: wakeci started recording them in mid-November 2026.
                     </p>
                 </article>
                 <article
@@ -184,6 +184,7 @@
                             v-for="person in data.people"
                             :key="person.kind + person.user + person.apiKey"
                             class="bar-row"
+                            :title="`${personName(person)}: ${plural(person.builds, 'build')}`"
                             data-cy="trigger-person"
                         >
                             <span class="ellipsis">
@@ -291,8 +292,8 @@
                 </div>
                 <StatusLegend />
                 <p class="chart-note">
-                    A short bar is a finished build, a full one failed or timed out. Click a bar to open the build, or a job to see its tasks. Build time is how
-                    long the job's builds ran; its bar is the job's share of all jobs' build time.
+                    A short bar is a finished build, a full one failed or timed out. Click a bar to open the build, or a job to see its tasks. The build time
+                    bar is the job's share of all jobs.
                 </p>
             </article>
         </template>
@@ -375,7 +376,7 @@ export default {
                 {
                     key: "buildTime",
                     label: "Build time",
-                    title: "How long the job's builds ran, failed and aborted ones included; the bar is its share of all jobs' build time",
+                    title: "Total time the job's builds ran, failed ones included",
                     numeric: true,
                     sort: true,
                 },
@@ -391,13 +392,22 @@ export default {
         startsLate() {
             return this.data.since && new Date(this.data.since) > new Date(`${this.data.from}T00:00:00`);
         },
+        // countedDays are the days of the range that wakeci has build stats
+        // of, so the average a day isn't diluted by days before them
+        countedDays() {
+            if (!this.startsLate) {
+                return this.days;
+            }
+            const since = new Date(this.data.since);
+            return this.data.byDay.filter((d) => new Date(`${d.day}T23:59:59.999`) >= since).length || 1;
+        },
         sinceText() {
             return new Date(this.data.since).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
         },
         tiles() {
             const t = this.data.totals;
             const days = this.data.byDay;
-            let rateSub = `of ${plural(t.finished + t.failed + t.timedOut, "build")}, aborted ones left out`;
+            let rateSub = `of ${plural(t.finished + t.failed + t.timedOut, "build")}, not counting aborted`;
             if (t.successRate !== null && this.data.previousSuccessRate !== null) {
                 const diff = (t.successRate - this.data.previousSuccessRate) * 100;
                 rateSub = `${diff >= 0 ? "▲" : "▼"} ${Math.abs(diff).toFixed(1)} percentage points vs the previous ${this.days} days`;
@@ -407,7 +417,7 @@ export default {
                     key: "builds",
                     label: "Builds",
                     value: t.builds.toLocaleString(),
-                    sub: perDay(t.builds, this.days),
+                    sub: perDay(t.builds, this.countedDays),
                     spark: days.map((d) => d.finished + d.failed + d.timedOut + d.aborted),
                 },
                 {
@@ -578,6 +588,7 @@ export default {
         ago,
         barWidth,
         formatShare,
+        plural,
         axisDuration,
         formatDuration,
         formatRate,

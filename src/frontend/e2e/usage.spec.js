@@ -55,7 +55,7 @@ test("API usage shows a key's requests and MCP tool calls by route and tool", as
     await expect(routes.filter({ hasText: "GET /api/jobs/" }).locator("td").nth(2)).toHaveText("2");
     await expect(routes.filter({ hasText: "GET /api/build/{id}" }).locator("td").nth(5)).toHaveText("1");
     // A route keys can't use is refused without naming it
-    await expect(routes.filter({ hasText: "No route" }).locator("td").nth(4)).toHaveText("1");
+    await expect(routes.filter({ hasText: "No matching route" }).locator("td").nth(4)).toHaveText("1");
     await expect(routes.filter({ hasText: "POST /mcp" })).toContainText("MCP");
 
     const tools = page.getByTestId("tools-row");
@@ -64,6 +64,8 @@ test("API usage shows a key's requests and MCP tool calls by route and tool", as
     await expect(tools.filter({ hasText: "build_summary" }).locator("td").nth(4)).toHaveText("1");
 
     await expect(page.getByTestId("people")).toContainText(name);
+    // A long key name is cut on the page; hovering shows it whole
+    await expect(page.getByTestId("person").filter({ hasText: "usage" })).toHaveAttribute("title", new RegExp(`^${name}\n`));
     await expect(page.getByTestId("interface")).toHaveCount(2);
 
     // The routes table sorts and filters

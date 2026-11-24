@@ -25,7 +25,7 @@
             <SearchSelect
                 v-model="via"
                 :options="viaOptions"
-                label="Came in through"
+                label="Interface"
                 class="filter-select"
                 data-cy="via-filter"
             />
@@ -55,7 +55,7 @@
             class="border no-elevate small-padding muted"
             data-cy="usage-since"
         >
-            <i>info</i> wakeci counts requests since {{ dayLabel(data.since, true) }}, so the days before have none.
+            <i>info</i> Counting started on {{ dayLabel(data.since, true) }}.
         </article>
 
         <template v-if="data && (data.totals.requests > 0 || data.totals.toolCalls > 0)">
@@ -86,10 +86,7 @@
                     noun="requests"
                 />
                 <StatusLegend :series="outcomes" />
-                <p class="chart-note">
-                    Refused: wrong or missing credentials, no permission, or too many requests (401, 403, 429). Client error: any other 4xx, such as 400 or 404.
-                    Server error: 5xx.
-                </p>
+                <p class="chart-note">Refused: not signed in, not allowed, or too many requests (401, 403, 429). Client error: other 4xx. Server error: 5xx.</p>
             </article>
 
             <div class="grid">
@@ -97,7 +94,7 @@
                     class="border no-elevate padding s12 l6"
                     data-cy="interfaces"
                 >
-                    <h6 class="small no-margin">How requests come in</h6>
+                    <h6 class="small no-margin">Requests by interface</h6>
                     <div
                         v-for="item in data.interfaces"
                         :key="item.via"
@@ -109,10 +106,6 @@
                         <span class="bar"><span :style="{ width: barWidth(item.requests, interfacesTotal) }"></span></span>
                         <span class="muted right-align">{{ item.requests.toLocaleString() }} · {{ formatShare(item.requests, interfacesTotal) }}</span>
                     </div>
-                    <p class="chart-note">
-                        By the credentials a request carried, right or wrong: a session is the web UI, Basic auth with the password and API keys are the API.
-                        MCP counts the requests to /mcp; each tool call is one of them.
-                    </p>
                 </article>
                 <article
                     class="border no-elevate padding s12 l6"
@@ -137,9 +130,8 @@
                         v-if="data.people.length > shownPeople.length"
                         class="chart-note"
                     >
-                        And {{ data.people.length - shownPeople.length }} more; pick one in "Person or key".
+                        {{ data.people.length - shownPeople.length }} more in the "Person or key" filter.
                     </p>
-                    <p class="chart-note">Requests whose credentials were missing or wrong have no one.</p>
                 </article>
             </div>
 
@@ -156,11 +148,7 @@
                     count-label="Requests"
                     cy="routes"
                 />
-                <p class="chart-note">
-                    "No route" is a path that no route matches; for API keys, also a route that keys can't use. Median and p95 are estimated from time buckets,
-                    so they are within about a third; the slowest is exact. WebSockets (/ws) and reads that wait for a build (wait=) are counted, but their time
-                    isn't. A download from /storage takes as long as its file.
-                </p>
+                <p class="chart-note">Median and p95 are estimates. Times leave out live updates (/ws) and requests that wait for a build.</p>
             </article>
 
             <article
@@ -177,10 +165,7 @@
                     count-label="Calls"
                     cy="tools"
                 />
-                <p class="chart-note">
-                    A failed call counts with the status of the API call that failed in it. A call whose arguments don't fit the tool is turned down before it
-                    runs and counts only as a request to /mcp.
-                </p>
+                <p class="chart-note">Calls with invalid arguments aren't counted here.</p>
             </article>
         </template>
 
@@ -227,8 +212,8 @@ export default {
             data: null,
             loading: false,
             routeColumns: [
-                { key: "via", label: "Came in through", format: (row) => VIAS[row.via] || row.via },
-                { key: "route", label: "Route", code: true, format: (row) => row.route || "No route" },
+                { key: "via", label: "Interface", format: (row) => VIAS[row.via] || row.via },
+                { key: "route", label: "Route", code: true, format: (row) => row.route || "No matching route" },
             ],
             toolColumns: [{ key: "tool", label: "Tool", code: true, format: (row) => row.tool }],
         };
@@ -241,8 +226,16 @@ export default {
         startsLate() {
             return this.data.since && this.data.since > this.data.from;
         },
+        // countedDays are the days of the range that wakeci counted requests
+        // on, so the average a day isn't diluted by days before it started
+        countedDays() {
+            if (!this.startsLate) {
+                return this.days;
+            }
+            return this.data.byDay.filter((d) => d.day >= this.data.since).length || 1;
+        },
         viaOptions() {
-            return [{ value: "", label: "Any way" }, ...Object.entries(VIAS).map(([value, label]) => ({ value, label }))];
+            return [{ value: "", label: "All" }, ...Object.entries(VIAS).map(([value, label]) => ({ value, label }))];
         },
         whoOptions() {
             const people = this.data ? this.data.people : [];
@@ -268,7 +261,7 @@ export default {
                     key: "requests",
                     label: "Requests",
                     value: t.requests.toLocaleString(),
-                    sub: perDay(t.requests, this.days),
+                    sub: perDay(t.requests, this.countedDays),
                     spark: days.map((d) => d.requests),
                 },
                 {
@@ -368,7 +361,7 @@ export default {
                     parts.push(`${counts[outcome.key].toLocaleString()} ${outcome.label}`);
                 }
             }
-            return `${total.toLocaleString()} requests: ${parts.join(", ")}`;
+            return `${plural(total, "request")}: ${parts.join(", ")}`;
         },
         personName(person) {
             if (person.kind === "password") {
@@ -385,7 +378,7 @@ export default {
                 .sort((a, b) => b[1] - a[1])
                 .map(([via, n]) => `${VIAS[via] || via} ${n.toLocaleString()}`);
             const calls = person.toolCalls ? `; ${person.toolCalls.toLocaleString()} MCP tool calls` : "";
-            return `${this.outcomeText(person, person.requests)}\n${ways.join(" · ")}${calls}`;
+            return `${this.personName(person)}\n${this.outcomeText(person, person.requests)}\n${ways.join(" · ")}${calls}`;
         },
     },
 };
