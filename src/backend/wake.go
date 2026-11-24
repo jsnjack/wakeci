@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -84,6 +85,8 @@ const (
 	// under the 60 s a proxy such as nginx waits for an answer by default,
 	// which would answer 504 to a longer wait, and wake would give up
 	wakeWaitSeconds = 50
+	// wakeOldServerPoll is how often --wait asks a wakeci that doesn't wait
+	wakeOldServerPoll = 5 * time.Second
 	// maxWakeAnswer is the most of an answer wake reads, except from api
 	maxWakeAnswer = 64 << 20
 )
@@ -611,7 +614,12 @@ func (c *wakeClient) run(s wakeStart) (int, error) {
 func (c *wakeClient) waitFor(id int) (ItemStatus, error) {
 	path := fmt.Sprintf("api/build/%d?wait=%d", id, wakeWaitSeconds)
 	for {
-		var build GetBuildPayload
+		var build struct {
+			StatusUpdate *BuildUpdateData `json:"status_update"`
+			// Ended is nil from a wakeci before it said, which doesn't wait
+			// either (another server's)
+			Ended *bool `json:"ended"`
+		}
 		if err := c.getJSON(path, time.Duration(wakeWaitSeconds)*time.Second+wakeRequestTimeout, &build); err != nil {
 			return "", err
 		}
@@ -620,8 +628,14 @@ func (c *wakeClient) waitFor(id int) (ItemStatus, error) {
 		if build.StatusUpdate == nil {
 			return "", fmt.Errorf("build %d: the answer has no status_update", id)
 		}
-		if build.Ended {
-			return build.StatusUpdate.Status, nil
+		status := build.StatusUpdate.Status
+		switch {
+		case build.Ended != nil && *build.Ended:
+			return status, nil
+		case build.Ended == nil && slices.Contains(buildDoneStatuses, status):
+			return status, nil
+		case build.Ended == nil:
+			c.sleep(wakeOldServerPoll)
 		}
 	}
 }

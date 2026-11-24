@@ -257,6 +257,8 @@ type fakeWake struct {
 	// odd answers {} for a build and puts a null in the job list, as a
 	// proxy's page or another server might
 	odd bool
+	// old answers a build without ended, as a wakeci before v3 does
+	old bool
 }
 
 func (f *fakeWake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -304,6 +306,10 @@ func (f *fakeWake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		status := ItemStatus(StatusFinished)
 		if len(statuses) > 0 {
 			status, f.builds[id] = statuses[0], statuses[1:]
+		}
+		if f.old {
+			_ = json.NewEncoder(w).Encode(map[string]any{"status_update": &BuildUpdateData{ID: id, Name: "deploy", Status: status}})
+			return
 		}
 		_ = json.NewEncoder(w).Encode(GetBuildPayload{
 			StatusUpdate: &BuildUpdateData{ID: id, Name: "deploy", Status: status, Params: []map[string]string{{"NODE": "web-1"}, {"MSG": "it's ok"}}},
@@ -408,6 +414,19 @@ func TestWakeStopsAtAnAnswerWithoutABuild(t *testing.T) {
 	status, stdout, stderr, _ = fakeWakeRun(t, f, "", "--again", "5")
 	if status != 1 || len(f.ran) != 0 || !strings.Contains(stderr, "read build 5: the answer has no status_update") {
 		t.Errorf("wake start --again: %d %q %q, ran %v", status, stdout, stderr, f.ran)
+	}
+}
+
+// A wakeci before v3 sends no ended and doesn't wait: a final status ends
+// the wait, and wake asks again only after a pause
+func TestWakeWaitsOnAnOldServer(t *testing.T) {
+	f := &fakeWake{old: true, builds: map[int][]ItemStatus{1: {StatusRunning, StatusRunning, StatusFailed}}}
+	status, stdout, stderr, waits := fakeWakeRun(t, f, "", "deploy", "--wait")
+	if status != 1 || !strings.Contains(stdout, "deploy #1: failed") {
+		t.Errorf("wake start --wait: %d %q %q", status, stdout, stderr)
+	}
+	if want := []time.Duration{wakeOldServerPoll, wakeOldServerPoll}; !slices.Equal(waits, want) {
+		t.Errorf("waits %v, want %v", waits, want)
 	}
 }
 
