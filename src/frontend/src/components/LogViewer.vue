@@ -544,6 +544,12 @@ export default {
             this.parser = new AnsiParser();
             this.spans = new Map();
             const lines = text === "" ? [] : text.replace(/\n$/, "").split("\n");
+            // A running task may be writing its last line; the live log
+            // sends it whole, so the line count leaves it out (a tail has
+            // none: the server leaves it out)
+            if (!tail && text !== "" && !text.endsWith("\n")) {
+                lines.pop();
+            }
             const visible = lines.map((line, i) => this.parse(line, i + 1));
             // A tail is numbered from where it starts, so line links,
             // matches of the search of all tasks and the streamed lines'

@@ -114,6 +114,22 @@ test("should number a long log's tail from where it starts", async ({ page, wake
     await expect(log.locator(".log-marked")).toHaveText("line 392");
 });
 
+// A running task may be writing its last line as the log is read; the
+// live log sends it whole, so the viewer leaves the unfinished one out
+test("should leave out an unfinished last line of a log", async ({ page, wake }) => {
+    const name = await wake.createJob("tasks:\n  - name: Talk\n    run: echo hi\n");
+    const id = await wake.runJob(name);
+    await wake.waitForBuild(id);
+    await page.route(
+        (url) => url.pathname === `/api/build/${id}/log/0`,
+        (route) => route.fulfill({ body: "line 1\nline 2\nline 3 unfini", headers: { "Content-Type": "text/plain" } }),
+    );
+    await wake.openBuild(id);
+    await openLog(page);
+    const log = page.getByTestId("task-log");
+    await expect(log.locator(".cm-line")).toHaveText(["line 1", "line 2"]);
+});
+
 test("should search all tasks and open a match", async ({ page, wake }) => {
     const name = await wake.createJob(`
 tasks:
