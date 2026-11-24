@@ -354,3 +354,27 @@ func TestInterruptedNoteIsNumberedAfterTheLog(t *testing.T) {
 		t.Errorf("note sent as %+v, want line 4", msg.Data)
 	}
 }
+
+// A killed wakeci may leave the colour log at another line than the log;
+// it no longer matches, so it goes, and the log route serves the plain log
+func TestInterruptedColourLogThatDoesntMatchGoes(t *testing.T) {
+	newTestBuildEnv(t)
+	build, err := CreateBuild(&Job{Name: "cut", Tasks: []*Task{{ID: 0, Command: "true", Kind: KindMain}}}, filepath.Join(Config.JobDir, "cut.yaml"), false)
+	if err != nil {
+		t.Fatalf("CreateBuild: %v", err)
+	}
+	build.pendingTasksWG.Wait()
+	if err := os.WriteFile(build.taskLogPath(0), []byte("[ 1s] a\n[ 2s] b\n[ 3s] c\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(build.taskANSILogPath(0), []byte("[ 1s] \x1b[1ma\x1b[0m\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	build.noteInterrupted(build.Job.Tasks[0])
+	if _, err := os.Stat(build.taskANSILogPath(0)); !os.IsNotExist(err) {
+		t.Errorf("colour log: %v, want it removed", err)
+	}
+	if plain, err := os.ReadFile(build.taskLogPath(0)); err != nil || !strings.Contains(string(plain), interruptedTaskNote) {
+		t.Errorf("log %q, %v; want the note", plain, err)
+	}
+}

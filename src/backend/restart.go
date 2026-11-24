@@ -287,17 +287,31 @@ func (b *Build) noteInterrupted(task *Task) {
 	}
 	log := &taskLogWriter{file: file, w: bufio.NewWriter(file)}
 	// Numbered after the lines the log has, as the live log expects
-	if lines, err := countFileLines(b.taskLogPath(task.ID)); err == nil {
+	lines, err := countFileLines(b.taskLogPath(task.ID))
+	if err == nil {
 		log.lines = lines
 	}
 	// The colour log, which the log viewer shows if the task wrote one,
-	// ends with the note too
-	ansi, err := os.OpenFile(b.taskANSILogPath(task.ID), os.O_APPEND|os.O_WRONLY, privateBuildFileMode)
+	// ends with the note too. The two files' buffers were written out at
+	// different moments, so a killed wakeci may have left them at different
+	// lines; then the colour log no longer matches the log and goes
+	ansiPath := b.taskANSILogPath(task.ID)
+	ansiLines, ansiErr := countFileLines(ansiPath)
 	switch {
-	case err == nil:
+	case ansiErr == nil && (err != nil || ansiLines != lines):
+		b.Logger.Warn("dropping a colour log that doesn't match its log", "task", task.ID, "lines", lines, "colourLines", ansiLines)
+		if err := os.Remove(ansiPath); err != nil {
+			b.Logger.Error("remove task colour log", "task", task.ID, "err", err)
+		}
+	case ansiErr == nil:
+		ansi, err := os.OpenFile(ansiPath, os.O_APPEND|os.O_WRONLY, privateBuildFileMode)
+		if err != nil {
+			b.Logger.Error("open task colour log", "task", task.ID, "err", err)
+			break
+		}
 		log.ansiFile, log.ansi = ansi, bufio.NewWriter(ansi)
-	case !errors.Is(err, fs.ErrNotExist):
-		b.Logger.Error("open task colour log", "task", task.ID, "err", err)
+	case !errors.Is(ansiErr, fs.ErrNotExist):
+		b.Logger.Error("read task colour log", "task", task.ID, "err", ansiErr)
 	}
 	b.ProcessLogEntry("> "+interruptedTaskNote+".", log, task.ID, task.startedAt)
 	// At once, as runTask does: the task doesn't run again, so nothing else
