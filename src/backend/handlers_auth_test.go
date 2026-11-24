@@ -120,7 +120,7 @@ func TestHandleLogOutClearsCookieWithSessionAttributes(t *testing.T) {
 	t.Cleanup(func() { Config = originalConfig })
 
 	GlobalSessionStorage.sessions[sessionKey("session-token")] = session{expires: time.Now().Add(time.Hour)}
-	req := httptest.NewRequest(http.MethodGet, "/auth/logout", nil)
+	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
 	req.Header.Set("X-Forwarded-Proto", "https")
 	req.AddCookie(&http.Cookie{Name: "session", Value: "session-token"})
 	rec := httptest.NewRecorder()

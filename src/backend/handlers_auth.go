@@ -147,7 +147,7 @@ func HandleLogIn(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// HandleLogOut logs the user out
+// HandleLogOut logs the user out (POST /auth/logout)
 func HandleLogOut(w http.ResponseWriter, r *http.Request) {
 	r, _ = withRequestInfo(r)
 	logger, ok := r.Context().Value(HL).(*slog.Logger)

@@ -796,7 +796,7 @@ func TestAuditLogout(t *testing.T) {
 	newAuditTestEnv(t)
 	logout := func(cookie *http.Cookie) []auditEvent {
 		events, _ := captureAudit(t)
-		req := httptest.NewRequest("GET", "/auth/logout", nil)
+		req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
 		if cookie != nil {
 			req.AddCookie(cookie)
 		}

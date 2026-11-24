@@ -209,7 +209,7 @@ export default {
         },
         logOut: function () {
             axios
-                .get("/auth/logout")
+                .post("/auth/logout")
                 .then(() => {
                     this.$store.commit("LOG_OUT");
                     this.$router.push("/login");

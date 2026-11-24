@@ -365,7 +365,10 @@ func run(cleanup func()) (tasksLeft bool) {
 		router.With(AuthMi).Get("/_isLoggedIn", HandleIsLoggedIn)
 		router.Get("/methods", HandleAuthMethods)
 		router.Post("/login", HandleLogIn)
-		router.Get("/logout", HandleLogOut)
+		// POST, so that a page on this origin can't log the user out with an
+		// image or a link: a build artifact can load those, but can't send a
+		// POST (storageCSP)
+		router.Post("/logout", HandleLogOut)
 		router.Get(ssoLoginRoute, HandleSSOLogIn)
 		router.Post(ssoACSRoute, HandleSSOACS)
 	})
