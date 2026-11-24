@@ -1002,9 +1002,14 @@ func (l *taskLogWriter) startANSILocked() error {
 	if err != nil {
 		return err
 	}
-	l.ansiFile, l.ansi = file, bufio.NewWriter(file)
-	_, err = io.Copy(l.ansi, before)
-	return err
+	ansi := bufio.NewWriter(file)
+	if _, err := io.Copy(ansi, before); err != nil {
+		// Without the lines before, it wouldn't match the log line for
+		// line; the log route serves the plain log then
+		return errors.Join(err, file.Close(), os.Remove(l.ansiPath))
+	}
+	l.ansiFile, l.ansi = file, ansi
+	return nil
 }
 
 // Flush writes out the buffered lines; it does nothing once the log is

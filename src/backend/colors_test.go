@@ -110,3 +110,31 @@ func TestColorAsksToolsForColours(t *testing.T) {
 		})
 	}
 }
+
+// A colour log that couldn't get the lines before its first colour would
+// be shifted against the log, so it is removed and the log goes on plain
+func TestColourLogThatCantStartIsRemoved(t *testing.T) {
+	dir := t.TempDir()
+	file, err := os.Create(filepath.Join(dir, "task_0.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ansiPath := filepath.Join(dir, "task_0.ansi.log")
+	// Reading a folder as the log fails, as a full disk or I/O error would
+	log := &taskLogWriter{file: file, w: bufio.NewWriter(file), path: dir, ansiPath: ansiPath}
+	if _, err := log.writeLines("a\n", "\x1b[1ma\x1b[0m\n", true); err != nil {
+		t.Fatalf("writeLines: %v", err)
+	}
+	if _, err := log.writeLines("b\n", "\x1b[1mb\x1b[0m\n", true); err != nil {
+		t.Fatalf("writeLines: %v", err)
+	}
+	if err := log.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(ansiPath); !os.IsNotExist(err) {
+		t.Errorf("colour log: %v, want it removed", err)
+	}
+	if plain, err := os.ReadFile(file.Name()); err != nil || string(plain) != "a\nb\n" {
+		t.Errorf("log %q, %v; want both lines", plain, err)
+	}
+}
