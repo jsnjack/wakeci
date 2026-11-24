@@ -354,7 +354,8 @@ func TestWakeRetriesWhileTheServerTookNothing(t *testing.T) {
 }
 
 func TestWakeDoesntRunTwice(t *testing.T) {
-	for _, run := range []int{0, http.StatusInternalServerError} {
+	// 502 and 504 come from a proxy that may have passed the run on
+	for _, run := range []int{0, http.StatusInternalServerError, http.StatusBadGateway, http.StatusGatewayTimeout} {
 		f := &fakeWake{runs: []int{run}}
 		status, stdout, stderr, waits := fakeWakeRun(t, f, "a\nb\n", "deploy", "--each", "NODE")
 		if status != 1 || stdout != "" || len(waits) != 0 || len(f.ran) != 0 {
@@ -364,9 +365,11 @@ func TestWakeDoesntRunTwice(t *testing.T) {
 			t.Errorf("answer %d: stderr %q doesn't say what wasn't started", run, stderr)
 		}
 	}
-	f := &fakeWake{runs: []int{0}}
-	if _, _, stderr, _ := fakeWakeRun(t, f, "", "deploy"); !strings.Contains(stderr, "the build may have started") {
-		t.Errorf("a run without answer: %q", stderr)
+	for _, run := range []int{0, http.StatusBadGateway, http.StatusGatewayTimeout} {
+		f := &fakeWake{runs: []int{run}}
+		if _, _, stderr, _ := fakeWakeRun(t, f, "", "deploy"); !strings.Contains(stderr, "the build may have started") {
+			t.Errorf("answer %d: %q doesn't say the build may have started", run, stderr)
+		}
 	}
 }
 

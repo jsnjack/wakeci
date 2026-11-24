@@ -234,7 +234,15 @@ func (c *wakeClient) try(method, path string, form url.Values, timeout time.Dura
 	text := strings.TrimSpace(string(body))
 	err = fmt.Errorf("%d %s", resp.StatusCode, text)
 	switch resp.StatusCode {
-	case http.StatusTooManyRequests, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+	case http.StatusBadGateway, http.StatusGatewayTimeout:
+		// A proxy's: it may have passed the request on, to a server that
+		// was slow (504) or dropped the connection (502), so a run isn't
+		// sent again, as one without an answer
+		if method != http.MethodGet {
+			return nil, 0, false, fmt.Errorf("%w; the build may have started, check the feed before starting it again", err)
+		}
+		retry = true
+	case http.StatusTooManyRequests, http.StatusServiceUnavailable:
 		retry = true
 		if seconds, convErr := strconv.Atoi(resp.Header.Get("Retry-After")); convErr == nil && seconds > 0 {
 			retryAfter = time.Duration(seconds) * time.Second

@@ -62,9 +62,12 @@ why and `Not started: ...` for each build after it.
 
 A start is retried, after 2, 4, 8, 16 and 30 seconds, only while the server
 certainly took nothing: it couldn't be reached, it answered 429 (waiting at
-least its `Retry-After`), 502, 503 or 504, or it said it is stopping. Once a
-request may have reached the server, it is never sent again, so a retry
-can't start a build twice; `wake` then says the build may have started.
+least its `Retry-After`) or 503, or it said it is stopping. Once a request
+may have reached the server, it is never sent again, so a retry can't start
+a build twice; `wake` then says the build may have started. That includes a
+502 or 504: a proxy sends them when it passed the request on and the server
+dropped the connection or answered too late. Reads, which can be sent
+twice, are retried after those as well.
 
 Exit status: 0 if every build started (and, with `--wait`, finished), 1 if
 something failed or nothing was started, 2 if `wake` was called wrongly.
