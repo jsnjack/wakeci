@@ -31,7 +31,7 @@ const mcpArtifactLimit = 256 * 1024
 // scope and job checks, audit, limits and errors as the REST routes.
 func newMCPHandler(router http.Handler) http.Handler {
 	return mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
-		return newMCPServer(&mcpCaller{router: router, parent: r})
+		return newMCPServer(&mcpCaller{router: router, parent: r, access: accessFromContext(r.Context())})
 	}, &mcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true})
 }
 
@@ -39,6 +39,9 @@ func newMCPHandler(router http.Handler) http.Handler {
 type mcpCaller struct {
 	router http.Handler
 	parent *http.Request
+	// access is what the request's key may do; nil lists every tool, as the
+	// help page does
+	access *Access
 }
 
 // bufferedResponse keeps a response in memory
@@ -216,9 +219,31 @@ func handleMCPStream(w http.ResponseWriter, r *http.Request) {
 	writePlainText(w, requestLogger(r), http.StatusMethodNotAllowed, "This MCP server sends no stream: POST each request to /mcp")
 }
 
+// mcpListedScopes are the scopes that have tools; write has none
+var mcpListedScopes = []string{ScopeRead, ScopeRun}
+
+// mcpScopeNote tells an agent which scopes its key lacks, since their tools
+// aren't listed; "" if it has them all
+func mcpScopeNote(access *Access) string {
+	var missing []string
+	for _, scope := range mcpListedScopes {
+		if access != nil && !access.HasScope(scope) {
+			missing = append(missing, scope)
+		}
+	}
+	if len(missing) == 0 {
+		return ""
+	}
+	return "\nThis API key doesn't have the " + strings.Join(missing, " or ") + " scope, so the tools that need it aren't listed."
+}
+
 // addTool adds a tool whose calls are counted in the request stats and named
-// in the request line of their request to /mcp
+// in the request line of their request to /mcp. A tool that needs a scope
+// the key lacks isn't added, so the key lists only the tools it can use.
 func addTool[In, Out any](server *mcp.Server, c *mcpCaller, tool *mcp.Tool, handler mcp.ToolHandlerFor[In, Out]) {
+	if scope, _ := tool.Meta["scope"].(string); c.access != nil && scope != "any" && !c.access.HasScope(scope) {
+		return
+	}
 	mcp.AddTool(server, tool, func(ctx context.Context, req *mcp.CallToolRequest, in In) (*mcp.CallToolResult, Out, error) {
 		started := time.Now()
 		requestInfoOf(c.parent).mcpTool = tool.Name
@@ -249,7 +274,7 @@ func toolOutcome(result *mcp.CallToolResult, err error) string {
 
 // newMCPServer makes the tools for one MCP request
 func newMCPServer(c *mcpCaller) *mcp.Server {
-	server := mcp.NewServer(&mcp.Implementation{Name: "wakeci", Version: Version}, &mcp.ServerOptions{Instructions: mcpInstructions})
+	server := mcp.NewServer(&mcp.Implementation{Name: "wakeci", Version: Version}, &mcp.ServerOptions{Instructions: mcpInstructions + mcpScopeNote(c.access)})
 	readOnly := &mcp.ToolAnnotations{ReadOnlyHint: true}
 
 	addTool(server, c, &mcp.Tool{Name: "whoami", Meta: mcp.Meta{"scope": "any"}, Annotations: readOnly,

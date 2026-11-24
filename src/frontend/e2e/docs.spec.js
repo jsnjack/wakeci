@@ -101,6 +101,8 @@ test("should tell an MCP client without a key to send one, and that there is no 
     const stream = await keyed.get("/mcp", { headers: { Accept: "text/event-stream" } });
     expect(stream.status()).toBe(405);
     expect(stream.headers()["allow"]).toBe("POST");
+    const tools = await (await keyed.post("/mcp", call)).json();
+    expect(tools.result.tools.map((tool) => tool.name)).not.toContain("run_job");
     await none.dispose();
     await keyed.dispose();
 });

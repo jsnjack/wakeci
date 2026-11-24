@@ -81,9 +81,18 @@ func TestMCPTools(t *testing.T) {
 		names = append(names, tool.Name)
 	}
 	slices.Sort(names)
-	want := []string{"abort_build", "analytics", "build_summary", "find_builds", "job_insights", "list_jobs", "read_artifact", "read_log", "run_job", "whoami"}
+	// A read key doesn't list run_job and abort_build, and is told why
+	want := []string{"analytics", "build_summary", "find_builds", "job_insights", "list_jobs", "read_artifact", "read_log", "whoami"}
 	if !slices.Equal(names, want) {
 		t.Errorf("tools = %q, want %q", names, want)
+	}
+	if instructions := session.InitializeResult().Instructions; !strings.Contains(instructions, "doesn't have the run scope") {
+		t.Errorf("instructions = %q, want them to name the missing run scope", instructions)
+	}
+	for _, tool := range []string{"run_job", "abort_build"} {
+		if _, err := session.CallTool(context.Background(), &mcp.CallToolParams{Name: tool, Arguments: map[string]any{"name": "deploy", "id": 7}}); err == nil {
+			t.Errorf("a read key could call %s", tool)
+		}
 	}
 
 	tests := []struct {
@@ -103,8 +112,6 @@ func TestMCPTools(t *testing.T) {
 		{"read_log", map[string]any{"build": 7, "task": 1, "grep": "failed"}, false, "300: FAILED test_login"},
 		{"read_log", map[string]any{"build": 7, "task": 0}, false, "line 3"},
 		{"read_log", map[string]any{"build": 7, "task": 2}, true, "wrote no log"},
-		{"run_job", map[string]any{"name": "deploy"}, true, "doesn't have the run scope"},
-		{"abort_build", map[string]any{"id": 7}, true, "doesn't have the run scope"},
 		{"analytics", map[string]any{"days": 7}, false, `"days":7`},
 		{"analytics", map[string]any{"trigger": "robot"}, true, "trigger must be one of"},
 		{"job_insights", map[string]any{"job": "deploy"}, false, `"stoppedAt":[{"builds":1,"task":"Test"}]`},
@@ -174,6 +181,40 @@ func writeArtifact(t *testing.T, build int, name, content string) {
 	}
 	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0644); err != nil {
 		t.Fatalf("write artifact: %v", err)
+	}
+}
+
+// A key lists the tools its scopes allow, whoami always; the help page lists
+// them all
+func TestMCPListsTheKeysTools(t *testing.T) {
+	router := newAPIKeyTestEnv(t)
+	tests := []struct {
+		scopes []string
+		want   []string
+		note   string
+	}{
+		{[]string{ScopeRun}, []string{"abort_build", "run_job", "whoami"}, "doesn't have the read scope"},
+		{[]string{ScopeRead, ScopeRun}, []string{"abort_build", "analytics", "build_summary", "find_builds", "job_insights", "list_jobs", "read_artifact", "read_log", "run_job", "whoami"}, ""},
+	}
+	for _, tt := range tests {
+		token := createTestKey(t, url.Values{"name": {strings.Join(tt.scopes, "-")}, "scope": tt.scopes, "job": {"deploy"}})
+		session := mcpSession(t, router, token)
+		tools, err := session.ListTools(context.Background(), nil)
+		if err != nil {
+			t.Fatalf("list tools: %v", err)
+		}
+		var names []string
+		for _, tool := range tools.Tools {
+			names = append(names, tool.Name)
+		}
+		slices.Sort(names)
+		if !slices.Equal(names, tt.want) {
+			t.Errorf("%v: tools = %q, want %q", tt.scopes, names, tt.want)
+		}
+		instructions := session.InitializeResult().Instructions
+		if (tt.note == "") != !strings.Contains(instructions, "scope, so the tools") || (tt.note != "" && !strings.Contains(instructions, tt.note)) {
+			t.Errorf("%v: instructions = %q, want note %q", tt.scopes, instructions, tt.note)
+		}
 	}
 }
 

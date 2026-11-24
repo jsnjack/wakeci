@@ -145,6 +145,10 @@ the MCP request's carries its chi route and audit record.
   no stream to open, which MCP says to answer so.
 - **No OAuth.** After a 401 an MCP client may look for OAuth metadata under
   `/.well-known/`; those paths answer 404, not the web UI's page.
+- **A key lists only the tools its scopes allow** (`addTool` checks each
+  tool's `Meta["scope"]`), and the server's instructions name the scope it
+  lacks. Calling an unlisted tool is an unknown tool. The help page lists
+  every tool (`mcpCaller.access` is nil there).
 
 ## Live updates
 
