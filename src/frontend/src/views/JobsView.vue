@@ -146,7 +146,7 @@
                                 role="switch"
                                 :checked="job.active === 'true'"
                                 :disabled="!canAny('write')"
-                                :aria-label="`${job.name} is on`"
+                                :aria-label="`${job.name} active`"
                                 data-cy="job-active"
                                 @click.prevent="toggleActive(job)"
                             />
