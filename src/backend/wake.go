@@ -418,7 +418,10 @@ func (c *wakeClient) planStarts(opts *startOptions, getenv func(string) string, 
 	}
 	byName := make(map[string]*JobsListData, len(jobs))
 	for _, job := range jobs {
-		byName[job.Name] = job
+		// Not in wakeci's answer; a proxy's would otherwise panic wake
+		if job != nil {
+			byName[job.Name] = job
+		}
 	}
 	var who WhoAmIData
 	if err := c.getJSON("api/whoami", wakeRequestTimeout, &who); err != nil {
@@ -445,6 +448,9 @@ func (c *wakeClient) planStarts(opts *startOptions, getenv func(string) string, 
 		var build GetBuildPayload
 		if err := c.getJSON("api/build/"+strconv.Itoa(opts.again), wakeRequestTimeout, &build); err != nil {
 			return nil, nil, fmt.Errorf("read build %d: %w", opts.again, err)
+		}
+		if build.StatusUpdate == nil {
+			return nil, nil, fmt.Errorf("read build %d: the answer has no status_update", opts.again)
 		}
 		names = []string{build.StatusUpdate.Name}
 		again = url.Values{}
@@ -587,7 +593,12 @@ func (c *wakeClient) waitFor(id int) (ItemStatus, error) {
 		if err := c.getJSON(path, time.Duration(wakeWaitSeconds)*time.Second+wakeRequestTimeout, &build); err != nil {
 			return "", err
 		}
-		if build.Ended && build.StatusUpdate != nil {
+		// wakeci always sends it; an answer without it, say a proxy's page,
+		// would otherwise be asked for again at once, forever
+		if build.StatusUpdate == nil {
+			return "", fmt.Errorf("build %d: the answer has no status_update", id)
+		}
+		if build.Ended {
 			return build.StatusUpdate.Status, nil
 		}
 	}

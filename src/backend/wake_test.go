@@ -253,6 +253,9 @@ type fakeWake struct {
 	// "" for one that hasn't ended
 	builds map[int][]ItemStatus
 	ran    []string
+	// odd answers {} for a build and puts a null in the job list, as a
+	// proxy's page or another server might
+	odd bool
 }
 
 func (f *fakeWake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -260,9 +263,13 @@ func (f *fakeWake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer f.mu.Unlock()
 	switch {
 	case r.URL.Path == "/api/jobs/":
-		_ = json.NewEncoder(w).Encode([]*JobsListData{
+		jobs := []*JobsListData{
 			{Name: "deploy", Active: "true", DefaultParams: []map[string]string{{"NODE": ""}}},
-		})
+		}
+		if f.odd {
+			jobs = append(jobs, nil)
+		}
+		_ = json.NewEncoder(w).Encode(jobs)
 	case r.URL.Path == "/api/whoami":
 		_ = json.NewEncoder(w).Encode(WhoAmIData{Auth: "build", Build: 1})
 	case strings.HasSuffix(r.URL.Path, "/run"):
@@ -287,6 +294,8 @@ func (f *fakeWake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		default:
 			w.WriteHeader(status)
 		}
+	case strings.HasPrefix(r.URL.Path, "/api/build/") && f.odd:
+		_, _ = io.WriteString(w, "{}")
 	case strings.HasPrefix(r.URL.Path, "/api/build/"):
 		id, _ := strconv.Atoi(strings.TrimPrefix(r.URL.Path, "/api/build/"))
 		statuses := f.builds[id]
@@ -377,6 +386,23 @@ func TestWakeWaitsForEachBuild(t *testing.T) {
 	}
 	if !strings.Contains(stderr, "Not started: deploy (NODE=web-3)") {
 		t.Errorf("stderr %q doesn't say web-3 wasn't started", stderr)
+	}
+}
+
+func TestWakeStopsAtAnAnswerWithoutABuild(t *testing.T) {
+	f := &fakeWake{odd: true}
+	status, stdout, stderr, _ := fakeWakeRun(t, f, "web-1\nweb-2\n", "deploy", "--each", "NODE", "--wait")
+	if status != 1 || !strings.Contains(stderr, "Could not follow deploy #1: build 1: the answer has no status_update") {
+		t.Errorf("wake start --wait: %d %q %q", status, stdout, stderr)
+	}
+	if !slices.Equal(f.ran, []string{"web-1"}) {
+		t.Errorf("ran %v, want web-1 only", f.ran)
+	}
+
+	f = &fakeWake{odd: true}
+	status, stdout, stderr, _ = fakeWakeRun(t, f, "", "--again", "5")
+	if status != 1 || len(f.ran) != 0 || !strings.Contains(stderr, "read build 5: the answer has no status_update") {
+		t.Errorf("wake start --again: %d %q %q, ran %v", status, stdout, stderr, f.ran)
 	}
 }
 
