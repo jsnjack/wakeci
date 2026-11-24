@@ -382,11 +382,6 @@ export default {
             this.setPage();
             this.fetch();
         },
-        "ws.connected"(connected) {
-            if (connected) {
-                this.subscribe();
-            }
-        },
         "ws.reconnects"() {
             this.fetch();
         },
@@ -401,13 +396,15 @@ export default {
             this.builds = builds;
         }
         this.fetch();
-        this.subscribe();
+        // Counted, since the notifications and the feed use the same topic; a
+        // new connection subscribes again by itself
+        this.$store.commit("SUBSCRIBE_TOPIC", this.subscription);
         this.emitter.on(this.subscription, this.onBuildUpdate);
     },
     unmounted() {
         this.refresh.cancel();
         this.emitter.off(this.subscription, this.onBuildUpdate);
-        this.$store.commit("WS_SEND", { type: "in:unsubscribe", data: { to: [this.subscription] } });
+        this.$store.commit("UNSUBSCRIBE_TOPIC", this.subscription);
     },
     methods: {
         ago,
@@ -433,9 +430,6 @@ export default {
                         this.loading = false;
                     }
                 });
-        },
-        subscribe() {
-            this.$store.commit("WS_SEND", { type: "in:subscribe", data: { to: [this.subscription] } });
         },
         onBuildUpdate(build) {
             if (build.name === this.name && FINAL.has(build.status) && build.duration > 0) {

@@ -39,3 +39,26 @@ test("a watched search tells when a matching build ends, on any page", async ({ 
     await page.getByTestId("watch-search").click();
     await expect(page.getByTestId("watch-search")).toHaveAttribute("aria-pressed", "false");
 });
+
+// Insights and Analytics use every build's updates too; leaving them must
+// not take those updates away from the bell
+test("the bell still tells after leaving the insights and analytics pages", async ({ page, wake }) => {
+    const gate = await wake.gate();
+    const name = await wake.createJob(`tasks:\n  - name: wait\n    run: ${gate.command}\n`);
+    const id = await wake.runJob(name);
+    await wake.openBuild(id, "running");
+    await page.getByTestId("subscribe-button").click();
+    await expect(page.getByTestId("subscribe-button")).toHaveAttribute("aria-pressed", "true");
+
+    // Within the app, so all of it happens on one connection
+    await wake.livePage(`/jobs?q=${name}`);
+    await page.getByTestId(name).getByTestId("job-insights-button").click();
+    await expect(page).toHaveURL(new RegExp(`/job/${name}/insights`));
+    await page.getByTestId("nav-analytics").click();
+    await expect(page).toHaveURL(/\/analytics/);
+    await page.getByTestId("nav-keys").click();
+    await expect(page).toHaveURL(/\/keys/);
+
+    await gate.release();
+    await expect(page.locator(".toast", { hasText: `${name} finished` })).toBeVisible();
+});

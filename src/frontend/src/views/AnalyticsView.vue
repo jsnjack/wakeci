@@ -570,11 +570,6 @@ export default {
         job: "changed",
         trigger: "changed",
         durationJob: "fetchDuration",
-        "ws.connected"(connected) {
-            if (connected) {
-                this.subscribe();
-            }
-        },
         // Jobs the user may now read, and builds that ended while
         // disconnected
         "ws.reconnects"() {
@@ -596,13 +591,15 @@ export default {
         this.trigger = typeof query.trigger === "string" && TRIGGERS[query.trigger] ? query.trigger : "";
         this.fetch();
         this.fetchJobs();
-        this.subscribe();
+        // Counted, since the notifications and the feed use the same topic; a
+        // new connection subscribes again by itself
+        this.$store.commit("SUBSCRIBE_TOPIC", this.subscription);
         this.emitter.on(this.subscription, this.onBuildUpdate);
     },
     unmounted() {
         this.refresh.cancel();
         this.emitter.off(this.subscription, this.onBuildUpdate);
-        this.$store.commit("WS_SEND", { type: "in:unsubscribe", data: { to: [this.subscription] } });
+        this.$store.commit("UNSUBSCRIBE_TOPIC", this.subscription);
     },
     methods: {
         ago,
@@ -679,9 +676,6 @@ export default {
                     this.jobNames = (response.data || []).map((job) => job.name).sort();
                 })
                 .catch(() => {});
-        },
-        subscribe() {
-            this.$store.commit("WS_SEND", { type: "in:subscribe", data: { to: [this.subscription] } });
         },
         onBuildUpdate(build) {
             // A build counts once it ended; its duration is set then
