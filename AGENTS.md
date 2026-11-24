@@ -326,6 +326,11 @@ AGENTS.universal.md for the general contract.
   keep the policy without the sandbox, since Chrome won't show a sandboxed
   PDF and a PDF can't run scripts on the origin. A separate artifact origin
   would be stronger, but needs a second hostname and its own auth.
+  The origin also lets an artifact send GET requests with the session, use
+  the app's `localStorage` and set cookies. So logout is a `POST`, and over
+  HTTPS the session cookie is `__Host-session`, which an artifact can't
+  shadow with a `session` cookie for `/api` (plain HTTP keeps that gap).
+  `e2e/artifact.spec.js` opens hostile artifacts in Chrome.
 - **SSO sessions last 12 hours** (password sessions 5 days) because wakeci
   never re-checks the account or its groups: the TTL bounds how long a
   suspended account, or one removed from the allowed groups, keeps access.
@@ -363,6 +368,9 @@ AGENTS.universal.md for the general contract.
   cookies off cross-site POSTs; the session cookie stays `Strict`. Don't
   "align" them. SSO therefore needs HTTPS (browsers accept `Secure` cookies
   on `http://localhost`).
+- Read the session with `sessionCookieValue`, never `r.Cookie("session")`.
+  Keep nothing secret in `localStorage` and never render it, or a cookie,
+  as HTML: artifacts can write both.
 - Group names in the settings must match what the identity provider sends:
   Google sends group names, not emails. A rejected login logs the received
   groups.
