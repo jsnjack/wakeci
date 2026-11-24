@@ -713,8 +713,9 @@ func (b *Build) Cleanup() {
 	if b.timer != nil {
 		b.timer.Stop()
 	}
-	GlobalQueue.Remove(b.ID)
+	// First, so the token can't start a build under one that left the queue
 	b.revokeBuildToken()
+	GlobalQueue.Remove(b.ID)
 	// Waiting requests take a build as ended once it left the queue
 	buildChanges.notify(b.ID)
 	GlobalQueue.Take()

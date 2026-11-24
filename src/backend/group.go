@@ -53,6 +53,11 @@ func groupOf(r *http.Request, job string) (buildGroup, error) {
 		if parentValue != "" && parentValue != strconv.Itoa(tokenBuild.ID) {
 			return buildGroup{}, fmt.Errorf("a build's token starts builds under its own build, %d, not %s", tokenBuild.ID, parentValue)
 		}
+		// The token was checked as the request came; the build may have
+		// left the queue since
+		if GlobalQueue.Live(tokenBuild.ID) == nil {
+			return buildGroup{}, fmt.Errorf("build %d has ended", tokenBuild.ID)
+		}
 		return groupUnder(tokenBuild), nil
 	}
 	if parentValue == "" && againValue == "" {

@@ -201,3 +201,17 @@ func TestBuildTokenInTasksAndRedacted(t *testing.T) {
 		}
 	}
 }
+
+// A token checked as the request came starts nothing once its build has
+// left the queue
+func TestBuildTokenStartsNothingUnderAnEndedBuild(t *testing.T) {
+	router := tokenEnv(t)
+	root, _ := runAs(t, nil, "deploy", nil, http.StatusOK)
+	token := liveToken(t, root)
+	// As if Cleanup had removed it while the request was on its way
+	GlobalQueue.Remove(root)
+	if rec := tokenCall(router, "POST", "/api/job/nightly/run", token, url.Values{}); rec.Code != http.StatusBadRequest ||
+		strings.TrimSpace(rec.Body.String()) != "build "+strconv.Itoa(root)+" has ended" {
+		t.Errorf("run under the ended build: %d %q, want 400 build %d has ended", rec.Code, rec.Body.String(), root)
+	}
+}
