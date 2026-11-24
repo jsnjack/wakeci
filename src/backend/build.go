@@ -973,7 +973,7 @@ func (l *taskLogWriter) writeLines(plain, ansi string, colored bool) (int, error
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.closed {
-		return 0, os.ErrClosed
+		return 0, errTaskLogClosed
 	}
 	if colored && l.ansi == nil && l.ansiPath != "" && !l.ansiFails {
 		if err := l.startANSILocked(); err != nil {
@@ -984,15 +984,28 @@ func (l *taskLogWriter) writeLines(plain, ansi string, colored bool) (int, error
 	}
 	first := l.lines + 1
 	l.lines += strings.Count(plain, "\n")
-	if _, err := l.w.WriteString(plain); err != nil {
-		return first, err
-	}
 	if l.ansi != nil {
 		if _, err := l.ansi.WriteString(ansi); err != nil {
-			return first, err
+			l.dropANSILocked(err)
 		}
 	}
-	return first, nil
+	_, err := l.w.WriteString(plain)
+	return first, err
+}
+
+// errTaskLogClosed is writeLines' answer once the task's log was closed: a
+// line then has no number, unlike one the file failed to take
+var errTaskLogClosed = errors.New("task log is closed")
+
+// dropANSILocked removes a colour log that failed to write: it would no
+// longer match the log line for line, and the log route serves the plain
+// log without it. The task's log goes on plain
+func (l *taskLogWriter) dropANSILocked(cause error) {
+	L.Error("write colour log, which is dropped", "path", l.ansiPath, "err", cause)
+	if err := errors.Join(l.ansiFile.Close(), os.Remove(l.ansiPath)); err != nil {
+		L.Error("remove colour log", "path", l.ansiPath, "err", err)
+	}
+	l.ansiFile, l.ansi, l.ansiFails = nil, nil, true
 }
 
 // startANSILocked creates the colour log with the lines the log has so far,
@@ -1031,7 +1044,7 @@ func (l *taskLogWriter) Flush() error {
 	}
 	if l.ansi != nil {
 		if err := l.ansi.Flush(); err != nil {
-			return err
+			l.dropANSILocked(err)
 		}
 	}
 	return l.w.Flush()
@@ -1047,7 +1060,11 @@ func (l *taskLogWriter) Close() error {
 	l.closed = true
 	err := errors.Join(l.w.Flush(), l.file.Close())
 	if l.ansi != nil {
-		err = errors.Join(err, l.ansi.Flush(), l.ansiFile.Close())
+		if flushErr := l.ansi.Flush(); flushErr != nil {
+			l.dropANSILocked(flushErr)
+		} else {
+			err = errors.Join(err, l.ansiFile.Close())
+		}
 	}
 	return err
 }
@@ -1090,9 +1107,13 @@ func (b *Build) ProcessLogEntry(line string, buffer *taskLogWriter, taskID int, 
 	pline, aline := prefix+plain+"\n", prefix+ansi+"\n"
 	// Write to the task's log files
 	first, err := buffer.writeLines(pline, aline, colored)
-	if err != nil {
-		b.Logger.Error("write task log", "task", taskID, "err", err)
+	if errors.Is(err, errTaskLogClosed) {
 		return
+	}
+	if err != nil {
+		// Still sent: those who watch need the output most when the disk
+		// is full
+		b.Logger.Error("write task log", "task", taskID, "err", err)
 	}
 	// Send the log to all subscribed users
 	b.queueLog(taskID, first, pline, aline, colored)

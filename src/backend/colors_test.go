@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestColorLine(t *testing.T) {
@@ -136,5 +137,64 @@ func TestColourLogThatCantStartIsRemoved(t *testing.T) {
 	}
 	if plain, err := os.ReadFile(file.Name()); err != nil || string(plain) != "a\nb\n" {
 		t.Errorf("log %q, %v; want both lines", plain, err)
+	}
+}
+
+// A colour log that fails to write would be shorter than the log, so it is
+// removed and the task's log goes on plain
+func TestColourLogThatFailsToWriteIsRemoved(t *testing.T) {
+	dir := t.TempDir()
+	file, err := os.Create(filepath.Join(dir, "task_0.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ansiPath := filepath.Join(dir, "task_0.ansi.log")
+	ansiFile, err := os.Create(ansiPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Closed, as after a failed write; a small buffer writes through at once
+	_ = ansiFile.Close()
+	log := &taskLogWriter{file: file, w: bufio.NewWriter(file), path: file.Name(), ansiPath: ansiPath, ansiFile: ansiFile, ansi: bufio.NewWriterSize(ansiFile, 16)}
+	if _, err := log.writeLines("a long enough line\n", "\x1b[1ma long enough line\x1b[0m\n", true); err != nil {
+		t.Fatalf("writeLines: %v", err)
+	}
+	if _, err := log.writeLines("b\n", "\x1b[1mb\x1b[0m\n", true); err != nil {
+		t.Fatalf("writeLines: %v", err)
+	}
+	if err := log.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(ansiPath); !os.IsNotExist(err) {
+		t.Errorf("colour log: %v, want it removed", err)
+	}
+	if plain, err := os.ReadFile(file.Name()); err != nil || string(plain) != "a long enough line\nb\n" {
+		t.Errorf("log %q, %v; want both lines", plain, err)
+	}
+}
+
+// A line that can't be saved still goes out live: those who watch need the
+// output most when the disk is full
+func TestLineThatCantBeSavedIsStillSent(t *testing.T) {
+	newTestBuildEnv(t)
+	build, err := CreateBuild(&Job{Name: "full", Tasks: []*Task{{ID: 0, Command: "true", Kind: KindMain}}}, filepath.Join(Config.JobDir, "full.yaml"), false)
+	if err != nil {
+		t.Fatalf("CreateBuild: %v", err)
+	}
+	build.pendingTasksWG.Wait()
+	file, err := os.Create(filepath.Join(t.TempDir(), "task_0.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = file.Close()
+	log := &taskLogWriter{file: file, w: bufio.NewWriterSize(file, 16), path: file.Name()}
+	oldHub := WSHub
+	WSHub = &Hub{broadcast: make(chan *MsgBroadcast, 1)}
+	t.Cleanup(func() { WSHub = oldHub })
+	build.ProcessLogEntry("a line longer than the buffer", log, 0, time.Now())
+	build.flushLog()
+	msg := <-WSHub.broadcast
+	if data, ok := msg.Data.(*CommandLogData); !ok || !strings.Contains(data.Data, "a line longer than the buffer") || data.ID != 1 {
+		t.Errorf("sent %+v, want the line as line 1", msg.Data)
 	}
 }
