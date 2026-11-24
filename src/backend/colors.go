@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"regexp"
 	"strings"
 )
@@ -59,13 +60,16 @@ func redactAroundCodes(visible string, codes []colorCode) string {
 		spans[i] = span{i, i + 1}
 	}
 	for _, value := range secretRedactionValues() {
-		if value == "" || !strings.Contains(string(text), value) {
+		secret := []byte(value)
+		if value == "" || !bytes.Contains(text, secret) {
 			continue
 		}
 		out := make([]byte, 0, len(text))
 		outSpans := make([]span, 0, len(text))
 		for i := 0; i < len(text); {
-			if strings.HasPrefix(string(text[i:]), value) {
+			// Not string(text[i:]), which copied the rest of the line at
+			// every byte
+			if bytes.HasPrefix(text[i:], secret) {
 				covered := span{spans[i].from, spans[i+len(value)-1].to}
 				for j := 0; j < len(redactedSecret); j++ {
 					out = append(out, redactedSecret[j])
