@@ -157,7 +157,7 @@ func HandleBuildSummary(w http.ResponseWriter, r *http.Request) {
 		}
 		failed := FailedTask{ID: task.ID, Name: task.Name, Kind: task.Kind, Status: task.Status, Log: task.Log}
 		if task.Log != "" && tail > 0 {
-			failed.Tail, err = tailLines(taskLogFile(id, task.ID), tail)
+			failed.Tail, _, err = tailLines(taskLogFile(id, task.ID), tail)
 			if err != nil {
 				logger.Error("read task log", "build", id, "task", task.ID, "err", err)
 			}
@@ -180,6 +180,7 @@ func HandleBuildSummary(w http.ResponseWriter, r *http.Request) {
 // @Param        case     query   boolean   false  "With grep: match case, which grep otherwise ignores"
 // @Param        ansi     query   boolean   false  "The whole log with the colour codes and hyperlinks of the task's output (ESC sequences), line for line, if it printed any; else the plain log. Not with tail or grep"
 // @Success      200      {string}   string
+// @Header       200      {integer}  X-First-Line  "With tail: the number of the first line sent, counting from 1"
 // @Failure      400      {string}   string
 // @Failure      401      {string}   string
 // @Failure      403      {string}   string
@@ -236,7 +237,12 @@ func HandleTaskLog(w http.ResponseWriter, r *http.Request) {
 	case grep != "":
 		text, err = grepLines(path, grep, tail, query.Get("case") == "1" || query.Get("case") == "true")
 	case tail > 0:
-		text, err = tailLines(path, tail)
+		var first int
+		text, first, err = tailLines(path, tail)
+		if err == nil && first > 0 {
+			// The viewer numbers the lines from it, as the live log does
+			w.Header().Set("X-First-Line", strconv.Itoa(first))
+		}
 	default:
 		if query.Get("ansi") == "1" || query.Get("ansi") == "true" {
 			if ansiPath := wakespaceDir(id) + taskANSILogName(task); isFile(ansiPath) {
@@ -260,16 +266,18 @@ func taskLogFile(build, task int) string {
 }
 
 // tailLines returns the last n lines of the file at path, reading it from
-// the end, at most maxExcerptBytes of them
-func tailLines(path string, n int) (string, error) {
+// the end, at most maxExcerptBytes of them, and the number of the text's
+// first line in the file (0 for no text). A cut excerpt starts with "...",
+// which stands for the line it cut.
+func tailLines(path string, n int) (string, int, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return "", fmt.Errorf("open log: %w", err)
+		return "", 0, fmt.Errorf("open log: %w", err)
 	}
 	defer closeLog(f, path)
 	info, err := f.Stat()
 	if err != nil {
-		return "", fmt.Errorf("stat log: %w", err)
+		return "", 0, fmt.Errorf("stat log: %w", err)
 	}
 	const chunk = 64 * 1024
 	var data []byte
@@ -280,9 +288,18 @@ func tailLines(path string, n int) (string, error) {
 		offset -= read
 		part := make([]byte, read)
 		if _, err := f.ReadAt(part, offset); err != nil && !errors.Is(err, io.EOF) {
-			return "", fmt.Errorf("read log: %w", err)
+			return "", 0, fmt.Errorf("read log: %w", err)
 		}
 		data = append(part, data...)
+	}
+	// The file's lines up to what was read, which a running task extends
+	before, err := countLines(io.NewSectionReader(f, 0, offset))
+	if err != nil {
+		return "", 0, fmt.Errorf("count log lines: %w", err)
+	}
+	last := before + bytes.Count(data, []byte("\n"))
+	if len(data) > 0 && data[len(data)-1] != '\n' {
+		last++
 	}
 	lines := strings.Split(strings.TrimRight(string(data), "\n"), "\n")
 	if offset > 0 && len(lines) > 0 {
@@ -292,7 +309,27 @@ func tailLines(path string, n int) (string, error) {
 	if len(lines) > n {
 		lines = lines[len(lines)-n:]
 	}
-	return cutExcerpt(strings.Join(lines, "\n")), nil
+	text := cutExcerpt(strings.Join(lines, "\n"))
+	if text == "" {
+		return "", 0, nil
+	}
+	return text, last - strings.Count(text, "\n"), nil
+}
+
+// countLines counts the line breaks r holds
+func countLines(r io.Reader) (int, error) {
+	buf := make([]byte, 256*1024)
+	count := 0
+	for {
+		n, err := r.Read(buf)
+		count += bytes.Count(buf[:n], []byte("\n"))
+		if errors.Is(err, io.EOF) {
+			return count, nil
+		}
+		if err != nil {
+			return count, err
+		}
+	}
 }
 
 // grepLines returns the lines of the file at path whose text contains

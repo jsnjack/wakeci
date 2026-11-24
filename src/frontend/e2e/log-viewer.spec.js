@@ -88,6 +88,32 @@ tasks:
     await expect(page.getByTestId("task-log").locator(".log-marked")).toHaveCount(3);
 });
 
+// A log over 50 MB opens at its tail, numbered from where the tail starts
+// in the log (X-First-Line), so a line link opens that line
+test("should number a long log's tail from where it starts", async ({ page, wake }) => {
+    const name = await wake.createJob("tasks:\n  - name: Talk\n    run: echo hi\n");
+    const id = await wake.runJob(name);
+    await wake.waitForBuild(id);
+    // As if the log were over 50 MB, and its tail started at line 391
+    await page.route(
+        (url) => url.pathname === `/api/build/${id}`,
+        async (route) => {
+            const response = await route.fetch();
+            const json = await response.json();
+            json.status_update.tasks[0].logSize = 60 * 1024 * 1024;
+            await route.fulfill({ response, json });
+        },
+    );
+    await page.route(
+        (url) => url.pathname === `/api/build/${id}/log/0` && url.searchParams.has("tail"),
+        (route) => route.fulfill({ body: "line 391\nline 392\nline 393", headers: { "Content-Type": "text/plain", "X-First-Line": "391" } }),
+    );
+    await page.goto(`/build/${id}#t0-L392`);
+    const log = page.getByTestId("task-log");
+    await expect(log.locator(".cm-lineNumbers .cm-gutterElement").filter({ hasText: /^391$/ })).toBeVisible();
+    await expect(log.locator(".log-marked")).toHaveText("line 392");
+});
+
 test("should search all tasks and open a match", async ({ page, wake }) => {
     const name = await wake.createJob(`
 tasks:

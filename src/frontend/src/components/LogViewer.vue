@@ -536,18 +536,21 @@ export default {
             const url = `/api/build/${this.buildId}/log/${this.task.id}?${tail ? `tail=${TAIL_LINES}` : "ansi=1"}`;
             axios
                 .get(url, { responseType: "text", transformResponse: (data) => data })
-                .then((response) => this.setLog(response.data, tail))
+                .then((response) => this.setLog(response.data, tail, Number(response.headers["x-first-line"]) || 0))
                 .catch(() => this.setLog("", false));
         },
-        setLog(text, tail) {
+        // first is the number of a tail's first line in the log (X-First-Line)
+        setLog(text, tail, first = 0) {
             this.parser = new AnsiParser();
             this.spans = new Map();
             const lines = text === "" ? [] : text.replace(/\n$/, "").split("\n");
             const visible = lines.map((line, i) => this.parse(line, i + 1));
-            // A tail doesn't say where it starts; streamed lines then go
-            // after it without the numbers' check
-            this.tail = tail;
-            this.dropped = 0;
+            // A tail is numbered from where it starts, so line links,
+            // matches of the search of all tasks and the streamed lines'
+            // check stay right; one that doesn't say takes streamed lines
+            // without the check
+            this.tail = tail && !first;
+            this.dropped = first > 0 ? first - 1 : 0;
             this.lineCount = lines.length;
             // Without the last line break, which would show an empty line
             this.view.setState(this.newState(visible.join("\n")));

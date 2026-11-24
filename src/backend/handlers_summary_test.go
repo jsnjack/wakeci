@@ -33,26 +33,55 @@ func TestTailLines(t *testing.T) {
 		last  string
 		n     int
 		want  string
+		// first is the number of the text's first line in the log
+		first int
 	}{
-		{"last lines", 10, "", 3, "line 8\nline 9\nline 10"},
-		{"more than the log has", 2, "", 5, "line 1\nline 2"},
-		{"no newline at the end", 3, "partial", 2, "line 3\npartial"},
+		{"last lines", 10, "", 3, "line 8\nline 9\nline 10", 8},
+		{"more than the log has", 2, "", 5, "line 1\nline 2", 1},
+		{"no newline at the end", 3, "partial", 2, "line 3\npartial", 3},
 		// Over several 64 KB chunks
-		{"long log", 200000, "", 2, "line 199999\nline 200000"},
-		{"empty log", 0, "", 3, ""},
+		{"long log", 200000, "", 2, "line 199999\nline 200000", 199999},
+		{"empty log", 0, "", 3, "", 0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			path := filepath.Join(dir, strings.ReplaceAll(tt.name, " ", "_"))
 			writeLog(t, path, tt.lines, tt.last)
-			got, err := tailLines(path, tt.n)
+			got, first, err := tailLines(path, tt.n)
 			if err != nil {
 				t.Fatalf("tailLines: %v", err)
 			}
-			if got != tt.want {
-				t.Errorf("tailLines = %q, want %q", got, tt.want)
+			if got != tt.want || first != tt.first {
+				t.Errorf("tailLines = %q, first line %d; want %q, %d", got, first, tt.want, tt.first)
 			}
 		})
+	}
+}
+
+// A tail stops at maxExcerptBytes, so it has fewer lines than asked for;
+// its first line keeps its number in the log (a "..." that cutExcerpt puts
+// first stands for the line it cut)
+func TestTailLinesKeepTheLineNumbersAtTheByteLimit(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "task.log")
+	writeLog(t, path, 50000, "")
+	text, first, err := tailLines(path, 40000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(text, "\n")
+	if len(lines) >= 40000 {
+		t.Fatalf("%d lines; want fewer, cut at %d bytes", len(lines), maxExcerptBytes)
+	}
+	at := 0
+	if lines[0] == "..." {
+		// The next line may be cut; the one after is whole
+		at = 2
+	}
+	if want := fmt.Sprintf("line %d", first+at); lines[at] != want {
+		t.Errorf("line %d of the log is %q, want %q", first+at, lines[at], want)
+	}
+	if lines[len(lines)-1] != "line 50000" {
+		t.Errorf("last line %q, want line 50000", lines[len(lines)-1])
 	}
 }
 
