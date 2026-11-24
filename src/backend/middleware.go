@@ -248,13 +248,13 @@ func AuthMi(next http.Handler) http.Handler {
 		}
 
 		// Session auth for vue calls
-		sessionToken, err := r.Cookie("session")
+		sessionToken, err := sessionCookieValue(r)
 		if err != nil {
 			logger.Warn("missing session cookie", "err", err)
 			refuseCredentials(w, r, logger, "Not logged in: send an API key as a Bearer token, or the password with Basic auth")
 			return
 		}
-		user, groups, err := GlobalSessionStorage.Lookup(sessionToken.Value)
+		user, groups, err := GlobalSessionStorage.Lookup(sessionToken)
 		if err != nil {
 			logger.Warn("session verification failed", "err", err)
 			refuseCredentials(w, r, logger, "The session ended; log in again")
@@ -301,11 +301,11 @@ func requestUser(r *http.Request) (string, error) {
 	if _, _, ok := r.BasicAuth(); ok {
 		return "", nil
 	}
-	cookie, err := r.Cookie("session")
+	sessionToken, err := sessionCookieValue(r)
 	if err != nil {
 		return "", err
 	}
-	return GlobalSessionStorage.User(cookie.Value)
+	return GlobalSessionStorage.User(sessionToken)
 }
 
 // withCompression compresses answers for clients that accept it, except the

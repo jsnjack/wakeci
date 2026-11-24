@@ -155,10 +155,10 @@ func HandleLogOut(w http.ResponseWriter, r *http.Request) {
 		logger = L
 	}
 
-	sessionToken, err := r.Cookie("session")
+	sessionToken, err := sessionCookieValue(r)
 	if err == nil {
-		user, userErr := GlobalSessionStorage.User(sessionToken.Value)
-		err = GlobalSessionStorage.Delete(sessionToken.Value)
+		user, userErr := GlobalSessionStorage.User(sessionToken)
+		err = GlobalSessionStorage.Delete(sessionToken)
 		if err != nil {
 			logger.Error("delete session", "err", err)
 		}
@@ -170,12 +170,20 @@ func HandleLogOut(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Set session cookie
-	cookie := sessionCookie(r)
-	cookie.Value = "delete"
-	cookie.Expires = time.Unix(0, 0)
-	cookie.MaxAge = -1
-	http.SetCookie(w, cookie)
+	// Both names, so that over HTTPS a "session" cookie from before the
+	// rename goes too
+	for _, name := range []string{secureSessionCookieName, sessionCookieName} {
+		cookie := sessionCookie(r)
+		if name == secureSessionCookieName && !cookie.Secure {
+			// A browser refuses a __Host- cookie without Secure
+			continue
+		}
+		cookie.Name = name
+		cookie.Value = "delete"
+		cookie.Expires = time.Unix(0, 0)
+		cookie.MaxAge = -1
+		http.SetCookie(w, cookie)
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 

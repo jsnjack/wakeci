@@ -189,14 +189,46 @@ func isHTTPS(r *http.Request) bool {
 	return Config.Port == "443" || r.TLS != nil || strings.EqualFold(strings.TrimSpace(forwardedProto), "https")
 }
 
+// The session cookie is named __Host-session over HTTPS. A page on this
+// origin, such as a build artifact, can set a cookie named "session" for a
+// narrower path, such as /api, and the browser sends that one first, so it
+// would stand in for the real session on those paths. A __Host- cookie must
+// have path / and no domain, and a script can't replace the HttpOnly one.
+// Plain HTTP keeps "session", since the prefix requires Secure.
+const (
+	sessionCookieName       = "session"
+	secureSessionCookieName = "__Host-session"
+)
+
 func sessionCookie(r *http.Request) *http.Cookie {
+	secure := isHTTPS(r)
+	name := sessionCookieName
+	if secure {
+		name = secureSessionCookieName
+	}
 	return &http.Cookie{
-		Name:     "session",
+		Name:     name,
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
-		Secure:   isHTTPS(r),
+		Secure:   secure,
 	}
+}
+
+// sessionCookieValue returns the session token a request carries. The
+// __Host- cookie comes first, whatever isHTTPS says of this request, since a
+// proxy may set X-Forwarded-Proto on some paths only. "session" is the
+// cookie over HTTP, and over HTTPS from before the rename, so those sessions
+// still work until they expire.
+func sessionCookieValue(r *http.Request) (string, error) {
+	if cookie, err := r.Cookie(secureSessionCookieName); err == nil {
+		return cookie.Value, nil
+	}
+	cookie, err := r.Cookie(sessionCookieName)
+	if err != nil {
+		return "", err
+	}
+	return cookie.Value, nil
 }
 
 // New creates new session for user (empty for the password) which expires

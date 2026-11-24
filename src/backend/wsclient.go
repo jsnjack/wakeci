@@ -306,9 +306,9 @@ func requestSession(r *http.Request) string {
 	if _, _, ok := r.BasicAuth(); ok {
 		return ""
 	}
-	cookie, err := r.Cookie("session")
+	sessionToken, err := sessionCookieValue(r)
 	if err != nil {
 		return ""
 	}
-	return cookie.Value
+	return sessionToken
 }

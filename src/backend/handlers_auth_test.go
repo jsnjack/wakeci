@@ -130,16 +130,18 @@ func TestHandleLogOutClearsCookieWithSessionAttributes(t *testing.T) {
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
 	}
+	// Over HTTPS both names: "session" may be from before the rename
 	cookies := rec.Result().Cookies()
-	if len(cookies) != 1 {
-		t.Fatalf("Set-Cookie count = %d, want 1", len(cookies))
+	if len(cookies) != 2 || cookies[0].Name != secureSessionCookieName || cookies[1].Name != sessionCookieName {
+		t.Fatalf("Set-Cookie = %v, want %s and %s", cookies, secureSessionCookieName, sessionCookieName)
 	}
-	cookie := cookies[0]
-	if cookie.Path != "/" || !cookie.HttpOnly || !cookie.Secure || cookie.SameSite != http.SameSiteStrictMode || cookie.MaxAge != -1 {
-		t.Errorf("logout cookie attributes = Path:%q HttpOnly:%t Secure:%t SameSite:%d MaxAge:%d", cookie.Path, cookie.HttpOnly, cookie.Secure, cookie.SameSite, cookie.MaxAge)
-	}
-	if !cookie.Expires.Before(time.Now()) {
-		t.Errorf("logout cookie expiry = %v, want a past time", cookie.Expires)
+	for _, cookie := range cookies {
+		if cookie.Path != "/" || !cookie.HttpOnly || !cookie.Secure || cookie.SameSite != http.SameSiteStrictMode || cookie.MaxAge != -1 {
+			t.Errorf("logout cookie %s attributes = Path:%q HttpOnly:%t Secure:%t SameSite:%d MaxAge:%d", cookie.Name, cookie.Path, cookie.HttpOnly, cookie.Secure, cookie.SameSite, cookie.MaxAge)
+		}
+		if !cookie.Expires.Before(time.Now()) {
+			t.Errorf("logout cookie %s expiry = %v, want a past time", cookie.Name, cookie.Expires)
+		}
 	}
 	if err := GlobalSessionStorage.Verify("session-token"); err == nil {
 		t.Error("session remains valid after logout")

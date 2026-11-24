@@ -53,7 +53,72 @@ func TestSessionCookieSecure(t *testing.T) {
 			if cookie.Secure != tt.wantSecureCookie {
 				t.Errorf("cookie.Secure = %t, want %t", cookie.Secure, tt.wantSecureCookie)
 			}
+			// A browser accepts a __Host- cookie only with Secure, path /
+			// and no domain
+			wantName := sessionCookieName
+			if tt.wantSecureCookie {
+				wantName = secureSessionCookieName
+			}
+			if cookie.Name != wantName || cookie.Path != "/" || cookie.Domain != "" {
+				t.Errorf("cookie = Name:%q Path:%q Domain:%q, want Name:%q Path:\"/\" and no domain", cookie.Name, cookie.Path, cookie.Domain, wantName)
+			}
 		})
+	}
+}
+
+func TestSessionCookieValue(t *testing.T) {
+	tests := []struct {
+		name    string
+		cookies string
+		want    string
+		wantErr bool
+	}{
+		{name: "HTTPS", cookies: "__Host-session=real", want: "real"},
+		// Plain HTTP, and HTTPS sessions from before the rename
+		{name: "HTTP", cookies: "session=real", want: "real"},
+		// A page on this origin set "session" for a narrower path, so the
+		// browser sends it first
+		{name: "shadowed", cookies: "session=planted; __Host-session=real", want: "real"},
+		{name: "none", cookies: "theme=dark", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/api/jobs/", nil)
+			req.Header.Set("Cookie", tt.cookies)
+			got, err := sessionCookieValue(req)
+			if (err != nil) != tt.wantErr || got != tt.want {
+				t.Errorf("sessionCookieValue() = %q, %v; want %q, error %t", got, err, tt.want, tt.wantErr)
+			}
+		})
+	}
+}
+
+// A build artifact can set a "session" cookie for /api holding another
+// person's session; the request is still the viewer's
+func TestShadowingSessionCookieDoesNotChangeTheUser(t *testing.T) {
+	newAuthTestEnv(t)
+	originalConfig := Config
+	Config = &WakeConfig{Port: "8081"}
+	t.Cleanup(func() { Config = originalConfig })
+	login := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
+	login.Header.Set("X-Forwarded-Proto", "https")
+	admin, err := GlobalSessionStorage.New(login, time.Hour, "")
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	other, err := GlobalSessionStorage.New(login, time.Hour, "mallory@example.com")
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/keys/", nil)
+	req.Header.Set("X-Forwarded-Proto", "https")
+	req.Header.Set("Cookie", "session="+other.Value+"; "+secureSessionCookieName+"="+admin.Value)
+	if user, err := requestUser(req); err != nil || user != "" {
+		t.Errorf("requestUser() = %q, %v; want the admin password's session", user, err)
+	}
+	if got := requestSession(req); got != admin.Value {
+		t.Errorf("requestSession() is the planted session, want the viewer's")
 	}
 }
 
