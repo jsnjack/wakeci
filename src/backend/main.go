@@ -388,6 +388,10 @@ func run(cleanup func()) (tasksLeft bool) {
 	router.Get("/llms.txt", HandleAgentGuide)
 	router.Get("/llms-full.txt", HandleAPIMarkdown)
 
+	// wakeci has no OAuth. An MCP client looks for its metadata here after a
+	// 401 and must find none, not the web UI's page
+	router.Get("/.well-known/*", http.NotFound)
+
 	vuefs := http.FileServer(http.FS(Assets))
 	router.Method("GET", "/*", HandleVueResources(vuefs))
 

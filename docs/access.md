@@ -137,6 +137,15 @@ audit log, the request limit and the error messages are those of the API.
 The inner request gets a fresh context (only cancellation follows), since
 the MCP request's carries its chi route and audit record.
 
+- **Every request to `/mcp` goes to the key router** (`routeAPIKeys`), with
+  or without a key. Without one, also with the password, it gets 401 with
+  `WWW-Authenticate: Bearer realm="wakeci"` and "send an API key"; that
+  isn't a failed attempt, so a client missing its header isn't blocked.
+- **`GET /mcp` gets 405** (`Allow: POST`): the server is stateless and has
+  no stream to open, which MCP says to answer so.
+- **No OAuth.** After a 401 an MCP client may look for OAuth metadata under
+  `/.well-known/`; those paths answer 404, not the web UI's page.
+
 ## Live updates
 
 A WebSocket client keeps the access it was opened with. The hub sends a

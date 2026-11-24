@@ -696,11 +696,13 @@ func apiKeyAuditAttrs(key *APIKey) []any {
 	return append(attrs, "expires", expires)
 }
 
-// routeAPIKeys sends requests that carry an API key to keyRouter and all
-// others to router, so a key never reaches the password and session checks
+// routeAPIKeys sends requests that carry an API key, and every request to
+// /mcp, to keyRouter and all others to router. So a key never reaches the
+// password and session checks, and an MCP client without a key is told to
+// send one (APIKeyAuthMi).
 func routeAPIKeys(keyRouter, router http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _, ok := apiKeyToken(r); ok {
+		if _, ok := apiKeyToken(r); ok || r.URL.Path == mcpRoute {
 			keyRouter.ServeHTTP(w, r)
 			return
 		}
@@ -774,6 +776,7 @@ func newAPIKeyRouter(storage http.Handler) http.Handler {
 	// The API as MCP tools for agents; each tool calls the routes above with
 	// the request's key
 	router.Post(mcpRoute, newMCPHandler(router).ServeHTTP)
+	router.Get(mcpRoute, handleMCPStream)
 	return router
 }
 
@@ -834,7 +837,16 @@ func hasRoute(routes chi.Routes, method, routePath string) bool {
 func APIKeyAuthMi(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := requestLogger(r)
-		token, _ := apiKeyToken(r)
+		token, ok := apiKeyToken(r)
+		if !ok {
+			// Only /mcp comes here without a key. No key was tried, so it
+			// doesn't count as a failed attempt
+			logger.Warn("mcp request without an api key")
+			w.Header().Set("WWW-Authenticate", `Bearer realm="wakeci"`)
+			writePlainText(w, logger, http.StatusUnauthorized,
+				`MCP needs an API key: send it as "Authorization: Bearer wk_..."; create one on the Keys page`)
+			return
+		}
 		now := time.Now()
 		key, err := verifyAPIKey(token, now)
 		if err != nil {

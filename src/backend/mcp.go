@@ -208,6 +208,14 @@ func (in mcpBuildSummaryInput) waitsForBuild() bool {
 	return in.Wait > 0
 }
 
+// handleMCPStream answers a client that asks for a stream of messages from
+// the server: this server is stateless and has none, which MCP says to
+// answer with 405
+func handleMCPStream(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Allow", http.MethodPost)
+	writePlainText(w, requestLogger(r), http.StatusMethodNotAllowed, "This MCP server sends no stream: POST each request to /mcp")
+}
+
 // addTool adds a tool whose calls are counted in the request stats and named
 // in the request line of their request to /mcp
 func addTool[In, Out any](server *mcp.Server, c *mcpCaller, tool *mcp.Tool, handler mcp.ToolHandlerFor[In, Out]) {

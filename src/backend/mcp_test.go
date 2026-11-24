@@ -177,6 +177,49 @@ func writeArtifact(t *testing.T, build int, name, content string) {
 	}
 }
 
+// /mcp tells a client without a key to send one, without counting it as a
+// failed attempt, and a client asking for a stream that there is none
+func TestMCPAnswersWithoutAKeyOrAStream(t *testing.T) {
+	keyRouter := newAPIKeyTestEnv(t)
+	handler := routeAPIKeys(keyRouter, http.NotFoundHandler())
+	token := createTestKey(t, url.Values{"name": {"agent"}, "scope": {"read"}, "job": {"deploy"}})
+	tests := []struct {
+		name, method, auth string
+		want               int
+		header, wantHeader string
+	}{
+		{"no key", "POST", "", http.StatusUnauthorized, "WWW-Authenticate", `Bearer realm="wakeci"`},
+		{"the password", "POST", "Basic OmFkbWlu", http.StatusUnauthorized, "WWW-Authenticate", `Bearer realm="wakeci"`},
+		{"a stream with a key", "GET", "Bearer " + token, http.StatusMethodNotAllowed, "Allow", "POST"},
+		{"a stream with a wrong key", "GET", "Bearer wk_nosuch_secret", http.StatusUnauthorized, "WWW-Authenticate", `Bearer error="invalid_token"`},
+		{"a stream without a key", "GET", "", http.StatusUnauthorized, "WWW-Authenticate", `Bearer realm="wakeci"`},
+	}
+	for _, tt := range tests {
+		req := httptest.NewRequest(tt.method, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`))
+		req.Header.Set("Content-Type", "application/json")
+		if tt.auth != "" {
+			req.Header.Set("Authorization", tt.auth)
+		}
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != tt.want || rec.Header().Get(tt.header) != tt.wantHeader {
+			t.Errorf("%s: %d %s %q, want %d %q", tt.name, rec.Code, tt.header, rec.Header().Get(tt.header), tt.want, tt.wantHeader)
+		}
+		if tt.want == http.StatusUnauthorized && tt.auth == "" && !strings.Contains(rec.Body.String(), "API key") {
+			t.Errorf("%s: body %q doesn't say to send an API key", tt.name, rec.Body.String())
+		}
+	}
+	// A client that sends no key isn't blocked like one that guesses keys
+	for range authMaxFailures + 2 {
+		req := httptest.NewRequest("POST", "/mcp", nil)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != http.StatusUnauthorized {
+			t.Fatalf("request without a key: %d, want 401 every time", rec.Code)
+		}
+	}
+}
+
 // A change made through MCP is audited like the same request to the API,
 // and its request line names the MCP client
 func TestMCPCallsAreAuditedAndLogged(t *testing.T) {

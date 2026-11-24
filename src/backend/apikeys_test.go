@@ -548,6 +548,13 @@ func TestRouteAPIKeys(t *testing.T) {
 			t.Errorf("Authorization %q: status = %d, want %d", header, rec.Code, want)
 		}
 	}
+	// /mcp always goes to the key router, which tells a client without a key
+	// to send one
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest("POST", "/mcp", nil))
+	if rec.Code != http.StatusTeapot {
+		t.Errorf("/mcp without a key: status = %d, want the key router", rec.Code)
+	}
 }
 
 func TestTouchAPIKey(t *testing.T) {

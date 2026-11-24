@@ -77,6 +77,34 @@ test("should give each MCP client its connect command with the key", async ({ pa
     await expect(command).toContainText("Bearer wk_...");
 });
 
+test("should tell an MCP client without a key to send one, and that there is no OAuth", async ({ backend, playwright }) => {
+    const none = await playwright.request.newContext({ baseURL: backend.url, storageState: { cookies: [], origins: [] } });
+    const call = { data: { jsonrpc: "2.0", id: 1, method: "tools/list" }, headers: { Accept: "application/json, text/event-stream" } };
+    const missing = await none.post("/mcp", call);
+    expect(missing.status()).toBe(401);
+    expect(missing.headers()["www-authenticate"]).toBe('Bearer realm="wakeci"');
+    expect(await missing.text()).toContain("API key");
+    for (const path of ["/.well-known/oauth-protected-resource/mcp", "/.well-known/oauth-authorization-server"]) {
+        expect((await none.get(path)).status(), path).toBe(404);
+    }
+
+    const created = await backend.api.post("/api/keys/", {
+        data: new URLSearchParams({ name: `mcp-auth-${Date.now()}`, scope: "read", allJobs: "true", expiresInDays: "1" }).toString(),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    });
+    const { token } = await created.json();
+    const keyed = await playwright.request.newContext({
+        baseURL: backend.url,
+        storageState: { cookies: [], origins: [] },
+        extraHTTPHeaders: { Authorization: `Bearer ${token}` },
+    });
+    const stream = await keyed.get("/mcp", { headers: { Accept: "text/event-stream" } });
+    expect(stream.status()).toBe(405);
+    expect(stream.headers()["allow"]).toBe("POST");
+    await none.dispose();
+    await keyed.dispose();
+});
+
 test("should serve the REST API as Markdown without credentials", async ({ backend, playwright }) => {
     const anonymous = await playwright.request.newContext({ baseURL: backend.url, storageState: { cookies: [], origins: [] } });
     const full = await anonymous.get("/llms-full.txt");

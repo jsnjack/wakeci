@@ -73,8 +73,9 @@ func TestEveryRouteIsDocumented(t *testing.T) {
 		t.Fatalf("decode spec: %v", err)
 	}
 	undocumented := map[string]bool{
-		// MCP is described by /docs/mcp.json and the help page
-		"POST /mcp": true,
+		// MCP is described by /docs/mcp.json and the help page; GET only
+		// answers that there is no stream
+		"POST /mcp": true, "GET /mcp": true,
 		// The docs and the agent guide themselves
 		"GET /docs/api/": true, "GET /docs/swagger.json": true, "GET /docs/mcp.json": true, "GET /llms.txt": true,
 		"GET /docs/api.md": true, "GET /llms-full.txt": true,
