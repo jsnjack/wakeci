@@ -150,9 +150,11 @@ export function shownName(name) {
 }
 
 // searchTerm is the term that finds builds whose param name is value,
-// quoted only if it has a space or a quote
+// quoted only if it has a space or a quote. A name that NAME=value can't
+// hold (EXACT_TERM), such as app.version, gives the value alone
 export function searchTerm(name, value) {
-    const term = `${shownName(name)}=${value}`;
+    const shown = shownName(name);
+    const term = /^[A-Za-z_][A-Za-z0-9_]*$/.test(shown) ? `${shown}=${value}` : value;
     if (!/[\s"']/.test(term)) {
         return term;
     }

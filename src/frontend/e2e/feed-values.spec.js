@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { ordinal, rowValues, runValues, shortValue } from "../src/feed.js";
+import { searchTerm } from "../src/store/utils.js";
 
 // What a feed row shows of a build's params (F1)
 test("labels come first, then the other changed params", () => {
@@ -41,4 +42,12 @@ test("running again sends only values that differ from the job's defaults", () =
     ]);
     // Defaults not known yet: every value
     expect(runValues(params, null)).toHaveLength(3);
+});
+
+// A chip's search term: NAME=value, or the value alone for a name that
+// NAME=value can't hold
+test("a value chip searches name=value, or the value for an unusual name", () => {
+    expect(searchTerm("BRANCH_LABEL", "main")).toBe("branch=main");
+    expect(searchTerm("app.version", "1.2")).toBe("1.2");
+    expect(searchTerm("TARGET", "a b")).toBe('"target=a b"');
 });
