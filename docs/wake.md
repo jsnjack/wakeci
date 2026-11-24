@@ -142,7 +142,9 @@ starts (`buildtoken.go`). The key router takes it like an API key
   commands run as wakeci's user and can already read its database and
   secrets; limiting the token would add no protection.
 - The builds it starts are its build's children, without `WAKE_PARENT`; a
-  different `WAKE_PARENT` is refused.
+  different `WAKE_PARENT` is refused. `--again` (`WAKE_AGAIN`) is the
+  exception: the new build keeps the parent of the build it runs again, so
+  an abort of the calling build doesn't reach it.
 - **An abort stops it starting builds** until the build's on_aborted and
   finally tasks run, which may start builds again (`RunJob`). A build its
   tasks started as the abort came is aborted too ("Aborted as part of #N,
