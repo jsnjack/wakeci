@@ -221,6 +221,12 @@ func TestBuildTokenOfAbortedTasksStartsNothing(t *testing.T) {
 		strings.TrimSpace(rec.Body.String()) != "build "+strconv.Itoa(root)+" was aborted" {
 		t.Errorf("run with the aborted tasks' token: %d %q, want 400 build %d was aborted", rec.Code, rec.Body.String(), root)
 	}
+	// Also when it runs another build again, which goes under that one's
+	// parent
+	other, _ := runAs(t, nil, "nightly", nil, http.StatusOK)
+	if rec := tokenCall(router, "POST", "/api/job/nightly/run", mainToken, url.Values{againParam: {strconv.Itoa(other)}}); rec.Code != http.StatusBadRequest {
+		t.Errorf("run again with the aborted tasks' token: %d %q, want 400", rec.Code, rec.Body.String())
+	}
 	if rec := tokenCall(router, "GET", "/api/whoami", mainToken, nil); rec.Code != http.StatusOK {
 		t.Errorf("the aborted tasks' token reads: %d, want 200", rec.Code)
 	}

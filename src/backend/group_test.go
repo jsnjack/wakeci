@@ -394,7 +394,7 @@ func TestAnAbortedParentStartsNoBuilds(t *testing.T) {
 		t.Errorf("run under the aborted build: %q, want %q", refused, want)
 	}
 
-	abortLeftover(GlobalQueue.Live(child), root, startedIn)
+	abortLeftover(GlobalQueue.Live(child), &runOrigin{build: root, scope: startedIn})
 	if status := ended(t, child); status != StatusAborted {
 		t.Errorf("the build its aborted tasks started: %s, want aborted", status)
 	}

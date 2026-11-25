@@ -149,7 +149,7 @@ starts (`buildtoken.go`). The key router takes it like an API key
   finally tasks get a new token, which may start builds again; the aborted
   tasks' token still reads, but a run sent with it is refused ("build N was
   aborted"), however late it arrives. A build those tasks started as the
-  abort came is aborted too ("Aborted as part of #N, which was aborted"),
+  abort came is aborted too ("Aborted as #N, which started it, was aborted"),
   so a cancel group can't miss one that was on its way. A run with
   `WAKE_PARENT` follows the same rule, judged by the parent's tasks that
   run when it arrives.

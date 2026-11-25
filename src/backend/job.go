@@ -404,7 +404,14 @@ func RemoveJobFromCron(name string) {
 
 // RunJob creates a new build and schedules it for execution. trigger says
 // who or what started it, and group which build, if one did
-func RunJob(name string, params url.Values, untrustedParams bool, trigger buildTrigger, group buildGroup, startedIn *abortScope) (*Build, error) {
+// runOrigin is the build whose tasks start a run, and the abort scope they
+// run in
+type runOrigin struct {
+	build int
+	scope *abortScope
+}
+
+func RunJob(name string, params url.Values, untrustedParams bool, trigger buildTrigger, group buildGroup, origin *runOrigin) (*Build, error) {
 	// Check if job is enabled
 	err := DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(JobsBucket))
@@ -431,21 +438,20 @@ func RunJob(name string, params url.Values, untrustedParams bool, trigger buildT
 		// Says which file, since the error may only name a line
 		return nil, fmt.Errorf("%s%s can't be read: %w", name, Config.jobsExt, err)
 	}
-	// startedIn is the abort scope of the parent's tasks that start this
-	// build: their token's (HandleRunJob), else the parent's current one. An
+	// origin is the build whose tasks start this one, and their abort
+	// scope: their token's (HandleRunJob), else the parent's current one. An
 	// abort stops them, so a build they start then is refused; one they
 	// started just before goes with them (abortLeftover), since an abort of
 	// their group may miss it. Its on_aborted and finally tasks run in a new
-	// scope, with a new token, and may start builds.
-	// A token's scope needs no queue: on_pending tasks run before their
-	// build is queued
-	if group.Parent != 0 && startedIn == nil {
+	// scope, with a new token, and may start builds. A token's scope needs
+	// no queue: on_pending tasks run before their build is queued
+	if group.Parent != 0 && origin == nil {
 		if parent := GlobalQueue.Live(group.Parent); parent != nil {
-			startedIn = parent.currentAbort()
+			origin = &runOrigin{build: parent.ID, scope: parent.currentAbort()}
 		}
 	}
-	if startedIn != nil && startedIn.stopped() != "" {
-		return nil, fmt.Errorf("build %d was aborted", group.Parent)
+	if origin != nil && origin.scope.stopped() != "" {
+		return nil, fmt.Errorf("build %d was aborted", origin.build)
 	}
 	build, err := GlobalQueue.addNewBuild(func() (*Build, error) {
 		build, err := createBuild(job, jobFile, untrustedParams, params, group)
@@ -460,23 +466,23 @@ func RunJob(name string, params url.Values, untrustedParams bool, trigger buildT
 	if err != nil {
 		return nil, err
 	}
-	abortLeftover(build, group.Parent, startedIn)
+	abortLeftover(build, origin)
 	build.BroadcastUpdate()
 	GlobalQueue.Take()
 	return build, nil
 }
 
-// abortLeftover aborts build, now queued, if the tasks of its parent that
-// started it (startedIn) were aborted meanwhile. A cancel_group abort reads
+// abortLeftover aborts build, now queued, if the tasks that started it
+// (origin) were aborted meanwhile. A cancel_group abort reads
 // the parent's group after it aborts them (applySupersede), and build joined
 // the group before it was queued, so either that read finds build in the
 // queue or this sees the abort.
-func abortLeftover(build *Build, parent int, startedIn *abortScope) {
-	if startedIn == nil || startedIn.stopped() == "" {
+func abortLeftover(build *Build, origin *runOrigin) {
+	if origin == nil || origin.scope.stopped() == "" {
 		return
 	}
-	build.Logger.Info("aborting a build its parent started as it was aborted", "parent", parent)
-	if err := GlobalQueue.AbortBy(build.ID, StatusAborted, fmt.Sprintf("as part of #%d, which was aborted", parent)); err != nil {
+	build.Logger.Info("aborting a build started as its origin was aborted", "origin", origin.build)
+	if err := GlobalQueue.AbortBy(build.ID, StatusAborted, fmt.Sprintf("as #%d, which started it, was aborted", origin.build)); err != nil {
 		build.Logger.Info("abort a build its parent started as it was aborted", "err", err)
 	}
 }
