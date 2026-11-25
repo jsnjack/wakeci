@@ -1466,6 +1466,8 @@ func createBuild(job *Job, jobPath string, untrustedParams bool, values url.Valu
 	}
 	build.Logger.Debug("build config created", "file", build.GetBuildConfigFilename())
 
+	// Saved as pending next, and queued after its keys (addNewBuild)
+	GlobalQueue.beginAdd(build.ID)
 	build.SetBuildStatus(StatusPending)
 	return &build, nil
 }

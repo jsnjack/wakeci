@@ -31,7 +31,11 @@ type Queue struct {
 	// aborting holds builds aborted while queued, and interrupted builds
 	// (FinishInterruptedBuilds), until their on_* and finally tasks end.
 	// They hold no concurrency slot
-	aborting         []*Build
+	aborting []*Build
+	// adding holds the IDs of builds saved as pending but not queued yet
+	// (createBuild, then Add), while their keys are worked out, so the feed
+	// doesn't take them as stale (Verify)
+	adding           map[int]bool
 	mutex            deadlock.Mutex
 	concurrentBuilds int
 	// stopping is closed by BeginStop: no queued build starts again, and
@@ -142,6 +146,7 @@ func (q *Queue) TakeNow(buildID int) error {
 // one wins either way. Call setQueueKeys first.
 func (q *Queue) Add(b *Build) {
 	q.mutex.Lock()
+	delete(q.adding, b.ID)
 	q.queued = append(q.queued, b)
 	// Possibly shift queue
 	if b.Job.Priority != 0 {
@@ -176,6 +181,8 @@ func (q *Queue) addInterrupted(b *Build) {
 func (q *Queue) Remove(id int) {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
+	// A build that ends without being queued (tests) isn't being added
+	delete(q.adding, id)
 	for i, ex := range q.running {
 		if ex.ID == id {
 			q.running = append(q.running[:i], q.running[i+1:]...)
@@ -203,6 +210,9 @@ func (q *Queue) Remove(id int) {
 func (q *Queue) Verify(id int) bool {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
+	if q.adding[id] {
+		return true
+	}
 	for _, item := range q.queued {
 		if item.ID == id {
 			return true
@@ -579,6 +589,20 @@ func (q *Queue) addNewBuild(create func() (*Build, error)) (*Build, error) {
 	build.setQueueKeys()
 	q.Add(build)
 	return build, nil
+}
+
+// beginAdd notes build id, about to be saved as pending, as one that Add
+// queues next. A nil queue, as in tests, notes nothing
+func (q *Queue) beginAdd(id int) {
+	if q == nil {
+		return
+	}
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+	if q.adding == nil {
+		q.adding = map[int]bool{}
+	}
+	q.adding[id] = true
 }
 
 // tasksStoppedNow reports whether stopTasks was called, so a task mustn't

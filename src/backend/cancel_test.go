@@ -241,3 +241,25 @@ func TestStartedUnderWithoutTheRootsHistory(t *testing.T) {
 		t.Errorf("started under %d: %v, want [%d], not %d", child, got, grandchild, other)
 	}
 }
+
+// A build saved as pending is known to the queue until it is queued, while
+// its cancel_unless runs, so the feed doesn't mark it aborted as stale
+func TestBuildBeingAddedIsntStale(t *testing.T) {
+	cancelEnv(t)
+	job, err := CreateJobFromFile(Config.JobDir + "tests" + Config.jobsExt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	build, err := createBuild(job, "", false, url.Values{"BRANCH": {"main"}}, buildGroup{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if isStaleBuild(&BuildUpdateData{ID: build.ID, Status: StatusPending}) {
+		t.Error("a build being added counts as stale")
+	}
+	build.setQueueKeys()
+	GlobalQueue.Add(build)
+	if !GlobalQueue.Verify(build.ID) || GlobalQueue.adding[build.ID] {
+		t.Error("the queued build isn't known as queued")
+	}
+}
