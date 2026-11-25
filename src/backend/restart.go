@@ -309,7 +309,8 @@ func (b *Build) noteInterrupted(task *Task) {
 			b.Logger.Error("open task colour log", "task", task.ID, "err", err)
 			break
 		}
-		log.ansiFile, log.ansi = ansi, bufio.NewWriter(ansi)
+		// With its path, so a failed write can remove it (dropANSILocked)
+		log.ansiFile, log.ansi, log.ansiPath = ansi, bufio.NewWriter(ansi), ansiPath
 	case !errors.Is(ansiErr, fs.ErrNotExist):
 		b.Logger.Error("read task colour log", "task", task.ID, "err", ansiErr)
 	}
