@@ -244,3 +244,8 @@ removed from a group in Google keeps it until their session ends (12 hours)
 or the admin revokes their access. There are no per-user permissions: a
 person gets what their groups allow, or, in none of them, what the rule for
 people in no group allows.
+
+A cancel group crosses access: a run of one job aborts the older builds of
+every job whose file declares the same `cancel_group` and key, also those
+the caller may not run, since their files' authors put the jobs in one
+group ([docs/wake.md](wake.md#builds-that-replace-older-ones)).

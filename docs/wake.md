@@ -127,6 +127,10 @@ cancel_unless: '[[ $BRANCH =~ ^(main|release)$ ]]'
   cancels nothing.
 - The run's audit event lists what it `cancelled`, or who it was
   `supersededBy`.
+- A cancel group belongs to the jobs whose files declare it, not to the
+  caller: whoever may run one of them supersedes the others' builds, a key
+  with `run` on one job only too, as the files' authors chose by sharing
+  the group ([docs/access.md](access.md#what-it-doesnt-do)).
 
 When the builds share something, such as a test server, the newer one
 should start only after the older one's cleanup. `concurrency_key` makes
