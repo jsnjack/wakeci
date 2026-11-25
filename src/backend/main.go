@@ -243,16 +243,17 @@ func run(cleanup func()) (tasksLeft bool) {
 	if err != nil {
 		fatal("create work dir", err)
 	}
+	DB, err = openDB(Config.WorkDir+"wakeci.db", dbLockTimeout)
+	if err != nil {
+		fatal("open db", err)
+	}
+	// After the database, which a running wakeci holds, so a second one on
+	// its workdir stops before it points that one's tasks at itself.
 	// Without it, tasks can't run wake; everything else works
 	if err := installWakeCommand(Config.WorkDir+"bin", executablePath); err != nil {
 		L.Warn("can't link the wake command for tasks", "err", err)
 	} else {
 		wakeCommandDir = Config.WorkDir + "bin"
-	}
-
-	DB, err = openDB(Config.WorkDir+"wakeci.db", dbLockTimeout)
-	if err != nil {
-		fatal("open db", err)
 	}
 	// Before anything writes to it
 	backUpForThisVersion(DB)
