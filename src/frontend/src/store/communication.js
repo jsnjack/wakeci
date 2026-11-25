@@ -3,7 +3,7 @@ import { createFilterObj, escapeHtml, matchesFilter } from "./utils.js";
 const lastStatuses = new Map();
 
 // The statuses a build ends with
-const FINAL = ["finished", "failed", "aborted", "timed out"];
+const FINAL = ["finished", "failed", "aborted", "timed out", "skipped"];
 
 // handleSystemNotification tells the user once a build they watch, or one
 // that matches a search they watch, has ended (L5 in docs/ui-roadmap.md),
