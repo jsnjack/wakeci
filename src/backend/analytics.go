@@ -282,23 +282,37 @@ func outcomeOf(s *buildStats) BuildOutcome {
 // failingStreak returns the failed or timed out builds up to the last one,
 // in order, or nil if the last build that wasn't aborted finished
 func failingStreak(builds []*buildStats) *FailingStreak {
-	var streak *FailingStreak
-	for i := len(builds) - 1; i >= 0; i-- {
-		b := builds[i]
-		switch b.Status {
-		case StatusAborted:
-			continue
-		case StatusFailed, StatusTimedOut:
-			if streak == nil {
-				streak = &FailingStreak{Last: outcomeOf(b)}
-			}
-			streak.Builds++
-			streak.First = outcomeOf(b)
-			continue
-		}
-		break
+	var counter streakCounter
+	for i := len(builds) - 1; i >= 0 && !counter.add(builds[i]); i-- {
 	}
-	return streak
+	return counter.streak
+}
+
+// streakCounter follows a job's builds, newest first, to its failing
+// streak: failed and timed out builds count, aborted ones are passed over,
+// and any other ends it
+type streakCounter struct {
+	streak *FailingStreak
+	done   bool
+}
+
+// add takes the next older build, and reports whether the streak has ended
+func (c *streakCounter) add(b *buildStats) bool {
+	if c.done {
+		return true
+	}
+	switch b.Status {
+	case StatusAborted:
+	case StatusFailed, StatusTimedOut:
+		if c.streak == nil {
+			c.streak = &FailingStreak{Last: outcomeOf(b)}
+		}
+		c.streak.Builds++
+		c.streak.First = outcomeOf(b)
+	default:
+		c.done = true
+	}
+	return c.done
 }
 
 // jobAccumulator collects a job's builds in the range

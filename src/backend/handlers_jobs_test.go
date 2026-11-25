@@ -227,3 +227,51 @@ func TestJobListBoard(t *testing.T) {
 		}
 	}
 }
+
+// The board shows 20 builds, but the failing streak goes on to its start:
+// 25 failures in a row, and a streak behind 20 aborted builds
+func TestJobListBoardStreakPastTheShownBuilds(t *testing.T) {
+	newAPIKeyTestEnv(t)
+	put := func(job string, statuses []ItemStatus, from int) {
+		t.Helper()
+		if err := DB.Update(func(tx *bolt.Tx) error {
+			b, err := tx.CreateBucketIfNotExists(BuildStatsBucket)
+			if err != nil {
+				return err
+			}
+			for i, status := range statuses {
+				record, _ := json.Marshal(buildStats{ID: from + i, Job: job, Status: status})
+				if err := b.Put(Itob(from+i), record); err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	failures := []ItemStatus{StatusFinished}
+	for range 25 {
+		failures = append(failures, StatusFailed)
+	}
+	put("deploy", failures, 100)
+	behind := []ItemStatus{StatusFinished, StatusFailed, StatusTimedOut}
+	for range 20 {
+		behind = append(behind, StatusAborted)
+	}
+	put("nightly", behind, 200)
+	var jobs []JobsListData
+	if err := json.Unmarshal(adminRequest("GET", "/api/jobs/?board=1", nil).Body.Bytes(), &jobs); err != nil {
+		t.Fatal(err)
+	}
+	failing := map[string]*FailingStreak{}
+	for _, job := range jobs {
+		failing[job.Name] = job.Failing
+	}
+	if f := failing["deploy"]; f == nil || f.Builds != 25 || f.First.ID != 101 || f.Last.ID != 125 {
+		t.Errorf("deploy failing = %+v, want 25 builds from 101 to 125", f)
+	}
+	if f := failing["nightly"]; f == nil || f.Builds != 2 || f.First.ID != 201 || f.Last.ID != 202 {
+		t.Errorf("nightly failing = %+v, want 2 builds from 201 to 202 behind the aborted ones", f)
+	}
+}

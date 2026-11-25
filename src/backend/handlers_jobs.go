@@ -193,20 +193,32 @@ func addBoard(jobs []*JobsListData) error {
 		byName[job.Name] = job
 	}
 	recent := make(map[string][]*buildStats, len(jobs))
+	streaks := make(map[string]*streakCounter, len(jobs))
 	err := DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(BuildStatsBucket)
 		if b == nil {
 			return nil
 		}
+		// The failing streak goes on past the builds shown, up to its end
+		open := len(jobs)
+		for _, job := range jobs {
+			streaks[job.Name] = &streakCounter{}
+		}
 		full, read := 0, 0
 		c := b.Cursor()
-		for k, v := c.Last(); k != nil && read < boardScan && full < len(jobs); k, v = c.Prev() {
+		for k, v := c.Last(); k != nil && read < boardScan && (full < len(jobs) || open > 0); k, v = c.Prev() {
 			read++
 			var s buildStats
 			if json.Unmarshal(v, &s) != nil {
 				continue
 			}
-			if _, ok := byName[s.Job]; !ok || len(recent[s.Job]) >= boardBuilds {
+			if _, ok := byName[s.Job]; !ok {
+				continue
+			}
+			if counter := streaks[s.Job]; !counter.done && counter.add(&s) {
+				open--
+			}
+			if len(recent[s.Job]) >= boardBuilds {
 				continue
 			}
 			recent[s.Job] = append(recent[s.Job], &s)
@@ -226,7 +238,9 @@ func addBoard(jobs []*JobsListData) error {
 		for _, s := range builds {
 			job.Recent = append(job.Recent, outcomeOf(s))
 		}
-		job.Failing = failingStreak(builds)
+	}
+	for name, counter := range streaks {
+		byName[name].Failing = counter.streak
 	}
 	for _, entry := range GlobalCron.Entries() {
 		if cronJob, ok := entry.Job.(*Job); ok {
