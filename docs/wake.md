@@ -109,7 +109,9 @@ cancel_unless: '[[ $BRANCH =~ ^(main|release)$ ]]'
 - As a build is queued (`Queue.Add`), it aborts the older builds, queued or
   running, whose key is the same, of every job with that group, and the
   builds they started (`startedUnder`). Their on_aborted and finally tasks
-  run, and their log says "Aborted as superseded by #N (tests/feature)".
+  run, and their log says "Aborted as superseded by #N (tests/feature)". A
+  build whose main tasks have ended is left alone: an abort would only stop
+  its on_* and finally tasks, its cleanup.
 - The later build wins: both are looked for under the queue's lock, so a
   build queued after a newer one with its key cancels itself. There is no
   check of which commit is newer.

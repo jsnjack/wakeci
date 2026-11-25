@@ -284,3 +284,19 @@ func TestAbortedBuildsHooksHoldTheirJobsConcurrency(t *testing.T) {
 		t.Error("another job waits for this one's cleanup")
 	}
 }
+
+// A build that runs its hooks has done its work: a newer build of its key
+// leaves it, so its cleanup isn't stopped
+func TestCancelGroupSparesABuildInItsHooks(t *testing.T) {
+	cancelEnv(t)
+	old := runBranch(t, "tests", "main", nil)
+	// As once its main tasks ended, while finally runs
+	GlobalQueue.Live(old).mainEnded.Store(true)
+	newer := runBranch(t, "postdep", "main", nil)
+	if GlobalQueue.Live(old) == nil || GlobalQueue.Live(newer) == nil {
+		t.Error("a build running its hooks was cancelled, or the newer one")
+	}
+	if cancelled := GlobalQueue.Live(newer).cancelled; len(cancelled) != 0 {
+		t.Errorf("cancelled %v, want none", cancelled)
+	}
+}

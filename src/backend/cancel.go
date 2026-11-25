@@ -160,6 +160,11 @@ func (q *Queue) supersedeLocked(b *Build) supersede {
 			if other == b || other.keys.cancelKey != b.keys.cancelKey || other.keys.root == b.keys.root {
 				continue
 			}
+			// An older build that runs its hooks has done its work; an
+			// abort would only stop its cleanup
+			if other.ID < b.ID && other.mainEnded.Load() {
+				continue
+			}
 			if other.ID < b.ID {
 				found.older = append(found.older, other)
 			} else if found.newer == nil || other.ID > found.newer.ID {
@@ -191,6 +196,9 @@ func (q *Queue) applySupersede(b *Build, found supersede) {
 		b.cancelled = append(b.cancelled, old.ID)
 		for _, id := range startedUnder(old) {
 			if slices.Contains(b.cancelled, id) {
+				continue
+			}
+			if child := q.Live(id); child != nil && child.mainEnded.Load() {
 				continue
 			}
 			if q.AbortBy(id, StatusAborted, fmt.Sprintf("as part of #%d, superseded by #%d (%s)", old.ID, b.ID, key)) == nil {

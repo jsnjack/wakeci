@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -100,6 +101,10 @@ type Build struct {
 	failedTask *Task
 	// liveLog is the log of the task that runs now, nil between tasks
 	liveLog atomic.Pointer[taskLogWriter]
+	// mainEnded is set once the build has a final status, as its on_* and
+	// finally tasks start: a cancel group no longer aborts it, which would
+	// stop its cleanup (applySupersede)
+	mainEnded atomic.Bool
 	// logBatch holds the log lines that wait to be sent to the browsers
 	logBatch logBatch
 	// abort is the abort request for the tasks that run now, guarded by mutex
@@ -1290,6 +1295,9 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		b.StartedAt = time.Now()
 	}
 	b.mutex.Unlock()
+	if slices.Contains(buildDoneStatuses, status) {
+		b.mainEnded.Store(true)
+	}
 	switch status {
 	case StatusPending:
 		b.BroadcastUpdate()
