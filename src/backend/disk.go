@@ -159,13 +159,15 @@ func BackfillBuildDisk(ctx context.Context) {
 		ids = ids[len(batch):]
 		sizes := make(map[int]*buildDisk, len(batch))
 		for _, id := range batch {
-			// Cleanup may have removed it meanwhile; then there's nothing
+			// One still in the queue, its status final but its hooks
+			// running, is measured as it leaves it (saveDiskLater)
 			if !GlobalQueue.Verify(id) {
 				sizes[id] = measureBuildDisk(id)
 			}
 		}
 		err := DB.Update(func(tx *bolt.Tx) error {
 			for id, disk := range sizes {
+				// Measured meanwhile, or removed by cleanup
 				record := getBuildStats(tx, id)
 				if record == nil || record.Disk != nil || tx.Bucket(HistoryBucket).Get(Itob(id)) == nil {
 					continue
@@ -181,6 +183,11 @@ func BackfillBuildDisk(ctx context.Context) {
 			}
 			return nil
 		})
+		if errors.Is(err, berrors.ErrDatabaseNotOpen) {
+			// wakeci stopped; the next start measures the rest
+			L.Debug("save build sizes: wakeci stopped first")
+			return
+		}
 		if err != nil {
 			L.Error("save build sizes", "err", err)
 			return
