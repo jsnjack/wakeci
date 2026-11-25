@@ -43,6 +43,8 @@ import OutcomeStrip from "@/components/charts/OutcomeStrip.vue";
 import axios from "axios";
 
 const SHOWN = 20;
+// How many newer builds one request reads to find the next one
+const NEWER_PAGE = 200;
 
 function outcome(build) {
     return { id: build.id, status: build.status, startedAt: build.startedAt, duration: build.duration };
@@ -104,6 +106,22 @@ export default {
         feed(query) {
             return axios.get(`/api/feed?job=${encodeURIComponent(this.jobName)}&${query}`).then((response) => response.data || []);
         },
+        // nextNewer finds the build right after this one, null if none. The
+        // feed answers newest first, so a full page of newer builds may not
+        // reach it: the next page, below the lowest seen, comes nearer
+        async nextNewer() {
+            let lowest = null;
+            for (;;) {
+                const below = lowest === null ? "" : `&before=${lowest}`;
+                const page = await this.feed(`after=${this.buildId}${below}&limit=${NEWER_PAGE}`);
+                if (page.length) {
+                    lowest = Math.min(...page.map((b) => b.id));
+                }
+                if (page.length < NEWER_PAGE || this.gone) {
+                    return lowest;
+                }
+            }
+        },
         fetch() {
             return this.feed(`limit=${SHOWN}`)
                 .then((builds) => {
@@ -117,7 +135,7 @@ export default {
                     }
                     return Promise.all([
                         this.feed(`before=${this.buildId}&limit=1`).then((older) => (this.older = older[0]?.id ?? null)),
-                        this.feed(`after=${this.buildId}&limit=200`).then((newer) => (this.newer = newer.length ? Math.min(...newer.map((b) => b.id)) : null)),
+                        this.nextNewer().then((newer) => (this.newer = newer)),
                     ]);
                 })
                 .catch(() => {});
