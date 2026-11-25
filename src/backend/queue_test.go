@@ -161,21 +161,37 @@ func TestQueueChangesShareOneStatusSender(t *testing.T) {
 	hub := &Hub{broadcast: make(chan *MsgBroadcast)}
 	WSHub = hub
 	t.Cleanup(func() { WSHub = old })
-	q := &Queue{}
+	// Its status names this build; other tests' queues may send theirs
+	const marker = 987654
+	q := &Queue{queued: []*Build{{ID: marker}}}
+	ours := func(within time.Duration) bool {
+		deadline := time.After(within)
+		for {
+			select {
+			case msg := <-hub.broadcast:
+				if status, ok := msg.Data.(QueueStatusData); ok && slices.Contains(status.QueuedIDs, marker) {
+					return true
+				}
+			case <-deadline:
+				return false
+			}
+		}
+	}
 	for range 100 {
 		q.queueChanged()
 	}
-	<-hub.broadcast
-	select {
-	case <-hub.broadcast:
-		t.Error("a second status was sent for the same burst")
-	case <-time.After(200 * time.Millisecond):
+	// One sender takes the status; changes after it cleared the flag start
+	// one more, which waits for the first. Never one each
+	sent := 0
+	for ours(300 * time.Millisecond) {
+		sent++
+	}
+	if sent < 1 || sent > 2 {
+		t.Errorf("the burst of 100 changes sent %d statuses, want 1 or 2", sent)
 	}
 	// A change after the status was taken is sent too
 	q.queueChanged()
-	select {
-	case <-hub.broadcast:
-	case <-time.After(2 * time.Second):
+	if !ours(2 * time.Second) {
 		t.Error("a change after the burst sent no status")
 	}
 }
