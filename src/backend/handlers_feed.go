@@ -113,7 +113,7 @@ func seekAtOrBefore(c *bolt.Cursor, id int) ([]byte, []byte) {
 // @Produce      json
 // @Param        limit    query      integer   false  "How many builds, 1 to 200; 15 if not set"
 // @Param        before   query      integer   false  "Only builds with a lower ID"
-// @Param        after    query      integer   false  "Only builds with a higher ID"
+// @Param        after    query      integer   false  "Only builds with a higher ID. With groups=1, one whose root has this ID or a lower one comes as a row of its own"
 // @Param        job      query      []string  false  "Only builds of these jobs, by exact name" collectionFormat(multi)
 // @Param        status   query      []string  false  "Only builds with these statuses: pending, running, finished, failed, aborted, timed out" collectionFormat(multi)
 // @Param        offset   query      integer   false  "Deprecated: skip that many matching builds; page with before=<the oldest ID you got> instead"
@@ -193,8 +193,10 @@ func HandleFeedView(w http.ResponseWriter, r *http.Request) {
 			}
 			row := &FeedBuild{BuildUpdateData: &msg}
 			if f.groups {
-				// Shown under its root
-				if msg.Root != 0 && shows(msg.Root) {
+				// Shown under its root, unless after leaves the root out:
+				// a new build of an older group then comes on its own, as
+				// the builds after it are what was asked for
+				if msg.Root != 0 && shows(msg.Root) && msg.Root > f.after {
 					continue
 				}
 				if msg.Root == 0 {

@@ -322,6 +322,8 @@ func TestFeedGroups(t *testing.T) {
 		{"a search too", "groups=1&q=" + url.QueryEscape("id:"+strconv.Itoa(grandchild)), nil, map[int][]int{root: {child, grandchild}}},
 		{"unreadable members are counted", "groups=1", deployer, map[int][]int{lone: {}, root: {grandchild, -1}, 1: {}}},
 		{"an unreadable root leaves its members on their own", "groups=1", nightly, map[int][]int{child: {}, 2: {}}},
+		// The root is older than after: its new members come on their own
+		{"after leaves out an older root", "groups=1&after=" + strconv.Itoa(root), nil, map[int][]int{lone: {}, grandchild: {}, child: {}}},
 	}
 	for _, c := range cases {
 		if got := feedRows(t, c.query, c.cookie); !maps.EqualFunc(got, c.want, slices.Equal) {
