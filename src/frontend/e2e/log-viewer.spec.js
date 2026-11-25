@@ -291,6 +291,19 @@ test("should subscribe to a build's log again after a reconnect", async ({ page,
     await gate.release();
 });
 
+// Artifacts can write the app's localStorage: a theme it doesn't know
+// leaves the page on a known one, and a coloured log still opens
+test("should open a coloured log with a stored theme it doesn't know", async ({ page, wake }) => {
+    const name = await wake.createJob("tasks:\n  - name: Talk\n    run: printf '\\033[38;5;214mwa''rn\\033[0m\\n'\n");
+    const id = await wake.runJob(name);
+    await wake.waitForBuild(id);
+    await page.addInitScript(() => window.localStorage.setItem("theme", "bogus"));
+    await wake.openBuild(id);
+    await openLog(page);
+    // Coloured: the palette threw, and the log showed without colours
+    await expect(page.getByTestId("task-log").locator("span[style*='color']", { hasText: "warn" })).toHaveCount(1);
+});
+
 test("should open a failed log at its end without moving the page", async ({ page, wake }) => {
     const name = await wake.createJob(`
 tasks:

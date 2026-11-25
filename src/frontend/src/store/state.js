@@ -1,5 +1,17 @@
 import { loadWatches } from "./watches.js";
 
+// storedTheme is the theme the user picked, if it is one: artifacts on
+// this origin can write localStorage too, and the log's palette knows light
+// and dark only
+function storedTheme() {
+    try {
+        const theme = window.localStorage.getItem("theme");
+        return theme === "light" || theme === "dark" ? theme : null;
+    } catch {
+        return null;
+    }
+}
+
 const state = {
     ws: {
         obj: { sendMessage: function () {} },
@@ -44,7 +56,7 @@ const state = {
     serverVersion: "",
     currentPage: "",
     // The theme the user picked, or else the system's (App.vue follows it)
-    theme: window.localStorage.getItem("theme") || (window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light"),
+    theme: storedTheme() || (window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light"),
 };
 
 export default state;

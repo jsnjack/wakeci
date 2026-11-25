@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { AnsiParser, color256, prefixEnd } from "../src/log/ansi.js";
+import { readableColor } from "../src/log/colors.js";
 
 // The log viewer's parser of the colour log (B4)
 test("colours become spans over the visible text", () => {
@@ -42,4 +43,10 @@ test("the time prefix and the 256-colour table", () => {
     expect(color256(16)).toEqual([0, 0, 0]);
     expect(color256(231)).toEqual([255, 255, 255]);
     expect(color256(244)).toEqual([128, 128, 128]);
+});
+
+// A theme the palette doesn't know, e.g. one an artifact wrote to
+// localStorage, is dark: it threw before
+test("a colour for a theme the palette doesn't know is the dark one's", () => {
+    expect(readableColor([255, 175, 0], "bogus")).toBe(readableColor([255, 175, 0], "dark"));
 });

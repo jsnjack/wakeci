@@ -324,7 +324,7 @@ function loadGrouped() {
 function loadPinned() {
     try {
         const pinned = JSON.parse(window.localStorage.getItem(PINNED_KEY) || "[]");
-        return Array.isArray(pinned) ? pinned : [];
+        return Array.isArray(pinned) ? pinned.filter((name) => typeof name === "string") : [];
     } catch {
         return [];
     }

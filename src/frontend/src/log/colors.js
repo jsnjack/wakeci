@@ -24,10 +24,12 @@ const cache = new Map();
 
 // readableColor returns rgb as a CSS colour readable on the theme's log
 export function readableColor(rgb, theme) {
-    const key = `${theme}:${rgb.join(",")}`;
+    // Light or dark only, as the store keeps it; anything else is dark
+    const palette = theme === "light" ? "light" : "dark";
+    const key = `${palette}:${rgb.join(",")}`;
     if (!cache.has(key)) {
-        const background = BACKGROUND[theme];
-        const text = TEXT[theme];
+        const background = BACKGROUND[palette];
+        const text = TEXT[palette];
         let color = rgb;
         for (let step = 1; step <= 10 && contrast(color, background) < 4.5; step++) {
             color = rgb.map((c, i) => Math.round(c + (text[i] - c) * (step / 10)));
