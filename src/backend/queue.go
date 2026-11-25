@@ -297,6 +297,11 @@ func (q *Queue) AbortBy(id int, reason, by string) error {
 func (q *Queue) Live(id int) *Build {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
+	// Pending already, its on_pending tasks running, while its keys are
+	// worked out: a run may name it as its parent
+	if b := q.adding[id]; b != nil {
+		return b
+	}
 	for _, item := range q.queued {
 		if item.ID == id {
 			return item

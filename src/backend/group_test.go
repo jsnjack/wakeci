@@ -433,3 +433,23 @@ func TestAbortGroupWithRunOnly(t *testing.T) {
 	}
 	waitLeftQueue(t, root, grandchild)
 }
+
+// A parent still being added, its on_pending tasks running, is pending: a
+// run may name it
+func TestRunUnderAParentBeingAdded(t *testing.T) {
+	groupEnv(t)
+	job, err := CreateJobFromFile(Config.JobDir + "deploy" + Config.jobsExt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parent, err := createBuild(job, "", false, nil, buildGroup{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	child, _ := runAs(t, nil, "nightly", url.Values{parentParam: {strconv.Itoa(parent.ID)}}, http.StatusOK)
+	if got := GlobalQueue.Live(child).Group(); got.Parent != parent.ID {
+		t.Errorf("child's group %+v, want parent %d", got, parent.ID)
+	}
+	parent.setQueueKeys()
+	GlobalQueue.Add(parent)
+}
