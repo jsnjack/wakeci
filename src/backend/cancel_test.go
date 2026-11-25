@@ -354,3 +354,20 @@ func TestAbortedBuildBeingAddedCancelsNothing(t *testing.T) {
 		t.Errorf("the older build of main was cancelled (%v) by one aborted as it was added", build.cancelled)
 	}
 }
+
+// A concurrency key that names a param without a value is no key, as a
+// cancel key isn't
+func TestConcurrencyKeyWithoutAValueIsNoKey(t *testing.T) {
+	build := &Build{ID: 3, Logger: L, Params: []map[string]string{{"NAME": ""}}, Job: &Job{
+		Name: "pr_init", ConcurrencyKey: "pr_init/$NAME",
+	}}
+	build.setQueueKeys()
+	if build.keys.concurrencyKey != "" {
+		t.Errorf("concurrency key %q, want none", build.keys.concurrencyKey)
+	}
+	build.Params[0]["NAME"] = "pr1"
+	build.setQueueKeys()
+	if build.keys.concurrencyKey != "pr_init/pr1" {
+		t.Errorf("concurrency key %q, want pr_init/pr1", build.keys.concurrencyKey)
+	}
+}

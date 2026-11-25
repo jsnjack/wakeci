@@ -71,7 +71,11 @@ func (b *Build) setKeys(cancels bool) {
 		root = b.ID
 	}
 	keys := queueKeys{root: root}
-	keys.concurrencyKey, _ = expandKey(b.Job.ConcurrencyKey, values)
+	// As for the cancel key: one that names a param without a value is no
+	// key, or every such build of every job with it would share one slot
+	if key, ok := expandKey(b.Job.ConcurrencyKey, values); ok {
+		keys.concurrencyKey = key
+	}
 	if key, ok := expandKey(b.Job.CancelGroup, values); ok && cancels {
 		spared, err := b.cancelSpared(values)
 		switch {
