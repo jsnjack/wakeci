@@ -47,3 +47,10 @@ test("a member's line names only the values it doesn't share with its root", () 
     expect(memberValues(other, root, null)).toBe("release/2.68");
     expect(memberValues({ params: [{ BRANCH_LABEL: "main" }] }, root, null)).toBe("");
 });
+
+// The same values in another order, as after the job file's params moved,
+// are the same build: the later attempt replaces the failed one
+test("an attempt with its values in another order is the same build", () => {
+    const shown = latestAttempts([build(2, 1, "tests", "failed", [{ A: "1" }, { B: "2" }]), build(3, 1, "tests", "finished", [{ B: "2" }, { A: "1" }])]);
+    expect(shown.map((b) => [b.id, b.attempts, b.status])).toEqual([[3, 2, "finished"]]);
+});

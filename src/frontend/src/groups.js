@@ -38,7 +38,10 @@ export function groupTree(root, builds) {
 // the same job with the same values, with how many attempts it took. Builds
 // of a job with other values, e.g. a test matrix, stay apart
 export function latestAttempts(builds) {
-    const key = (build) => JSON.stringify([build.parent || 0, build.name, build.params || []]);
+    // Its values by name, whatever their order: a job file whose params moved
+    // between two attempts still runs the same build
+    const values = (build) => (build.params || []).flatMap((param) => Object.entries(param)).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    const key = (build) => JSON.stringify([build.parent || 0, build.name, values(build)]);
     const latest = new Map();
     for (const build of builds) {
         latest.set(key(build), { ...build, attempts: (latest.get(key(build))?.attempts || 0) + 1 });
