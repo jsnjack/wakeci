@@ -611,13 +611,23 @@ func (q *Queue) addNewBuild(create func() (*Build, error)) (*Build, error) {
 	}
 	build.setQueueKeys()
 	q.Add(build)
-	// Aborted while its keys were worked out: as a queued build now
-	if scope := build.currentAbort(); scope.stopped() != "" {
+	// Aborted while its keys were worked out: as a queued build now. Only
+	// while it is queued: Add may have aborted it already (a newer build of
+	// its cancel group), and its hooks may run in a new scope by now, which
+	// a second abort would stop
+	if scope := build.currentAbort(); scope.stopped() != "" && q.isQueued(build.ID) {
 		if err := q.AbortBy(build.ID, scope.reason, scope.by); err != nil {
 			build.Logger.Error("abort the build aborted as it was queued", "err", err)
 		}
 	}
 	return build, nil
+}
+
+// isQueued reports whether build id waits in the queue
+func (q *Queue) isQueued(id int) bool {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+	return slices.ContainsFunc(q.queued, func(b *Build) bool { return b.ID == id })
 }
 
 // beginAdd notes build b, about to be saved as pending, as one that Add
