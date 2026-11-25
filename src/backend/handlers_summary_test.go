@@ -388,3 +388,35 @@ func TestJobSummary(t *testing.T) {
 		t.Errorf("long summary: %d bytes ending %q, want it cut at 64 KB", len(build), build[len(build)-20:])
 	}
 }
+
+// A numbered tail counts from what it counted before, as the log grows,
+// and still numbers its lines right
+func TestTailLinesCountsOnFromTheLastCount(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "task.log")
+	writeLog(t, path, 30000, "")
+	if _, first, err := tailLines(path, 2, true); err != nil || first != 29999 {
+		t.Fatalf("first tail starts at %d, %v; want 29999", first, err)
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 30001; i <= 30100; i++ {
+		if _, err := fmt.Fprintf(f, "line %d\n", i); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	lineCounts.Lock()
+	known := lineCounts.byPath[path]
+	lineCounts.Unlock()
+	if known.lines == 0 {
+		t.Fatal("no count remembered")
+	}
+	text, first, err := tailLines(path, 2, true)
+	if err != nil || first != 30099 || text != "line 30099\nline 30100" {
+		t.Errorf("tail after growing: %q from %d, %v; want lines 30099 and 30100", text, first, err)
+	}
+}

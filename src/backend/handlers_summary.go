@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -300,7 +301,7 @@ func tailLines(path string, n int, numbered bool) (string, int, error) {
 	if numbered {
 		data = data[:bytes.LastIndexByte(data, '\n')+1]
 		// The file's lines up to what was read, which a running task extends
-		before, err := countLines(io.NewSectionReader(f, 0, offset))
+		before, err := countLinesUpTo(f, path, offset)
 		if err != nil {
 			return "", 0, fmt.Errorf("count log lines: %w", err)
 		}
@@ -319,6 +320,47 @@ func tailLines(path string, n int, numbered bool) (string, int, error) {
 		return text, 0, nil
 	}
 	return text, last - strings.Count(text, "\n"), nil
+}
+
+// lineCounts remembers how many line breaks a log has up to an offset, so
+// the log viewer's numbered tail of a long log, asked for on every open and
+// after every gap in the live log, counts only what was added since. Logs
+// only grow, and a build's ID isn't used again, so a count stays right
+var lineCounts = struct {
+	sync.Mutex
+	byPath map[string]lineCount
+}{byPath: map[string]lineCount{}}
+
+type lineCount struct {
+	offset int64
+	lines  int
+}
+
+// maxLineCounts bounds lineCounts; past it, the counts start again
+const maxLineCounts = 256
+
+// countLinesUpTo counts the line breaks of f, the log at path, before
+// offset, from the count it remembers when it has one
+func countLinesUpTo(f *os.File, path string, offset int64) (int, error) {
+	lineCounts.Lock()
+	known, ok := lineCounts.byPath[path]
+	lineCounts.Unlock()
+	from, lines := int64(0), 0
+	if ok && known.offset <= offset {
+		from, lines = known.offset, known.lines
+	}
+	added, err := countLines(io.NewSectionReader(f, from, offset-from))
+	if err != nil {
+		return 0, err
+	}
+	lines += added
+	lineCounts.Lock()
+	if len(lineCounts.byPath) >= maxLineCounts {
+		clear(lineCounts.byPath)
+	}
+	lineCounts.byPath[path] = lineCount{offset, lines}
+	lineCounts.Unlock()
+	return lines, nil
 }
 
 // countFileLines counts the line breaks of the file at path
