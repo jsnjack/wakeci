@@ -90,6 +90,45 @@ tasks:
 
 // A log over 50 MB opens at its tail, numbered from where the tail starts
 // in the log (X-First-Line), so a line link opens that line
+// On a full disk the live log numbers lines the file doesn't have: a read
+// that still lacks them is the last, and live lines are taken as they come
+test("should take live lines the log file lacks without reading it again and again", async ({ page, wake }) => {
+    const gate = await wake.gate();
+    const name = await wake.createJob(`tasks:\n  - name: Talk\n    run: echo "n""=1."; ${gate.command}\n`);
+    const id = await wake.runJob(name);
+    await wake.waitForBuild(id, "running");
+    let reads = 0;
+    page.on("request", (request) => {
+        if (new URL(request.url()).pathname.startsWith(`/api/build/${id}/log/`)) {
+            reads++;
+        }
+    });
+    let socket;
+    let subscribed = false;
+    await page.routeWebSocket(/\/ws$/, (ws) => {
+        const server = ws.connectToServer();
+        ws.onMessage((message) => {
+            subscribed ||= message.includes(`"build:log:${id}"`);
+            server.send(message);
+        });
+        server.onMessage((message) => ws.send(message));
+        socket = ws;
+    });
+    await page.goto(`/build/${id}`);
+    await page.getByTestId("log-search-open").click();
+    await page.getByTestId("log-search").fill("n=");
+    await expect(page.getByTestId("log-search-count")).toHaveText("1 of 1");
+    await expect.poll(() => subscribed).toBe(true);
+    // Lines 40 and 41, which the file never got
+    const batch = (n, text) => JSON.stringify({ type: `build:log:${id}`, data: { taskID: 0, id: n, data: `[ 1s] ${text}\n` } });
+    socket.send(batch(40, "n=40."));
+    await expect(page.getByTestId("log-search-count")).toHaveText(/ of 2$/);
+    socket.send(batch(41, "n=41."));
+    await expect(page.getByTestId("log-search-count")).toHaveText(/ of 3$/);
+    expect(reads).toBe(2);
+    await gate.release();
+});
+
 test("should number a long log's tail from where it starts", async ({ page, wake }) => {
     const name = await wake.createJob("tasks:\n  - name: Talk\n    run: echo hi\n");
     const id = await wake.runJob(name);

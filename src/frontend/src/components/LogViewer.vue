@@ -557,6 +557,13 @@ export default {
             // without the check
             this.tail = tail && !first;
             this.dropped = first > 0 ? first - 1 : 0;
+            // Read again because live lines skipped some (gapID): if the
+            // file still doesn't have them, as when the disk is full, reading
+            // it again won't help, so live lines are taken as they come
+            if (this.gapID && this.dropped + lines.length + 1 < this.gapID) {
+                this.tail = true;
+            }
+            this.gapID = 0;
             this.lineCount = lines.length;
             // Without the last line break, which would show an empty line
             this.view.setState(this.newState(visible.join("\n")));
@@ -601,7 +608,11 @@ export default {
             let start = 0;
             if (!this.tail) {
                 if (msg.id > have + 1) {
+                    this.gapID = msg.id;
                     this.load();
+                    // Replayed after the read, which usually has its lines
+                    // already: then they are skipped
+                    this.pending.push(msg);
                     return;
                 }
                 start = have + 1 - msg.id;
