@@ -265,6 +265,32 @@ tasks:
     expect(reads).toBe(1);
 });
 
+// The server keeps subscriptions per connection: after a reconnect the
+// build page subscribes to its log and updates again
+test("should subscribe to a build's log again after a reconnect", async ({ page, wake }) => {
+    const gate = await wake.gate();
+    const name = await wake.createJob(`tasks:\n  - name: Talk\n    run: ${gate.command}\n`);
+    const id = await wake.runJob(name);
+    await wake.waitForBuild(id, "running");
+    const sockets = [];
+    await page.routeWebSocket(/\/ws$/, (ws) => {
+        const server = ws.connectToServer();
+        const entry = { ws, logs: false };
+        ws.onMessage((message) => {
+            entry.logs ||= message.includes(`"build:log:${id}"`);
+            server.send(message);
+        });
+        server.onMessage((message) => ws.send(message));
+        sockets.push(entry);
+    });
+    await page.goto(`/build/${id}`);
+    await expect.poll(() => sockets[0]?.logs).toBe(true);
+    sockets[0].ws.close();
+    await expect.poll(() => sockets.length, { timeout: 15000 }).toBe(2);
+    await expect.poll(() => sockets[1].logs, { timeout: 15000 }).toBe(true);
+    await gate.release();
+});
+
 test("should open a failed log at its end without moving the page", async ({ page, wake }) => {
     const name = await wake.createJob(`
 tasks:
