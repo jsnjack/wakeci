@@ -268,9 +268,11 @@ func taskLogFile(build, task int) string {
 // tailLines returns the last n lines of the file at path, reading it from
 // the end, at most maxExcerptBytes of them, and, if numbered, the number of
 // the text's first line in the file (0 for no text). A cut excerpt starts
-// with "...", which stands for the line it cut. An unfinished last line, of
-// a task that is writing it, is left out: the live log sends it whole.
-// Numbering reads the file up to the tail, so only the log viewer asks.
+// with "...", which stands for the line it cut. Numbered, for the log
+// viewer, an unfinished last line, of a task that is writing it, is left
+// out: the live log sends it whole. The build summary keeps it, as it may
+// be the end of what a failed task printed. Numbering reads the file up to
+// the tail, so only the log viewer asks.
 func tailLines(path string, n int, numbered bool) (string, int, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -294,9 +296,9 @@ func tailLines(path string, n int, numbered bool) (string, int, error) {
 		}
 		data = append(part, data...)
 	}
-	data = data[:bytes.LastIndexByte(data, '\n')+1]
 	last := 0
 	if numbered {
+		data = data[:bytes.LastIndexByte(data, '\n')+1]
 		// The file's lines up to what was read, which a running task extends
 		before, err := countLines(io.NewSectionReader(f, 0, offset))
 		if err != nil {

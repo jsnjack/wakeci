@@ -40,6 +40,8 @@ func TestTailLines(t *testing.T) {
 		{"more than the log has", 2, "", 5, "line 1\nline 2", 1},
 		// A task that is writing its last line: the live log sends it
 		{"unfinished last line left out", 3, "partial", 2, "line 2\nline 3", 2},
+		// The summary keeps it, unnumbered: it may be all a task printed
+		{"unfinished last line kept unnumbered", 3, "partial", -2, "line 3\npartial", 0},
 		// Over several 64 KB chunks
 		{"long log", 200000, "", 2, "line 199999\nline 200000", 199999},
 		{"empty log", 0, "", 3, "", 0},
@@ -48,7 +50,12 @@ func TestTailLines(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			path := filepath.Join(dir, strings.ReplaceAll(tt.name, " ", "_"))
 			writeLog(t, path, tt.lines, tt.last)
-			got, first, err := tailLines(path, tt.n, true)
+			// A negative n asks for -n lines without numbers
+			n, numbered := tt.n, tt.n > 0
+			if !numbered {
+				n = -n
+			}
+			got, first, err := tailLines(path, n, numbered)
 			if err != nil {
 				t.Fatalf("tailLines: %v", err)
 			}
