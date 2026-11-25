@@ -17,6 +17,7 @@
     { "query": "'branch=main-fix'", "finds": [2] },
     { "query": "env=prod", "finds": [4] },
     { "query": "mode=fast", "finds": [5] },
+    { "query": "\"", "finds": [] },
     { "query": "ENV=prod", "finds": [4] },
     { "query": "target=prod", "finds": [2] },
     { "query": "target=PROD", "finds": [] },

@@ -61,7 +61,12 @@ func SplitFilterQuery(query string) []string {
 	return result
 }
 
+// unquote takes off the quotes around a term; a lone quote stays, where
+// slicing it panicked
 func unquote(query string) string {
+	if len(query) < 2 {
+		return query
+	}
 	if strings.HasPrefix(query, `"`) && strings.HasSuffix(query, `"`) {
 		return query[1 : len(query)-1]
 	}
