@@ -301,8 +301,6 @@ func waitsForBuild(query url.Values) bool {
 	return wait != "" && wait != "0"
 }
 
-// countRequest counts a request that LogMi saw end with status after took.
-// The calls an MCP tool makes aren't counted: the tool call is.
 // requestWho is who made a request, as its rows count it: a build's token
 // as builds, not each build, which would give every build rows of its own
 // that the usage page never shows apart
@@ -312,6 +310,8 @@ func requestWho(r *http.Request) buildTrigger {
 	return who
 }
 
+// countRequest counts a request that LogMi saw end with status after took.
+// The calls an MCP tool makes aren't counted: the tool call is.
 func countRequest(r *http.Request, route, via string, status int, started time.Time, took time.Duration) {
 	if r.Context().Value(mcpCallKey{}) != nil || route == spaRoute {
 		return

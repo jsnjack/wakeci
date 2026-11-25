@@ -402,8 +402,6 @@ func RemoveJobFromCron(name string) {
 	}
 }
 
-// RunJob creates a new build and schedules it for execution. trigger says
-// who or what started it, and group which build, if one did
 // runOrigin is the build whose tasks start a run, and the abort scope they
 // run in
 type runOrigin struct {
@@ -411,6 +409,8 @@ type runOrigin struct {
 	scope *abortScope
 }
 
+// RunJob creates a new build and schedules it for execution. trigger says
+// who or what started it, and group which build, if one did
 func RunJob(name string, params url.Values, untrustedParams bool, trigger buildTrigger, group buildGroup, origin *runOrigin) (*Build, error) {
 	// Check if job is enabled
 	err := DB.View(func(tx *bolt.Tx) error {
