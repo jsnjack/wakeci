@@ -11,10 +11,14 @@ const FINAL = ["finished", "failed", "aborted", "timed out"];
 // otherwise a message on the page
 const handleSystemNotification = function (app, data) {
     const last = lastStatuses.get(data.id);
-    lastStatuses.set(data.id, data.status);
-    if (!FINAL.includes(data.status) || FINAL.includes(last)) {
+    // Only builds that haven't ended are kept, so a page open for days
+    // doesn't keep every build; one that ended tells at most once, since
+    // its later updates find no status before them
+    if (!FINAL.includes(data.status)) {
+        lastStatuses.set(data.id, data.status);
         return;
     }
+    lastStatuses.delete(data.id);
     const watches = app.$store.state.watches;
     const watched = watches.builds.includes(data.id);
     // A search tells only of builds this page saw before they ended: one
