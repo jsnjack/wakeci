@@ -303,6 +303,15 @@ func waitsForBuild(query url.Values) bool {
 
 // countRequest counts a request that LogMi saw end with status after took.
 // The calls an MCP tool makes aren't counted: the tool call is.
+// requestWho is who made a request, as its rows count it: a build's token
+// as builds, not each build, which would give every build rows of its own
+// that the usage page never shows apart
+func requestWho(r *http.Request) buildTrigger {
+	who := triggerOf(r)
+	who.Build = 0
+	return who
+}
+
 func countRequest(r *http.Request, route, via string, status int, started time.Time, took time.Duration) {
 	if r.Context().Value(mcpCallKey{}) != nil || route == spaRoute {
 		return
@@ -310,14 +319,14 @@ func countRequest(r *http.Request, route, via string, status int, started time.T
 	if route != "" {
 		route = r.Method + " " + route
 	}
-	row := requestRow{Via: via, Route: route, Outcome: statusOutcome(status), Who: triggerOf(r)}
+	row := requestRow{Via: via, Route: route, Outcome: statusOutcome(status), Who: requestWho(r)}
 	timed := route != "GET /ws" && !waitsForBuild(r.URL.Query())
 	requestStats.add(usageDay(started), row, took, timed)
 }
 
 // countToolCall counts an MCP tool call, made in the request parent
 func countToolCall(parent *http.Request, tool, outcome string, started time.Time, took time.Duration, timed bool) {
-	row := requestRow{Via: ViaMCP, Tool: tool, Outcome: outcome, Who: triggerOf(parent)}
+	row := requestRow{Via: ViaMCP, Tool: tool, Outcome: outcome, Who: requestWho(parent)}
 	requestStats.add(usageDay(started), row, took, timed)
 }
 

@@ -404,3 +404,20 @@ func TestFlushRequestStatsKeepsCountsItCantSave(t *testing.T) {
 		t.Errorf("after a failed save the counts are %v, want the request back", counted)
 	}
 }
+
+// Requests with build tokens count as builds, not each build, so the rows
+// don't grow with the number of builds
+func TestBuildTokenRequestsShareRows(t *testing.T) {
+	router := statsRouter(t)
+	freshRequestStats(t)
+	for range 2 {
+		id, _ := runAs(t, nil, "deploy", nil, http.StatusOK)
+		req := httptest.NewRequest("GET", "/api/jobs/", nil)
+		req.Header.Set("Authorization", "Bearer "+liveToken(t, id))
+		router.ServeHTTP(httptest.NewRecorder(), req)
+	}
+	row := requestRow{Via: ViaBuild, Route: "GET /api/jobs/", Outcome: OutcomeSuccess, Who: buildTrigger{Kind: TriggerBuild}}
+	if counted := countedToday(); len(counted) != 1 || counted[row] == nil || counted[row].N != 2 {
+		t.Errorf("counted %v, want both requests in one row %+v", counted, row)
+	}
+}
