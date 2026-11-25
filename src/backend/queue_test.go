@@ -153,3 +153,29 @@ func TestQueueStatusListsQueuedBuildsInOrder(t *testing.T) {
 		t.Errorf("empty queue: QueuedIDs = %#v, want []", got)
 	}
 }
+
+// A burst of queue changes starts one status sender, which takes the
+// status when it sends, not one sender each
+func TestQueueChangesShareOneStatusSender(t *testing.T) {
+	old := WSHub
+	hub := &Hub{broadcast: make(chan *MsgBroadcast)}
+	WSHub = hub
+	t.Cleanup(func() { WSHub = old })
+	q := &Queue{}
+	for range 100 {
+		q.queueChanged()
+	}
+	<-hub.broadcast
+	select {
+	case <-hub.broadcast:
+		t.Error("a second status was sent for the same burst")
+	case <-time.After(200 * time.Millisecond):
+	}
+	// A change after the status was taken is sent too
+	q.queueChanged()
+	select {
+	case <-hub.broadcast:
+	case <-time.After(2 * time.Second):
+		t.Error("a change after the burst sent no status")
+	}
+}

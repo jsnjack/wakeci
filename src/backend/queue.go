@@ -6,6 +6,7 @@ import (
 	"os"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sasha-s/go-deadlock"
@@ -68,6 +69,10 @@ type Queue struct {
 	// signal's status sent before the update's it replaced would leave the
 	// banner promising a restart. A plain mutex, held during a channel send
 	statusMu sync.Mutex
+	// statusPending is set while a status that queueChanged asked for
+	// hasn't been taken yet, so a burst of changes starts one sender, not
+	// one each
+	statusPending atomic.Bool
 }
 
 // Take takes build from queue and starts running it
@@ -474,7 +479,17 @@ func (q *Queue) queueChanged() {
 	if hub == nil {
 		return
 	}
-	go q.sendStatus(hub)
+	// A sender waits already, and takes the status after this change
+	if q.statusPending.Swap(true) {
+		return
+	}
+	go func() {
+		q.statusMu.Lock()
+		defer q.statusMu.Unlock()
+		// Before the status is taken, so a change after it starts another
+		q.statusPending.Store(false)
+		hub.broadcast <- &MsgBroadcast{Type: MsgTypeQueueStatus, Data: q.Status()}
+	}()
 }
 
 // broadcastStatus sends Status to the subscribed clients
