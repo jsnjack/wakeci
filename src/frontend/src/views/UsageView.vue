@@ -1,27 +1,27 @@
 <template>
-    <div class="analytics-page">
+    <div class="ui analytics-page stack gap-4">
         <AnalyticsTabs />
 
-        <nav
-            class="wrap analytics-filters"
+        <div
+            class="cluster gap-3 analytics-filters"
             data-cy="usage-filters"
         >
-            <nav class="group connected">
+            <div
+                class="segmented"
+                role="group"
+                aria-label="Days"
+            >
                 <button
-                    v-for="(range, i) in ranges"
+                    v-for="range in ranges"
                     :key="range"
-                    :class="{
-                        active: days === range,
-                        'left-round': i === 0,
-                        'right-round': i === ranges.length - 1,
-                        'no-round': i > 0 && i < ranges.length - 1,
-                    }"
+                    type="button"
+                    :aria-pressed="days === range ? 'true' : 'false'"
                     :data-cy="`range-${range}`"
-                    @click.prevent="days = range"
+                    @click="days = range"
                 >
                     {{ range }} days
                 </button>
-            </nav>
+            </div>
             <SearchSelect
                 v-model="via"
                 :options="viaOptions"
@@ -36,11 +36,12 @@
                 class="filter-select"
                 data-cy="who-filter"
             />
-            <progress
+            <span
                 v-show="loading"
-                class="circle small"
-            ></progress>
-            <div class="max"></div>
+                class="status-ring spinner"
+                aria-label="Loading"
+            ></span>
+            <span class="grow"></span>
             <small
                 v-if="data"
                 class="muted"
@@ -48,22 +49,22 @@
             >
                 {{ rangeText }} · server time
             </small>
-        </nav>
+        </div>
 
         <article
             v-if="data && startsLate"
-            class="border no-elevate small-padding muted"
+            class="panel note muted"
             data-cy="usage-since"
         >
-            <i>info</i> Counting started on {{ dayLabel(data.since, true) }}.
+            <i class="icon small">info</i> Counting started on {{ dayLabel(data.since, true) }}.
         </article>
 
         <template v-if="data && (data.totals.requests > 0 || data.totals.toolCalls > 0)">
-            <div class="grid tiles">
+            <div class="cols tiles">
                 <article
                     v-for="tile in tiles"
                     :key="tile.key"
-                    class="border no-elevate padding s6 l3 tile"
+                    class="panel tile"
                     :data-cy="`tile-${tile.key}`"
                 >
                     <div class="muted tile-label">{{ tile.label }}</div>
@@ -78,8 +79,8 @@
                 </article>
             </div>
 
-            <article class="border no-elevate padding chart-card">
-                <h6 class="small no-margin">Requests per day, by outcome</h6>
+            <article class="panel chart-card">
+                <h2 class="card-title">Requests per day, by outcome</h2>
                 <StatusBarsChart
                     :days="data.byDay"
                     :series="outcomes"
@@ -89,12 +90,12 @@
                 <p class="chart-note">Refused: not signed in, not allowed, or too many requests (401, 403, 429). Client error: other 4xx. Server error: 5xx.</p>
             </article>
 
-            <div class="grid">
+            <div class="cols chart-grid">
                 <article
-                    class="border no-elevate padding s12 l6"
+                    class="panel"
                     data-cy="interfaces"
                 >
-                    <h6 class="small no-margin">Requests by interface</h6>
+                    <h2 class="card-title">Requests by interface</h2>
                     <div
                         v-for="item in data.interfaces"
                         :key="item.via"
@@ -108,10 +109,10 @@
                     </div>
                 </article>
                 <article
-                    class="border no-elevate padding s12 l6"
+                    class="panel"
                     data-cy="people"
                 >
-                    <h6 class="small no-margin">People and API keys</h6>
+                    <h2 class="card-title">People and API keys</h2>
                     <div
                         v-for="person in shownPeople"
                         :key="person.id"
@@ -120,7 +121,7 @@
                         data-cy="person"
                     >
                         <span class="ellipsis">
-                            <i class="tiny">{{ person.kind === "apikey" ? "key" : "person" }}</i>
+                            <i class="icon small">{{ person.kind === "apikey" ? "key" : "person" }}</i>
                             {{ personName(person) }}
                         </span>
                         <span class="bar"><span :style="{ width: barWidth(person.requests, data.people[0].requests) }"></span></span>
@@ -136,7 +137,7 @@
             </div>
 
             <article
-                class="border no-elevate padding"
+                class="panel"
                 data-cy="routes"
             >
                 <UsageTable
@@ -153,7 +154,7 @@
 
             <article
                 v-if="data.tools.length"
-                class="border no-elevate padding"
+                class="panel"
                 data-cy="tools"
             >
                 <UsageTable
@@ -171,12 +172,12 @@
 
         <article
             v-else-if="data"
-            class="border no-elevate medium-height middle-align center-align"
+            class="panel empty"
             data-cy="usage-empty"
         >
-            <div class="center-align">
-                <i class="extra">api</i>
-                <h5>No requests in these days</h5>
+            <div class="stack gap-2 empty-body">
+                <i class="icon large">api</i>
+                <h2>No requests in these days</h2>
                 <p class="muted">Choose a longer range, or another way in or person.</p>
             </div>
         </article>
@@ -385,63 +386,95 @@ export default {
 </script>
 
 <style scoped>
-.analytics-filters {
-    gap: 0.75rem;
-    align-items: center;
-    margin: 0;
-}
+/* As on the analytics page (AnalyticsView.vue) */
 .filter-select {
-    width: 14rem;
-    max-width: 100%;
+    inline-size: 14rem;
+    max-inline-size: 100%;
 }
+
+.spinner {
+    inline-size: 18px;
+    block-size: 18px;
+    --_c: var(--primary);
+}
+
+.note {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+}
+
+/* The tiles share the row, however many fit */
 .tiles {
-    margin-bottom: 0;
+    grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
 }
+
+.chart-grid {
+    --min: 26rem;
+}
+
+.panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-inline-size: 0;
+}
+
 .tile-label {
-    font-size: 0.85rem;
+    font-size: var(--text-sm);
 }
+
 .tile-value {
     font-size: 1.75rem;
     font-weight: 600;
     line-height: 1.3;
 }
+
 .tile-sub {
     font-size: 0.8rem;
-    min-height: 1.2rem;
+    min-block-size: 1.2rem;
 }
+
 .bar-row {
     display: grid;
     grid-template-columns: minmax(8rem, 12rem) 1fr 6rem;
-    gap: 0.75rem;
+    gap: var(--space-3);
     align-items: center;
     padding: 0.2rem 0;
     font-size: 0.9rem;
 }
+
 .bar {
-    height: 0.6rem;
+    block-size: 0.6rem;
     border-radius: 0.2rem;
     background: var(--surface-container-highest);
     overflow: hidden;
 }
+
 .bar > span {
     display: block;
-    height: 100%;
+    block-size: 100%;
     background: var(--chart-1);
 }
-.muted {
-    color: var(--on-surface-variant);
-}
+
 .ellipsis {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.analytics-page {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+
+.card-title {
+    font-size: var(--text-md);
 }
-.analytics-page > .grid {
-    margin: 0;
+
+.empty {
+    align-items: center;
+    padding: var(--space-8) var(--space-4);
+}
+
+.empty-body {
+    align-items: center;
+    text-align: center;
 }
 </style>
