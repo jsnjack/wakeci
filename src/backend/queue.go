@@ -151,6 +151,10 @@ func (q *Queue) TakeNow(buildID int) error {
 // both are found under the lock, so of two builds queued at once, the later
 // one wins either way. Call setQueueKeys first.
 func (q *Queue) Add(b *Build) {
+	// Aborted already, as it was added: it cancels no other build, then is
+	// aborted itself (addNewBuild). Read before q.mutex, which the build's
+	// abort path doesn't hold while it takes the build's mutex
+	aborted := b.currentAbort().stopped() != ""
 	q.mutex.Lock()
 	delete(q.adding, b.ID)
 	q.queued = append(q.queued, b)
@@ -169,7 +173,10 @@ func (q *Queue) Add(b *Build) {
 	}
 	L.Info("new build queued", "job", b.Job.Name, "build", b.ID)
 	q.queueChanged()
-	found := q.supersedeLocked(b)
+	var found supersede
+	if !aborted {
+		found = q.supersedeLocked(b)
+	}
 	q.mutex.Unlock()
 	q.applySupersede(b, found)
 }

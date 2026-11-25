@@ -461,6 +461,11 @@ func RunJob(name string, params url.Values, untrustedParams bool, trigger buildT
 		build.mutex.Lock()
 		build.trigger = trigger
 		build.mutex.Unlock()
+		// Its starting tasks were aborted since the check above: aborted
+		// before it is queued, it cancels no older build (Queue.Add)
+		if origin != nil && origin.scope.stopped() != "" {
+			build.requestAbort(StatusAborted, "", fmt.Sprintf("as #%d, which started it, was aborted", origin.build))
+		}
 		return build, nil
 	})
 	if err != nil {
@@ -479,6 +484,14 @@ func RunJob(name string, params url.Values, untrustedParams bool, trigger buildT
 // queue or this sees the abort.
 func abortLeftover(build *Build, origin *runOrigin) {
 	if origin == nil || origin.scope.stopped() == "" {
+		return
+	}
+	// Aborted already (RunJob, as it was created): another abort would stop
+	// its on_aborted and finally tasks, which may run by now
+	build.mutex.Lock()
+	requested := build.abortRequested
+	build.mutex.Unlock()
+	if requested {
 		return
 	}
 	build.Logger.Info("aborting a build started as its origin was aborted", "origin", origin.build)

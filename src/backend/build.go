@@ -109,6 +109,9 @@ type Build struct {
 	logBatch logBatch
 	// abort is the abort request for the tasks that run now, guarded by mutex
 	abort *abortScope
+	// abortRequested is set once an abort was requested, whatever the scope
+	// it closed. Guarded by mutex
+	abortRequested bool
 	// abortedWhileQueued is set by Queue.Abort for a queued build: it has no
 	// queue record from then on, although it is pending until its on_pending
 	// tasks end. Guarded by mutex
@@ -207,6 +210,7 @@ func (b *Build) requestAbort(reason, note, by string) {
 	scope.note = note
 	scope.by = by
 	close(scope.c)
+	b.abortRequested = true
 }
 
 // nextAbortScope starts a new scope if the current one was aborted, so the

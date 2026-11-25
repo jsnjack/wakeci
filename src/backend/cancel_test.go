@@ -327,3 +327,30 @@ func TestAbortReachesABuildBeingAdded(t *testing.T) {
 		t.Errorf("build aborted as it was added: %s, want aborted", status)
 	}
 }
+
+// A build aborted as it is added cancels no older build of its key: it
+// would leave nothing running for that key
+func TestAbortedBuildBeingAddedCancelsNothing(t *testing.T) {
+	cancelEnv(t)
+	old := runBranch(t, "tests", "main", nil)
+	job, err := CreateJobFromFile(Config.JobDir + "tests" + Config.jobsExt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	build, err := GlobalQueue.addNewBuild(func() (*Build, error) {
+		build, err := createBuild(job, "", false, url.Values{"BRANCH": {"main"}}, buildGroup{})
+		if err == nil {
+			err = GlobalQueue.Abort(build.ID, StatusAborted)
+		}
+		return build, err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status := ended(t, build.ID); status != StatusAborted {
+		t.Errorf("the aborted build: %s, want aborted", status)
+	}
+	if GlobalQueue.Live(old) == nil || len(build.cancelled) != 0 {
+		t.Errorf("the older build of main was cancelled (%v) by one aborted as it was added", build.cancelled)
+	}
+}
