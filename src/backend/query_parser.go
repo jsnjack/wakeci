@@ -105,7 +105,9 @@ func matchesFilter(b *BuildUpdateData, filter *FilterRequest) bool {
 
 // exactTerm is NAME=value, which matches a build whose id, name or status
 // is value, or with a param equal to value named NAME, ignoring case, or
-// NAME_LABEL: a label by its shown name, so branch=main finds BRANCH_LABEL
+// NAME_LABEL: a label by its shown name, so branch=main finds BRANCH_LABEL.
+// Else it is found as text, as other terms: a value can hold = too
+// (ARGS=mode=fast)
 var exactTerm = regexp.MustCompile(`^([A-Za-z_][A-Za-z0-9_]*)=(.*)$`)
 
 func termMatches(b *BuildUpdateData, text, term string) bool {
@@ -135,5 +137,5 @@ func termMatches(b *BuildUpdateData, text, term string) bool {
 			}
 		}
 	}
-	return false
+	return strings.Contains(text, term)
 }

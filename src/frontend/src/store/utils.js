@@ -177,7 +177,10 @@ function termMatches(ev, text, term) {
         return true;
     }
     const wanted = [name.toLowerCase(), (name + LABEL_SUFFIX).toLowerCase()];
-    return (ev.params || []).some((param) => Object.entries(param).some(([key, v]) => v === value && wanted.includes(key.toLowerCase())));
+    // Else found as text, as other terms: a value can hold = too
+    return (
+        (ev.params || []).some((param) => Object.entries(param).some(([key, v]) => v === value && wanted.includes(key.toLowerCase()))) || text.includes(term)
+    );
 }
 
 export function humanFileSize(size) {
