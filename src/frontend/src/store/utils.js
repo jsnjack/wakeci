@@ -52,39 +52,43 @@ export function createFilterObj(query) {
         return null;
     }
 
-    function unquote(query) {
-        if (/^["'].*["']$/.test(query)) {
-            return query.slice(1, -1);
-        }
-        return query;
-    }
-
-    function splitFilterQuery(query) {
-        let data = query.split(" ");
-        let newData = handleOpenQuotes(data, '"');
-        while (newData.length !== data.length) {
-            data = newData;
-            newData = handleOpenQuotes(data, '"');
-        }
-        newData = handleOpenQuotes(data, "'");
-        while (newData.length !== data.length) {
-            data = newData;
-            newData = handleOpenQuotes(data, "'");
-        }
-        return data;
-    }
-
-    function handleOpenQuotes(data, quote) {
-        for (let i = 0; i < data.length; i++) {
-            let element = data[i];
-            if (element.endsWith(quote)) {
-                if (i > 0) {
-                    let newData = [...data.slice(0, i - 1), data.slice(i - 1, i + 1).join(" "), ...data.slice(i + 1)];
-                    return newData;
-                }
+    // As unquote on the server: the same quote on both ends
+    function unquote(term) {
+        for (const quote of ['"', "'"]) {
+            if (term.length >= 2 && term.startsWith(quote) && term.endsWith(quote)) {
+                return term.slice(1, -1);
             }
         }
-        return data;
+        return term;
+    }
+
+    // As SplitFilterQuery on the server: terms split at spaces outside
+    // quotes, a quote ended only by the same quote, no empty terms
+    function splitFilterQuery(query) {
+        const terms = [];
+        let current = "";
+        let quote = "";
+        for (const c of query) {
+            if (c === '"' || c === "'") {
+                if (!quote) {
+                    quote = c;
+                } else if (c === quote) {
+                    quote = "";
+                }
+                current += c;
+            } else if (c === " " && !quote) {
+                if (current) {
+                    terms.push(current);
+                    current = "";
+                }
+            } else {
+                current += c;
+            }
+        }
+        if (current) {
+            terms.push(current);
+        }
+        return terms;
     }
 
     let data = splitFilterQuery(query);
