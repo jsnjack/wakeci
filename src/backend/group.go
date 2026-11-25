@@ -302,7 +302,10 @@ func readGroup(id int, access *Access) (*GroupPayload, error) {
 // queue and whose job the request may run, and returns their IDs
 func abortGroup(r *http.Request, id int) ([]int, error) {
 	access := accessFromContext(r.Context())
-	payload, err := readGroup(id, access)
+	// Every member, not only those the caller may read: scopes don't
+	// include each other, so a run-only key reads none of them. The answer
+	// is only how many it aborted, of the builds it may run
+	payload, err := readGroup(id, nil)
 	if err != nil {
 		return nil, err
 	}

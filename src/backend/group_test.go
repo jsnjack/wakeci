@@ -412,3 +412,22 @@ func TestGroupAbortOfAMissingBuild(t *testing.T) {
 		t.Errorf("group abort of a missing build: %d %q, want 404", rec.Code, rec.Body.String())
 	}
 }
+
+// Scopes don't include each other: a run-only group reads no member of
+// the group, but its group abort still stops the builds it may run
+func TestAbortGroupWithRunOnly(t *testing.T) {
+	groupEnv(t)
+	root, _ := runAs(t, nil, "deploy", nil, http.StatusOK)
+	child, _ := runAs(t, nil, "nightly", url.Values{parentParam: {strconv.Itoa(root)}}, http.StatusOK)
+	grandchild, _ := runAs(t, nil, "deploy", url.Values{parentParam: {strconv.Itoa(child)}}, http.StatusOK)
+	addTestGroup(t, "Runners", Grant{Scopes: []string{ScopeRun}, Jobs: []string{"deploy"}})
+	runner := loginInGroups(t, "rob@example.com", "Runners")
+	rec := apiCall("POST", "/api/build/"+strconv.Itoa(grandchild)+"/abort?group=1", runner, nil, nil)
+	if rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != "2" {
+		t.Fatalf("run-only group abort: %d %q, want 2", rec.Code, rec.Body.String())
+	}
+	if GlobalQueue.Live(child) == nil {
+		t.Error("the group abort reached a build of a job the caller may not run")
+	}
+	waitLeftQueue(t, root, grandchild)
+}
