@@ -34,10 +34,10 @@ type Queue struct {
 	// They hold no slot of the concurrent builds, but count for their job's
 	// concurrency and concurrency key (concurrencyFull)
 	aborting []*Build
-	// adding holds the IDs of builds saved as pending but not queued yet
+	// adding holds the builds saved as pending but not queued yet
 	// (createBuild, then Add), while their keys are worked out, so the feed
-	// doesn't take them as stale (Verify)
-	adding           map[int]bool
+	// doesn't take them as stale (Verify) and an abort reaches them
+	adding           map[int]*Build
 	mutex            deadlock.Mutex
 	concurrentBuilds int
 	// stopping is closed by BeginStop: no queued build starts again, and
@@ -216,7 +216,7 @@ func (q *Queue) Remove(id int) {
 func (q *Queue) Verify(id int) bool {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
-	if q.adding[id] {
+	if q.adding[id] != nil {
 		return true
 	}
 	for _, item := range q.queued {
@@ -252,7 +252,14 @@ func (q *Queue) AbortBy(id int, reason, by string) error {
 			}
 		}
 	}
+	adding := q.adding[id]
 	q.mutex.Unlock()
+	if build == nil && adding != nil {
+		// Its on_pending tasks stop now; addNewBuild aborts it as it is
+		// queued, as a queued build
+		adding.requestAbort(reason, "", by)
+		return nil
+	}
 	if build == nil {
 		return fmt.Errorf("Build %d not found in Q", id)
 	}
@@ -604,21 +611,27 @@ func (q *Queue) addNewBuild(create func() (*Build, error)) (*Build, error) {
 	}
 	build.setQueueKeys()
 	q.Add(build)
+	// Aborted while its keys were worked out: as a queued build now
+	if scope := build.currentAbort(); scope.stopped() != "" {
+		if err := q.AbortBy(build.ID, scope.reason, scope.by); err != nil {
+			build.Logger.Error("abort the build aborted as it was queued", "err", err)
+		}
+	}
 	return build, nil
 }
 
-// beginAdd notes build id, about to be saved as pending, as one that Add
+// beginAdd notes build b, about to be saved as pending, as one that Add
 // queues next. A nil queue, as in tests, notes nothing
-func (q *Queue) beginAdd(id int) {
+func (q *Queue) beginAdd(b *Build) {
 	if q == nil {
 		return
 	}
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 	if q.adding == nil {
-		q.adding = map[int]bool{}
+		q.adding = map[int]*Build{}
 	}
-	q.adding[id] = true
+	q.adding[b.ID] = b
 }
 
 // tasksStoppedNow reports whether stopTasks was called, so a task mustn't

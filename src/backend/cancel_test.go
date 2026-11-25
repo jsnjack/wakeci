@@ -259,7 +259,7 @@ func TestBuildBeingAddedIsntStale(t *testing.T) {
 	}
 	build.setQueueKeys()
 	GlobalQueue.Add(build)
-	if !GlobalQueue.Verify(build.ID) || GlobalQueue.adding[build.ID] {
+	if !GlobalQueue.Verify(build.ID) || GlobalQueue.adding[build.ID] != nil {
 		t.Error("the queued build isn't known as queued")
 	}
 }
@@ -298,5 +298,32 @@ func TestCancelGroupSparesABuildInItsHooks(t *testing.T) {
 	}
 	if cancelled := GlobalQueue.Live(newer).cancelled; len(cancelled) != 0 {
 		t.Errorf("cancelled %v, want none", cancelled)
+	}
+}
+
+// An abort reaches a build while its keys are worked out, before it is
+// queued, and stops it once it is
+func TestAbortReachesABuildBeingAdded(t *testing.T) {
+	cancelEnv(t)
+	job, err := CreateJobFromFile(Config.JobDir + "tests" + Config.jobsExt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	build, err := GlobalQueue.addNewBuild(func() (*Build, error) {
+		build, err := createBuild(job, "", false, url.Values{"BRANCH": {"main"}}, buildGroup{})
+		if err != nil {
+			return nil, err
+		}
+		// As while cancel_unless runs
+		if err := GlobalQueue.Abort(build.ID, StatusAborted); err != nil {
+			t.Errorf("abort of a build being added: %v", err)
+		}
+		return build, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status := ended(t, build.ID); status != StatusAborted {
+		t.Errorf("build aborted as it was added: %s, want aborted", status)
 	}
 }
