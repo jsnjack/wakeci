@@ -237,16 +237,20 @@ func startedUnder(build *Build) []int {
 // concurrencyFull reports whether build must wait for a slot of its own:
 // with a concurrency key, while as many builds with that key run, their
 // hooks after an abort included, as concurrency allows (1 if unset);
-// without, while as many builds of its job run. The caller holds q.mutex.
+// without, while as many builds of its job run, also those running their
+// hooks after an abort while queued, so concurrency: 1 means one at a time,
+// cleanup included. The caller holds q.mutex.
 func (q *Queue) concurrencyFull(build *Build) bool {
 	if build.keys.concurrencyKey == "" {
 		if build.Job.Concurrency == 0 {
 			return false
 		}
 		parallel := 0
-		for _, other := range q.running {
-			if other.Job.Name == build.Job.Name {
-				parallel++
+		for _, list := range [][]*Build{q.running, q.aborting} {
+			for _, other := range list {
+				if other.Job.Name == build.Job.Name {
+					parallel++
+				}
 			}
 		}
 		return parallel >= build.Job.Concurrency

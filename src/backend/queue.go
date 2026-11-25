@@ -30,7 +30,8 @@ type Queue struct {
 	running []*Build
 	// aborting holds builds aborted while queued, and interrupted builds
 	// (FinishInterruptedBuilds), until their on_* and finally tasks end.
-	// They hold no concurrency slot
+	// They hold no slot of the concurrent builds, but count for their job's
+	// concurrency and concurrency key (concurrencyFull)
 	aborting []*Build
 	// adding holds the IDs of builds saved as pending but not queued yet
 	// (createBuild, then Add), while their keys are worked out, so the feed
@@ -169,8 +170,8 @@ func (q *Queue) Add(b *Build) {
 }
 
 // addInterrupted adds an interrupted build (FinishInterruptedBuilds) next to
-// the builds aborted while queued: it holds no concurrency slot, and Abort
-// and a stop reach its tasks
+// the builds aborted while queued: it holds no slot of the concurrent
+// builds, only of its job's concurrency, and Abort and a stop reach its tasks
 func (q *Queue) addInterrupted(b *Build) {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()

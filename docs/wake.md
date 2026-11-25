@@ -124,7 +124,8 @@ cancel_unless: '[[ $BRANCH =~ ^(main|release)$ ]]'
 When the builds share something, such as a test server, the newer one
 should start only after the older one's cleanup. `concurrency_key` makes
 `concurrency` (1 if unset) count the builds of every job with that key,
-also those running their hooks after an abort (`Queue.concurrencyFull`):
+also those running their hooks after an abort (`Queue.concurrencyFull`).
+Without a key, `concurrency` counts the job's own builds the same way:
 
 ```yaml
 cancel_group: pr_init/$NAME

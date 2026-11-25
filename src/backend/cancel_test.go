@@ -263,3 +263,24 @@ func TestBuildBeingAddedIsntStale(t *testing.T) {
 		t.Error("the queued build isn't known as queued")
 	}
 }
+
+// A build aborted while queued runs its hooks outside the queue; they hold
+// its job's concurrency, with a key or without, but no concurrent build
+func TestAbortedBuildsHooksHoldTheirJobsConcurrency(t *testing.T) {
+	job := &Job{Name: "deploy", Concurrency: 1}
+	cleaning := &Build{ID: 1, Job: job}
+	next := &Build{ID: 2, Job: job}
+	q := &Queue{aborting: []*Build{cleaning}}
+	if !q.concurrencyFull(next) {
+		t.Error("the next build may start while the aborted one cleans up")
+	}
+	q.aborting = nil
+	if q.concurrencyFull(next) {
+		t.Error("the next build waits with nothing else of its job")
+	}
+	other := &Build{ID: 3, Job: &Job{Name: "other", Concurrency: 1}}
+	q.aborting = []*Build{cleaning}
+	if q.concurrencyFull(other) {
+		t.Error("another job waits for this one's cleanup")
+	}
+}

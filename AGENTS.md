@@ -341,8 +341,8 @@ AGENTS.universal.md for the general contract.
   stopped the main tasks doesn't also stop `on_aborted`, `finally` always
   runs, and an abort that arrives between two groups stops the next one.
   A build aborted while queued moves to `Queue.aborting`: it can't be
-  started and holds no concurrency slot, but `Abort` still reaches its
-  `on_aborted` and `finally` tasks.
+  started and holds only a slot of its job's concurrency, but `Abort`
+  still reaches its `on_aborted` and `finally` tasks.
 - **Stopping waits for builds; queued builds and sessions survive it.** A
   killed wakeci runs its builds' remaining hooks at the next start.
   Why, and how self-update installs a release: [docs/restart.md](docs/restart.md).
