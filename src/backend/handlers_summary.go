@@ -245,13 +245,30 @@ func HandleTaskLog(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("X-First-Line", strconv.Itoa(first))
 		}
 	default:
+		// Opened once and served open: a colour log that a failed write
+		// removes meanwhile (dropANSILocked) can't turn the answer into 404
+		var file *os.File
 		if query.Get("ansi") == "1" || query.Get("ansi") == "true" {
-			if ansiPath := wakespaceDir(id) + taskANSILogName(task); isFile(ansiPath) {
-				path = ansiPath
+			if f, err := os.Open(wakespaceDir(id) + taskANSILogName(task)); err == nil {
+				file = f
 			}
 		}
+		if file == nil {
+			if file, err = os.Open(path); err != nil {
+				logger.Error("open task log", "build", id, "task", task, "err", err)
+				writePlainText(w, logger, http.StatusInternalServerError, err.Error())
+				return
+			}
+		}
+		defer closeLog(file, file.Name())
+		info, err := file.Stat()
+		if err != nil {
+			logger.Error("stat task log", "build", id, "task", task, "err", err)
+			writePlainText(w, logger, http.StatusInternalServerError, err.Error())
+			return
+		}
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		http.ServeFile(w, r, path)
+		http.ServeContent(w, r, "", info.ModTime(), file)
 		return
 	}
 	if err != nil {
@@ -469,10 +486,4 @@ func closeLog(f *os.File, path string) {
 	if err := f.Close(); err != nil {
 		L.Log(context.Background(), LevelTrace, "close log", "path", path, "err", err)
 	}
-}
-
-// isFile reports whether path is a regular file
-func isFile(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && info.Mode().IsRegular()
 }
