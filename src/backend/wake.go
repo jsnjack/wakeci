@@ -611,6 +611,8 @@ func (c *wakeClient) waitFor(id int) (ItemStatus, error) {
 			// Ended is nil from a wakeci before it said, which doesn't wait
 			// either (another server's)
 			Ended *bool `json:"ended"`
+			// Stopping is true while the server stops
+			Stopping bool `json:"stopping"`
 		}
 		if err := c.getJSON(path, time.Duration(wakeWaitSeconds)*time.Second+wakeRequestTimeout, &build); err != nil {
 			return "", err
@@ -621,6 +623,12 @@ func (c *wakeClient) waitFor(id int) (ItemStatus, error) {
 			return "", fmt.Errorf("build %d: the answer has no status_update", id)
 		}
 		status := build.StatusUpdate.Status
+		// A queued build starts only after the restart; waiting for it would
+		// keep this build running, and so hold up the stop until it aborts
+		// every build
+		if build.Stopping && status == StatusPending {
+			return "", fmt.Errorf("wakeci is stopping, so build %d stays queued and starts after the restart", id)
+		}
 		switch {
 		case build.Ended != nil && *build.Ended:
 			return status, nil

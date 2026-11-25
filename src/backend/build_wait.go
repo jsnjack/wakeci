@@ -130,7 +130,16 @@ func waitForBuild(r *http.Request, id int, seconds int) (*BuildUpdateData, bool,
 			release()
 			return build, ended, nil
 		}
+		// A queued build doesn't start while wakeci stops; the answer says
+		// so (stopping) at once, so wake --wait doesn't hold up the stop
+		var stopping <-chan struct{}
+		if build.Status == StatusPending && GlobalQueue != nil {
+			stopping = GlobalQueue.Stopping()
+		}
 		select {
+		case <-stopping:
+			release()
+			return build, false, nil
 		case <-changed:
 			release()
 		case <-timeout:

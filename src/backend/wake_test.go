@@ -259,6 +259,8 @@ type fakeWake struct {
 	odd bool
 	// old answers a build without ended, as a wakeci before v3 does
 	old bool
+	// stopping answers a queued build while the server stops
+	stopping bool
 }
 
 func (f *fakeWake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -311,6 +313,10 @@ func (f *fakeWake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if f.old {
 			_ = json.NewEncoder(w).Encode(map[string]any{"status_update": &BuildUpdateData{ID: id, Name: "deploy", Status: status}})
+			return
+		}
+		if f.stopping {
+			_ = json.NewEncoder(w).Encode(GetBuildPayload{StatusUpdate: &BuildUpdateData{ID: id, Name: "deploy", Status: StatusPending}, Stopping: true})
 			return
 		}
 		_ = json.NewEncoder(w).Encode(GetBuildPayload{
@@ -439,6 +445,20 @@ func TestWakeChecksValuesForWriteKeysToo(t *testing.T) {
 	status, stdout, stderr, _ := fakeWakeRun(t, f, "web-1\nweb'2\n", "deploy", "--each", "NODE")
 	if status != 1 || len(f.ran) != 0 || !strings.Contains(stderr, "parameter NODE has a quote") {
 		t.Errorf("wake start: %d %q %q, ran %v; want nothing started", status, stdout, stderr, f.ran)
+	}
+}
+
+// While the server stops, a queued build starts only after the restart:
+// --wait stops waiting, so the waiting build ends and doesn't hold up the
+// stop, and says so
+func TestWakeStopsWaitingWhileTheServerStops(t *testing.T) {
+	f := &fakeWake{stopping: true}
+	status, stdout, stderr, _ := fakeWakeRun(t, f, "web-1\nweb-2\n", "deploy", "--each", "NODE", "--wait")
+	if status != 1 || !strings.Contains(stderr, "wakeci is stopping, so build 1 stays queued and starts after the restart") {
+		t.Errorf("wake start --wait: %d %q %q", status, stdout, stderr)
+	}
+	if !slices.Equal(f.ran, []string{"web-1"}) || !strings.Contains(stderr, "Not started: deploy (NODE=web-2)") {
+		t.Errorf("ran %v, stderr %q; want web-1 only, and web-2 named as not started", f.ran, stderr)
 	}
 }
 

@@ -107,7 +107,7 @@ func getBuildConfig(buildID int) (*Job, error) {
 // @Tags         build
 // @Produce      json
 // @Param        id       path    integer   true  "Build ID"
-// @Param        wait     query   integer   false "Wait up to that many seconds, at most 300, for the build to end, its on_* and finally tasks included; it answers as soon as it has, and ended says whether it had"
+// @Param        wait     query   integer   false "Wait up to that many seconds, at most 300, for the build to end, its on_* and finally tasks included; it answers as soon as it has, and ended says whether it had. While wakeci stops (stopping), a queued build starts only after the restart, so the wait for it ends at once"
 // @Success      200      {object}   GetBuildPayload
 // @Failure      400      {string}   string
 // @Failure      401      {string}   string
@@ -157,6 +157,7 @@ func HandleGetBuild(w http.ResponseWriter, r *http.Request) {
 		StatusUpdate: buildStatusData,
 		Summary:      summary,
 		Ended:        ended,
+		Stopping:     GlobalQueue.stoppingNow(),
 	}
 
 	writeCachedJSON(w, r, logger, payload)
@@ -206,6 +207,9 @@ type GetBuildPayload struct {
 	// Ended is true once the build has ended, its on_* and finally tasks
 	// included; its status is final earlier
 	Ended bool `json:"ended"`
+	// Stopping is true while wakeci stops: a queued build then starts only
+	// after the restart, and a wait for it ends at once
+	Stopping bool `json:"stopping"`
 }
 
 // jobSummaryFile is where a build's tasks write its summary, in its

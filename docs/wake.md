@@ -84,6 +84,11 @@ builds that may wait at once, and don't let the build it waits for share
 the waiting build's `concurrency_key`, or its job if that job's
 `concurrency` is 1.
 
+While wakeci stops, a queued build starts only after the restart, so
+`--wait` stops waiting for one and says so ("wakeci is stopping, so build N
+stays queued and starts after the restart", exit 1): the waiting build then
+ends instead of holding up the stop until `draintimeout`.
+
 ## wake api
 
 ```

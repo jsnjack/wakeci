@@ -442,6 +442,17 @@ func (q *Queue) stoppingLocked() chan struct{} {
 	return q.stopping
 }
 
+// stoppingNow reports whether BeginStop was called. A nil queue (tests)
+// never stops
+func (q *Queue) stoppingNow() bool {
+	if q == nil {
+		return false
+	}
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+	return q.isStoppingLocked()
+}
+
 // isStoppingLocked reports whether BeginStop was called. The caller holds
 // q.mutex
 func (q *Queue) isStoppingLocked() bool {
