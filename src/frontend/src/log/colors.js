@@ -22,13 +22,17 @@ export function contrast(a, b) {
 
 const cache = new Map();
 
-// readableColor returns rgb as a CSS colour readable on the theme's log
-export function readableColor(rgb, theme) {
+// The strength backgroundColor draws a background at
+const BACKGROUND_ALPHA = 0.25;
+
+// readableColor returns rgb as a CSS colour readable on the theme's log,
+// or on bg, a span's own RGB background, as backgroundColor draws it there
+export function readableColor(rgb, theme, bg = null) {
     // Light or dark only, as the store keeps it; anything else is dark
     const palette = theme === "light" ? "light" : "dark";
-    const key = `${palette}:${rgb.join(",")}`;
+    const key = `${palette}:${rgb.join(",")}:${bg ? bg.join(",") : ""}`;
     if (!cache.has(key)) {
-        const background = BACKGROUND[palette];
+        const background = bg ? BACKGROUND[palette].map((c, i) => c + (bg[i] - c) * BACKGROUND_ALPHA) : BACKGROUND[palette];
         const text = TEXT[palette];
         let color = rgb;
         for (let step = 1; step <= 10 && contrast(color, background) < 4.5; step++) {
@@ -42,5 +46,5 @@ export function readableColor(rgb, theme) {
 // backgroundColor draws a background at about a quarter of its strength,
 // so text on it stays readable in both themes
 export function backgroundColor(rgb) {
-    return `rgb(${rgb.join(" ")} / 0.25)`;
+    return `rgb(${rgb.join(" ")} / ${BACKGROUND_ALPHA})`;
 }

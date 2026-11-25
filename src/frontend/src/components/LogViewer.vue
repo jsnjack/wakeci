@@ -257,7 +257,8 @@ function spanDecoration(span, theme) {
     if (typeof fg === "number") {
         classes.push(`ansi-fg-${fg}`);
     } else if (fg) {
-        css.push(`color: ${readableColor(fg, theme)}`);
+        // Readable on its own RGB background too, which is drawn over the log's
+        css.push(`color: ${readableColor(fg, theme, Array.isArray(bg) ? bg : null)}`);
     }
     if (typeof bg === "number") {
         classes.push(`ansi-bg-${bg}`);

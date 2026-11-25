@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { AnsiParser, color256, prefixEnd } from "../src/log/ansi.js";
-import { readableColor } from "../src/log/colors.js";
+import { contrast, readableColor } from "../src/log/colors.js";
 
 // The log viewer's parser of the colour log (B4)
 test("colours become spans over the visible text", () => {
@@ -49,4 +49,12 @@ test("the time prefix and the 256-colour table", () => {
 // localStorage, is dark: it threw before
 test("a colour for a theme the palette doesn't know is the dark one's", () => {
     expect(readableColor([255, 175, 0], "bogus")).toBe(readableColor([255, 175, 0], "dark"));
+});
+
+// White on a true-colour black background, in the light theme: readable on
+// that background as drawn, a quarter of black over the white log
+test("a colour on its own background is readable on it", () => {
+    const shown = readableColor([255, 255, 255], "light", [0, 0, 0]);
+    const rgb = shown.match(/\d+/g).slice(0, 3).map(Number);
+    expect(contrast(rgb, [191.25, 191.25, 191.25])).toBeGreaterThanOrEqual(4.5);
 });
