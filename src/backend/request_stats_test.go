@@ -80,6 +80,9 @@ func TestRequestsAreCountedByHowTheyCameIn(t *testing.T) {
 			&requestRow{Via: ViaKey, Outcome: OutcomeRefused, Who: key}},
 		{"wrong key", "/api/build/1", func(r *http.Request) { r.Header.Set("Authorization", "Bearer wk_nosuch_secret") },
 			&requestRow{Via: ViaKey, Route: "GET /api/build/{id}", Outcome: OutcomeRefused}},
+		// wake from a task: not an API key
+		{"build token", "/api/build/1", func(r *http.Request) { r.Header.Set("Authorization", "Bearer wb_99_secret") },
+			&requestRow{Via: ViaBuild, Route: "GET /api/build/{id}", Outcome: OutcomeRefused}},
 		{"web UI's files", "/favicon.ico", nil, nil},
 	}
 	for _, tt := range tests {

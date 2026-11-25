@@ -38,6 +38,7 @@ export const VIAS = {
     basic: "API with password",
     key: "API with key",
     mcp: "MCP",
+    build: "Build tokens (wake)",
     none: "Not signed in",
 };
 
