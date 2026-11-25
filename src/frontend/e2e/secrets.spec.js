@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures.js";
+import { test, expect, openLog } from "./fixtures.js";
 
 test("should use secrets and not expose them", async ({ page, wake }) => {
     const jobContent = `
@@ -13,14 +13,19 @@ tasks:
     const id = await wake.runJob(jobName);
     await wake.openBuild(id);
     await expect(page).toHaveURL(`${wake.url}/build/${id}`);
-    await expect(page.locator("[data-cy=reload]")).toHaveCount(1);
-    await page.locator("[data-cy=reload]").nth(0).click();
+    await expect(page.getByTestId("task-title")).toHaveCount(1);
+    await openLog(page, 0);
     await expect(page.locator("body")).toContainText("My secret is ***REDACTED***");
     await expect(page.locator("body")).toContainText("my API key is ***REDACTED***");
     await expect(page.locator("body")).toContainText("and from env ***REDACTED***");
     await expect(page.locator("body")).toContainText("Unknown secret <no value>");
-    const logs = page.locator(".log-line");
-    await expect(logs).toContainText(/^\[[^\]\n]+\] My secret is \*\*\*REDACTED\*\*\*/m);
-    await expect(logs).not.toContainText("test1");
-    await expect(logs).not.toContainText("test2");
+    // The log viewer draws each line with its time in a column first
+    const output = page
+        .getByTestId("task-log")
+        .locator(".cm-line")
+        .filter({ hasText: /^[^\s>]+My secret is/ });
+    await expect(output.locator(".log-time")).toHaveText(/^\d/);
+    await expect(output).toContainText("My secret is ***REDACTED***");
+    await expect(page.getByTestId("task-log")).not.toContainText("test1");
+    await expect(page.getByTestId("task-log")).not.toContainText("test2");
 });

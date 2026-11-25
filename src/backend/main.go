@@ -173,6 +173,9 @@ func initApp() func() {
 // @security APIKey
 // @security PasswordAuth
 func main() {
+	if isWakeCommand(os.Args[0]) {
+		os.Exit(runWake(os.Args[1:], os.Getenv, os.Stdin, os.Stdout, os.Stderr))
+	}
 	cleanup := initApp()
 	tasksLeft := run(cleanup)
 	// Read once run returned. Only a stop signal cancels it on the way out
@@ -240,10 +243,17 @@ func run(cleanup func()) (tasksLeft bool) {
 	if err != nil {
 		fatal("create work dir", err)
 	}
-
-	DB, err = bolt.Open(Config.WorkDir+"wakeci.db", 0644, nil)
+	DB, err = openDB(Config.WorkDir+"wakeci.db", dbLockTimeout)
 	if err != nil {
 		fatal("open db", err)
+	}
+	// After the database, which a running wakeci holds, so a second one on
+	// its workdir stops before it points that one's tasks at itself.
+	// Without it, tasks can't run wake; everything else works
+	if err := installWakeCommand(Config.WorkDir+"bin", executablePath); err != nil {
+		L.Warn("can't link the wake command for tasks", "err", err)
+	} else {
+		wakeCommandDir = Config.WorkDir + "bin"
 	}
 	// Before anything writes to it
 	backUpForThisVersion(DB)
@@ -475,6 +485,7 @@ func run(cleanup func()) (tasksLeft bool) {
 		go build.finishInterrupted()
 	}
 	GlobalQueue.Take()
+	go BackfillBuildDisk(ctx)
 	err = serveUntilShutdown(ctx, serve, server.Shutdown)
 	stop()
 	auxiliaryServers.Wait()
@@ -551,6 +562,7 @@ func apiRoutes(router chi.Router) {
 	router.Route("/build", func(router chi.Router) {
 		router.With(requireAccess(ScopeRead, jobFromBuild)).Get("/{id}", HandleGetBuild)
 		router.With(requireAccess(ScopeRead, jobFromBuild)).Get("/{id}/summary", HandleBuildSummary)
+		router.With(requireAccess(ScopeRead, jobFromBuild)).Get("/{id}/group", HandleBuildGroup)
 		router.With(requireAccess(ScopeRead, jobFromBuild)).Get("/{id}/log/{task}", HandleTaskLog)
 		router.With(requireAccess(ScopeRun, jobFromBuild)).Post("/{id}/abort", HandleAbortBuild)
 		router.With(requireAccess(ScopeRun, jobFromBuild)).Post("/{id}/flush", HandleFlushTaskLogs)

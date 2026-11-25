@@ -1,28 +1,30 @@
 <template>
     <form
-        class="medium-height middle-align center-align"
+        class="ui login-page"
         method="post"
         @submit.prevent="logIn"
     >
-        <progress
+        <span
             v-show="fetching"
-            class="circle large"
-        ></progress>
+            class="status-ring login-spinner"
+            role="progressbar"
+            aria-label="Loading"
+            data-cy="login-progress"
+        ></span>
         <div
             v-if="!fetching"
-            class="center-align"
+            class="login-card stack gap-4"
         >
-            <i class="extra">water</i>
-            <h5 class="center-align">Welcome to wake</h5>
+            <i class="icon login-logo">water</i>
+            <h1>Welcome to wake</h1>
             <template v-if="ssoEnabled">
-                <p>Sign in with your work account</p>
-                <div class="space"></div>
+                <p class="muted">Sign in with your work account</p>
                 <a
-                    class="button large round icon-label login-option"
+                    class="btn btn-primary login-option"
                     :href="ssoLoginURL"
                     data-cy="sso-login"
                 >
-                    <i>account_circle</i>
+                    <i class="icon small">account_circle</i>
                     <span>Sign in with SSO</span>
                 </a>
                 <div class="login-or">or</div>
@@ -31,31 +33,40 @@
                 <button
                     v-if="!showPassword"
                     type="button"
-                    class="border large round icon-label login-option"
+                    class="btn btn-outline btn-ghost login-option"
                     data-cy="admin-login"
                     @click="revealPassword"
                 >
-                    <i>key</i>
+                    <i class="icon small">key</i>
                     <span>Sign in as admin</span>
                 </button>
             </template>
-            <p v-else>Start by logging in with your password</p>
-            <template v-if="!ssoEnabled || showPassword">
-                <div class="space"></div>
-                <nav class="group connected">
-                    <div class="max field border left-round prefix round">
-                        <input
-                            id="password"
-                            ref="password"
-                            v-model="password"
-                            class="form-input text-center"
-                            type="password"
-                            aria-label="Admin password"
-                        />
-                    </div>
-                    <button class="large right-round primary">Log in</button>
-                </nav>
-            </template>
+            <p
+                v-else
+                class="muted"
+            >
+                Start by logging in with your password
+            </p>
+            <div
+                v-if="!ssoEnabled || showPassword"
+                class="cluster nowrap gap-2"
+            >
+                <input
+                    id="password"
+                    ref="password"
+                    v-model="password"
+                    class="input grow"
+                    type="password"
+                    aria-label="Admin password"
+                    placeholder="Admin password"
+                />
+                <button
+                    type="submit"
+                    class="btn btn-primary"
+                >
+                    Log in
+                </button>
+            </div>
         </div>
     </form>
 </template>
@@ -158,30 +169,51 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
-/* The button centres the icon but leaves the capital letters of the label 2px
-   above the middle; lower the label so both sit on the button's middle */
-.icon-label > span {
-    transform: translateY(2px);
+.login-page {
+    display: grid;
+    place-items: center;
+    min-block-size: 60vh;
 }
-/* Single sign-on, "or" and the admin password line up in one column */
+
+.login-spinner {
+    inline-size: 40px;
+    block-size: 40px;
+    --_c: var(--primary);
+}
+
+.login-card {
+    inline-size: min(22rem, 100%);
+    align-items: center;
+    text-align: center;
+}
+
+.login-logo {
+    font-size: 56px;
+    color: var(--primary);
+}
+
 .login-option {
-    box-sizing: border-box;
-    width: 16rem;
+    inline-size: 100%;
+    block-size: 40px;
 }
-/* A line on each side of "or", between single sign-on and the admin
-   password. Not called a divider: BeerCSS styles [class*=divider] as a line. */
+
+.login-card .cluster {
+    inline-size: 100%;
+}
+
+/* "or" between the ways to sign in, with a line on each side */
 .login-or {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    width: 16rem;
-    margin: 1.25rem auto;
-    color: var(--outline);
+    gap: var(--space-3);
+    inline-size: 100%;
+    color: var(--on-surface-variant);
 }
+
 .login-or::before,
 .login-or::after {
     content: "";
     flex: 1;
-    border-top: 1px solid var(--outline-variant);
+    border-block-start: 1px solid var(--outline-variant);
 }
 </style>

@@ -1,71 +1,66 @@
 <template>
-    <article
+    <section
         v-if="artifacts && artifacts.length > 0"
-        class="border"
+        class="stack gap-2"
     >
-        <h6>Artifacts</h6>
-        <div
-            v-if="indexFile"
-            class="row"
-        >
-            <div class="max"></div>
+        <div class="cluster between">
+            <h2>Artifacts</h2>
             <a
+                v-if="indexFile"
                 :href="indexFile"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="button secondary"
+                class="btn"
                 data-cy="openIndexFile"
-                ><i>open_in_new</i>index.html</a
+                ><i class="icon small">open_in_new</i>index.html</a
             >
         </div>
-
-        <table class="large-space large-text stripes">
+        <table class="artifacts">
             <thead>
                 <tr>
                     <th
-                        style="cursor: pointer"
                         data-cy="artifacts-header-file"
+                        :aria-sort="sortField === 'filename' ? (sortOrder === -1 ? 'descending' : 'ascending') : 'none'"
                         @click="sortBy('filename')"
                     >
-                        <i>sort</i>
-                        File
+                        File <i class="icon small">swap_vert</i>
                     </th>
                     <th
-                        style="cursor: pointer"
+                        class="size"
                         data-cy="artifacts-header-size"
-                        class="right-align"
+                        :aria-sort="sortField === 'size' ? (sortOrder === -1 ? 'descending' : 'ascending') : 'none'"
                         @click="sortBy('size')"
                     >
-                        <i>sort</i>
-                        Size
+                        Size <i class="icon small">swap_vert</i>
                     </th>
                 </tr>
             </thead>
             <tbody>
                 <tr
                     v-for="item in sortedArtifacts"
-                    :key="item.path"
+                    :key="item.filename"
                     data-cy="artifacts-body-row"
                 >
-                    <td style="word-break: break-all">
+                    <td class="file">
                         <a
                             :href="downloadURL(item.filename)"
                             target="_blank"
                             rel="noopener noreferrer"
+                            >{{ item.filename }}</a
                         >
-                            {{ item.filename }}
-                        </a>
                     </td>
-                    <td class="right-align">{{ getSize(item.size) }}</td>
+                    <td class="size nums">{{ getSize(item.size) }}</td>
                 </tr>
             </tbody>
         </table>
-    </article>
+    </section>
 </template>
 
 <script>
 import { humanFileSize } from "@/store/utils";
 
+// The files a build kept, sortable by name and size. Artifacts open in a
+// new tab without the opener, as the storage's sandbox requires.
 export default {
     props: {
         artifacts: {
@@ -96,15 +91,9 @@ export default {
             });
         },
         indexFile: function () {
-            // Returns filename of index.html file with shortest filename (in hope that it will be the top-level one)
-            let indexEls = this.artifacts.filter(({ filename }) => filename.endsWith("index.html"));
-            indexEls = indexEls.sort((a, b) => {
-                return a.filename.length - b.filename.length;
-            });
-            if (indexEls.length) {
-                return this.downloadURL(indexEls[0].filename);
-            }
-            return "";
+            // The index.html with the shortest name, likely the top one
+            const indexEls = this.artifacts.filter(({ filename }) => filename.endsWith("index.html")).sort((a, b) => a.filename.length - b.filename.length);
+            return indexEls.length ? this.downloadURL(indexEls[0].filename) : "";
         },
     },
     methods: {
@@ -127,7 +116,33 @@ export default {
 </script>
 
 <style scoped>
-table {
-    white-space: pre-wrap;
+.artifacts {
+    inline-size: 100%;
+    border-collapse: collapse;
+}
+
+.artifacts th,
+.artifacts td {
+    padding: var(--space-2) var(--space-3);
+    border-block-end: 1px solid var(--outline-variant);
+    text-align: start;
+}
+
+.artifacts th {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--on-surface-variant);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.artifacts .size {
+    text-align: end;
+    white-space: nowrap;
+}
+
+.artifacts .file {
+    overflow-wrap: anywhere;
 }
 </style>

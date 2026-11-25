@@ -126,6 +126,11 @@ func TestInterruptedBuildRunsItsHooks(t *testing.T) {
 	build.Params[0]["TARGET"] = "custom"
 	build.mutex.Unlock()
 	interruptBuild(t, build, StatusRunning, []int{0}, 1, nil)
+	// The cut task wrote colours, so the log viewer shows its colour log
+	const colourLog = "[ 1s] \x1b[1mworking\x1b[0m\n"
+	if err := os.WriteFile(build.taskANSILogPath(1), []byte(colourLog), 0600); err != nil {
+		t.Fatal(err)
+	}
 	// An older wakeci queues every build in QueueBucket again after a
 	// rollback, so it would run this one twice
 	if ids := queuedRecordIDs(t); len(ids) != 0 {
@@ -169,6 +174,11 @@ func TestInterruptedBuildRunsItsHooks(t *testing.T) {
 	if err != nil || !strings.HasPrefix(string(cutLog), "[ 1s] working\n") ||
 		!strings.Contains(string(cutLog), "> "+interruptedTaskNote+".") {
 		t.Errorf("log of the cut task = %q, %v; want its output, then the note", cutLog, err)
+	}
+	cutColours, err := os.ReadFile(build.taskANSILogPath(1))
+	if err != nil || !strings.HasPrefix(string(cutColours), colourLog) ||
+		!strings.Contains(string(cutColours), "> "+interruptedTaskNote+".") {
+		t.Errorf("colour log of the cut task = %q, %v; want its output, then the note", cutColours, err)
 	}
 	hookLog, err := os.ReadFile(build.taskLogPath(4))
 	if err != nil || !strings.Contains(string(hookLog), "> "+interruptedRunNote+".") {
@@ -320,5 +330,51 @@ func TestFinishInterruptedBuildsDropsBrokenRecords(t *testing.T) {
 	}
 	if status := historyStatus(t, 7); status != StatusAborted {
 		t.Errorf("history status = %q, want %q", status, StatusAborted)
+	}
+}
+
+// The note goes out numbered after the lines the task's log has, so a
+// viewer that has them takes it
+func TestInterruptedNoteIsNumberedAfterTheLog(t *testing.T) {
+	newTestBuildEnv(t)
+	build, err := CreateBuild(&Job{Name: "cut", Tasks: []*Task{{ID: 0, Command: "true", Kind: KindMain}}}, filepath.Join(Config.JobDir, "cut.yaml"), false)
+	if err != nil {
+		t.Fatalf("CreateBuild: %v", err)
+	}
+	build.pendingTasksWG.Wait()
+	if err := os.WriteFile(build.taskLogPath(0), []byte("[ 1s] a\n[ 2s] b\n[ 3s] c\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	oldHub := WSHub
+	WSHub = &Hub{broadcast: make(chan *MsgBroadcast, 1)}
+	t.Cleanup(func() { WSHub = oldHub })
+	build.noteInterrupted(build.Job.Tasks[0])
+	msg := <-WSHub.broadcast
+	if data, ok := msg.Data.(*CommandLogData); !ok || data.ID != 4 {
+		t.Errorf("note sent as %+v, want line 4", msg.Data)
+	}
+}
+
+// A killed wakeci may leave the colour log at another line than the log;
+// it no longer matches, so it goes, and the log route serves the plain log
+func TestInterruptedColourLogThatDoesntMatchGoes(t *testing.T) {
+	newTestBuildEnv(t)
+	build, err := CreateBuild(&Job{Name: "cut", Tasks: []*Task{{ID: 0, Command: "true", Kind: KindMain}}}, filepath.Join(Config.JobDir, "cut.yaml"), false)
+	if err != nil {
+		t.Fatalf("CreateBuild: %v", err)
+	}
+	build.pendingTasksWG.Wait()
+	if err := os.WriteFile(build.taskLogPath(0), []byte("[ 1s] a\n[ 2s] b\n[ 3s] c\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(build.taskANSILogPath(0), []byte("[ 1s] \x1b[1ma\x1b[0m\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	build.noteInterrupted(build.Job.Tasks[0])
+	if _, err := os.Stat(build.taskANSILogPath(0)); !os.IsNotExist(err) {
+		t.Errorf("colour log: %v, want it removed", err)
+	}
+	if plain, err := os.ReadFile(build.taskLogPath(0)); err != nil || !strings.Contains(string(plain), interruptedTaskNote) {
+		t.Errorf("log %q, %v; want the note", plain, err)
 	}
 }

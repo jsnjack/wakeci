@@ -48,10 +48,14 @@ async function writeWakefile(root, port, extra = []) {
     );
 }
 
+// WAKECI_BIN runs another build, as `make screens` does with the base
+// commit's
+const wakeciBinary = process.env.WAKECI_BIN || resolve(import.meta.dirname, "../../../bin/wakeci");
+
 // startWakeci starts bin/wakeci with the Wakefile in root, logging to log,
 // and waits until api reaches it
 async function startWakeci(root, api, log) {
-    const child = spawn(resolve(import.meta.dirname, "../../../bin/wakeci"), ["--config", join(root, "Wakefile.yaml"), "--debug"], {
+    const child = spawn(wakeciBinary, ["--config", join(root, "Wakefile.yaml"), "--debug"], {
         detached: true,
         stdio: ["ignore", log.fd, log.fd],
     });
@@ -81,36 +85,51 @@ async function startWakeci(root, api, log) {
     return { child, exited };
 }
 
+// launchBackend starts wakeci in a directory of its own and logs in. Its
+// stop stops wakeci and removes the directory.
+export async function launchBackend(playwright) {
+    const root = await mkdtemp(join(tmpdir(), "wakeci-e2e-"));
+    let child;
+    let exited;
+    let api;
+    const log = await open(join(root, "backend.log"), "w");
+    const stop = async () => {
+        if (child?.pid) await stopServer(child, exited);
+        if (api) await api.dispose();
+        await log.close();
+        await rm(root, { recursive: true, force: true });
+    };
+    try {
+        const port = await unusedPort();
+        const url = `http://127.0.0.1:${port}`;
+        await prepareRoot(root);
+        await writeWakefile(root, port);
+        api = await playwright.request.newContext({ baseURL: url });
+        ({ child, exited } = await startWakeci(root, api, log));
+        const backend = { root, url, api, stop };
+        // A password change ends the other password sessions, this one too
+        backend.logIn = async () => {
+            await expect(await api.post("/auth/login", { form: { password: "admin" } })).toBeOK();
+            backend.storageState = await api.storageState();
+        };
+        await backend.logIn();
+        return backend;
+    } catch (error) {
+        await stop();
+        throw error;
+    }
+}
+
 export const test = base.extend({
     authenticated: [true, { option: true }],
 
     backend: [
         async ({ playwright }, use) => {
-            const root = await mkdtemp(join(tmpdir(), "wakeci-e2e-"));
-            let child;
-            let exited;
-            let api;
-            const log = await open(join(root, "backend.log"), "w");
+            const backend = await launchBackend(playwright);
             try {
-                const port = await unusedPort();
-                const url = `http://127.0.0.1:${port}`;
-                await prepareRoot(root);
-                await writeWakefile(root, port);
-                api = await playwright.request.newContext({ baseURL: url });
-                ({ child, exited } = await startWakeci(root, api, log));
-                const backend = { root, url, api };
-                // A password change ends the other password sessions, this one too
-                backend.logIn = async () => {
-                    await expect(await api.post("/auth/login", { form: { password: "admin" } })).toBeOK();
-                    backend.storageState = await api.storageState();
-                };
-                await backend.logIn();
                 await use(backend);
             } finally {
-                if (child?.pid) await stopServer(child, exited);
-                if (api) await api.dispose();
-                await log.close();
-                await rm(root, { recursive: true, force: true });
+                await backend.stop();
             }
         },
         { scope: "worker" },
@@ -289,7 +308,7 @@ export const test = base.extend({
             async openBuild(id, status = "finished") {
                 await wake.waitForBuild(id, status);
                 await page.goto(`/build/${id}`);
-                await expect(page.getByTestId("reload").first()).toBeVisible();
+                await expect(page.getByTestId("task-title").first()).toBeVisible();
             },
             async livePage(path) {
                 const subscribed = page.waitForEvent("websocket").then((socket) =>
@@ -340,6 +359,15 @@ export const test = base.extend({
         }
     },
 });
+
+// openLog opens the log of the build page's task row n, unless it is open:
+// a running task's opens by itself, and a click would close it
+export async function openLog(page, n = 0) {
+    const row = page.getByTestId("task-title").nth(n);
+    if ((await row.getAttribute("aria-expanded")) !== "true") {
+        await row.click();
+    }
+}
 
 export async function login(page, password = "admin") {
     await page.locator("#password").fill(password);

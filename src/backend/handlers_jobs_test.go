@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -121,7 +122,156 @@ func TestJobListHasNoNulls(t *testing.T) {
 	if err := json.Unmarshal(adminRequest("GET", "/api/jobs/", nil).Body.Bytes(), &jobs); err != nil {
 		t.Fatal(err)
 	}
-	if len(jobs) != 1 || jobs[0]["defaultParams"] == nil {
-		t.Errorf("a job without parameters: got %v, want defaultParams []", jobs)
+	if len(jobs) != 1 || jobs[0]["defaultParams"] == nil || jobs[0]["labels"] == nil {
+		t.Errorf("a job without parameters: got %v, want defaultParams and labels []", jobs)
+	}
+}
+
+func TestJobLabels(t *testing.T) {
+	params := []map[string]string{{"COMMIT": ""}, {"AUTHOR_LABEL": "unknown"}, {"TARGET": "staging"}, {"BRANCH_LABEL": "main"}}
+	tests := []struct {
+		name   string
+		labels []string
+		want   []string
+	}{
+		{"params named *_LABEL, in the order of params", nil, []string{"AUTHOR_LABEL", "BRANCH_LABEL"}},
+		{"the labels list, in its order", []string{"BRANCH_LABEL", "COMMIT"}, []string{"BRANCH_LABEL", "COMMIT"}},
+		{"names that aren't params left out, and repeats", []string{"MISSING", "TARGET", "TARGET"}, []string{"TARGET"}},
+		{"a list of only unknown names: none, not the *_LABEL ones", []string{"MISSING"}, []string{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			job := Job{DefaultParams: params, Labels: tt.labels}
+			if got := job.labelNames(); !slices.Equal(got, tt.want) {
+				t.Errorf("labelNames() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// The jobs list sends each job's labels and param_info, as registering its
+// file found them
+func TestJobListSendsLabels(t *testing.T) {
+	newAPIKeyTestEnv(t)
+	path := Config.JobDir + "labelled" + Config.jobsExt
+	content := "labels: [BRANCH, AUTHOR]\nparams:\n  - AUTHOR: unknown\n  - BRANCH: main\nparam_info:\n  BRANCH: {desc: Branch to test, options: [main, dev]}\n  GONE: {type: bool}\ngroup: Tests\ntasks: []\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := RegisterJob(path); err != nil {
+		t.Fatal(err)
+	}
+	var jobs []JobsListData
+	if err := json.Unmarshal(adminRequest("GET", "/api/jobs/", nil).Body.Bytes(), &jobs); err != nil {
+		t.Fatal(err)
+	}
+	i := slices.IndexFunc(jobs, func(job JobsListData) bool { return job.Name == "labelled" })
+	if i < 0 || !slices.Equal(jobs[i].Labels, []string{"BRANCH", "AUTHOR"}) {
+		t.Errorf("jobs = %+v, want labelled with labels [BRANCH AUTHOR]", jobs)
+	}
+	// What the run form says about params, for params only
+	if info := jobs[i].ParamInfo; len(info) != 1 || info["BRANCH"].Desc != "Branch to test" || !slices.Equal(info["BRANCH"].Options, []string{"main", "dev"}) {
+		t.Errorf("paramInfo = %+v, want BRANCH's only", info)
+	}
+	if jobs[i].Group != "Tests" {
+		t.Errorf("group = %q, want Tests", jobs[i].Group)
+	}
+}
+
+// With board=1 the jobs list adds each job's last builds, oldest first, its
+// failing streak and its next scheduled run (J1)
+func TestJobListBoard(t *testing.T) {
+	newAPIKeyTestEnv(t)
+	err := DB.Update(func(tx *bolt.Tx) error {
+		b, err := tx.CreateBucketIfNotExists(BuildStatsBucket)
+		if err != nil {
+			return err
+		}
+		for i, status := range []ItemStatus{StatusFinished, StatusFailed, StatusAborted, StatusFailed} {
+			record, _ := json.Marshal(buildStats{ID: 100 + i, Job: "deploy", Status: status})
+			if err := b.Put(Itob(100+i), record); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var jobs []JobsListData
+	if err := json.Unmarshal(adminRequest("GET", "/api/jobs/?board=1", nil).Body.Bytes(), &jobs); err != nil {
+		t.Fatal(err)
+	}
+	i := slices.IndexFunc(jobs, func(job JobsListData) bool { return job.Name == "deploy" })
+	if i < 0 {
+		t.Fatalf("no deploy in %+v", jobs)
+	}
+	ids := []int{}
+	for _, b := range jobs[i].Recent {
+		ids = append(ids, b.ID)
+	}
+	if !slices.Equal(ids, []int{100, 101, 102, 103}) {
+		t.Errorf("recent = %v, want 100..103 oldest first", ids)
+	}
+	if f := jobs[i].Failing; f == nil || f.Builds != 2 || f.First.ID != 101 || f.Last.ID != 103 {
+		t.Errorf("failing = %+v, want 2 builds from 101 to 103", f)
+	}
+	// Without board the list stays as it was
+	var plain []map[string]any
+	if err := json.Unmarshal(adminRequest("GET", "/api/jobs/", nil).Body.Bytes(), &plain); err != nil {
+		t.Fatal(err)
+	}
+	for _, job := range plain {
+		if _, ok := job["recent"]; ok {
+			t.Errorf("recent without board: %v", job)
+		}
+	}
+}
+
+// The board shows 20 builds, but the failing streak goes on to its start:
+// 25 failures in a row, and a streak behind 20 aborted builds
+func TestJobListBoardStreakPastTheShownBuilds(t *testing.T) {
+	newAPIKeyTestEnv(t)
+	put := func(job string, statuses []ItemStatus, from int) {
+		t.Helper()
+		if err := DB.Update(func(tx *bolt.Tx) error {
+			b, err := tx.CreateBucketIfNotExists(BuildStatsBucket)
+			if err != nil {
+				return err
+			}
+			for i, status := range statuses {
+				record, _ := json.Marshal(buildStats{ID: from + i, Job: job, Status: status})
+				if err := b.Put(Itob(from+i), record); err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	failures := []ItemStatus{StatusFinished}
+	for range 25 {
+		failures = append(failures, StatusFailed)
+	}
+	put("deploy", failures, 100)
+	behind := []ItemStatus{StatusFinished, StatusFailed, StatusTimedOut}
+	for range 20 {
+		behind = append(behind, StatusAborted)
+	}
+	put("nightly", behind, 200)
+	var jobs []JobsListData
+	if err := json.Unmarshal(adminRequest("GET", "/api/jobs/?board=1", nil).Body.Bytes(), &jobs); err != nil {
+		t.Fatal(err)
+	}
+	failing := map[string]*FailingStreak{}
+	for _, job := range jobs {
+		failing[job.Name] = job.Failing
+	}
+	if f := failing["deploy"]; f == nil || f.Builds != 25 || f.First.ID != 101 || f.Last.ID != 125 {
+		t.Errorf("deploy failing = %+v, want 25 builds from 101 to 125", f)
+	}
+	if f := failing["nightly"]; f == nil || f.Builds != 2 || f.First.ID != 201 || f.Last.ID != 202 {
+		t.Errorf("nightly failing = %+v, want 2 builds from 201 to 202 behind the aborted ones", f)
 	}
 }

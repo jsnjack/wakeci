@@ -1,3 +1,17 @@
+import { loadWatches } from "./watches.js";
+
+// storedTheme is the theme the user picked, if it is one: artifacts on
+// this origin can write localStorage too, and the log's palette knows light
+// and dark only
+function storedTheme() {
+    try {
+        const theme = window.localStorage.getItem("theme");
+        return theme === "light" || theme === "dark" ? theme : null;
+    } catch {
+        return null;
+    }
+}
+
 const state = {
     ws: {
         obj: { sendMessage: function () {} },
@@ -10,6 +24,8 @@ const state = {
         // connection when the user's permissions change, so pages watch it
         // to load their data again, also what was sent while disconnected.
         reconnects: 0,
+        // How many parts of the app use each topic, see SUBSCRIBE_TOPIC
+        topics: {},
     },
     auth: {
         isLoggedIn: false,
@@ -22,13 +38,16 @@ const state = {
         // the user can't use.
         grants: [],
     },
-    notifyOnBuildStatusUpdate: [],
+    // The builds and searches to notify about, see watches.js
+    watches: loadWatches(),
     // Whether queued builds start, see QueueStatusData in the backend
     queue: {
         stopping: false,
         abortAt: null,
         restartVersion: "",
         buildsAborted: false,
+        // The queued builds' IDs in the order they start
+        queuedIDs: [],
     },
     // How many queue statuses were applied, so an older one can be told apart
     queueStatusCount: 0,
@@ -36,11 +55,8 @@ const state = {
     // the page asked
     serverVersion: "",
     currentPage: "",
-    theme: "light",
+    // The theme the user picked, or else the system's (App.vue follows it)
+    theme: storedTheme() || (window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light"),
 };
-
-if (window.localStorage.getItem("theme")) {
-    state.theme = window.localStorage.getItem("theme");
-}
 
 export default state;

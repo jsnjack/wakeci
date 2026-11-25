@@ -28,6 +28,7 @@ export const TRIGGERS = {
     password: "Password (web or API)",
     sso: "Single sign-on",
     apikey: "API keys (REST or MCP)",
+    build: "Other builds (wake)",
     unknown: "Not recorded (older builds)",
 };
 
@@ -37,6 +38,7 @@ export const VIAS = {
     basic: "API with password",
     key: "API with key",
     mcp: "MCP",
+    build: "Build tokens (wake)",
     none: "Not signed in",
 };
 

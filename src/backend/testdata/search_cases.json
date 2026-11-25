@@ -1,0 +1,40 @@
+{
+  "comment": "Searches and the builds each finds, checked by the server (query_parser_test.go) and the browser (e2e/search.spec.js), so their parsers can't drift apart. A term is found anywhere in the build's text, unless it is NAME=value.",
+  "builds": [
+    { "id": 1, "name": "deploy", "status": "finished", "params": [{ "BRANCH_LABEL": "main" }, { "TARGET": "staging" }] },
+    { "id": 2, "name": "deploy", "status": "failed", "params": [{ "BRANCH_LABEL": "main-fix" }, { "TARGET": "prod" }] },
+    { "id": 3, "name": "tests", "status": "timed out", "params": [{ "BRANCH_LABEL": "maintenance" }, { "AUTHOR_LABEL": "alice" }] },
+    { "id": 4, "name": "nightly", "status": "finished", "params": [{ "ENV": "prod" }, { "NOTE": "fix login" }] },
+    { "id": 5, "name": "lint", "status": "aborted", "params": [{ "ARGS": "mode=fast" }] }
+  ],
+  "cases": [
+    { "query": "", "finds": [1, 2, 3, 4, 5] },
+    { "query": "BRANCH_LABEL:main", "finds": [1, 2, 3] },
+    { "query": "branch=main", "finds": [1] },
+    { "query": "BRANCH_LABEL=main", "finds": [1] },
+    { "query": "+branch=main", "finds": [1] },
+    { "query": "branch=main branch=maintenance", "finds": [1, 3] },
+    { "query": "'branch=main-fix'", "finds": [2] },
+    { "query": "env=prod", "finds": [4] },
+    { "query": "mode=fast", "finds": [5] },
+    { "query": "deploy  ", "finds": [1, 2] },
+    { "query": "+status=finished \"note=fix login\"", "finds": [4] },
+    { "query": "\"", "finds": [] },
+    { "query": "'fix login\" x'", "finds": [] },
+    { "query": "ENV=prod", "finds": [4] },
+    { "query": "target=prod", "finds": [2] },
+    { "query": "target=PROD", "finds": [] },
+    { "query": "author=alice", "finds": [3] },
+    { "query": "\"note=fix login\"", "finds": [4] },
+    { "query": "+status:failed", "finds": [2] },
+    { "query": "status=finished", "finds": [1, 4] },
+    { "query": "\"status=timed out\"", "finds": [3] },
+    { "query": "-status=finished", "finds": [2, 3, 5] },
+    { "query": "+name=deploy -branch=main", "finds": [2] },
+    { "query": "name=dep", "finds": [] },
+    { "query": "id=2", "finds": [2] },
+    { "query": "deploy", "finds": [1, 2] },
+    { "query": "x-y=1", "finds": [] },
+    { "query": "target=prod=x", "finds": [] }
+  ]
+}

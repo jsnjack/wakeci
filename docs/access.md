@@ -44,6 +44,22 @@ and `build.env` isn't expanded in their builds (`paramsUntrusted`,
 only `run` could read any secret through a job's parameter, or run commands
 through `build.env`, which only `write` should allow.
 
+## Untrusted run parameters
+
+Run parameters go through `injectSecrets`, so a reference to a secret
+would send it wherever the job sends that parameter. A line break, or a
+quote on one line, would let the caller add variables such as `BASH_ENV`
+to `build.env` through the documented `echo "NAME=$VALUE"`: godotenv
+starts a new variable after a quoted value (`TARGET="a" BASH_ENV=...`).
+Without quotes it reads the rest of the line as one value, checked for
+godotenv v1.5.1. In their builds (`Build.untrustedParams`, passed to
+`CreateBuild` because it starts the `on_pending` tasks), `build.env` values
+skip `injectSecrets`, because godotenv expands variables and a job can
+rewrite a param, so a reference could be put together after the check.
+Cron, the password and write keep the old rules. This can't stop a job
+that sends a secret to a destination taken from a parameter; such a job
+trusts whoever can run it.
+
 ## Groups
 
 Groups live in the `ssogroups` bucket under their lowercased name, each with
@@ -99,6 +115,15 @@ Basic auth: a browser shows its own password dialog for a Basic challenge
 on the page's own requests.
 
 The feed and the job list filter themselves with `Access.Reads`.
+
+A build's token (`WAKE_TOKEN`, [docs/wake.md](wake.md#build-tokens)) goes
+to the key router like an API key and may read and run every job, but never
+write; it works until its build leaves the queue.
+
+A run that names a build (`WAKE_PARENT`, `WAKE_AGAIN`, `groupOf` in
+`group.go`) needs read on that build's job too; otherwise it gets the same
+400 as a build that doesn't exist, so a run can't tell which build IDs
+exist in jobs the caller can't see.
 
 Each API key may send a burst of requests, refilled at a steady rate
 (`apiKeyRequestLimiter`, after the key is verified); beyond that it gets
@@ -175,11 +200,15 @@ otherwise the request was something the user's groups don't allow, and the
 page shows the error and reads the permissions again.
 
 A build aborted from the page or the API says who aborted it in its task
-log (`abortedBy`): the single sign-on email, the API key's name and ID, or
-"with the admin password". Everyone who may read the build sees it, unlike
+log (`abortedBy`): the single sign-on email, the API key's name and ID,
+the build whose token aborted it, or "with the admin password". Everyone who may read the build sees it, unlike
 the people on the analytics page, which only the admin password sees.
 
 ## Revoking a person
+
+Sessions carry the SSO email (`session.user`, empty for the password), and
+each key records it in `CreatedBy`; `requestUser` reads it, Basic auth
+first like `AuthMi`.
 
 The admin password (password login or Basic auth) lists and revokes every
 key and can revoke all keys of a person (`DELETE /api/keys/?createdBy=`);
@@ -215,3 +244,8 @@ removed from a group in Google keeps it until their session ends (12 hours)
 or the admin revokes their access. There are no per-user permissions: a
 person gets what their groups allow, or, in none of them, what the rule for
 people in no group allows.
+
+A cancel group crosses access: a run of one job aborts the older builds of
+every job whose file declares the same `cancel_group` and key, also those
+the caller may not run, since their files' authors put the jobs in one
+group ([docs/wake.md](wake.md#builds-that-replace-older-ones)).

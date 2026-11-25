@@ -1,54 +1,59 @@
 <template>
-    <dialog
-        :class="{ active: chosen !== null }"
-        class="padding"
+    <UiDialog
+        :open="chosen !== null"
+        title="Import the settings?"
+        @update:open="chosen = null"
     >
-        <div v-if="chosen">
+        <p v-if="chosen">
             Import <b>{{ chosen.name }}</b
             >? It sets every setting the file has, and its SSO groups replace all groups. A file with a mistake changes nothing.
-        </div>
-        <nav class="right-align">
+        </p>
+        <template #actions>
             <button
-                class="border"
-                @click.prevent="chosen = null"
+                type="button"
+                class="btn btn-ghost"
+                @click="chosen = null"
             >
                 Cancel
             </button>
             <button
+                type="button"
+                class="btn btn-primary"
                 data-cy="settings-import-confirm"
                 :disabled="importing"
-                @click.prevent="importFile"
+                @click="importFile"
             >
                 Import
             </button>
-        </nav>
-    </dialog>
+        </template>
+    </UiDialog>
 
     <section
-        class="no-margin"
+        class="stack gap-3"
         data-cy="settings-file"
     >
-        <h6 class="small no-margin">Settings file</h6>
-        <p class="muted description">
+        <h2>Settings file</h2>
+        <p class="muted">
             The settings on this page, the SSO groups and people in no group as YAML, for a backup, review in git or another server. Importing a file sets what
             it has; the password and API keys are never in it. On a stopped server: <code>wakeci --import-settings file.yaml</code>.
         </p>
-        <nav class="no-margin">
+        <div class="cluster gap-2">
             <a
-                class="button border small-round"
+                class="btn btn-outline btn-ghost"
                 href="/api/settings/export"
                 download
                 data-cy="settings-download"
             >
-                <i>download</i>
+                <i class="icon small">download</i>
                 <span>Download</span>
             </a>
             <button
-                class="border small-round"
+                type="button"
+                class="btn btn-outline btn-ghost"
                 data-cy="settings-import"
-                @click.prevent="$refs.file.click()"
+                @click="$refs.file.click()"
             >
-                <i>upload</i>
+                <i class="icon small">upload</i>
                 <span>Import</span>
             </button>
             <input
@@ -59,11 +64,12 @@
                 data-cy="settings-import-file"
                 @change="choose"
             />
-        </nav>
+        </div>
     </section>
 </template>
 
 <script>
+import UiDialog from "@/components/ui/UiDialog.vue";
 import axios from "axios";
 
 // How the notification names what an import set
@@ -80,6 +86,7 @@ const names = {
 // SettingsView shows it to the admin password only, and the API refuses
 // everyone else.
 export default {
+    components: { UiDialog },
     emits: ["imported"],
     data: function () {
         return { chosen: null, importing: false };
@@ -111,10 +118,9 @@ export default {
 </script>
 
 <style scoped>
-.description {
-    margin: 0.5rem 0;
-}
-.muted {
-    opacity: 0.7;
+code {
+    padding: 1px 5px;
+    border-radius: 4px;
+    background-color: var(--surface-container-high);
 }
 </style>

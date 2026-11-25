@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -99,8 +101,17 @@ type Build struct {
 	failedTask *Task
 	// liveLog is the log of the task that runs now, nil between tasks
 	liveLog atomic.Pointer[taskLogWriter]
+	// mainEnded is set once the build has a final status, as its on_* and
+	// finally tasks start: a cancel group no longer aborts it, which would
+	// stop its cleanup (applySupersede)
+	mainEnded atomic.Bool
+	// logBatch holds the log lines that wait to be sent to the browsers
+	logBatch logBatch
 	// abort is the abort request for the tasks that run now, guarded by mutex
 	abort *abortScope
+	// abortRequested is set once an abort was requested, whatever the scope
+	// it closed. Guarded by mutex
+	abortRequested bool
 	// abortedWhileQueued is set by Queue.Abort for a queued build: it has no
 	// queue record from then on, although it is pending until its on_pending
 	// tasks end. Guarded by mutex
@@ -109,6 +120,25 @@ type Build struct {
 	// which FinishInterruptedBuilds restored to run the tasks it has left.
 	// Set before the build is shared, never changed
 	interrupted bool
+	// keys are the build's cancel and concurrency keys (cancel.go), set
+	// before it is queued, never changed; keysSet says they were, for its
+	// queue record. Written under mutex
+	keys    queueKeys
+	keysSet bool
+	// savedCancelKey is a restored build's cancel key from its queue
+	// record (setRestoredKeys)
+	savedCancelKey *string
+	// cancelled are the builds this one cancelled as it was queued, and
+	// supersededBy the newer build that cancelled it then; for the run's
+	// audit event, written by the goroutine that queues the build
+	cancelled    []int
+	supersededBy int
+	// group is the build that started this one and the root of its chain,
+	// set before the build's tasks start. Guarded by mutex
+	group buildGroup
+	// tokenRevoked is set once the build left the queue; its tokens, one
+	// per abort scope, are in the scopes (buildtoken.go). Guarded by mutex
+	tokenRevoked bool
 	// updateMu is held by BroadcastUpdate from taking the build's state until
 	// it is saved, so updates are saved in the order they were taken: an
 	// update taken while queued, saved after a later one, would queue the
@@ -130,6 +160,9 @@ type abortScope struct {
 	// sam@example.com"; empty if unknown. Set with reason
 	by string
 	c  chan struct{}
+	// token is the WAKE_TOKEN of the tasks that run in this scope, created
+	// when the first starts (buildtoken.go). Guarded by the build's mutex
+	token string
 }
 
 func newAbortScope() *abortScope {
@@ -177,6 +210,7 @@ func (b *Build) requestAbort(reason, note, by string) {
 	scope.note = note
 	scope.by = by
 	close(scope.c)
+	b.abortRequested = true
 }
 
 // nextAbortScope starts a new scope if the current one was aborted, so the
@@ -327,9 +361,11 @@ func (b *Build) runTask(task *Task) ItemStatus {
 		b.Logger.Error("create task log", "task", task.ID, "err", err)
 		return StatusFailed
 	}
-	bw := &taskLogWriter{file: file, w: bufio.NewWriter(file)}
+	bw := &taskLogWriter{file: file, w: bufio.NewWriter(file), path: b.taskLogPath(task.ID), ansiPath: b.taskANSILogPath(task.ID)}
 	b.liveLog.Store(bw)
 	defer func() {
+		// The task's last lines go out before its status changes
+		b.flushLog()
 		b.liveLog.CompareAndSwap(bw, nil)
 		if closeErr := bw.Close(); closeErr != nil {
 			b.Logger.Error("close task log", "task", task.ID, "err", closeErr)
@@ -348,6 +384,10 @@ func (b *Build) runTask(task *Task) ItemStatus {
 	taskCmd.Env = os.Environ()
 	taskCmd.Dir = b.GetWorkspaceDir()
 	taskCmd.Env = append(taskCmd.Env, b.generateDefaultEnvVariables()...)
+	// Before the params and the task's env, which may set them otherwise
+	if b.Job.Color || task.Color {
+		taskCmd.Env = append(taskCmd.Env, colorEnv...)
+	}
 	b.mutex.Lock()
 	for idx := range b.Params {
 		for pkey, pval := range b.Params[idx] {
@@ -402,7 +442,7 @@ func (b *Build) runTask(task *Task) ItemStatus {
 
 	// Add executed command to logs
 	b.ProcessLogEntry("> Running command: "+task.Command, bw, task.ID, task.startedAt)
-	expandedTaskCmd := os.Expand(task.Command, getEnvMapper(taskCmd.Env))
+	expandedTaskCmd := expandForLog(task.Command, taskCmd.Env)
 	if expandedTaskCmd != task.Command {
 		b.ProcessLogEntry(
 			"> Expanded command: "+injectSecrets(expandedTaskCmd), bw, task.ID, task.startedAt,
@@ -638,10 +678,27 @@ func (b *Build) generateDefaultEnvVariables() []string {
 		fmt.Sprintf("WAKE_CONFIG_DIR=%s", Config.JobDir),
 		fmt.Sprintf("WAKE_SUMMARY=%s", b.GetWakespaceDir()+jobSummaryFile),
 	}
+	if parent := b.Group().Parent; parent != 0 {
+		evs = append(evs, fmt.Sprintf("WAKE_PARENT_ID=%d", parent))
+	}
 	if Config.Port == "443" {
 		evs = append(evs, fmt.Sprintf("WAKE_URL=https://%s/", Config.Hostname))
 	} else {
 		evs = append(evs, fmt.Sprintf("WAKE_URL=http://localhost:%s/", Config.Port))
+	}
+	if token, err := b.buildToken(); err != nil {
+		b.Logger.Error("create build token", "err", err)
+	} else if token != "" {
+		evs = append(evs, "WAKE_TOKEN="+token)
+	}
+	// The wake command, first, so another wake on the PATH doesn't hide it
+	if wakeCommandDir != "" {
+		path := wakeCommandDir
+		// An empty entry would add the workspace to the PATH
+		if inherited := os.Getenv("PATH"); inherited != "" {
+			path += string(os.PathListSeparator) + inherited
+		}
+		evs = append(evs, "PATH="+path)
 	}
 	return evs
 }
@@ -672,6 +729,8 @@ func (b *Build) Cleanup() {
 	if b.timer != nil {
 		b.timer.Stop()
 	}
+	// First, so the token can't start a build under one that left the queue
+	b.revokeBuildToken()
 	GlobalQueue.Remove(b.ID)
 	// Waiting requests take a build as ended once it left the queue
 	buildChanges.notify(b.ID)
@@ -772,6 +831,7 @@ func (b *Build) BroadcastUpdate() {
 		b.Logger.Error("generate build update", "err", err)
 		return
 	}
+	root := b.Group().Root
 	msg := MsgBroadcast{
 		Type: "build:update:" + strconv.Itoa(bID),
 		Data: json.RawMessage(data),
@@ -784,7 +844,14 @@ func (b *Build) BroadcastUpdate() {
 		if err := hb.Put(Itob(bID), data); err != nil {
 			return err
 		}
+		stats, err := withSavedDisk(tx, bID, stats)
+		if err != nil {
+			return err
+		}
 		if err := putBuildStats(tx, stats, bID); err != nil {
+			return err
+		}
+		if err := putGroupMember(tx, root, bID); err != nil {
 			return err
 		}
 		if err := putOrDelete(tx.Bucket(QueueBucket), bID, queued); err != nil {
@@ -827,6 +894,9 @@ func (b *Build) records() (data, queued, started, stats []byte, err error) {
 		StartedAt:      b.StartedAt,
 		Duration:       b.Duration,
 		ETA:            b.ETA,
+		QueuedAt:       b.queuedAt,
+		Parent:         b.group.Parent,
+		Root:           b.group.Root,
 	})
 	if err != nil {
 		return nil, nil, nil, nil, err
@@ -845,6 +915,8 @@ func (b *Build) records() (data, queued, started, stats []byte, err error) {
 		Ended:      b.ended,
 		Trigger:    b.trigger,
 		FailedTask: failedTask,
+		Parent:     b.group.Parent,
+		Root:       b.group.Root,
 	})
 	if err != nil {
 		return data, nil, nil, stats, err
@@ -858,6 +930,12 @@ func (b *Build) records() (data, queued, started, stats []byte, err error) {
 		// So a rollback to wakeci 2.41, which reads only this name, keeps it
 		StartedWithAPIKey: b.untrustedParams,
 		Tasks:             b.GetTasksStatus(),
+		Parent:            b.group.Parent,
+		Root:              b.group.Root,
+	}
+	if b.keysSet {
+		cancelKey := b.keys.cancelKey
+		saved.CancelKey = &cancelKey
 	}
 	switch {
 	case b.Status == StatusPending && !b.abortedWhileQueued:
@@ -884,15 +962,85 @@ type taskLogWriter struct {
 	file   *os.File
 	w      *bufio.Writer
 	closed bool
+	// lines counts the lines written, so each write knows its line number
+	lines int
+	// path is the log's, and ansiPath the colour log's, which ansi writes
+	// once a line has colours; empty ansiPath writes none
+	path      string
+	ansiPath  string
+	ansiFile  *os.File
+	ansi      *bufio.Writer
+	ansiFails bool
 }
 
-func (l *taskLogWriter) WriteString(s string) (int, error) {
+// writeLines writes plain, whole lines, to the log, and ansi, the same
+// lines with their colours, to the colour log, which starts at the first
+// line that has any (colored) with the lines before it. It returns the
+// number of plain's first line, counting from 1: one entry can be several
+// lines, such as a command of several lines that the log repeats.
+func (l *taskLogWriter) writeLines(plain, ansi string, colored bool) (int, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.closed {
-		return 0, os.ErrClosed
+		return 0, errTaskLogClosed
 	}
-	return l.w.WriteString(s)
+	if colored && l.ansi == nil && l.ansiPath != "" && !l.ansiFails {
+		if err := l.startANSILocked(); err != nil {
+			// The plain log goes on; the page shows it without colours
+			l.ansiFails = true
+			L.Error("start colour log", "path", l.ansiPath, "err", err)
+		}
+	}
+	first := l.lines + 1
+	l.lines += strings.Count(plain, "\n")
+	if l.ansi != nil {
+		if _, err := l.ansi.WriteString(ansi); err != nil {
+			l.dropANSILocked(err)
+		}
+	}
+	_, err := l.w.WriteString(plain)
+	return first, err
+}
+
+// errTaskLogClosed is writeLines' answer once the task's log was closed: a
+// line then has no number, unlike one the file failed to take
+var errTaskLogClosed = errors.New("task log is closed")
+
+// dropANSILocked removes a colour log that failed to write: it would no
+// longer match the log line for line, and the log route serves the plain
+// log without it. The task's log goes on plain
+func (l *taskLogWriter) dropANSILocked(cause error) {
+	L.Error("write colour log, which is dropped", "path", l.ansiPath, "err", cause)
+	if err := errors.Join(l.ansiFile.Close(), os.Remove(l.ansiPath)); err != nil {
+		L.Error("remove colour log", "path", l.ansiPath, "err", err)
+	}
+	l.ansiFile, l.ansi, l.ansiFails = nil, nil, true
+}
+
+// startANSILocked creates the colour log with the lines the log has so far,
+// copied from the file, not read into memory: a task may print a lot before
+// its first colour
+func (l *taskLogWriter) startANSILocked() error {
+	if err := l.w.Flush(); err != nil {
+		return err
+	}
+	before, err := os.Open(l.path)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = before.Close() }()
+	file, err := os.OpenFile(l.ansiPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, privateBuildFileMode)
+	if err != nil {
+		return err
+	}
+	ansi := bufio.NewWriter(file)
+	if _, err := io.Copy(ansi, before); err != nil {
+		// Without the lines before, it wouldn't match the log line for
+		// line; the log route serves the plain log then
+		return errors.Join(err, file.Close(), os.Remove(l.ansiPath))
+	}
+	l.ansiFile, l.ansi = file, ansi
+	return nil
 }
 
 // Flush writes out the buffered lines; it does nothing once the log is
@@ -902,6 +1050,11 @@ func (l *taskLogWriter) Flush() error {
 	defer l.mu.Unlock()
 	if l.closed {
 		return nil
+	}
+	if l.ansi != nil {
+		if err := l.ansi.Flush(); err != nil {
+			l.dropANSILocked(err)
+		}
 	}
 	return l.w.Flush()
 }
@@ -914,7 +1067,15 @@ func (l *taskLogWriter) Close() error {
 		return nil
 	}
 	l.closed = true
-	return errors.Join(l.w.Flush(), l.file.Close())
+	err := errors.Join(l.w.Flush(), l.file.Close())
+	if l.ansi != nil {
+		if flushErr := l.ansi.Flush(); flushErr != nil {
+			l.dropANSILocked(flushErr)
+		} else {
+			err = errors.Join(err, l.ansiFile.Close())
+		}
+	}
+	return err
 }
 
 // flushLiveLog writes out the log of the task that runs now, so the file
@@ -950,23 +1111,98 @@ func (b *Build) ProcessLogEntry(line string, buffer *taskLogWriter, taskID int, 
 	// - redact servers from the log
 	//
 	// Note: Internal logs start with `>`
-	pline := fmt.Sprintf("[%10s] ", time.Since(startedAt).Truncate(time.Millisecond).String()) + StripColor(redactSecrets(line)) + "\n"
-	// Write to the task's log file
-	_, err := buffer.WriteString(pline)
+	prefix := fmt.Sprintf("[%10s] ", time.Since(startedAt).Truncate(time.Millisecond).String())
+	plain, ansi, colored := colorLine(line)
+	pline, aline := prefix+plain+"\n", prefix+ansi+"\n"
+	// Write to the task's log files
+	first, err := buffer.writeLines(pline, aline, colored)
+	if errors.Is(err, errTaskLogClosed) {
+		return
+	}
 	if err != nil {
+		// Still sent: those who watch need the output most when the disk
+		// is full
 		b.Logger.Error("write task log", "task", taskID, "err", err)
 	}
-
 	// Send the log to all subscribed users
-	msg := MsgBroadcast{
-		Type: "build:log:" + strconv.Itoa(b.ID),
-		Data: &CommandLogData{
-			TaskID: taskID,
-			Data:   pline,
-		},
-		Job: b.Job.Name,
+	b.queueLog(taskID, first, pline, aline, colored)
+}
+
+// logBatchDelay is how long a task's log lines wait to be sent together,
+// and logBatchMax how much text a message holds at most
+const (
+	logBatchDelay = 100 * time.Millisecond
+	logBatchMax   = 64 << 10
+)
+
+// logBatch collects a task's log lines for logBatchDelay, so a burst of
+// output reaches the browsers in a few messages instead of one a line, which
+// filled a client's queue of 1024 and disconnected it
+type logBatch struct {
+	mu    sync.Mutex
+	task  int
+	first int // the number of the batch's first line in the task's log
+	text  strings.Builder
+	// ansi is text with its colours, sent only if a line had any (colored)
+	ansi    strings.Builder
+	colored bool
+	timer   *time.Timer
+}
+
+// queueLog adds whole lines of task's log, the first numbered first, to the
+// lines that wait to be sent: text, and ansi with their colours if colored
+func (b *Build) queueLog(task, first int, text, ansi string, colored bool) {
+	batch := &b.logBatch
+	// Held until the batches it takes are sent, as in flushLog, so the timer
+	// and the task's output can't send theirs out of order
+	batch.mu.Lock()
+	defer batch.mu.Unlock()
+	if batch.text.Len() > 0 && batch.task != task {
+		WSHub.broadcast <- b.takeLogBatchLocked()
 	}
-	WSHub.broadcast <- &msg
+	if batch.text.Len() == 0 {
+		batch.task, batch.first = task, first
+	}
+	batch.text.WriteString(text)
+	batch.ansi.WriteString(ansi)
+	batch.colored = batch.colored || colored
+	if batch.text.Len() >= logBatchMax {
+		WSHub.broadcast <- b.takeLogBatchLocked()
+	} else if batch.timer == nil {
+		batch.timer = time.AfterFunc(logBatchDelay, b.flushLog)
+	}
+}
+
+// flushLog sends the lines that wait, at once. It holds batch.mu until they
+// are sent, so runTask's last flush waits for a batch the timer is sending,
+// and the task's last lines go out before its status changes
+func (b *Build) flushLog() {
+	batch := &b.logBatch
+	batch.mu.Lock()
+	defer batch.mu.Unlock()
+	if batch.text.Len() == 0 {
+		batch.timer = nil
+		return
+	}
+	WSHub.broadcast <- b.takeLogBatchLocked()
+}
+
+// takeLogBatchLocked empties the batch into a message; batch.mu is held
+func (b *Build) takeLogBatchLocked() *MsgBroadcast {
+	batch := &b.logBatch
+	if batch.timer != nil {
+		batch.timer.Stop()
+		batch.timer = nil
+	}
+	data := &CommandLogData{TaskID: batch.task, ID: batch.first, Data: batch.text.String()}
+	if batch.colored {
+		data.ANSI = batch.ansi.String()
+	}
+	msg := &MsgBroadcast{Type: "build:log:" + strconv.Itoa(b.ID), Data: data, Job: b.Job.Name}
+	batch.text.Reset()
+	batch.ansi.Reset()
+	batch.colored = false
+	return msg
 }
 
 // GetWorkspaceDir returns path to the workspace, where all user created files
@@ -995,6 +1231,17 @@ func (b *Build) GetWakespaceDir() string {
 // taskLogPath returns the path to the output log of the task
 func (b *Build) taskLogPath(taskID int) string {
 	return wakespaceDir(b.ID) + taskLogName(taskID)
+}
+
+// taskANSILogName is the task's colour log, task_N.ansi.log: task_N.log line
+// for line, with the colour codes and hyperlinks of the task's output. Only
+// tasks that printed colours have one.
+func taskANSILogName(taskID int) string {
+	return fmt.Sprintf("task_%d.ansi.log", taskID)
+}
+
+func (b *Build) taskANSILogPath(taskID int) string {
+	return wakespaceDir(b.ID) + taskANSILogName(taskID)
 }
 
 // GetArtifactsDir returns location of artifacts folder
@@ -1052,6 +1299,9 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		b.StartedAt = time.Now()
 	}
 	b.mutex.Unlock()
+	if slices.Contains(buildDoneStatuses, status) {
+		b.mainEnded.Store(true)
+	}
 	switch status {
 	case StatusPending:
 		b.BroadcastUpdate()
@@ -1089,6 +1339,9 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		// Saved before the build leaves the queue: a stop waits only for
 		// builds in the queue, then closes the database
 		b.BroadcastUpdate()
+		// Before it leaves the queue, which tests and a stop take as the
+		// end: it reads what it needs now, and measures in the background
+		saveDiskLater(b)
 		b.Cleanup()
 	case StatusFailed:
 		b.runOnStatusTasks(status)
@@ -1098,6 +1351,9 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 		b.runOnStatusTasks(FinalTask)
 		b.setDuration()
 		b.BroadcastUpdate()
+		// Before it leaves the queue, which tests and a stop take as the
+		// end: it reads what it needs now, and measures in the background
+		saveDiskLater(b)
 		b.Cleanup()
 	case StatusFinished:
 		b.runOnStatusTasks(status)
@@ -1113,6 +1369,9 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 			}
 		}
 		b.BroadcastUpdate()
+		// Before it leaves the queue, which tests and a stop take as the
+		// end: it reads what it needs now, and measures in the background
+		saveDiskLater(b)
 		b.Cleanup()
 	}
 
@@ -1121,7 +1380,7 @@ func (b *Build) SetBuildStatus(status ItemStatus) {
 // CreateBuild creates Build instance and all necessary files and folders in
 // wakespace, with the job's default params
 func CreateBuild(job *Job, jobPath string, untrustedParams bool) (*Build, error) {
-	return createBuild(job, jobPath, untrustedParams, nil)
+	return createBuild(job, jobPath, untrustedParams, nil, buildGroup{})
 }
 
 // runParams returns a copy of the job's default params with the run's
@@ -1149,7 +1408,7 @@ func runParams(defaults []map[string]string, values url.Values) []map[string]str
 // build's first update and starts its on_pending tasks: both must see the
 // values the build runs with. RunJob used to set them afterwards, so the
 // feed got the defaults first and an on_pending task could run with them.
-func createBuild(job *Job, jobPath string, untrustedParams bool, values url.Values) (*Build, error) {
+func createBuild(job *Job, jobPath string, untrustedParams bool, values url.Values, group buildGroup) (*Build, error) {
 	var counti int
 	err := DB.Update(func(tx *bolt.Tx) error {
 		var err error
@@ -1179,6 +1438,7 @@ func createBuild(job *Job, jobPath string, untrustedParams bool, values url.Valu
 		queuedAt: time.Now(),
 		// Set before SetBuildStatus below starts the pending tasks
 		untrustedParams: untrustedParams,
+		group:           group,
 	}
 	build.Logger = L.With("build", build.ID)
 
@@ -1218,6 +1478,8 @@ func createBuild(job *Job, jobPath string, untrustedParams bool, values url.Valu
 	}
 	build.Logger.Debug("build config created", "file", build.GetBuildConfigFilename())
 
+	// Saved as pending next, and queued after its keys (addNewBuild)
+	GlobalQueue.beginAdd(&build)
 	build.SetBuildStatus(StatusPending)
 	return &build, nil
 }
@@ -1230,7 +1492,55 @@ type ArtifactInfo struct {
 	URL string `json:"url,omitempty"`
 }
 
-// Used to expand env variables in commands
+// expandForLog fills the variables a task's environment has into command,
+// for the "Expanded command" log line, and leaves every other reference
+// exactly as written: bash runs the command as written, where $1 in a shell
+// function or a variable the command sets itself has a value that the log
+// line can't know. Not os.Expand, which drops the braces of ${OUT}dir and
+// ${VAR:-x} before its mapper sees them. Names are read as os.Expand does.
+func expandForLog(command string, env []string) string {
+	known := map[string]bool{}
+	for _, pair := range env {
+		name, _, _ := strings.Cut(pair, "=")
+		known[name] = true
+	}
+	value := getEnvMapper(env)
+	var b strings.Builder
+	for i := 0; i < len(command); {
+		if command[i] != '$' || i+1 == len(command) {
+			b.WriteByte(command[i])
+			i++
+			continue
+		}
+		var name string
+		end := i + 1
+		switch c := command[i+1]; {
+		case c == '{':
+			closing := strings.IndexByte(command[i+2:], '}')
+			if closing < 0 {
+				b.WriteString(command[i:])
+				return b.String()
+			}
+			name, end = command[i+2:i+2+closing], i+3+closing
+		case strings.IndexByte("*#$@!?-0123456789", c) >= 0:
+			name, end = command[i+1:i+2], i+2
+		default:
+			for end < len(command) && (command[end] == '_' || command[end] >= '0' && command[end] <= '9' ||
+				command[end] >= 'a' && command[end] <= 'z' || command[end] >= 'A' && command[end] <= 'Z') {
+				end++
+			}
+			name = command[i+1 : end]
+		}
+		if known[name] {
+			b.WriteString(value(name))
+		} else {
+			b.WriteString(command[i:end])
+		}
+		i = max(end, i+1)
+	}
+	return b.String()
+}
+
 func getEnvMapper(env []string) func(string) string {
 	mapper := func(evar string) string {
 		// Iterate backwards as the last value will be the actual value

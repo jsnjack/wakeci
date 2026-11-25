@@ -1,6 +1,7 @@
 package main
 
 import (
+	"slices"
 	"testing"
 	"time"
 )
@@ -132,4 +133,65 @@ func TestQueueTakeWhileAborting(t *testing.T) {
 		GlobalQueue.Remove(i)
 	}
 	<-done
+}
+
+// The status lists the queued builds in the order they start: a job with a
+// higher priority goes before those queued earlier
+func TestQueueStatusListsQueuedBuildsInOrder(t *testing.T) {
+	q := &Queue{}
+	for _, b := range []*Build{
+		{ID: 1, Job: &Job{Name: "a"}},
+		{ID: 2, Job: &Job{Name: "b"}},
+		{ID: 3, Job: &Job{Name: "urgent", Priority: 5}},
+	} {
+		q.Add(b)
+	}
+	if got := q.Status().QueuedIDs; !slices.Equal(got, []int{3, 1, 2}) {
+		t.Errorf("QueuedIDs = %v, want [3 1 2]", got)
+	}
+	if got := (&Queue{}).Status().QueuedIDs; got == nil || len(got) != 0 {
+		t.Errorf("empty queue: QueuedIDs = %#v, want []", got)
+	}
+}
+
+// A burst of queue changes starts one status sender, which takes the
+// status when it sends, not one sender each
+func TestQueueChangesShareOneStatusSender(t *testing.T) {
+	old := WSHub
+	hub := &Hub{broadcast: make(chan *MsgBroadcast)}
+	WSHub = hub
+	t.Cleanup(func() { WSHub = old })
+	// Its status names this build; other tests' queues may send theirs
+	const marker = 987654
+	q := &Queue{queued: []*Build{{ID: marker}}}
+	ours := func(within time.Duration) bool {
+		deadline := time.After(within)
+		for {
+			select {
+			case msg := <-hub.broadcast:
+				if status, ok := msg.Data.(QueueStatusData); ok && slices.Contains(status.QueuedIDs, marker) {
+					return true
+				}
+			case <-deadline:
+				return false
+			}
+		}
+	}
+	for range 100 {
+		q.queueChanged()
+	}
+	// One sender takes the status; changes after it cleared the flag start
+	// one more, which waits for the first. Never one each
+	sent := 0
+	for ours(300 * time.Millisecond) {
+		sent++
+	}
+	if sent < 1 || sent > 2 {
+		t.Errorf("the burst of 100 changes sent %d statuses, want 1 or 2", sent)
+	}
+	// A change after the status was taken is sent too
+	q.queueChanged()
+	if !ours(2 * time.Second) {
+		t.Error("a change after the burst sent no status")
+	}
 }

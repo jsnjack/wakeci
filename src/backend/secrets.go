@@ -123,6 +123,7 @@ func secretRedactionValues() []string {
 			values = append(values, value)
 		}
 	}
+	values = append(values, buildTokenValues()...)
 	sort.Slice(values, func(i, j int) bool {
 		return len(values[i]) > len(values[j])
 	})

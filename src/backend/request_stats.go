@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -43,12 +44,14 @@ const (
 	ViaKey = "key"
 	// ViaMCP is an API key on /mcp, and the tool calls made there
 	ViaMCP = "mcp"
+	// ViaBuild is a build's token: wake, run by a task
+	ViaBuild = "build"
 	// ViaNone is no credentials: the login page, the docs, refused requests
 	ViaNone = "none"
 )
 
 // viaKinds are the ways in a query may ask for
-var viaKinds = []string{ViaWeb, ViaBasic, ViaKey, ViaMCP, ViaNone}
+var viaKinds = []string{ViaWeb, ViaBasic, ViaKey, ViaMCP, ViaBuild, ViaNone}
 
 // The outcome of a request, by its status, or of a tool call
 const (
@@ -270,9 +273,12 @@ func requestVia(r *http.Request) string {
 	if r.Context().Value(mcpCallKey{}) != nil {
 		return ViaMCP
 	}
-	if _, ok := apiKeyToken(r); ok {
-		if r.URL.Path == mcpRoute {
+	if token, ok := apiKeyToken(r); ok {
+		switch {
+		case r.URL.Path == mcpRoute:
 			return ViaMCP
+		case strings.HasPrefix(token, buildTokenPrefix):
+			return ViaBuild
 		}
 		return ViaKey
 	}
@@ -295,6 +301,15 @@ func waitsForBuild(query url.Values) bool {
 	return wait != "" && wait != "0"
 }
 
+// requestWho is who made a request, as its rows count it: a build's token
+// as builds, not each build, which would give every build rows of its own
+// that the usage page never shows apart
+func requestWho(r *http.Request) buildTrigger {
+	who := triggerOf(r)
+	who.Build = 0
+	return who
+}
+
 // countRequest counts a request that LogMi saw end with status after took.
 // The calls an MCP tool makes aren't counted: the tool call is.
 func countRequest(r *http.Request, route, via string, status int, started time.Time, took time.Duration) {
@@ -304,14 +319,14 @@ func countRequest(r *http.Request, route, via string, status int, started time.T
 	if route != "" {
 		route = r.Method + " " + route
 	}
-	row := requestRow{Via: via, Route: route, Outcome: statusOutcome(status), Who: triggerOf(r)}
+	row := requestRow{Via: via, Route: route, Outcome: statusOutcome(status), Who: requestWho(r)}
 	timed := route != "GET /ws" && !waitsForBuild(r.URL.Query())
 	requestStats.add(usageDay(started), row, took, timed)
 }
 
 // countToolCall counts an MCP tool call, made in the request parent
 func countToolCall(parent *http.Request, tool, outcome string, started time.Time, took time.Duration, timed bool) {
-	row := requestRow{Via: ViaMCP, Tool: tool, Outcome: outcome, Who: triggerOf(parent)}
+	row := requestRow{Via: ViaMCP, Tool: tool, Outcome: outcome, Who: requestWho(parent)}
 	requestStats.add(usageDay(started), row, took, timed)
 }
 
@@ -773,7 +788,7 @@ func addPersonKeyNames(tx *bolt.Tx, people []PersonUse) {
 // @Tags         analytics
 // @Produce      json
 // @Param        days  query   integer   false  "How many days, the last one today, 1 to 365; 30 if not set"
-// @Param        via   query   string    false  "Only requests that came in this way: web, basic, key, mcp or none"
+// @Param        via   query   string    false  "Only requests that came in this way: web, basic, key, mcp, build (a build's token, as wake sends it) or none"
 // @Param        who   query   string    false  "Only requests of this person or key: an id from people, such as password, sso:ann@example.com or apikey:a1b2c3"
 // @Success      200   {object}  RequestStatsData
 // @Success      304   {string}  string

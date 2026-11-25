@@ -152,11 +152,6 @@ export default {
     gap: 0.5rem;
     vertical-align: bottom;
 }
-/* BeerCSS makes every element inherit border-radius, so the SVG took the
-   rounded corners of the key's row and clipped the first and last bars */
-svg {
-    border-radius: 0;
-}
 .baseline {
     stroke: var(--outline-variant);
     stroke-width: 1;

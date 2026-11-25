@@ -85,6 +85,34 @@ testdev: build
 testreport:
 	cd src/frontend && npm run test:report -- $(E2E_ARGS)
 
+# Compares every page with how it looks on BASE (master unless given): builds
+# BASE in a temporary worktree, takes its screenshots with the working tree's
+# e2e/screens.spec.js, then builds the working tree and compares. The
+# differences show in `make testreport`. E2E_ARGS="-g settings" picks pages
+BASE ?= master
+screens:
+	@set -e
+	base=$$(mktemp -d)
+	trap 'rm -rf "$$base/src/frontend/node_modules"; git worktree remove --force "$$base"' EXIT
+	git worktree add --detach "$$base" $(BASE)
+	# The base's own packages when they differ, e.g. a base from before
+	# BeerCSS was removed; else this checkout's, which is faster
+	if cmp -s src/frontend/package-lock.json "$$base/src/frontend/package-lock.json"; then
+	  ln -s "$(CURDIR)/src/frontend/node_modules" "$$base/src/frontend/node_modules"
+	else
+	  (cd "$$base/src/frontend" && npm ci --no-audit --no-fund)
+	fi
+	$(MAKE) -C "$$base" --no-print-directory build
+	rm -rf src/frontend/screens
+	(cd src/frontend && E2E_SCREENS=1 WAKECI_BIN="$$base/bin/wakeci" npx playwright test e2e/screens.spec.js --update-snapshots --reporter=dot $(E2E_ARGS))
+	$(MAKE) --no-print-directory build
+	cd src/frontend
+	if E2E_SCREENS=1 npx playwright test e2e/screens.spec.js $(E2E_ARGS); then
+		echo "Every page looks as on $(BASE)"
+	else
+		echo "Pages differ from $(BASE): make testreport"; exit 1
+	fi
+
 vet:
 	cd src/backend && go vet ./...
 
@@ -153,4 +181,4 @@ viewdb:
 	cp wakeci.db view.db
 	bolter -f view.db
 
-.PHONY: run runb runf version clean clean_jobs testprod testdev testreport test_go test vet fmt lint lintf check agents-size standards buildf build release
+.PHONY: run runb runf version clean clean_jobs testprod testdev testreport screens test_go test vet fmt lint lintf check agents-size standards buildf build release

@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -31,5 +32,16 @@ func TestJobRoutesAnswerMissingJobsAndBadInput(t *testing.T) {
 		if rec.Code >= 400 && !strings.HasPrefix(rec.Header().Get("Content-Type"), "text/plain") {
 			t.Errorf("%s %s: Content-Type %q, want text/plain", c.method, c.target, rec.Header().Get("Content-Type"))
 		}
+	}
+}
+
+func TestUsedParamsCountsTheRunsOwnNamesOnce(t *testing.T) {
+	build := &Build{Params: []map[string]string{{"TARGET": ""}, {"WAKE_PARENT": ""}}}
+	used, ignored := usedParams(build, url.Values{
+		"TARGET": {"prod"}, "WAKE_PARENT": {"5"}, "WAKE_AGAIN": {"7"}, "OTHER": {"x"},
+	})
+	// WAKE_PARENT is the job's, WAKE_AGAIN the run's own; OTHER is ignored
+	if !slices.Equal(used, []string{"TARGET", "WAKE_PARENT"}) || ignored != 1 {
+		t.Errorf("used %v, ignored %d; want TARGET and WAKE_PARENT, 1 ignored", used, ignored)
 	}
 }

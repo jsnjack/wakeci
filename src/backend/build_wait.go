@@ -105,8 +105,8 @@ func isBuildDone(build *BuildUpdateData, left bool) bool {
 
 // waitForBuild reads build id and, with seconds, waits until it has ended,
 // the seconds have passed, the client went away or the server shuts down.
-// It returns the build as it read it last.
-func waitForBuild(r *http.Request, id int, seconds int) (*BuildUpdateData, error) {
+// It returns the build as it read it last, and whether it had ended then.
+func waitForBuild(r *http.Request, id int, seconds int) (*BuildUpdateData, bool, error) {
 	var timeout <-chan time.Time
 	if seconds > 0 {
 		timer := time.NewTimer(time.Duration(seconds) * time.Second)
@@ -121,22 +121,36 @@ func waitForBuild(r *http.Request, id int, seconds int) (*BuildUpdateData, error
 		// the read, a build that ended in between would be read as it was.
 		left := buildLeftQueue(id)
 		build, err := readBuildStatus(id)
-		if err != nil || seconds <= 0 || isBuildDone(build, left) {
+		if err != nil {
 			release()
-			return build, err
+			return nil, false, err
+		}
+		ended := isBuildDone(build, left)
+		if seconds <= 0 || ended {
+			release()
+			return build, ended, nil
+		}
+		// A queued build doesn't start while wakeci stops; the answer says
+		// so (stopping) at once, so wake --wait doesn't hold up the stop
+		var stopping <-chan struct{}
+		if build.Status == StatusPending && GlobalQueue != nil {
+			stopping = GlobalQueue.Stopping()
 		}
 		select {
+		case <-stopping:
+			release()
+			return build, false, nil
 		case <-changed:
 			release()
 		case <-timeout:
 			release()
-			return build, nil
+			return build, false, nil
 		case <-r.Context().Done():
 			release()
-			return build, nil
+			return build, false, nil
 		case <-buildWaitsEnd.ch:
 			release()
-			return build, nil
+			return build, false, nil
 		}
 	}
 }

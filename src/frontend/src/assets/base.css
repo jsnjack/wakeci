@@ -1,0 +1,71 @@
+/* Element defaults, the lowest layer. Inside .ui every element starts from
+   the browser's styles again (components.css), so these cover the page
+   around it, and the parts of elements that .ui doesn't roll back:
+   scrollbars and the browser's own controls in fields. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  line-height: var(--line-height);
+  color: var(--on-surface);
+  background: var(--surface);
+  overflow-x: hidden;
+}
+
+/* Thin scrollbars, their thumb shown on hover or focus. The page's own
+   scrollbar stays the browser's. */
+@media (pointer: fine) {
+  body ::-webkit-scrollbar,
+  body ::-webkit-scrollbar-button,
+  body ::-webkit-scrollbar-thumb {
+    background: none;
+    inline-size: 0.4rem;
+    block-size: 0.4rem;
+  }
+
+  body :has(:focus, :hover)::-webkit-scrollbar-thumb,
+  body :is(:focus, :hover)::-webkit-scrollbar-thumb {
+    background: var(--outline);
+    border-radius: 1rem;
+  }
+}
+
+/* With a mouse or touchpad the page stops at its ends instead of bouncing
+   past them, which only suits touch screens (and their pull to refresh) */
+@media (pointer: fine) {
+  html,
+  body {
+    overscroll-behavior-y: none;
+  }
+}
+
+/* On a phone the page doesn't scroll behind an open dialog */
+@media (pointer: coarse) {
+  body:has(dialog[open]) {
+    overflow: hidden;
+  }
+}
+
+/* Number fields have no arrows and search fields no clear button: the
+   app's fields bring their own */
+input::-webkit-inner-spin-button,
+input::-webkit-outer-spin-button,
+input::-webkit-search-cancel-button,
+input::-webkit-search-decoration,
+input::-webkit-search-results-button,
+input::-webkit-search-results-decoration {
+  display: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}

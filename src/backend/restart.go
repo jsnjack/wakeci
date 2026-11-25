@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"time"
 
@@ -50,6 +51,13 @@ type queuedBuild struct {
 	// of older versions
 	QueuedAt time.Time    `json:"queuedAt,omitzero"`
 	Trigger  buildTrigger `json:"trigger,omitzero"`
+	// Parent and Root are the build's group, 0 if no build started it
+	Parent int `json:"parent,omitempty"`
+	Root   int `json:"root,omitempty"`
+	// CancelKey is the cancel key the build was queued with, "" for none,
+	// so a restore doesn't run cancel_unless again; nil in a record saved
+	// before it was queued, or by an older version
+	CancelKey *string `json:"cancelKey,omitempty"`
 }
 
 // RestoreQueue queues the builds that were queued when wakeci stopped, in
@@ -82,6 +90,7 @@ func RestoreQueue(q *Queue) error {
 			}
 			continue
 		}
+		build.setRestoredKeys()
 		q.Add(build)
 		build.BroadcastUpdate()
 		restored++
@@ -117,6 +126,8 @@ func newRestoredBuild(id int, saved *queuedBuild) (*Build, error) {
 		untrustedParams: saved.UntrustedParams || saved.StartedWithAPIKey,
 		queuedAt:        saved.QueuedAt,
 		trigger:         saved.Trigger,
+		group:           buildGroup{Parent: saved.Parent, Root: saved.Root},
+		savedCancelKey:  saved.CancelKey,
 	}
 	build.Logger = L.With("build", id)
 	ran := map[int]*TaskStatus{}
@@ -213,6 +224,8 @@ func FinishInterruptedBuilds(q *Queue) ([]*Build, error) {
 			}
 			continue
 		}
+		// Its hooks hold its concurrency key, as after any abort
+		build.setHookKeys()
 		q.addInterrupted(build)
 		builds = append(builds, build)
 	}
@@ -273,7 +286,38 @@ func (b *Build) noteInterrupted(task *Task) {
 		return
 	}
 	log := &taskLogWriter{file: file, w: bufio.NewWriter(file)}
+	// Numbered after the lines the log has, as the live log expects
+	lines, err := countFileLines(b.taskLogPath(task.ID))
+	if err == nil {
+		log.lines = lines
+	}
+	// The colour log, which the log viewer shows if the task wrote one,
+	// ends with the note too. The two files' buffers were written out at
+	// different moments, so a killed wakeci may have left them at different
+	// lines; then the colour log no longer matches the log and goes
+	ansiPath := b.taskANSILogPath(task.ID)
+	ansiLines, ansiErr := countFileLines(ansiPath)
+	switch {
+	case ansiErr == nil && (err != nil || ansiLines != lines):
+		b.Logger.Warn("dropping a colour log that doesn't match its log", "task", task.ID, "lines", lines, "colourLines", ansiLines)
+		if err := os.Remove(ansiPath); err != nil {
+			b.Logger.Error("remove task colour log", "task", task.ID, "err", err)
+		}
+	case ansiErr == nil:
+		ansi, err := os.OpenFile(ansiPath, os.O_APPEND|os.O_WRONLY, privateBuildFileMode)
+		if err != nil {
+			b.Logger.Error("open task colour log", "task", task.ID, "err", err)
+			break
+		}
+		// With its path, so a failed write can remove it (dropANSILocked)
+		log.ansiFile, log.ansi, log.ansiPath = ansi, bufio.NewWriter(ansi), ansiPath
+	case !errors.Is(ansiErr, fs.ErrNotExist):
+		b.Logger.Error("read task colour log", "task", task.ID, "err", ansiErr)
+	}
 	b.ProcessLogEntry("> "+interruptedTaskNote+".", log, task.ID, task.startedAt)
+	// At once, as runTask does: the task doesn't run again, so nothing else
+	// would send it before its batch's timer, which would outlive the call
+	b.flushLog()
 	if err := log.Close(); err != nil {
 		b.Logger.Error("close task log", "task", task.ID, "err", err)
 	}

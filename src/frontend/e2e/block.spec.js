@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures.js";
+import { test, expect, openLog } from "./fixtures.js";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -20,8 +20,8 @@ tasks:
     const id = await wake.runJob(jobName);
     await wake.openBuild(id);
     await expect(page).toHaveURL(`${wake.url}/build/${id}`);
-    await expect(page.locator("[data-cy=reload]")).toHaveCount(3);
-    await page.locator("[data-cy=reload]").nth(1).click();
+    await expect(page.getByTestId("task-title")).toHaveCount(3);
+    await openLog(page, 1);
     await expect(page.locator("body")).toContainText("JOE");
 });
 
@@ -50,8 +50,8 @@ tasks:
     const id = await wake.runJob(jobName);
     await wake.openBuild(id);
     await expect(page).toHaveURL(`${wake.url}/build/${id}`);
-    await expect(page.locator("[data-cy=reload]")).toHaveCount(3);
-    await page.locator("[data-cy=reload]").nth(2).click();
+    await expect(page.getByTestId("task-title")).toHaveCount(3);
+    await openLog(page, 2);
     await expect(page.locator("body")).toContainText("SUPER");
 });
 
@@ -80,8 +80,8 @@ test("should combine well include and block", async ({ page, wake }) => {
     const id = await wake.runJob(jobName);
     await wake.openBuild(id);
     await expect(page).toHaveURL(`${wake.url}/build/${id}`);
-    await expect(page.locator("[data-cy=reload]")).toHaveCount(2);
-    await page.locator("[data-cy=reload]").nth(1).click();
+    await expect(page.getByTestId("task-title")).toHaveCount(2);
+    await openLog(page, 1);
     await expect(page.locator("body")).toContainText("BAD");
 });
 

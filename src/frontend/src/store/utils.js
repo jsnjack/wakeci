@@ -43,7 +43,7 @@ export function isFilteredUpdate(ev, filterObj) {
     if (filterObj === null) {
         return false;
     }
-    return !matchesFilter(filterMatchText(ev), filterObj);
+    return !matchesFilter(ev, filterObj);
 }
 
 // The filter is similar to the implementation on the server side (HandleFeedView)
@@ -52,39 +52,43 @@ export function createFilterObj(query) {
         return null;
     }
 
-    function unquote(query) {
-        if (/^["'].*["']$/.test(query)) {
-            return query.slice(1, -1);
-        }
-        return query;
-    }
-
-    function splitFilterQuery(query) {
-        let data = query.split(" ");
-        let newData = handleOpenQuotes(data, '"');
-        while (newData.length !== data.length) {
-            data = newData;
-            newData = handleOpenQuotes(data, '"');
-        }
-        newData = handleOpenQuotes(data, "'");
-        while (newData.length !== data.length) {
-            data = newData;
-            newData = handleOpenQuotes(data, "'");
-        }
-        return data;
-    }
-
-    function handleOpenQuotes(data, quote) {
-        for (let i = 0; i < data.length; i++) {
-            let element = data[i];
-            if (element.endsWith(quote)) {
-                if (i > 0) {
-                    let newData = [...data.slice(0, i - 1), data.slice(i - 1, i + 1).join(" "), ...data.slice(i + 1)];
-                    return newData;
-                }
+    // As unquote on the server: the same quote on both ends
+    function unquote(term) {
+        for (const quote of ['"', "'"]) {
+            if (term.length >= 2 && term.startsWith(quote) && term.endsWith(quote)) {
+                return term.slice(1, -1);
             }
         }
-        return data;
+        return term;
+    }
+
+    // As SplitFilterQuery on the server: terms split at spaces outside
+    // quotes, a quote ended only by the same quote, no empty terms
+    function splitFilterQuery(query) {
+        const terms = [];
+        let current = "";
+        let quote = "";
+        for (const c of query) {
+            if (c === '"' || c === "'") {
+                if (!quote) {
+                    quote = c;
+                } else if (c === quote) {
+                    quote = "";
+                }
+                current += c;
+            } else if (c === " " && !quote) {
+                if (current) {
+                    terms.push(current);
+                    current = "";
+                }
+            } else {
+                current += c;
+            }
+        }
+        if (current) {
+            terms.push(current);
+        }
+        return terms;
     }
 
     let data = splitFilterQuery(query);
@@ -107,32 +111,80 @@ export function createFilterObj(query) {
     return result;
 }
 
-function matchesFilter(s, filter) {
+// matchesFilter works like matchesFilter on the server: a term is found
+// anywhere in the build's text, unless it is NAME=value (termMatches).
+// e2e/search.spec.js checks both against the same cases.
+export function matchesFilter(ev, filter) {
     if (filter === null) {
         return true;
     }
+    const s = filterMatchText(ev);
 
     for (let item of filter.MustInclude) {
-        if (!s.includes(item)) {
+        if (!termMatches(ev, s, item)) {
             return false;
         }
     }
 
     for (let item of filter.MustExclude) {
-        if (s.includes(item)) {
+        if (termMatches(ev, s, item)) {
             return false;
         }
     }
 
     let contains = filter.ContainsAny.length === 0;
     for (let item of filter.ContainsAny) {
-        if (s.includes(item)) {
+        if (termMatches(ev, s, item)) {
             contains = true;
             break;
         }
     }
 
     return contains;
+}
+
+// LABEL_SUFFIX marks a param as a label when its job lists no labels
+export const LABEL_SUFFIX = "_LABEL";
+
+// shownName is the name a search finds a param by: lowercase, without
+// _LABEL, so BRANCH_LABEL is branch
+export function shownName(name) {
+    const lower = name.toLowerCase();
+    return lower.endsWith(LABEL_SUFFIX.toLowerCase()) ? lower.slice(0, -LABEL_SUFFIX.length) : lower;
+}
+
+// searchTerm is the term that finds builds whose param name is value,
+// quoted only if it has a space or a quote. A name that NAME=value can't
+// hold (EXACT_TERM), such as app.version, gives the value alone
+export function searchTerm(name, value) {
+    const shown = shownName(name);
+    const term = /^[A-Za-z_][A-Za-z0-9_]*$/.test(shown) ? `${shown}=${value}` : value;
+    if (!/[\s"']/.test(term)) {
+        return term;
+    }
+    return term.includes('"') ? `'${term}'` : `"${term}"`;
+}
+
+// NAME=value matches a build whose id, name or status is value, or with a
+// param equal to value named NAME, ignoring case, or NAME_LABEL: a label by
+// its shown name, so branch=main finds BRANCH_LABEL
+const EXACT_TERM = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/;
+
+function termMatches(ev, text, term) {
+    const m = EXACT_TERM.exec(term);
+    if (m === null) {
+        return text.includes(term);
+    }
+    const [, name, value] = m;
+    const field = { id: String(ev.id), name: ev.name, status: ev.status }[name.toLowerCase()];
+    if (field === value) {
+        return true;
+    }
+    const wanted = [name.toLowerCase(), (name + LABEL_SUFFIX).toLowerCase()];
+    // Else found as text, as other terms: a value can hold = too
+    return (
+        (ev.params || []).some((param) => Object.entries(param).some(([key, v]) => v === value && wanted.includes(key.toLowerCase()))) || text.includes(term)
+    );
 }
 
 export function humanFileSize(size) {
@@ -184,4 +236,12 @@ export function grantHasScope(grant, scope) {
 // grantAllows mirrors Grant.HasScope and Grant.CoversJob in the backend
 export function grantAllows(grant, scope, job) {
     return grantHasScope(grant, scope) && (grant.allJobs || grant.jobs.includes(job) || grant.patterns.some((pattern) => matchJobPattern(pattern, job)));
+}
+
+// askNotificationPermission asks for system notifications if the browser has
+// them and the user hasn't answered; without them the page shows a message
+export function askNotificationPermission() {
+    if ("Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission().catch(() => {});
+    }
 }

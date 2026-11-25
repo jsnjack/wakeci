@@ -1,23 +1,24 @@
 <template>
     <div>
         <div class="card-head">
-            <h6 class="small no-margin">{{ title }}</h6>
-            <div
+            <h2 class="card-title">{{ title }}</h2>
+            <label
                 v-if="rows.length > 1"
-                class="field small prefix border round no-margin"
+                class="input-icon"
             >
-                <i>search</i>
+                <i class="icon small">search</i>
                 <input
                     v-model="search"
                     type="search"
+                    class="input"
                     :aria-label="searchLabel"
                     :placeholder="searchLabel"
                     :data-cy="`${cy}-search`"
                 />
-            </div>
+            </label>
         </div>
         <div class="table-scroll">
-            <table class="small-text">
+            <table class="usage-table text-sm">
                 <thead>
                     <tr>
                         <th
@@ -224,31 +225,60 @@ export default {
 </script>
 
 <style scoped>
+/* As the jobs table of the analytics page (AnalyticsView.vue) */
 .card-head {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.5rem 1rem;
+    gap: var(--space-2) var(--space-4);
 }
-.card-head > h6 {
+
+.card-head > h2 {
     flex: 1 1 auto;
 }
-.card-head > :not(h6) {
+
+.card-head > :not(h2) {
     flex: 0 1 16rem;
-    min-width: 8rem;
-    max-width: 100%;
+    min-inline-size: 8rem;
+    max-inline-size: 100%;
 }
+
+.card-title {
+    font-size: var(--text-md);
+}
+
 .table-scroll {
     overflow-x: auto;
 }
+
+.usage-table {
+    inline-size: 100%;
+    border-collapse: collapse;
+}
+
+.usage-table th,
+.usage-table td {
+    padding: var(--space-2);
+    border-block-end: 1px solid var(--outline-variant);
+    text-align: start;
+}
+
+.usage-table th {
+    color: var(--on-surface-variant);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.usage-table .right-align {
+    text-align: end;
+}
+
 th.sortable {
     cursor: pointer;
     user-select: none;
 }
+
 .nowrap {
     white-space: nowrap;
-}
-.muted {
-    color: var(--on-surface-variant);
 }
 </style>

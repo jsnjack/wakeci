@@ -211,16 +211,33 @@ func TestBuildUpdatesSaveInOrder(t *testing.T) {
 		return done
 	}
 
+	// Only this build's updates count: log batches of builds from earlier
+	// tests may still reach the hub
+	update := "build:update:" + strconv.Itoa(build.ID)
+	sent := func(wait time.Duration) bool {
+		deadline := time.After(wait)
+		for {
+			select {
+			case msg := <-hub.broadcast:
+				if msg.Type == update {
+					return true
+				}
+			case <-deadline:
+				return false
+			}
+		}
+	}
+
 	queuedDone := broadcast()
-	<-hub.broadcast
+	if !sent(5 * time.Second) {
+		t.Fatal("the queued update was never sent")
+	}
 	build.mutex.Lock()
 	build.Status = StatusRunning
 	build.mutex.Unlock()
 	runningDone := broadcast()
-	select {
-	case <-hub.broadcast:
+	if sent(300 * time.Millisecond) {
 		t.Error("the running update was sent before the queued one was saved")
-	case <-time.After(300 * time.Millisecond):
 	}
 
 	if err := tx.Rollback(); err != nil {
@@ -1037,5 +1054,43 @@ func TestQueuedBuildOfAnOlderVersionKeepsItsMark(t *testing.T) {
 		if build.untrustedParams != want {
 			t.Errorf("restoreBuild(%s).untrustedParams = %t, want %t", record, build.untrustedParams, want)
 		}
+	}
+}
+
+// A restored queued build keeps the cancel key it was queued with, so its
+// cancel_unless doesn't run again before startup ends
+func TestRestoredBuildKeepsItsCancelKey(t *testing.T) {
+	newTestBuildEnv(t)
+	useQueue(t, &Queue{})
+	marker := filepath.Join(t.TempDir(), "ran")
+	job := &Job{
+		Name:          "tests",
+		DefaultParams: []map[string]string{{"BRANCH": "main"}},
+		CancelGroup:   "tests/$BRANCH",
+		CancelUnless:  "touch " + marker + "; false",
+		Tasks:         []*Task{{ID: 0, Command: "true", Kind: KindMain}},
+	}
+	build, err := CreateBuild(job, filepath.Join(Config.JobDir, "tests.yaml"), false)
+	if err != nil {
+		t.Fatalf("CreateBuild: %v", err)
+	}
+	build.setQueueKeys()
+	GlobalQueue.Add(build)
+	build.BroadcastUpdate()
+	if err := os.Remove(marker); err != nil {
+		t.Fatalf("cancel_unless didn't run as the build was queued: %v", err)
+	}
+
+	restarted := &Queue{}
+	GlobalQueue = restarted
+	if err := RestoreQueue(restarted); err != nil {
+		t.Fatalf("RestoreQueue: %v", err)
+	}
+	restored := restarted.Live(build.ID)
+	if restored == nil || restored.keys.cancelKey != "tests/main" {
+		t.Fatalf("restored build %v, want it queued with cancel key tests/main", restored)
+	}
+	if _, err := os.Stat(marker); err == nil {
+		t.Error("cancel_unless ran again at the restore")
 	}
 }

@@ -157,7 +157,7 @@ test("the filters stay in the address", async ({ page, wake }) => {
     await waitForEnd(page, id);
 
     await page.goto(`/analytics?days=7&job=${encodeURIComponent(name)}`);
-    await expect(page.getByTestId("range-7")).toHaveClass(/active/);
+    await expect(page.getByTestId("range-7")).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByTestId("job-filter")).toHaveValue(name);
     const row = page.getByTestId(`job-row-${name}`);
     await expect(row.getByTestId("job-success")).toHaveText("0%");
@@ -213,7 +213,7 @@ test("a long job name stays inside its picker on a phone", async ({ page, wake }
     await page.goto("/analytics");
     const picker = page.getByTestId("duration-job");
     await pick(page, "duration-job", long);
-    const card = await picker.locator("xpath=ancestor::article[1]").boundingBox();
+    const card = await page.getByTestId("duration-card").boundingBox();
     const field = await picker.locator("xpath=..").boundingBox();
     expect(field.x + field.width).toBeLessThanOrEqual(card.x + card.width);
     await pick(page, "job-filter", long);
@@ -285,7 +285,7 @@ test("the page works while the duration chart's request is on its way", async ({
 
     await page.goto("/analytics");
     await expect(page.getByTestId("tile-builds")).toBeVisible();
-    await page.locator('header a[href="/jobs"]').click();
+    await page.getByTestId("nav-jobs").click();
     await expect(page).toHaveURL(/\/jobs$/);
     await expect(page.getByTestId("jobs-container")).toBeVisible();
     expect(errors).toEqual([]);

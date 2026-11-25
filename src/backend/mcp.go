@@ -194,6 +194,7 @@ type mcpJobInsightsInput struct {
 type mcpRunJobInput struct {
 	Name   string            `json:"name" jsonschema:"job name"`
 	Params map[string]string `json:"params,omitempty" jsonschema:"the job's parameters to set, by name; the others keep their defaults"`
+	Parent int               `json:"parent,omitempty" jsonschema:"ID of the pending or running build that starts this one; the new build is shown under it"`
 }
 
 type mcpStartedBuild struct {
@@ -418,6 +419,9 @@ func newMCPServer(c *mcpCaller) *mcp.Server {
 			form := url.Values{}
 			for name, value := range in.Params {
 				form.Set(name, value)
+			}
+			if in.Parent != 0 {
+				form.Set(parentParam, strconv.Itoa(in.Parent))
 			}
 			data, err := c.call(ctx, http.MethodPost, "/api/job/"+url.PathEscape(in.Name)+"/run", form)
 			if err != nil {

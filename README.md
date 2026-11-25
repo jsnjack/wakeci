@@ -274,6 +274,10 @@ docs page's JavaScript. Neither needs a key.
 
 #### API keys
 
+Tasks don't need keys: they start builds and read the API with the `wake`
+command and their build's token ([docs/wake.md](docs/wake.md)), and the
+builds they start are shown under theirs.
+
 Scripts and other tools can call the API with a key instead of the password.
 Create one on the API keys page (the key icon), choose what it can do and on
 which jobs, and send it as a Bearer token:

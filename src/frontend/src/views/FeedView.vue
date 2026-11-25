@@ -1,96 +1,135 @@
 <template>
-    <dialog :class="{ active: isHelpDialogOpen }">
-        <h5>Search examples</h5>
-        <div class="space"></div>
-        <ul>
-            <li><code>status:failed</code> - Failed builds</li>
-            <li><code>status:failed "status:timed out"</code> - Failed or timed out builds</li>
-            <li><code>+status:failed -name:test_</code> - Failed builds, excluding builds with names containing "test_"</li>
-            <li><code>env:prod</code> - Builds with parameter "env=prod"</li>
-            <li><code>+status:failed env:prod env:uat</code> - Failed builds with "env" parameter equal to "prod" or "uat"</li>
-        </ul>
-        <nav class="right-align">
-            <button
-                class="border"
-                @click.prevent="isHelpDialogOpen = false"
-            >
-                Close
-            </button>
-        </nav>
-    </dialog>
-
-    <nav class="group connected">
-        <div class="max field label prefix border left-round">
-            <i>search</i>
-            <input
-                type="text"
-                data-cy="filter"
-                :value="filter"
-                @input="(evt) => (filter = evt.target.value)"
-            />
-            <label>Filter builds by id, name, params and status</label>
-            <progress
-                v-show="isFetching"
-                class="circle"
-            ></progress>
-        </div>
-        <button
-            class="large no-round"
-            @click.prevent="clearFilter"
-        >
-            <i>backspace</i>
-        </button>
-        <button
-            class="large right-round"
-            @click.prevent="isHelpDialogOpen = true"
-        >
-            <i>help</i>
-        </button>
-    </nav>
-
-    <article
-        v-show="filteredUpdates !== 0"
-        class="fill small-margin center-align large-text m l"
-        data-cy="filtered-updates"
-    >
-        <p>{{ filteredUpdates }} updates have been filtered because of the active filter</p>
-    </article>
-
-    <div data-cy="feed-container">
-        <FeedItem
-            v-for="item in sortedBuilds"
-            :key="item.id"
-            :build="item"
-            :defaults="jobDefaults.get(item.name) || null"
-            @set-filter="handleSetFilter"
-        />
-    </div>
-
     <div
-        v-if="sortedBuilds.length === 0 && !isFetching && !filterIsDirty"
-        class="fill medium-height middle-align center-align small-margin small-round"
-        data-cy="no-builds-found"
+        class="ui feed-page"
+        :class="{ split }"
     >
-        <div class="center-align">
-            <i class="extra">water</i>
-            <h5>No builds found</h5>
-        </div>
-    </div>
+        <div class="feed-column stack gap-3">
+            <FeedSearch
+                v-model="filter"
+                :jobs="jobs"
+                :builds="builds"
+                :fetching="isFetching"
+                @clear="clearFilter"
+            />
 
-    <nav class="no-space">
-        <div class="max"></div>
-        <button
-            v-show="moreEnabled && !isFetching && !filterIsDirty"
-            data-cy="more"
-            @click.prevent="fetchNow(true)"
+            <div
+                v-if="filteredUpdates !== 0"
+                class="panel cluster between text-sm"
+                data-cy="filtered-updates"
+            >
+                <span>{{ filteredUpdates }} new {{ filteredUpdates === 1 ? "build doesn't" : "builds don't" }} match the search</span>
+                <button
+                    type="button"
+                    class="btn btn-sm"
+                    @click="clearFilter"
+                >
+                    Clear the search
+                </button>
+            </div>
+
+            <button
+                v-if="held.length"
+                type="button"
+                class="btn btn-sm btn-primary new-builds"
+                data-cy="new-builds"
+                @click="showHeld"
+            >
+                <i class="icon small">arrow_upward</i>
+                {{ held.length }} new {{ held.length === 1 ? "build" : "builds" }}
+            </button>
+            <div
+                class="feed-list"
+                data-cy="feed-container"
+                @pointermove="pointerAt = Date.now()"
+                @pointerleave="onPointerLeave"
+            >
+                <template
+                    v-for="item in sortedBuilds"
+                    :key="item.id"
+                >
+                    <FeedItem
+                        :build="item"
+                        :job="jobs.get(item.name) || null"
+                        :now="now"
+                        :selectable="wide"
+                        :selected="item.id === selected"
+                        :compact="split"
+                        @set-filter="handleSetFilter"
+                        @select="selectBuild"
+                    />
+                    <FeedGroup
+                        v-if="item.members?.length || item.hiddenMembers"
+                        :root="item"
+                        :jobs="jobs"
+                        :selectable="wide"
+                        :selected="selected"
+                        @select="selectBuild"
+                    />
+                </template>
+            </div>
+
+            <div
+                v-if="sortedBuilds.length === 0 && !isFetching && !filterIsDirty"
+                class="feed-empty stack muted"
+                data-cy="no-builds-found"
+            >
+                <i class="icon large">water</i>
+                <span>No builds found</span>
+            </div>
+
+            <div
+                v-show="moreEnabled && !isFetching && !filterIsDirty"
+                class="cluster end"
+            >
+                <button
+                    type="button"
+                    class="btn"
+                    data-cy="more"
+                    @click="fetchNow(true)"
+                >
+                    Load older builds
+                </button>
+            </div>
+        </div>
+        <aside
+            v-if="split"
+            class="feed-pane stack gap-2"
+            data-cy="build-pane"
+            :aria-label="`Build ${selected}`"
         >
-            more...
-        </button>
-    </nav>
+            <div class="cluster end gap-1">
+                <router-link
+                    :to="`/build/${selected}`"
+                    class="btn btn-ghost btn-sm"
+                    data-cy="pane-open-page"
+                >
+                    <i class="icon small">open_in_full</i> Open as a page
+                </router-link>
+                <button
+                    type="button"
+                    class="btn btn-ghost btn-icon btn-sm"
+                    aria-label="Close"
+                    data-tip="Close (Esc)"
+                    data-cy="pane-close"
+                    @click="closeBuild"
+                >
+                    <i class="icon small">close</i>
+                </button>
+            </div>
+            <BuildView
+                :id="selected"
+                :key="selected"
+                embedded
+            />
+        </aside>
+    </div>
 </template>
 
 <script>
+import FeedGroup from "@/components/FeedGroup.vue";
 import FeedItem from "@/components/FeedItem.vue";
+import FeedSearch from "@/components/FeedSearch.vue";
+import { defineAsyncComponent } from "vue";
 import { createFilterObj, findInContainer, isFilteredUpdate } from "@/store/utils.js";
 import axios from "axios";
 import debounce from "lodash/debounce";
@@ -98,26 +137,55 @@ import vuex from "vuex";
 
 const FetchItemsSize = 10;
 
+// From this width a click on a row shows the build beside the feed (F9);
+// below, it opens the build's page
+const WIDE = "(min-width: 1440px)";
+
+// How long a pointer that moved over the list holds new builds, and how far
+// down the user has scrolled when they wait (L1)
+const HOLD_MS = 2000;
+const SCROLLED_PX = 120;
+
 export default {
-    components: { FeedItem },
+    components: {
+        FeedGroup,
+        FeedItem,
+        FeedSearch,
+        // Loaded with the first build shown beside the feed
+        BuildView: defineAsyncComponent(() => import("@/views/BuildView.vue")),
+    },
     data: function () {
         return {
             builds: [],
             subscription: "build:update:",
             isFetching: false, // request to the server is in progress
-            isHelpDialogOpen: false,
             filterIsDirty: false, // when user is still typing
             filter: "", // sent to the server, to filter builds out
             moreEnabled: true, // if makes sense to load more builds from the server
             filteredUpdates: 0, // When `filter` is active, updates which do not much are counted here
+            // New builds that wait while the user reads (L1), and when the
+            // pointer last moved over the list
+            held: [],
+            pointerAt: 0,
+            scrolled: false,
             filterObj: null,
-            // Each job's default params as { NAME: value }, so a row can
-            // leave them out
-            jobDefaults: new Map(),
+            // Each job's { defaults: { NAME: value }, labels: [NAME],
+            // interval }, so a row can show the labels first and leave
+            // defaults out, and the search can suggest and filter
+            jobs: new Map(),
+            // The time the rows show durations against, moved on every second
+            now: Date.now(),
+            // The build shown beside the feed (F9), from the address's build
+            selected: null,
+            // Whether the window is wide enough for it
+            wide: false,
         };
     },
     computed: {
         ...vuex.mapState(["ws"]),
+        split() {
+            return this.wide && this.selected !== null;
+        },
         sortedBuilds: function () {
             return [...this.builds].sort((a, b) => {
                 if (a.id < b.id) {
@@ -139,13 +207,13 @@ export default {
             this.showFilterInURL();
             this.fetch();
         },
-        "ws.connected": "onWSChange",
+        "$route.query.build": "readSelected",
         // Builds of jobs the user may now read, and those sent while
         // disconnected. Not fetchNow itself: it would take the count for
         // `more` and load older builds instead.
         "ws.reconnects"() {
             this.fetchNow();
-            this.fetchJobDefaults();
+            this.fetchJobs();
         },
     },
     mounted() {
@@ -168,13 +236,33 @@ export default {
         }
 
         this.fetchNow();
-        this.fetchJobDefaults();
+        this.fetchJobs();
         this.subscribe();
         this.emitter.on(this.subscription, this.applyUpdate);
+        this.clock = setInterval(() => {
+            this.now = Date.now();
+            this.releaseHeld();
+        }, 1000);
+        window.addEventListener("scroll", this.onScroll, { passive: true });
+
+        this.wideQuery = window.matchMedia(WIDE);
+        this.wide = this.wideQuery.matches;
+        this.wideQuery.addEventListener("change", this.onWideChange);
+        document.addEventListener("keydown", this.onKeyDown);
+        this.readSelected();
+        // A shared address with a build opens its page where the window is
+        // too narrow to show it beside the feed
+        if (this.selected !== null && !this.wide) {
+            this.$router.replace(`/build/${this.selected}`);
+        }
     },
     unmounted() {
         this.unsubscribe();
         this.emitter.off(this.subscription, this.applyUpdate);
+        clearInterval(this.clock);
+        window.removeEventListener("scroll", this.onScroll);
+        this.wideQuery.removeEventListener("change", this.onWideChange);
+        document.removeEventListener("keydown", this.onKeyDown);
     },
     created() {
         this.fetch = debounce((more = false) => {
@@ -187,7 +275,7 @@ export default {
                 before = `before=${Math.min(...this.builds.map((build) => build.id))}&`;
             }
             axios
-                .get(`/api/feed?${before}q=${encodeURIComponent(this.filter)}`)
+                .get(`/api/feed?groups=1&${before}q=${encodeURIComponent(this.filter)}`)
                 .then((response) => {
                     this.isFetching = false;
 
@@ -229,33 +317,29 @@ export default {
                 this.$router.replace(target);
             }
         },
+        // Counted, since the notifications and a build's group may use the
+        // same topic; a new connection subscribes again by itself
         subscribe() {
-            this.$store.commit("WS_SEND", {
-                type: "in:subscribe",
-                data: {
-                    to: [this.subscription],
-                },
-            });
+            this.$store.commit("SUBSCRIBE_TOPIC", this.subscription);
         },
         unsubscribe() {
-            this.$store.commit("WS_SEND", {
-                type: "in:unsubscribe",
-                data: {
-                    to: [this.subscription],
-                },
-            });
+            this.$store.commit("UNSUBSCRIBE_TOPIC", this.subscription);
         },
         fetch() {},
-        // Without them, rows show the first non-empty params
-        fetchJobDefaults() {
+        // Without them, rows show every non-empty param
+        fetchJobs() {
             axios
                 .get("/api/jobs/")
                 .then((response) => {
-                    const defaults = new Map();
+                    const jobs = new Map();
                     for (const job of response.data || []) {
-                        defaults.set(job.name, Object.assign({}, ...(job.defaultParams || [])));
+                        jobs.set(job.name, {
+                            defaults: Object.assign({}, ...(job.defaultParams || [])),
+                            labels: job.labels || [],
+                            interval: job.interval || "",
+                        });
                     }
-                    this.jobDefaults = defaults;
+                    this.jobs = jobs;
                 })
                 .catch(() => {});
         },
@@ -264,19 +348,80 @@ export default {
             this.fetch.flush();
         },
         applyUpdate(ev, fromFetch = false) {
+            // A build started under a root that the feed shows goes in the
+            // root's group (F2)
+            const heldRoot = ev.root ? this.held.find((build) => build.id === ev.root) : undefined;
+            if (heldRoot) {
+                const members = [...(heldRoot.members || []).filter((member) => member.id !== ev.id), ev].sort((a, b) => a.id - b.id);
+                this.held = this.held.map((build) => (build === heldRoot ? { ...heldRoot, members } : build));
+                return;
+            }
+            const rootIndex = ev.root ? findInContainer(this.builds, "id", ev.root)[1] : undefined;
+            if (rootIndex !== undefined) {
+                const root = this.builds[rootIndex];
+                const members = (root.members || []).filter((member) => member.id !== ev.id);
+                members.push(ev);
+                members.sort((a, b) => a.id - b.id);
+                this.builds[rootIndex] = { ...root, members };
+                return;
+            }
+            // A group from the server takes in the rows of its members,
+            // shown on their own while their root wasn't loaded
+            if (ev.members?.length) {
+                const ids = new Set(ev.members.map((member) => member.id));
+                this.builds = this.builds.filter((build) => !ids.has(build.id));
+            }
             const index = findInContainer(this.builds, "id", ev.id)[1];
             if (index !== undefined) {
-                this.builds[index] = ev;
+                const old = this.builds[index];
+                // A live update of a root doesn't carry its group
+                this.builds[index] = ev.members || !old.members ? ev : { ...ev, members: old.members, hiddenMembers: old.hiddenMembers };
             } else {
                 if (!fromFetch) {
                     if (isFilteredUpdate(ev, this.filterObj)) {
                         this.filteredUpdates++;
                         return;
                     }
+                    // A new build waits while the user reads, so the rows
+                    // they read don't move
+                    if (this.held.some((build) => build.id === ev.id) || this.holding()) {
+                        this.held = [...this.held.filter((build) => build.id !== ev.id), ev];
+                        return;
+                    }
                 }
                 this.builds.push(ev);
                 this.$forceUpdate();
             }
+        },
+        // holding reports whether new builds wait: while the user has
+        // scrolled down, or moved the pointer over the list in the last 2
+        // seconds. A pointer that rests there doesn't hold them
+        holding() {
+            return this.scrolled || Date.now() - this.pointerAt < HOLD_MS;
+        },
+        releaseHeld() {
+            if (this.held.length === 0 || this.holding()) {
+                return;
+            }
+            const held = this.held;
+            this.held = [];
+            for (const build of held) {
+                this.applyUpdate(build, true);
+            }
+        },
+        showHeld() {
+            this.scrolled = false;
+            this.pointerAt = 0;
+            this.releaseHeld();
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        },
+        onScroll() {
+            this.scrolled = window.scrollY > SCROLLED_PX;
+            this.releaseHeld();
+        },
+        onPointerLeave() {
+            this.pointerAt = 0;
+            this.releaseHeld();
         },
         clearFilter() {
             if (!this.isFetching && !this.filterIsDirty) {
@@ -285,45 +430,100 @@ export default {
                 this.fetchNow();
             }
         },
-        onWSChange(value) {
-            if (value) {
-                this.subscribe();
-            } else {
-                this.unsubscribe();
+        readSelected() {
+            const id = Number(this.$route.query.build);
+            this.selected = Number.isInteger(id) && id > 0 ? id : null;
+        },
+        onWideChange(event) {
+            this.wide = event.matches;
+        },
+        // selectBuild shows a build beside the feed; the address names it,
+        // so a reload or a shared link shows it again
+        selectBuild(id) {
+            this.$router.replace({ query: { ...this.$route.query, build: String(id) } });
+        },
+        closeBuild() {
+            const query = { ...this.$route.query };
+            delete query.build;
+            this.$router.replace({ query });
+        },
+        // Up and down move to the next build, Esc closes, while a build
+        // shows beside the feed and the user isn't typing or in a dialog
+        onKeyDown(event) {
+            if (!this.split || event.target.closest?.("input, textarea, select, [contenteditable], .cm-editor") || document.querySelector("dialog[open]")) {
+                return;
+            }
+            if (event.key === "Escape") {
+                this.closeBuild();
+                return;
+            }
+            if (event.key !== "ArrowDown" && event.key !== "ArrowUp") {
+                return;
+            }
+            const i = this.sortedBuilds.findIndex((build) => build.id === this.selected);
+            const next = this.sortedBuilds[i + (event.key === "ArrowDown" ? 1 : -1)];
+            if (next) {
+                event.preventDefault();
+                this.selectBuild(next.id);
+                this.$nextTick(() => document.querySelector(`[data-cy-build="${next.id}"]`)?.scrollIntoView({ block: "nearest" }));
             }
         },
-        handleSetFilter(event) {
-            let filterText = event;
-            let append = false;
-            if (typeof event === "object" && event.value) {
-                filterText = event.value;
-                append = event.append;
-            }
-
-            const hasDouble = filterText.includes('"');
-            const hasSingle = filterText.includes("'");
-            let wrapped = filterText;
-            if (hasDouble && !hasSingle) {
-                wrapped = `'${filterText}'`;
-            } else if (hasSingle && !hasDouble) {
-                wrapped = `"${filterText}"`;
-            } else if (!hasDouble && !hasSingle) {
-                wrapped = `"${filterText}"`;
-            }
-
+        // handleSetFilter searches for a term, e.g. branch=main, required
+        // with +: alone, or added to the search with Ctrl/Cmd+click, since
+        // plain terms mean "any of"
+        handleSetFilter({ term, append }) {
             if (append && this.filter) {
                 // Avoid adding duplicates by comparing unquoted values
                 const clean = (t) => t.replace(/^[+-]/, "").replace(/^["']/, "").replace(/["']$/, "");
                 const existingTerms = this.filter.split(/\s+/).map(clean);
-                if (!existingTerms.includes(filterText)) {
-                    this.filter += " +" + wrapped;
+                if (!existingTerms.includes(clean(term))) {
+                    this.filter += " +" + term;
                 }
             } else {
-                this.filter = "+" + wrapped;
+                this.filter = "+" + term;
             }
         },
     },
 };
 </script>
 
-<style scoped></style>
+<style scoped>
+/* The list beside the build, which takes the rest */
+.feed-page.split {
+    display: grid;
+    grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
+    gap: var(--space-4);
+    align-items: start;
+}
+
+.feed-pane {
+    position: sticky;
+    inset-block-start: 64px;
+    max-block-size: calc(100dvh - 80px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    /* Its scrollbar gets a lane of its own, apart from a log's */
+    scrollbar-gutter: stable;
+    padding-inline-end: var(--space-4);
+    padding-inline-start: var(--space-4);
+    border-inline-start: 1px solid var(--outline-variant);
+}
+
+.feed-list {
+    border-block-start: 1px solid var(--outline-variant);
+}
+
+/* Stays in sight while the user has scrolled down */
+.new-builds {
+    position: sticky;
+    inset-block-start: 72px;
+    z-index: 5;
+    align-self: center;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.2);
+}
+
+.feed-empty {
+    align-items: center;
+    padding: var(--space-8) 0;
+}
+</style>

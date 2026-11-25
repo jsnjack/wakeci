@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -41,7 +42,81 @@ type Job struct {
 	Interval      string              `yaml:"interval" json:"interval"`
 	Timeout       string              `yaml:"timeout" json:"timeout"`
 	Concurrency   int                 `yaml:"concurrency" json:"concurrency"`
-	Priority      int                 `yaml:"priority" json:"priority"`
+	// ConcurrencyKey, e.g. pr_init/$NAME, makes concurrency count the builds
+	// of every job with the same key (cancel.go)
+	ConcurrencyKey string `yaml:"concurrency_key" json:"concurrency_key"`
+	// CancelGroup, e.g. tests/$BRANCH, makes a build cancel the older builds
+	// with the same key, of every job with that group (cancel.go)
+	CancelGroup string `yaml:"cancel_group" json:"cancel_group"`
+	// CancelUnless is a command: while it succeeds, the build cancels nothing
+	CancelUnless string `yaml:"cancel_unless" json:"cancel_unless"`
+	Priority     int    `yaml:"priority" json:"priority"`
+	// Labels are the params that say what a build is about, shown first in
+	// the feed, in this order; without it, the params named *_LABEL
+	Labels []string `yaml:"labels" json:"labels"`
+	// Color asks the tools of every task to print colours (colorEnv)
+	Color bool `yaml:"color" json:"color"`
+	// ParamInfo explains params to the run form, apart from params so
+	// existing files don't change
+	ParamInfo map[string]ParamInfo `yaml:"param_info" json:"param_info"`
+	// Group puts the job under a heading on the jobs page; without it, the
+	// page can group jobs by the start of their names
+	Group string `yaml:"group" json:"group"`
+}
+
+// ParamInfo is what the run form says about a param: what it is for, the
+// values it suggests, and whether it is true or false (Type bool)
+type ParamInfo struct {
+	Desc    string   `yaml:"desc" json:"desc"`
+	Options []string `yaml:"options" json:"options"`
+	Type    string   `yaml:"type" json:"type"`
+}
+
+// paramInfo returns the job's ParamInfo of its params only, never nil
+func (j *Job) paramInfo() map[string]ParamInfo {
+	info := map[string]ParamInfo{}
+	for _, param := range j.DefaultParams {
+		for name := range param {
+			if value, ok := j.ParamInfo[name]; ok {
+				info[name] = value
+			}
+		}
+	}
+	return info
+}
+
+// colorEnv asks tools that see no terminal to print colours anyway: a job
+// or task with color: true gets it. Off by default, since a script that
+// parses a tool's output would get the codes.
+var colorEnv = []string{"FORCE_COLOR=1", "CLICOLOR_FORCE=1", "PY_COLORS=1"}
+
+// labelSuffix marks a param as a label when the job lists no labels
+const labelSuffix = "_LABEL"
+
+// labelNames returns the job's labels: those in its labels list that are
+// params, or else its params named *_LABEL, in the order of params
+func (j *Job) labelNames() []string {
+	params := []string{}
+	for _, param := range j.DefaultParams {
+		for name := range param {
+			params = append(params, name)
+		}
+	}
+	labels := []string{}
+	if len(j.Labels) > 0 {
+		for _, name := range j.Labels {
+			if slices.Contains(params, name) && !slices.Contains(labels, name) {
+				labels = append(labels, name)
+			}
+		}
+		return labels
+	}
+	for _, name := range params {
+		if strings.HasSuffix(name, labelSuffix) {
+			labels = append(labels, name)
+		}
+	}
+	return labels
 }
 
 // AddToCron adds a job to cron
@@ -66,7 +141,7 @@ func (j *Job) AddToCron() error {
 // Run is used to run a job via cron
 func (j *Job) Run() {
 	var params url.Values
-	build, err := RunJob(j.Name, params, false, buildTrigger{Kind: TriggerInterval})
+	build, err := RunJob(j.Name, params, false, buildTrigger{Kind: TriggerInterval}, buildGroup{}, nil)
 	if err != nil {
 		L.Error("schedule build via cron", "job", j.Name, "err", err)
 		auditScheduled("build.run", "failed", "trigger", "interval", "job", j.Name, "reason", err.Error())
@@ -106,6 +181,8 @@ type Task struct {
 	IgnoreErrors bool    `yaml:"ignore_errors" json:"ignore_errors"`
 	startedAt    time.Time
 	duration     time.Duration
+	// Color asks the task's tools to print colours (colorEnv)
+	Color bool `yaml:"color" json:"color"`
 }
 
 // OnTasks is a list of tasks that should be ran on status change
@@ -259,6 +336,26 @@ func RegisterJob(filename string) error {
 		if err != nil {
 			return err
 		}
+		labelsB, err := json.Marshal(job.labelNames())
+		if err != nil {
+			return err
+		}
+		err = jb.Put([]byte("labels"), labelsB)
+		if err != nil {
+			return err
+		}
+		err = jb.Put([]byte("group"), []byte(job.Group))
+		if err != nil {
+			return err
+		}
+		infoB, err := json.Marshal(job.paramInfo())
+		if err != nil {
+			return err
+		}
+		err = jb.Put([]byte("paramInfo"), infoB)
+		if err != nil {
+			return err
+		}
 		err = jb.Put([]byte("desc"), []byte(job.Desc))
 		if err != nil {
 			return err
@@ -305,9 +402,16 @@ func RemoveJobFromCron(name string) {
 	}
 }
 
+// runOrigin is the build whose tasks start a run, and the abort scope they
+// run in
+type runOrigin struct {
+	build int
+	scope *abortScope
+}
+
 // RunJob creates a new build and schedules it for execution. trigger says
-// who or what started it
-func RunJob(name string, params url.Values, untrustedParams bool, trigger buildTrigger) (*Build, error) {
+// who or what started it, and group which build, if one did
+func RunJob(name string, params url.Values, untrustedParams bool, trigger buildTrigger, group buildGroup, origin *runOrigin) (*Build, error) {
 	// Check if job is enabled
 	err := DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(JobsBucket))
@@ -331,24 +435,69 @@ func RunJob(name string, params url.Values, untrustedParams bool, trigger buildT
 	jobFile := Config.JobDir + name + Config.jobsExt
 	job, err := CreateJobFromFile(jobFile)
 	if err != nil {
-		return nil, err
+		// Says which file, since the error may only name a line
+		return nil, fmt.Errorf("%s%s can't be read: %w", name, Config.jobsExt, err)
+	}
+	// origin is the build whose tasks start this one, and their abort
+	// scope: their token's (HandleRunJob), else the parent's current one. An
+	// abort stops them, so a build they start then is refused; one they
+	// started just before goes with them (abortLeftover), since an abort of
+	// their group may miss it. Its on_aborted and finally tasks run in a new
+	// scope, with a new token, and may start builds. A token's scope needs
+	// no queue: on_pending tasks run before their build is queued
+	if group.Parent != 0 && origin == nil {
+		if parent := GlobalQueue.Live(group.Parent); parent != nil {
+			origin = &runOrigin{build: parent.ID, scope: parent.currentAbort()}
+		}
+	}
+	if origin != nil && origin.scope.stopped() != "" {
+		return nil, fmt.Errorf("build %d was aborted", origin.build)
 	}
 	build, err := GlobalQueue.addNewBuild(func() (*Build, error) {
-		build, err := createBuild(job, jobFile, untrustedParams, params)
+		build, err := createBuild(job, jobFile, untrustedParams, params, group)
 		if err != nil {
 			return nil, err
 		}
 		build.mutex.Lock()
 		build.trigger = trigger
 		build.mutex.Unlock()
+		// Its starting tasks were aborted since the check above: aborted
+		// before it is queued, it cancels no older build (Queue.Add)
+		if origin != nil && origin.scope.stopped() != "" {
+			build.requestAbort(StatusAborted, "", fmt.Sprintf("as #%d, which started it, was aborted", origin.build))
+		}
 		return build, nil
 	})
 	if err != nil {
 		return nil, err
 	}
+	abortLeftover(build, origin)
 	build.BroadcastUpdate()
 	GlobalQueue.Take()
 	return build, nil
+}
+
+// abortLeftover aborts build, now queued, if the tasks that started it
+// (origin) were aborted meanwhile. A cancel_group abort reads
+// the parent's group after it aborts them (applySupersede), and build joined
+// the group before it was queued, so either that read finds build in the
+// queue or this sees the abort.
+func abortLeftover(build *Build, origin *runOrigin) {
+	if origin == nil || origin.scope.stopped() == "" {
+		return
+	}
+	// Aborted already (RunJob, as it was created): another abort would stop
+	// its on_aborted and finally tasks, which may run by now
+	build.mutex.Lock()
+	requested := build.abortRequested
+	build.mutex.Unlock()
+	if requested {
+		return
+	}
+	build.Logger.Info("aborting a build started as its origin was aborted", "origin", origin.build)
+	if err := GlobalQueue.AbortBy(build.ID, StatusAborted, fmt.Sprintf("as #%d, which started it, was aborted", origin.build)); err != nil {
+		build.Logger.Info("abort a build its parent started as it was aborted", "err", err)
+	}
 }
 
 // InitJobWatcher initializes watcher which uses fsnotify to watch for changes

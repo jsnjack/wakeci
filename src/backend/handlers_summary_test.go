@@ -33,26 +33,63 @@ func TestTailLines(t *testing.T) {
 		last  string
 		n     int
 		want  string
+		// first is the number of the text's first line in the log
+		first int
 	}{
-		{"last lines", 10, "", 3, "line 8\nline 9\nline 10"},
-		{"more than the log has", 2, "", 5, "line 1\nline 2"},
-		{"no newline at the end", 3, "partial", 2, "line 3\npartial"},
+		{"last lines", 10, "", 3, "line 8\nline 9\nline 10", 8},
+		{"more than the log has", 2, "", 5, "line 1\nline 2", 1},
+		// A task that is writing its last line: the live log sends it
+		{"unfinished last line left out", 3, "partial", 2, "line 2\nline 3", 2},
+		// The summary keeps it, unnumbered: it may be all a task printed
+		{"unfinished last line kept unnumbered", 3, "partial", -2, "line 3\npartial", 0},
 		// Over several 64 KB chunks
-		{"long log", 200000, "", 2, "line 199999\nline 200000"},
-		{"empty log", 0, "", 3, ""},
+		{"long log", 200000, "", 2, "line 199999\nline 200000", 199999},
+		{"empty log", 0, "", 3, "", 0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			path := filepath.Join(dir, strings.ReplaceAll(tt.name, " ", "_"))
 			writeLog(t, path, tt.lines, tt.last)
-			got, err := tailLines(path, tt.n)
+			// A negative n asks for -n lines without numbers
+			n, numbered := tt.n, tt.n > 0
+			if !numbered {
+				n = -n
+			}
+			got, first, err := tailLines(path, n, numbered)
 			if err != nil {
 				t.Fatalf("tailLines: %v", err)
 			}
-			if got != tt.want {
-				t.Errorf("tailLines = %q, want %q", got, tt.want)
+			if got != tt.want || first != tt.first {
+				t.Errorf("tailLines = %q, first line %d; want %q, %d", got, first, tt.want, tt.first)
 			}
 		})
+	}
+}
+
+// A tail stops at maxExcerptBytes, so it has fewer lines than asked for;
+// its first line keeps its number in the log (a "..." that cutExcerpt puts
+// first stands for the line it cut)
+func TestTailLinesKeepTheLineNumbersAtTheByteLimit(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "task.log")
+	writeLog(t, path, 50000, "")
+	text, first, err := tailLines(path, 40000, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(text, "\n")
+	if len(lines) >= 40000 {
+		t.Fatalf("%d lines; want fewer, cut at %d bytes", len(lines), maxExcerptBytes)
+	}
+	at := 0
+	if lines[0] == "..." {
+		// The next line may be cut; the one after is whole
+		at = 2
+	}
+	if want := fmt.Sprintf("line %d", first+at); lines[at] != want {
+		t.Errorf("line %d of the log is %q, want %q", first+at, lines[at], want)
+	}
+	if lines[len(lines)-1] != "line 50000" {
+		t.Errorf("last line %q, want line 50000", lines[len(lines)-1])
 	}
 }
 
@@ -73,7 +110,7 @@ func TestGrepLines(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s tail %d", tt.text, tt.tail), func(t *testing.T) {
-			got, err := grepLines(path, tt.text, tt.tail)
+			got, err := grepLines(path, tt.text, tt.tail, false)
 			if err != nil {
 				t.Fatalf("grepLines: %v", err)
 			}
@@ -85,7 +122,7 @@ func TestGrepLines(t *testing.T) {
 
 	many := filepath.Join(t.TempDir(), "many.log")
 	writeLog(t, many, maxGrepMatches+5, "")
-	got, err := grepLines(many, "line", 0)
+	got, err := grepLines(many, "line", 0, false)
 	if err != nil {
 		t.Fatalf("grepLines: %v", err)
 	}
@@ -112,12 +149,31 @@ func TestGrepLinesSkipsTheTimePrefix(t *testing.T) {
 		{"[warn]", "4: [ 1m13.004s] [warn] retrying"},
 	}
 	for _, tt := range tests {
-		got, err := grepLines(path, tt.text, 0)
+		got, err := grepLines(path, tt.text, 0, false)
 		if err != nil {
 			t.Fatalf("grepLines: %v", err)
 		}
 		if got != tt.want {
 			t.Errorf("grepLines(%q) = %q, want %q", tt.text, got, tt.want)
+		}
+	}
+}
+
+// case=1 matches case, which grep otherwise ignores
+func TestGrepLinesMatchesCaseWhenAsked(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "task.log")
+	if err := os.WriteFile(path, []byte("[ 0.1s] FAILED one\n[ 0.2s] failed two\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct {
+		matchCase bool
+		want      string
+	}{
+		{false, "1: [ 0.1s] FAILED one\n2: [ 0.2s] failed two"},
+		{true, "2: [ 0.2s] failed two"},
+	} {
+		if got, err := grepLines(path, "failed", 0, tt.matchCase); err != nil || got != tt.want {
+			t.Errorf("grepLines(failed, case %v) = %q, %v; want %q", tt.matchCase, got, err, tt.want)
 		}
 	}
 }
@@ -153,6 +209,10 @@ func addFailedTestBuild(t *testing.T) {
 	}
 	writeLog(t, filepath.Join(dir, "task_0.log"), 3, "")
 	writeLog(t, filepath.Join(dir, "task_1.log"), 299, "FAILED test_login\n")
+	// Task 1 printed colours
+	if err := os.WriteFile(filepath.Join(dir, "task_1.ansi.log"), []byte("\x1b[31mFAILED\x1b[0m test_login\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestBuildSummary(t *testing.T) {
@@ -241,6 +301,10 @@ func TestTaskLogRoute(t *testing.T) {
 		{"/api/build/7/log/1?grep=failed", http.StatusOK, "300: FAILED test_login"},
 		{"/api/build/7/log/1?grep=line+29&tail=1", http.StatusOK, "299: line 299"},
 		{"/api/build/7/log/0", http.StatusOK, "line 1\nline 2\nline 3\n"},
+		{"/api/build/7/log/1?ansi=1", http.StatusOK, "\x1b[31mFAILED\x1b[0m test_login"},
+		{"/api/build/7/log/0?ansi=1", http.StatusOK, "line 1\nline 2\nline 3\n"},
+		{"/api/build/7/log/1?ansi=1&grep=failed", http.StatusOK, "300: FAILED test_login"},
+		{"/api/build/7/log/1?grep=FAILED&case=1", http.StatusOK, "300: FAILED test_login"},
 		{"/api/build/7/log/2", http.StatusNotFound, "task 2 of build 7 wrote no log"},
 		{"/api/build/99/log/0", http.StatusNotFound, "build 99 not found"},
 		{"/api/build/7/log/x", http.StatusBadRequest, `invalid task ID "x"`},
@@ -322,5 +386,37 @@ func TestJobSummary(t *testing.T) {
 	}
 	if build, _ := readSummaries(); len(build) != maxJobSummary+len("\n... (cut at 64 KB)") || !strings.HasSuffix(build, "(cut at 64 KB)") {
 		t.Errorf("long summary: %d bytes ending %q, want it cut at 64 KB", len(build), build[len(build)-20:])
+	}
+}
+
+// A numbered tail counts from what it counted before, as the log grows,
+// and still numbers its lines right
+func TestTailLinesCountsOnFromTheLastCount(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "task.log")
+	writeLog(t, path, 30000, "")
+	if _, first, err := tailLines(path, 2, true); err != nil || first != 29999 {
+		t.Fatalf("first tail starts at %d, %v; want 29999", first, err)
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 30001; i <= 30100; i++ {
+		if _, err := fmt.Fprintf(f, "line %d\n", i); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	lineCounts.Lock()
+	known := lineCounts.byPath[path]
+	lineCounts.Unlock()
+	if known.lines == 0 {
+		t.Fatal("no count remembered")
+	}
+	text, first, err := tailLines(path, 2, true)
+	if err != nil || first != 30099 || text != "line 30099\nline 30100" {
+		t.Errorf("tail after growing: %q from %d, %v; want lines 30099 and 30100", text, first, err)
 	}
 }

@@ -1,11 +1,11 @@
-import { test, expect } from "./fixtures.js";
+import { test, expect, openLog } from "./fixtures.js";
 
 test("should show build page", async ({ page, wake }) => {
     const jobName = await wake.createJob();
     const id = await wake.runJob(jobName);
     await wake.openBuild(id);
     await expect(page).toHaveURL(`${wake.url}/build/${id}`);
-    await page.locator("[data-cy=reload]").click();
+    await openLog(page);
     await expect(page.locator("body")).toContainText("uname -a");
 });
 
@@ -17,13 +17,13 @@ params:
   - minsk: 4
 tasks:
   - name: Print env
-    run: env
+    run: env | grep -E "^(WAKE_|NAME=|SCORE=)" | sort
 `;
     const jobName = await wake.createJob(jobContent);
     const id = await wake.runJob(jobName);
     await wake.openBuild(id);
     await expect(page).toHaveURL(`${wake.url}/build/${id}`);
-    await page.locator("[data-cy=reload]").click();
+    await openLog(page);
     await expect(page.locator("body")).toContainText(`WAKE_JOB_NAME=${jobName}`);
     await expect(page.locator("body")).toContainText(`WAKE_URL=${wake.url.replace("127.0.0.1", "localhost") + "/"}`);
     await expect(page.locator("body")).toContainText("WAKE_CONFIG_DIR=");
@@ -89,15 +89,15 @@ test("should skip task when condition is false", async ({ page, wake }) => {
 desc: Condition test
 tasks:
   - name: Print env
-    run: env
+    run: env | grep -E "^(WAKE_|NAME=|SCORE=)" | sort
     when: 1 == 2
 `;
     const jobName = await wake.createJob(jobContent);
     const id = await wake.runJob(jobName);
     await wake.openBuild(id);
     await expect(page).toHaveURL(`${wake.url}/build/${id}`);
-    await page.locator("[data-cy=reload]").click();
-    await expect(page.locator("body")).toContainText("skipped");
+    await openLog(page);
+    await expect(page.getByTestId("task-title").locator("[data-cy-status]")).toHaveAttribute("data-cy-status", "skipped");
     await expect(page.locator("body")).toContainText("Condition is false");
     await expect(page.locator("body")).not.toContainText("WAKE_BUILD_ID=");
 });
@@ -109,14 +109,14 @@ params:
  - NAME: joe
 tasks:
   - name: Print env
-    run: env
+    run: env | grep -E "^(WAKE_|NAME=|SCORE=)" | sort
     when: $NAME == joe
 `;
     const jobName = await wake.createJob(jobContent);
     const id = await wake.runJob(jobName);
     await wake.openBuild(id);
     await expect(page).toHaveURL(`${wake.url}/build/${id}`);
-    await page.locator("[data-cy=reload]").click();
+    await openLog(page);
     await expect(page.locator("body")).toContainText("Condition is true");
     await expect(page.locator("body")).toContainText("WAKE_BUILD_ID=");
 });
@@ -126,7 +126,7 @@ test("should inject env variables", async ({ page, wake }) => {
 desc: Env test
 tasks:
   - name: Print env
-    run: env
+    run: env | grep -E "^(WAKE_|NAME=|SCORE=)" | sort
     env:
       NAME: joe
       SCORE: 5
@@ -135,7 +135,7 @@ tasks:
     const id = await wake.runJob(jobName);
     await wake.openBuild(id);
     await expect(page).toHaveURL(`${wake.url}/build/${id}`);
-    await page.locator("[data-cy=reload]").click();
+    await openLog(page);
     await expect(page.locator("body")).toContainText("NAME=joe");
     await expect(page.locator("body")).toContainText("SCORE=5");
     await expect(page.locator("body")).toContainText("WAKE_BUILD_ID=");
@@ -165,12 +165,12 @@ tasks:
     const id = await wake.runJob(jobName);
     await wake.openBuild(id);
     await expect(page).toHaveURL(`${wake.url}/build/${id}`);
-    await expect(page.locator("[data-cy=reload]")).toHaveCount(4);
-    await page.locator("[data-cy=reload]").nth(0).click();
+    await expect(page.getByTestId("task-title")).toHaveCount(4);
+    await openLog(page, 0);
     await expect(page.locator("body")).toContainText("This is bill");
-    await page.locator("[data-cy=reload]").nth(1).click();
+    await openLog(page, 1);
     await expect(page.locator("body")).toContainText("His best friend is joe");
-    await page.locator("[data-cy=reload]").nth(3).click();
+    await openLog(page, 3);
     await expect(page.locator("body")).toContainText("People call him big bill");
 });
 
@@ -179,15 +179,15 @@ test("should skip task when `if` condition has non-zero exit code", async ({ pag
 desc: Condition test
 tasks:
   - name: Print env
-    run: env
+    run: env | grep -E "^(WAKE_|NAME=|SCORE=)" | sort
     if: test -n ""
 `;
     const jobName = await wake.createJob(jobContent);
     const id = await wake.runJob(jobName);
     await wake.openBuild(id);
     await expect(page).toHaveURL(`${wake.url}/build/${id}`);
-    await page.locator("[data-cy=reload]").click();
-    await expect(page.locator("body")).toContainText("skipped");
+    await openLog(page);
+    await expect(page.getByTestId("task-title").locator("[data-cy-status]")).toHaveAttribute("data-cy-status", "skipped");
     await expect(page.locator("body")).toContainText("Condition is false");
     await expect(page.locator("body")).not.toContainText("WAKE_BUILD_ID=");
 });
@@ -199,14 +199,14 @@ params:
  - NAME: joe
 tasks:
   - name: Print env
-    run: env
+    run: env | grep -E "^(WAKE_|NAME=|SCORE=)" | sort
     if: test -n "$NAME"
 `;
     const jobName = await wake.createJob(jobContent);
     const id = await wake.runJob(jobName);
     await wake.openBuild(id);
     await expect(page).toHaveURL(`${wake.url}/build/${id}`);
-    await page.locator("[data-cy=reload]").click();
+    await openLog(page);
     await expect(page.locator("body")).toContainText("Condition is true");
     await expect(page.locator("body")).toContainText("WAKE_BUILD_ID=");
 });
@@ -218,7 +218,7 @@ params:
  - NAME: joe
 tasks:
   - name: Print env
-    run: env
+    run: env | grep -E "^(WAKE_|NAME=|SCORE=)" | sort
     if: test -n "$NAME"
     when: $NAME = bill
 `;
@@ -226,7 +226,7 @@ tasks:
     const id = await wake.runJob(jobName);
     await wake.openBuild(id);
     await expect(page).toHaveURL(`${wake.url}/build/${id}`);
-    await page.locator("[data-cy=reload]").click();
+    await openLog(page);
     await expect(page.locator("body")).toContainText("Skipping the task");
     await expect(page.locator("body")).not.toContainText("WAKE_BUILD_ID=");
 });
@@ -238,7 +238,7 @@ params:
  - NAME: joe
 tasks:
   - name: Print env
-    run: env
+    run: env | grep -E "^(WAKE_|NAME=|SCORE=)" | sort
     if: test -n "$NOT"
     when: $NAME = joe
 `;
@@ -246,7 +246,7 @@ tasks:
     const id = await wake.runJob(jobName);
     await wake.openBuild(id);
     await expect(page).toHaveURL(`${wake.url}/build/${id}`);
-    await page.locator("[data-cy=reload]").click();
+    await openLog(page);
     await expect(page.locator("body")).toContainText("Skipping the task");
     await expect(page.locator("body")).not.toContainText("WAKE_BUILD_ID=");
 });
@@ -258,7 +258,7 @@ params:
  - NAME: joe
 tasks:
   - name: Print env
-    run: env
+    run: env | grep -E "^(WAKE_|NAME=|SCORE=)" | sort
     if: test -n "$NAME"
     when: $NAME = joe
 `;
@@ -266,7 +266,7 @@ tasks:
     const id = await wake.runJob(jobName);
     await wake.openBuild(id);
     await expect(page).toHaveURL(`${wake.url}/build/${id}`);
-    await page.locator("[data-cy=reload]").click();
+    await openLog(page);
     await expect(page.locator("body")).toContainText("Condition is true");
     await expect(page.locator("body")).not.toContainText("Skipping the task");
     await expect(page.locator("body")).toContainText("WAKE_BUILD_ID=");
@@ -309,7 +309,7 @@ tasks:
     // The page is open while the build runs, so the summary has to come
     // from the reload when the build ends
     await wake.livePage(`/build/${id}`);
-    await expect(page.locator("header h6")).toContainText(`#${id} - running`);
+    await expect(page.getByTestId("page-title")).toContainText(`#${id} - running`);
     await expect(page.getByTestId("build-summary")).toHaveCount(0);
     // Shown as text, so markup in it stays text
     await expect(page.getByTestId("build-summary")).toContainText("### Failed tests\n- test_login <b>", { timeout: 15000 });
@@ -327,19 +327,24 @@ tasks:
     // subscribed before the task prints, so the page gets every line
     await wake.livePage(`/build/${id}`);
     await gate.release();
-    const scrollY = () => page.evaluate(() => window.scrollY);
-    // following: the page keeps the end of the log in view
-    await expect.poll(scrollY).toBeGreaterThan(2000);
-    await page.mouse.move(600, 400);
-    await page.mouse.wheel(0, -600);
-    await page.waitForTimeout(300);
-    const reading = await scrollY();
-    // two flushes later the page is where the user left it
+    const scroller = page.getByTestId("task-log").locator(".cm-scroller");
+    const scrollTop = () => scroller.evaluate((el) => el.scrollTop);
+    // following: the log keeps its end in view
+    await expect.poll(scrollTop).toBeGreaterThan(2000);
+    // A wheel up in the log: sent to the box itself, since the page's layout
+    // can move under a mouse while it loads
+    await scroller.evaluate((el) => {
+        el.dispatchEvent(new WheelEvent("wheel", { deltaY: -600, bubbles: true }));
+        el.scrollTop -= 600;
+    });
+    // new lines wait behind a pill while the user reads
+    await expect(page.getByTestId("log-new-lines")).toBeVisible();
+    const reading = await scrollTop();
     await page.waitForTimeout(1200);
-    expect(await scrollY()).toBe(reading);
-    // back at the end, following resumes
-    await page.keyboard.press("End");
-    await page.waitForTimeout(300);
-    const end = await scrollY();
-    await expect.poll(scrollY).toBeGreaterThan(end + 100);
+    expect(await scrollTop()).toBe(reading);
+    // the pill goes back to the end, and following resumes
+    await page.getByTestId("log-new-lines").click();
+    await expect(page.getByTestId("log-new-lines")).toBeHidden();
+    const end = await scrollTop();
+    await expect.poll(scrollTop).toBeGreaterThan(end + 50);
 });

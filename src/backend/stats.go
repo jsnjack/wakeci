@@ -30,13 +30,15 @@ const (
 	TriggerSSO = "sso"
 	// TriggerAPIKey is an API key, also through MCP
 	TriggerAPIKey = "apikey"
+	// TriggerBuild is another build, with its token (wake start)
+	TriggerBuild = "build"
 	// TriggerUnknown names the builds from before wakeci recorded who
 	// started them, which are stored with an empty kind
 	TriggerUnknown = "unknown"
 )
 
 // triggerKinds are the kinds a query may ask for
-var triggerKinds = []string{TriggerInterval, TriggerPassword, TriggerSSO, TriggerAPIKey, TriggerUnknown}
+var triggerKinds = []string{TriggerInterval, TriggerPassword, TriggerSSO, TriggerAPIKey, TriggerBuild, TriggerUnknown}
 
 // buildTrigger is who or what started a build
 type buildTrigger struct {
@@ -46,6 +48,8 @@ type buildTrigger struct {
 	User string `json:"user,omitempty"`
 	// APIKey is the key's ID
 	APIKey string `json:"apiKey,omitempty"`
+	// Build is the build whose token started it
+	Build int `json:"build,omitempty"`
 }
 
 // triggerOf returns who made the request, as its auth middleware recorded it
@@ -58,6 +62,8 @@ func triggerOf(r *http.Request) buildTrigger {
 		return buildTrigger{Kind: TriggerSSO, User: info.user}
 	case "apikey":
 		return buildTrigger{Kind: TriggerAPIKey, User: info.user, APIKey: info.apiKey}
+	case "build":
+		return buildTrigger{Kind: TriggerBuild, Build: info.build}
 	}
 	return buildTrigger{}
 }
@@ -78,6 +84,11 @@ type buildStats struct {
 	Trigger buildTrigger `json:"trigger,omitzero"`
 	// FailedTask is the name of the main task that stopped the build
 	FailedTask string `json:"failedTask,omitempty"`
+	// Parent and Root are the build's group, 0 if no build started it
+	Parent int `json:"parent,omitempty"`
+	Root   int `json:"root,omitempty"`
+	// Disk is what the build keeps on disk, measured once it ended (disk.go)
+	Disk *buildDisk `json:"disk,omitempty"`
 }
 
 // at is when the build was queued, or started for builds from before wakeci

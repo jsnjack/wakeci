@@ -111,7 +111,7 @@ test("should only offer a group member what their groups allow", async ({ page, 
     await expect(row).toBeVisible();
     await expect(row.getByTestId("run-job-button")).toHaveCount(0);
     await expect(row.getByTestId("delete-job-button")).toHaveCount(0);
-    await expect(row.getByTestId("edit-job-button")).toContainText("View");
+    await expect(row.getByTestId("edit-job-button")).toHaveAttribute("aria-label", "View");
     await expect(page.getByTestId("create-job")).toHaveCount(0);
     await expect(page.getByTestId("nav-settings")).toHaveCount(0);
     await expect(page.getByTestId("nav-keys")).toBeVisible();
@@ -145,7 +145,7 @@ test("should show a group member what a group change allows without a reload", a
     // The admin lets the group run the job. The server closes the member's
     // connection, and the page reads the permissions again when it reconnects
     await asMember(page, [{ scopes: ["read", "run"], allJobs: false, jobs: [job], patterns: [] }]);
-    const reloadedJobs = page.waitForResponse((response) => response.url().endsWith("/api/jobs/"));
+    const reloadedJobs = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/jobs/");
     socket.close();
     await expect(page.getByTestId(job).getByTestId("run-job-button")).toBeVisible();
     await reloadedJobs;
@@ -187,8 +187,12 @@ test("should stay logged in when the groups don't allow a request", async ({ pag
 });
 
 test("should go to the login page when the session ended", async ({ page }) => {
+    // The feed asks for the jobs too: the session ends after it has them, or
+    // that answer would lead to the login page before the click
+    const feedJobs = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/jobs/");
     await page.goto("/");
-    await expect(page.locator("header h6")).toHaveText("Feed");
+    await expect(page.getByTestId("page-title")).toHaveText("Feed");
+    await feedJobs;
     // The session ends: every request, the login check too, gets 401
     const ended = (route) =>
         route.fulfill({
@@ -197,9 +201,9 @@ test("should go to the login page when the session ended", async ({ page }) => {
             headers: { "WWW-Authenticate": 'Bearer realm="wakeci"' },
             body: "The session ended; log in again",
         });
-    await page.route("**/api/jobs/", ended);
+    await page.route((url) => url.pathname === "/api/jobs/", ended);
     await page.route("**/auth/_isLoggedIn", ended);
-    await page.locator('header a[href="/jobs"]').click();
+    await page.getByTestId("nav-jobs").click();
     await expect(page).toHaveURL(/\/login/);
     await expect(page.getByText("The session ended; log in again")).toBeVisible();
 });

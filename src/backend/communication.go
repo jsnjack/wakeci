@@ -40,8 +40,25 @@ type JobsListData struct {
 	Name          string              `json:"name"`
 	Desc          string              `json:"desc"`
 	DefaultParams []map[string]string `json:"defaultParams"`
-	Interval      string              `json:"interval"`
-	Active        string              `json:"active"`
+	// Labels are the names of the params that say what a build is about, in
+	// the order the feed shows them: the job's labels list, or else its
+	// params named *_LABEL
+	Labels []string `json:"labels"`
+	// ParamInfo explains params to the run form: their description, the
+	// values they suggest, and whether they are true or false
+	ParamInfo map[string]ParamInfo `json:"paramInfo"`
+	Interval  string               `json:"interval"`
+	Active    string               `json:"active"`
+	// Group is the heading the job file puts the job under, if any
+	Group string `json:"group"`
+	// Recent, with board=1, are the job's last builds, oldest first, at
+	// most boardBuilds
+	Recent []BuildOutcome `json:"recent,omitempty"`
+	// Failing, with board=1, is the job's failing streak up to its last
+	// build, if it fails
+	Failing *FailingStreak `json:"failing,omitempty" extensions:"x-nullable"`
+	// NextRun, with board=1, is when the job's interval starts it next
+	NextRun *time.Time `json:"nextRun,omitempty" extensions:"x-nullable"`
 }
 
 // TaskStatus contains basic info about a task, used for status updates
@@ -121,6 +138,14 @@ type BuildUpdateData struct {
 	// average duration of the job's last 5 finished builds when this build
 	// was created; 0 until the job has 5
 	ETA int `json:"eta"`
+	// QueuedAt is when the build was created and queued;
+	// 0001-01-01T00:00:00Z for builds from before wakeci recorded it
+	QueuedAt time.Time `json:"queuedAt"`
+	// Parent is the build that started this one with WAKE_PARENT, and Root
+	// the first build of that chain; both are left out for a build that no
+	// build started
+	Parent int `json:"parent,omitempty"`
+	Root   int `json:"root,omitempty"`
 }
 
 // When StartedAt field is serialized to JSON, it has fixed second's precision
@@ -163,11 +188,16 @@ func (x BuildUpdateData) ToFilterMatchString() string {
 	return fmt.Sprintf("id:%v name:%s status:%s %s", x.ID, x.Name, x.Status, x.Params)
 }
 
-// CommandLogData ...
+// CommandLogData is a batch of whole lines of a task's log
 type CommandLogData struct {
-	TaskID int    `json:"taskID"`
-	ID     int    `json:"id"` // ID of a log message
-	Data   string `json:"data"`
+	TaskID int `json:"taskID"`
+	// ID is the number of Data's first line in the task's log, counting
+	// from 1, so a page that read the log can drop what it already has
+	ID   int    `json:"id"`
+	Data string `json:"data"`
+	// ANSI is Data with the colour codes and hyperlinks of the task's
+	// output, only if a line of Data had any
+	ANSI string `json:"ansi,omitempty"`
 }
 
 // SettingsData used for Settings view to allow user to modify settings
@@ -200,6 +230,9 @@ type QueueStatusData struct {
 	// builds aborted while queued
 	Running int `json:"running"`
 	Queued  int `json:"queued"`
+	// QueuedIDs are the queued builds' IDs in the order they will start, so
+	// a page can say where a build waits; IDs only, no job names
+	QueuedIDs []int `json:"queuedIDs"`
 	// Version is the running wakeci version, so pages opened before an
 	// update can reload
 	Version string `json:"version"`

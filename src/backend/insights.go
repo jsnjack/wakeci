@@ -60,6 +60,8 @@ type JobInsights struct {
 	// Params are the parameters with more than one value, and the success
 	// rate of their values, the most used first
 	Params []ParamInsights `json:"params"`
+	// Disk is what all the job's builds in the history keep on disk
+	Disk JobDisk `json:"disk"`
 }
 
 // InsightBuild is a build with its tasks
@@ -340,10 +342,10 @@ func paramInsights(builds []InsightBuild) []ParamInsights {
 }
 
 // readJobHistory returns the job's last builds that ended, at most limit,
-// oldest first, and how many such builds the history has
-func readJobHistory(tx *bolt.Tx, job string, limit int) ([]*BuildUpdateData, int) {
+// oldest first, and the IDs of all such builds the history has
+func readJobHistory(tx *bolt.Tx, job string, limit int) ([]*BuildUpdateData, []int) {
 	var builds []*BuildUpdateData
-	count := 0
+	var ended []int
 	c := tx.Bucket(HistoryBucket).Cursor()
 	for k, v := c.Last(); k != nil; k, v = c.Prev() {
 		var msg BuildUpdateData
@@ -359,19 +361,19 @@ func readJobHistory(tx *bolt.Tx, job string, limit int) ([]*BuildUpdateData, int
 		if GlobalQueue.Verify(msg.ID) {
 			continue
 		}
-		count++
+		ended = append(ended, msg.ID)
 		if len(builds) < limit {
 			builds = append(builds, &msg)
 		}
 	}
 	slices.Reverse(builds)
-	return builds, count
+	return builds, ended
 }
 
 // HandleJobInsights returns what a job's last builds say about its tasks
 // and failures
 // @Summary      Insights into a job's last builds: its tasks, failures and parameters
-// @Description  Reads the job's builds still in the history (the last buildHistorySize builds of all jobs): each build's tasks and their durations, each main task's runs, failures and share of the build time, the task that stopped failed builds, flaky failures (a failed build whose next build with the same parameters finished), the time from a failure to the next finished build, and the success rate of each parameter value. API key scope: read
+// @Description  Reads the job's builds still in the history (the last buildHistorySize builds of all jobs): what all of them keep on disk (logs, artifacts, workspaces, measured when each ended), each build's tasks and their durations, each main task's runs, failures and share of the build time, the task that stopped failed builds, flaky failures (a failed build whose next build with the same parameters finished), the time from a failure to the next finished build, and the success rate of each parameter value. API key scope: read
 // @Tags         job
 // @Produce      json
 // @Param        name     path    string    true   "Name of the job"
@@ -400,9 +402,11 @@ func HandleJobInsights(w http.ResponseWriter, r *http.Request) {
 		limit = n
 	}
 	var msgs []*BuildUpdateData
-	var inHistory int
+	var ended []int
+	var disk JobDisk
 	if err := DB.View(func(tx *bolt.Tx) error {
-		msgs, inHistory = readJobHistory(tx, name, limit)
+		msgs, ended = readJobHistory(tx, name, limit)
+		disk = jobDisk(tx, ended)
 		return nil
 	}); err != nil {
 		logger.Error("read build history", "err", err)
@@ -420,5 +424,7 @@ func HandleJobInsights(w http.ResponseWriter, r *http.Request) {
 		}
 		builds = append(builds, historyBuild{msg: msg, names: names})
 	}
-	writeCachedJSON(w, r, logger, computeInsights(name, builds, inHistory))
+	insights := computeInsights(name, builds, len(ended))
+	insights.Disk = disk
+	writeCachedJSON(w, r, logger, insights)
 }

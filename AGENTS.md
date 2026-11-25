@@ -34,9 +34,10 @@ src/backend/                 Go server (package main, module "wakeci")
   build.go                   Build/Task execution: runs tasks via go-cmd, writes task_N.log
   queue.go                   Queue of pending/running builds, concurrency limiting, stop state
   restart.go                 Restores queued builds at startup, finishes interrupted ones' hooks, drains on stop
+  group.go                   Builds started by builds (WAKE_PARENT): parent and root, groups bucket, group route and abort
   update.go                  Self-update: latest GitHub release, download + checks, binary swap, handlers
   cleanup.go                 Periodic removal of old build workspaces/history
-  stats.go, analytics.go     Build stats kept past cleanup; analytics page and job insights (insights.go)
+  stats.go, analytics.go     Build stats kept past cleanup; analytics page and job insights (insights.go, disk.go)
   request_stats.go           Counts requests and MCP tool calls for the API usage tab
   eta.go                     Rolling average build duration, used for ETA display
   secrets.go                 injectSecrets: redacts/substitutes secret values in commands
@@ -44,9 +45,12 @@ src/backend/                 Go server (package main, module "wakeci")
   sso.go                     SAML single sign-on (e.g. Google Workspace): IdP metadata, response checks, login state
   apikeys.go                 API keys: storage, management handlers, the key router with its scope and job checks
   mcp.go                     /mcp for API keys: MCP tools that call the key router with the request's key
+  buildtoken.go, wake.go     Build tokens (WAKE_TOKEN), the wake command (the binary run as `wake`)
+  cancel.go                  cancel_group, concurrency_key
   auth_limiter.go            Per-client failed-auth limiter and retry/reset response headers
   audit.go                   Audit log: who did what, AuditMi and the table of audited routes
   middleware.go               chi middleware: per-request logger, auth, CORS, security headers
+  colors.go                  Colour log of task output: SGR codes and hyperlinks kept, secrets redacted (docs/logs.md)
   handlers_*.go              HTTP handlers per resource (auth incl. SSO, jobs, job, build, feed, queue, settings, static, docs)
   wsclient.go, wshub.go      WebSocket hub: pushes build/feed updates to connected browsers
   query_parser.go            Feed search query parser (`+must -exclude "phrase" key:value`)
@@ -71,7 +75,10 @@ src/frontend/                Vue 3 + Vite SPA
 | [docs/deprecations.md](docs/deprecations.md) | Old parameters and fields that still work, their users and their removal |
 | [docs/settings.md](docs/settings.md) | Wakefile.yaml or the settings page, the settings file, `--import-settings` |
 | [docs/analytics.md](docs/analytics.md) | Build stats, who started a build, request stats (web UI, API, MCP), the analytics page, job insights |
-| [docs/ui-roadmap.md](docs/ui-roadmap.md) | The feed, labels, live updates, the build page, task logs, the jobs page, the run form or the styles (replacing BeerCSS): the planned changes and their evidence |
+| [docs/logs.md](docs/logs.md) | Task log files, colours, log messages, the log route, the log viewer and its search |
+| [docs/ui-roadmap.md](docs/ui-roadmap.md) | The feed, labels, live updates, the build page or task logs: what is left of the plan and its evidence |
+| [docs/styles.md](docs/styles.md) | The frontend's styles: layers, the `.ui` scope, components, icons and `npm run icons`, the look |
+| [docs/wake.md](docs/wake.md) | The wake command, build tokens, cancel groups |
 
 ---
 
@@ -120,7 +127,8 @@ src/frontend/                Vue 3 + Vite SPA
    so a mistyped URL doesn't look like a refusal. The session routes check
    single sign-on users the same way, with what their groups allow
    ([docs/access.md](docs/access.md)). The feed and job list filter
-   themselves with `accessFromContext`.
+   themselves with `accessFromContext`. A build's token (`Bearer wb_...`)
+   takes the same router (`buildTokenAuth`).
 7. **Live UI updates**: `Build.BroadcastUpdate` persists build state to the
    `history` and `buildstats` buckets (and `queue` while pending)
    and pushes it over `WSHub` to any client subscribed to that build/feed
@@ -155,6 +163,7 @@ make check      # fmt, vet, build, test, lint, lintf, isolated parallel producti
 make testprod   # build once, then run Playwright E2E tests in parallel
 make testdev    # build once, then run the isolated E2E suite with visible browsers
 make testreport # open the last E2E HTML report from the repository root
+make screens    # screenshots of every page vs master's (BASE=<commit>); diffs in testreport
 make release    # test + testprod, then publish bin/wakeci as a GitHub release
 ```
 
@@ -287,35 +296,21 @@ AGENTS.universal.md for the general contract.
   refuses a password change without the admin password (403, nothing
   saved) and the settings page hides the field. Revoking a person's keys
   also ends their sessions and WebSockets and refuses their SSO logins
-  from before it ([docs/access.md](docs/access.md#revoking-a-person)).
-  What an SSO user may do comes from their groups, set by the admin
-  password in the settings ([docs/access.md](docs/access.md)); `write`
-  still runs commands on the server, so those who have it are trusted.
-  Sessions carry the SSO email (`session.user`, empty for the password) and
-  each key records it in `CreatedBy`. `requestUser` reads it, Basic auth
-  first like `AuthMi`. The admin password lists and revokes every key,
-  also all of a person's; an SSO user only keys with their email.
-  Offboarding is that manual step.
+  from before it; who owns a key and how offboarding works:
+  [docs/access.md](docs/access.md#revoking-a-person).
+- **Tasks start builds only with `wake`**, whose build token may read and
+  run every job while its build is in the queue; why one way, and why
+  every job: [docs/wake.md](docs/wake.md).
 - **API key secrets are hashed with SHA-256, not bcrypt.** A secret is 256
   random bits, so there is nothing to guess; bcrypt would slow down every
   API call. Tokens are `wk_<id>_<secret>`: the ID is public (list, logs,
   revoke), and only the hash of the secret is stored.
 - **Who may not edit jobs (keys, SSO users without write) can't send run
   parameters that reference a secret or hold a quote, line break or NUL**
-  (`rejectUnsafeParams`, `paramsUntrusted`). Run parameters go
-  through `injectSecrets`, so they could otherwise send any secret
-  wherever the job sends that parameter. A line break, or a quote on one
-  line, would let them add variables such as `BASH_ENV` to `build.env` through
-  the documented `echo "NAME=$VALUE"`: godotenv starts a new variable after
-  a quoted value (`TARGET="a" BASH_ENV=...`). Without quotes it reads the
-  rest of the line as one value, checked for godotenv v1.5.1. In
-  their builds (`Build.untrustedParams`, passed to `CreateBuild`
-  because it starts the `on_pending` tasks), `build.env` values skip
-  `injectSecrets`, because godotenv expands variables and a job can rewrite a
-  param, so a reference could be put together after the check. Cron, the
-  password and write keep the old rules. This can't stop a job
-  that sends a secret to a destination taken from a parameter; such a job
-  trusts whoever can run it.
+  (`rejectUnsafeParams`, `paramsUntrusted`), and `build.env` skips
+  `injectSecrets` in their builds, or they could read any secret or add
+  variables such as `BASH_ENV`. Why each rule, and what it can't stop:
+  [docs/access.md](docs/access.md#untrusted-run-parameters).
 - **Build artifacts run sandboxed on wakeci's own origin**
   (`storageCSP` in `StorageSecurityMi`). An HTML report is built by a job and
   opened by a logged-in user, so it must not act as that user. It can't send
@@ -346,8 +341,8 @@ AGENTS.universal.md for the general contract.
   stopped the main tasks doesn't also stop `on_aborted`, `finally` always
   runs, and an abort that arrives between two groups stops the next one.
   A build aborted while queued moves to `Queue.aborting`: it can't be
-  started and holds no concurrency slot, but `Abort` still reaches its
-  `on_aborted` and `finally` tasks.
+  started and holds only a slot of its job's concurrency, but `Abort`
+  still reaches its `on_aborted` and `finally` tasks.
 - **Stopping waits for builds; queued builds and sessions survive it.** A
   killed wakeci runs its builds' remaining hooks at the next start.
   Why, and how self-update installs a release: [docs/restart.md](docs/restart.md).
@@ -411,6 +406,8 @@ AGENTS.universal.md for the general contract.
 - `jobFromStorage` must read the path from `wakespacePath` and clean it like
   `http.FileServer` does, so the build it checks is the build that is served
   (`/storage/build/1/../2/x` is build 2).
+- Never log a build token, and keep `buildTokenValues` in
+  `secretRedactionValues`, or a log's reader could act as the build.
 - API key failures count on `apiKeyAttemptLimiter`, never on
   `globalAuthAttemptLimiter`, so a valid key can't clear failed password
   attempts. Only failures are limited: a valid key always passes, so bad

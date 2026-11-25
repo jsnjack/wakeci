@@ -62,7 +62,7 @@ test("should give each MCP client its connect command with the key", async ({ pa
 
     await page.getByTestId("mcp-client-vscode").click();
     const server = { name: "wakeci", type: "http", url: endpoint, headers: { Authorization: "Bearer wk_id_secret" } };
-    await expect(command).toHaveText(`code --add-mcp '${JSON.stringify(server)}'`);
+    await expect(command).toHaveText(`code --add-mcp '${JSON.stringify(server, null, 2)}'`);
     const install = await page.getByTestId("mcp-vscode-install").getAttribute("href");
     expect(install.startsWith("vscode:mcp/install?")).toBe(true);
     expect(JSON.parse(decodeURIComponent(install.slice("vscode:mcp/install?".length)))).toEqual(server);
@@ -70,7 +70,7 @@ test("should give each MCP client its connect command with the key", async ({ pa
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.getByTestId("mcp-copy").click();
     await expect(page.getByTestId("mcp-copy")).toContainText("check");
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`code --add-mcp '${JSON.stringify(server)}'`);
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`code --add-mcp '${JSON.stringify(server, null, 2)}'`);
 
     // Without a key the commands show where it goes
     await page.getByTestId("mcp-key").fill("");

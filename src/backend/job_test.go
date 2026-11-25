@@ -258,7 +258,7 @@ func TestRunJobGivesTheFirstUpdateAndPendingTasksTheRunParams(t *testing.T) {
 		t.Fatalf("register job: %v", err)
 	}
 
-	build, err := RunJob("pending-params", url.Values{"CITY": {"minsk"}}, false, buildTrigger{Kind: TriggerPassword})
+	build, err := RunJob("pending-params", url.Values{"CITY": {"minsk"}}, false, buildTrigger{Kind: TriggerPassword}, buildGroup{}, nil)
 	if err != nil {
 		t.Fatalf("RunJob: %v", err)
 	}
@@ -285,5 +285,18 @@ func TestRunJobGivesTheFirstUpdateAndPendingTasksTheRunParams(t *testing.T) {
 	}
 	if build.Job.DefaultParams[0]["CITY"] != "nowhere" {
 		t.Errorf("the job's default became %q; the run's value must go to a copy", build.Job.DefaultParams[0]["CITY"])
+	}
+}
+
+// A run of a job whose file no longer parses says which file it is
+func TestRunJobNamesTheFileThatDoesntParse(t *testing.T) {
+	newAPIKeyTestEnv(t)
+	path := Config.JobDir + "deploy" + Config.jobsExt
+	if err := os.WriteFile(path, []byte("tasks:\n  - name: x\n    run: curl -H \"a: b\"\n  bad: [\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := RunJob("deploy", nil, false, buildTrigger{Kind: TriggerPassword}, buildGroup{}, nil)
+	if err == nil || !strings.HasPrefix(err.Error(), "deploy"+Config.jobsExt+" can't be read: ") {
+		t.Errorf("run of a broken job: %v", err)
 	}
 }

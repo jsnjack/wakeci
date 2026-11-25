@@ -30,7 +30,7 @@ func waitTime(t *testing.T, ctx context.Context, id, seconds int) time.Duration 
 	t.Helper()
 	started := time.Now()
 	req := httptest.NewRequest("GET", "/api/build/1", nil).WithContext(ctx)
-	build, err := waitForBuild(req, id, seconds)
+	build, _, err := waitForBuild(req, id, seconds)
 	if err != nil || build == nil || build.ID != id {
 		t.Fatalf("waitForBuild = %+v, %v; want build %d", build, err, id)
 	}
@@ -152,7 +152,7 @@ func TestWaitForBuildHooks(t *testing.T) {
 	t.Cleanup(func() { buildWaitsEnd = oldEnd })
 
 	done := startBuild(build)
-	got, err := waitForBuild(httptest.NewRequest("GET", "/api/build/1", nil), build.ID, 10)
+	got, _, err := waitForBuild(httptest.NewRequest("GET", "/api/build/1", nil), build.ID, 10)
 	if err != nil {
 		t.Fatalf("waitForBuild: %v", err)
 	}
@@ -166,4 +166,26 @@ func TestWaitForBuildHooks(t *testing.T) {
 		}
 	}
 	waitDone(t, done, 10*time.Second)
+}
+
+// While wakeci stops, a queued build starts only after the restart: a wait
+// for it answers at once, so wake --wait doesn't hold up the stop
+func TestWaitForAQueuedBuildEndsAsWakeciStops(t *testing.T) {
+	newTestBuildEnv(t)
+	useQueue(t, &Queue{})
+	build := queueTestBuild(t, &Job{Name: "queued", Tasks: []*Task{{ID: 0, Command: "true", Kind: KindMain}}})
+	build.pendingTasksWG.Wait()
+	build.BroadcastUpdate()
+	GlobalQueue.BeginStop(time.Now().Add(time.Hour), "")
+	started := time.Now()
+	got, ended, err := waitForBuild(httptest.NewRequest("GET", "/api/build/1", nil), build.ID, 10)
+	if err != nil || ended || got.Status != StatusPending {
+		t.Fatalf("wait: %+v, ended %v, %v; want the build pending", got, ended, err)
+	}
+	if took := time.Since(started); took > 2*time.Second {
+		t.Errorf("the wait for a queued build took %v while wakeci stops", took)
+	}
+	if !GlobalQueue.stoppingNow() {
+		t.Error("the queue doesn't say it stops")
+	}
 }

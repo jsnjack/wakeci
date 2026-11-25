@@ -6,6 +6,7 @@ import (
 	"os"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sasha-s/go-deadlock"
@@ -30,8 +31,13 @@ type Queue struct {
 	running []*Build
 	// aborting holds builds aborted while queued, and interrupted builds
 	// (FinishInterruptedBuilds), until their on_* and finally tasks end.
-	// They hold no concurrency slot
-	aborting         []*Build
+	// They hold no slot of the concurrent builds, but count for their job's
+	// concurrency and concurrency key (concurrencyFull)
+	aborting []*Build
+	// adding holds the builds saved as pending but not queued yet
+	// (createBuild, then Add), while their keys are worked out, so the feed
+	// doesn't take them as stale (Verify) and an abort reaches them
+	adding           map[int]*Build
 	mutex            deadlock.Mutex
 	concurrentBuilds int
 	// stopping is closed by BeginStop: no queued build starts again, and
@@ -63,6 +69,10 @@ type Queue struct {
 	// signal's status sent before the update's it replaced would leave the
 	// banner promising a restart. A plain mutex, held during a channel send
 	statusMu sync.Mutex
+	// statusPending is set while a status that queueChanged asked for
+	// hasn't been taken yet, so a burst of changes starts one sender, not
+	// one each
+	statusPending atomic.Bool
 }
 
 // Take takes build from queue and starts running it
@@ -75,17 +85,8 @@ func (q *Queue) Take() {
 	QLoop:
 		for id, qItem := range q.queued {
 			L.Debug("inspecting build from queue", "build", qItem.ID)
-			if qItem.Job.Concurrency != 0 {
-				// Verify number of running builds of the same job
-				parallel := 0
-				for _, rItem := range q.running {
-					if rItem.Job.Name == qItem.Job.Name {
-						parallel++
-					}
-				}
-				if parallel >= qItem.Job.Concurrency {
-					continue QLoop
-				}
+			if q.concurrencyFull(qItem) {
+				continue QLoop
 			}
 			foundItem = true
 			foundItemID = id
@@ -104,6 +105,7 @@ func (q *Queue) Take() {
 	running, queued := len(q.running), len(q.queued)
 	q.mutex.Unlock()
 	if toRun && foundItem {
+		q.queueChanged()
 		q.Take()
 		return
 	}
@@ -132,6 +134,9 @@ func (q *Queue) TakeNow(buildID int) error {
 		}
 	}
 	q.mutex.Unlock()
+	if foundItem {
+		q.queueChanged()
+	}
 
 	// Take logs the queue lengths
 	q.Take()
@@ -141,10 +146,17 @@ func (q *Queue) TakeNow(buildID int) error {
 	return nil
 }
 
-// Add adds build to the queue
+// Add adds build to the queue. A build with a cancel key then cancels the
+// older builds with its key, or itself if there is a newer one (cancel.go):
+// both are found under the lock, so of two builds queued at once, the later
+// one wins either way. Call setQueueKeys first.
 func (q *Queue) Add(b *Build) {
 	q.mutex.Lock()
-	defer q.mutex.Unlock()
+	delete(q.adding, b.ID)
+	// Aborted already, as it was added: it cancels no other build, then is
+	// aborted itself (addNewBuild). Read under q.mutex, under which AbortBy
+	// aborts a build being added, so no abort lands between the two
+	aborted := b.currentAbort().stopped() != ""
 	q.queued = append(q.queued, b)
 	// Possibly shift queue
 	if b.Job.Priority != 0 {
@@ -160,11 +172,18 @@ func (q *Queue) Add(b *Build) {
 		}
 	}
 	L.Info("new build queued", "job", b.Job.Name, "build", b.ID)
+	q.queueChanged()
+	var found supersede
+	if !aborted {
+		found = q.supersedeLocked(b)
+	}
+	q.mutex.Unlock()
+	q.applySupersede(b, found)
 }
 
 // addInterrupted adds an interrupted build (FinishInterruptedBuilds) next to
-// the builds aborted while queued: it holds no concurrency slot, and Abort
-// and a stop reach its tasks
+// the builds aborted while queued: it holds no slot of the concurrent
+// builds, only of its job's concurrency, and Abort and a stop reach its tasks
 func (q *Queue) addInterrupted(b *Build) {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
@@ -175,6 +194,8 @@ func (q *Queue) addInterrupted(b *Build) {
 func (q *Queue) Remove(id int) {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
+	// A build that ends without being queued (tests) isn't being added
+	delete(q.adding, id)
 	for i, ex := range q.running {
 		if ex.ID == id {
 			q.running = append(q.running[:i], q.running[i+1:]...)
@@ -184,6 +205,7 @@ func (q *Queue) Remove(id int) {
 	for i, ex := range q.queued {
 		if ex.ID == id {
 			q.queued = append(q.queued[:i], q.queued[i+1:]...)
+			q.queueChanged()
 			return
 		}
 	}
@@ -201,6 +223,9 @@ func (q *Queue) Remove(id int) {
 func (q *Queue) Verify(id int) bool {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
+	if q.adding[id] != nil {
+		return true
+	}
 	for _, item := range q.queued {
 		if item.ID == id {
 			return true
@@ -234,9 +259,19 @@ func (q *Queue) AbortBy(id int, reason, by string) error {
 			}
 		}
 	}
+	if adding := q.adding[id]; build == nil && adding != nil {
+		// Its on_pending tasks stop now; addNewBuild aborts it as it is
+		// queued, as a queued build. Under q.mutex, so Add sees it
+		adding.requestAbort(reason, "", by)
+		q.mutex.Unlock()
+		return nil
+	}
 	q.mutex.Unlock()
 	if build == nil {
 		return fmt.Errorf("Build %d not found in Q", id)
+	}
+	if dequeued {
+		q.queueChanged()
 	}
 
 	// Stops on_pending tasks of a queued build, too
@@ -255,6 +290,24 @@ func (q *Queue) AbortBy(id int, reason, by string) error {
 		}()
 	}
 	return nil
+}
+
+// Live returns the build with id while it is in the queue: queued, running,
+// or running the tasks of a queued abort. Nil once it has ended
+func (q *Queue) Live(id int) *Build {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+	// Pending already, its on_pending tasks running, while its keys are
+	// worked out: a run may name it as its parent
+	if b := q.adding[id]; b != nil {
+		return b
+	}
+	for _, item := range q.queued {
+		if item.ID == id {
+			return item
+		}
+	}
+	return q.find(id)
 }
 
 // find returns the build with id that is running or running the tasks of a
@@ -401,6 +454,17 @@ func (q *Queue) stoppingLocked() chan struct{} {
 	return q.stopping
 }
 
+// stoppingNow reports whether BeginStop was called. A nil queue (tests)
+// never stops
+func (q *Queue) stoppingNow() bool {
+	if q == nil {
+		return false
+	}
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+	return q.isStoppingLocked()
+}
+
 // isStoppingLocked reports whether BeginStop was called. The caller holds
 // q.mutex
 func (q *Queue) isStoppingLocked() bool {
@@ -418,10 +482,14 @@ func (q *Queue) Status() QueueStatusData {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 	status := QueueStatusData{
-		Stopping: q.isStoppingLocked(),
-		Running:  len(q.running) + len(q.aborting),
-		Queued:   len(q.queued),
-		Version:  Version,
+		Stopping:  q.isStoppingLocked(),
+		Running:   len(q.running) + len(q.aborting),
+		Queued:    len(q.queued),
+		QueuedIDs: make([]int, 0, len(q.queued)),
+		Version:   Version,
+	}
+	for _, build := range q.queued {
+		status.QueuedIDs = append(status.QueuedIDs, build.ID)
 	}
 	if status.Stopping {
 		abortAt := q.abortAt
@@ -432,11 +500,37 @@ func (q *Queue) Status() QueueStatusData {
 	return status
 }
 
+// queueChanged tells the clients that builds joined or left the queue,
+// without waiting for the hub: callers may hold locks the hub's clients
+// need. Each status is taken when it is sent (broadcastStatus), so the last
+// one sent is the queue as it is.
+func (q *Queue) queueChanged() {
+	hub := WSHub
+	if hub == nil {
+		return
+	}
+	// A sender waits already, and takes the status after this change
+	if q.statusPending.Swap(true) {
+		return
+	}
+	go func() {
+		q.statusMu.Lock()
+		defer q.statusMu.Unlock()
+		// Before the status is taken, so a change after it starts another
+		q.statusPending.Store(false)
+		hub.broadcast <- &MsgBroadcast{Type: MsgTypeQueueStatus, Data: q.Status()}
+	}()
+}
+
 // broadcastStatus sends Status to the subscribed clients
 func (q *Queue) broadcastStatus() {
+	q.sendStatus(WSHub)
+}
+
+func (q *Queue) sendStatus(hub *Hub) {
 	q.statusMu.Lock()
 	defer q.statusMu.Unlock()
-	WSHub.broadcast <- &MsgBroadcast{Type: MsgTypeQueueStatus, Data: q.Status()}
+	hub.broadcast <- &MsgBroadcast{Type: MsgTypeQueueStatus, Data: q.Status()}
 }
 
 // idle reports whether no build runs, not counting the on_pending tasks of
@@ -538,8 +632,39 @@ func (q *Queue) addNewBuild(create func() (*Build, error)) (*Build, error) {
 	if err != nil {
 		return nil, err
 	}
+	build.setQueueKeys()
 	q.Add(build)
+	// Aborted while its keys were worked out: as a queued build now. Only
+	// while it is queued: Add may have aborted it already (a newer build of
+	// its cancel group), and its hooks may run in a new scope by now, which
+	// a second abort would stop
+	if scope := build.currentAbort(); scope.stopped() != "" && q.isQueued(build.ID) {
+		if err := q.AbortBy(build.ID, scope.reason, scope.by); err != nil {
+			build.Logger.Error("abort the build aborted as it was queued", "err", err)
+		}
+	}
 	return build, nil
+}
+
+// isQueued reports whether build id waits in the queue
+func (q *Queue) isQueued(id int) bool {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+	return slices.ContainsFunc(q.queued, func(b *Build) bool { return b.ID == id })
+}
+
+// beginAdd notes build b, about to be saved as pending, as one that Add
+// queues next. A nil queue, as in tests, notes nothing
+func (q *Queue) beginAdd(b *Build) {
+	if q == nil {
+		return
+	}
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+	if q.adding == nil {
+		q.adding = map[int]*Build{}
+	}
+	q.adding[b.ID] = b
 }
 
 // tasksStoppedNow reports whether stopTasks was called, so a task mustn't

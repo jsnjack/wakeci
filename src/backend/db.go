@@ -13,6 +13,7 @@ import (
 	"time"
 
 	bolt "go.etcd.io/bbolt"
+	berrors "go.etcd.io/bbolt/errors"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -24,6 +25,9 @@ import (
 // JobsBucket contains all registered jobs
 // Schema (key is the name of the file):
 // | defaultParams | null    |
+// | labels        | []      | names of the params shown first, Job.labelNames
+// | paramInfo     | {}      | what the run form says about params, Job.paramInfo
+// | group         |         | the jobs page's heading for the job
 // | desc          | New job |
 // | interval      |         |
 // | active        | true    |
@@ -201,7 +205,7 @@ func bootstrapDB(tx *bolt.Tx) error {
 			}
 		}
 	}
-	for _, bucket := range [][]byte{JobsBucket, HistoryBucket, APIKeysBucket, QueueBucket, StartedBucket, SessionsBucket, SSOGroupsBucket, BuildStatsBucket, RequestStatsBucket} {
+	for _, bucket := range [][]byte{JobsBucket, HistoryBucket, APIKeysBucket, QueueBucket, StartedBucket, SessionsBucket, SSOGroupsBucket, BuildStatsBucket, RequestStatsBucket, GroupsBucket} {
 		if _, err := tx.CreateBucketIfNotExists(bucket); err != nil {
 			return err
 		}
@@ -350,4 +354,19 @@ func pruneDBBackups(dbPath string) error {
 // backupTime is the time at the end of a backup's name
 func backupTime(name string) string {
 	return name[len(name)-len(dbBackupTime):]
+}
+
+// dbLockTimeout is how long wakeci waits for the database at startup. Only
+// one process may have it open, and a restart in place has closed it by
+// then, so a longer wait means that another wakeci uses the same workdir.
+var dbLockTimeout = 10 * time.Second
+
+// openDB opens the database, and says so instead of waiting forever when
+// another process has it open
+func openDB(path string, timeout time.Duration) (*bolt.DB, error) {
+	db, err := bolt.Open(path, 0644, &bolt.Options{Timeout: timeout})
+	if errors.Is(err, berrors.ErrTimeout) {
+		return nil, fmt.Errorf("another wakeci has %s open; stop it, or give this one another workdir", path)
+	}
+	return db, err
 }

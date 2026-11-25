@@ -1,27 +1,27 @@
 <template>
-    <div class="analytics-page">
+    <div class="ui analytics-page stack gap-4">
         <AnalyticsTabs />
 
-        <nav
-            class="wrap analytics-filters"
+        <div
+            class="cluster gap-3 analytics-filters"
             data-cy="analytics-filters"
         >
-            <nav class="group connected">
+            <div
+                class="segmented"
+                role="group"
+                aria-label="Days"
+            >
                 <button
-                    v-for="(range, i) in ranges"
+                    v-for="range in ranges"
                     :key="range"
-                    :class="{
-                        active: days === range,
-                        'left-round': i === 0,
-                        'right-round': i === ranges.length - 1,
-                        'no-round': i > 0 && i < ranges.length - 1,
-                    }"
+                    type="button"
+                    :aria-pressed="days === range ? 'true' : 'false'"
                     :data-cy="`range-${range}`"
-                    @click.prevent="days = range"
+                    @click="days = range"
                 >
                     {{ range }} days
                 </button>
-            </nav>
+            </div>
             <SearchSelect
                 v-model="job"
                 :options="jobOptions"
@@ -36,11 +36,12 @@
                 class="filter-select"
                 data-cy="trigger-filter"
             />
-            <progress
+            <span
                 v-show="loading"
-                class="circle small"
-            ></progress>
-            <div class="max"></div>
+                class="status-ring spinner"
+                aria-label="Loading"
+            ></span>
+            <span class="grow"></span>
             <small
                 v-if="data"
                 class="muted"
@@ -48,22 +49,22 @@
             >
                 {{ rangeText }}
             </small>
-        </nav>
+        </div>
 
         <article
             v-if="data && startsLate"
-            class="border no-elevate small-padding muted"
+            class="panel note muted"
             data-cy="analytics-since"
         >
-            <i>info</i> wakeci keeps analytics since {{ sinceText }}, so the days before have no builds.
+            <i class="icon small">info</i> wakeci keeps analytics since {{ sinceText }}, so the days before have no builds.
         </article>
 
         <template v-if="data && data.totals.builds > 0">
-            <div class="grid tiles">
+            <div class="cols tiles">
                 <article
                     v-for="tile in tiles"
                     :key="tile.key"
-                    class="border no-elevate padding s6 l3 tile"
+                    class="panel tile"
                     :data-cy="`tile-${tile.key}`"
                 >
                     <div class="muted tile-label">{{ tile.label }}</div>
@@ -78,15 +79,15 @@
                 </article>
             </div>
 
-            <article class="border no-elevate padding chart-card">
-                <h6 class="small no-margin">Builds per day, by result</h6>
+            <article class="panel chart-card">
+                <h2 class="card-title">Builds per day, by result</h2>
                 <StatusBarsChart :days="data.byDay" />
                 <StatusLegend />
             </article>
 
-            <div class="grid">
-                <article class="border no-elevate padding s12 l6 chart-card">
-                    <h6 class="small no-margin">Success rate, 7-day rolling</h6>
+            <div class="cols chart-grid">
+                <article class="panel chart-card">
+                    <h2 class="card-title">Success rate, 7-day rolling</h2>
                     <LineChart
                         :points="ratePoints"
                         :min="rateMin"
@@ -100,9 +101,12 @@
                         >
                     </p>
                 </article>
-                <article class="border no-elevate padding s12 l6 chart-card">
+                <article
+                    class="panel chart-card"
+                    data-cy="duration-card"
+                >
                     <div class="card-head">
-                        <h6 class="small no-margin">Duration, 7-day rolling</h6>
+                        <h2 class="card-title">Duration, 7-day rolling</h2>
                         <SearchSelect
                             v-if="!job && data.jobs.length > 1"
                             :model-value="durationTarget"
@@ -127,23 +131,26 @@
                     />
                     <div
                         v-else
-                        class="chart-loading middle-align center-align"
+                        class="chart-loading"
                     >
-                        <progress class="circle small"></progress>
+                        <span
+                            class="status-ring spinner"
+                            aria-label="Loading"
+                        ></span>
                     </div>
                     <BandLegend />
                     <p class="chart-note">Successful builds only.</p>
                 </article>
             </div>
 
-            <article class="border no-elevate padding chart-card">
-                <h6 class="small no-margin">When builds start (server time)</h6>
+            <article class="panel chart-card">
+                <h2 class="card-title">When builds start (server time)</h2>
                 <StartsHeatmap :starts="data.starts" />
             </article>
 
-            <div class="grid">
-                <article class="border no-elevate padding s12 l6 chart-card">
-                    <h6 class="small no-margin">Queue wait, 7-day rolling</h6>
+            <div class="cols chart-grid">
+                <article class="panel chart-card">
+                    <h2 class="card-title">Queue wait, 7-day rolling</h2>
                     <template v-if="data.totals.wait.count > 0">
                         <LineChart
                             :points="waitPoints"
@@ -164,10 +171,10 @@
                     </p>
                 </article>
                 <article
-                    class="border no-elevate padding s12 l6"
+                    class="panel"
                     data-cy="triggers"
                 >
-                    <h6 class="small no-margin">Who starts builds</h6>
+                    <h2 class="card-title">Who starts builds</h2>
                     <div
                         v-for="item in data.triggers"
                         :key="item.kind"
@@ -178,22 +185,30 @@
                         <span class="muted right-align">{{ item.builds }} · {{ formatShare(item.builds, data.totals.builds) }}</span>
                     </div>
                     <template v-if="data.showsPeople && data.people.length">
-                        <div class="small-space"></div>
-                        <div class="muted small-text">People and API keys</div>
+                        <div class="muted text-sm">People and API keys</div>
                         <div
-                            v-for="person in data.people"
+                            v-for="person in shownPeople"
                             :key="person.kind + person.user + person.apiKey"
                             class="bar-row"
                             :title="`${personName(person)}: ${plural(person.builds, 'build')}`"
                             data-cy="trigger-person"
                         >
                             <span class="ellipsis">
-                                <i class="tiny">{{ person.kind === "apikey" ? "key" : "person" }}</i>
+                                <i class="icon small">{{ person.kind === "apikey" ? "key" : "person" }}</i>
                                 {{ personName(person) }}
                             </span>
                             <span class="bar"><span :style="{ width: barWidth(person.builds, data.people[0].builds) }"></span></span>
                             <span class="muted right-align">{{ person.builds }}</span>
                         </div>
+                        <button
+                            v-if="data.people.length > PEOPLE_SHOWN"
+                            type="button"
+                            class="btn btn-sm btn-ghost people-more"
+                            data-cy="people-more"
+                            @click="allPeople = !allPeople"
+                        >
+                            {{ allPeople ? "Show the first " + PEOPLE_SHOWN : `Show all ${data.people.length}` }}
+                        </button>
                     </template>
                     <p
                         v-else-if="!data.showsPeople"
@@ -205,27 +220,28 @@
             </div>
 
             <article
-                class="border no-elevate padding"
+                class="panel"
                 data-cy="jobs-table"
             >
                 <div class="card-head">
-                    <h6 class="small no-margin">Jobs</h6>
-                    <div
+                    <h2 class="card-title">Jobs</h2>
+                    <label
                         v-if="data.jobs.length > 1"
-                        class="field small prefix border round no-margin"
+                        class="input-icon"
                     >
-                        <i>search</i>
+                        <i class="icon small">search</i>
                         <input
                             v-model="jobSearch"
                             type="search"
+                            class="input"
                             aria-label="Filter jobs"
                             placeholder="Filter jobs"
                             data-cy="jobs-table-search"
                         />
-                    </div>
+                    </label>
                 </div>
                 <div class="table-scroll">
-                    <table class="small-text">
+                    <table class="jobs-table text-sm">
                         <thead>
                             <tr>
                                 <th
@@ -252,11 +268,7 @@
                                 :data-cy="`job-row-${row.name}`"
                             >
                                 <td>
-                                    <router-link
-                                        :to="insightsLink(row.name)"
-                                        class="link"
-                                        >{{ row.name }}</router-link
-                                    >
+                                    <router-link :to="insightsLink(row.name)">{{ row.name }}</router-link>
                                 </td>
                                 <td><OutcomeStrip :builds="row.recent" /></td>
                                 <td
@@ -300,12 +312,12 @@
 
         <article
             v-else-if="data"
-            class="border no-elevate medium-height middle-align center-align"
+            class="panel empty"
             data-cy="analytics-empty"
         >
-            <div class="center-align">
-                <i class="extra">monitoring</i>
-                <h5>No builds in these days</h5>
+            <div class="stack gap-2 empty-body">
+                <i class="icon large">monitoring</i>
+                <h2>No builds in these days</h2>
                 <p class="muted">Choose a longer range, or another job or trigger.</p>
             </div>
         </article>
@@ -345,10 +357,14 @@ import vuex from "vuex";
 const RANGES = [7, 30, 90, 365];
 const FINAL = new Set(STATUSES.map((s) => s.status));
 
+const PEOPLE_SHOWN = 10;
+
 export default {
     components: { AnalyticsTabs, BandLegend, LineChart, OutcomeStrip, SearchSelect, SparkLine, StartsHeatmap, StatusBarsChart, StatusLegend },
     data() {
         return {
+            allPeople: false,
+            PEOPLE_SHOWN,
             ranges: RANGES,
             triggers: TRIGGERS,
             days: 30,
@@ -385,6 +401,10 @@ export default {
         };
     },
     computed: {
+        // The ten who start most builds, the rest on request
+        shownPeople() {
+            return this.allPeople ? this.data.people : this.data.people.slice(0, PEOPLE_SHOWN);
+        },
         ...vuex.mapState(["ws"]),
         rangeText() {
             return `${dayLabel(this.data.from, true)} – ${dayLabel(this.data.today, true)}`;
@@ -550,11 +570,6 @@ export default {
         job: "changed",
         trigger: "changed",
         durationJob: "fetchDuration",
-        "ws.connected"(connected) {
-            if (connected) {
-                this.subscribe();
-            }
-        },
         // Jobs the user may now read, and builds that ended while
         // disconnected
         "ws.reconnects"() {
@@ -576,13 +591,15 @@ export default {
         this.trigger = typeof query.trigger === "string" && TRIGGERS[query.trigger] ? query.trigger : "";
         this.fetch();
         this.fetchJobs();
-        this.subscribe();
+        // Counted, since the notifications and the feed use the same topic; a
+        // new connection subscribes again by itself
+        this.$store.commit("SUBSCRIBE_TOPIC", this.subscription);
         this.emitter.on(this.subscription, this.onBuildUpdate);
     },
     unmounted() {
         this.refresh.cancel();
         this.emitter.off(this.subscription, this.onBuildUpdate);
-        this.$store.commit("WS_SEND", { type: "in:unsubscribe", data: { to: [this.subscription] } });
+        this.$store.commit("UNSUBSCRIBE_TOPIC", this.subscription);
     },
     methods: {
         ago,
@@ -660,9 +677,6 @@ export default {
                 })
                 .catch(() => {});
         },
-        subscribe() {
-            this.$store.commit("WS_SEND", { type: "in:subscribe", data: { to: [this.subscription] } });
-        },
         onBuildUpdate(build) {
             // A build counts once it ended; its duration is set then
             if (FINAL.has(build.status) && build.duration > 0) {
@@ -713,58 +727,89 @@ export default {
 </script>
 
 <style scoped>
-.analytics-filters {
-    gap: 0.75rem;
-    align-items: center;
-    margin: 0;
-}
-/* A fixed width, since BeerCSS doesn't let a nav's children shrink; the
-   picker cuts a long job name with an ellipsis */
+/* A fixed width; the picker cuts a long job name with an ellipsis */
 .filter-select {
-    width: 14rem;
-    max-width: 100%;
+    inline-size: 14rem;
+    max-inline-size: 100%;
 }
+
+.spinner {
+    inline-size: 18px;
+    block-size: 18px;
+    --_c: var(--primary);
+}
+
+.note {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+}
+
+/* The tiles share the row, however many fit */
 .tiles {
-    margin-bottom: 0;
+    grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
 }
+
+.chart-grid {
+    --min: 26rem;
+}
+
+.panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-inline-size: 0;
+}
+
 .tile-label {
-    font-size: 0.85rem;
+    font-size: var(--text-sm);
 }
+
 .tile-value {
     font-size: 1.75rem;
     font-weight: 600;
     line-height: 1.3;
 }
+
 .tile-sub {
     font-size: 0.8rem;
-    min-height: 1.2rem;
+    min-block-size: 1.2rem;
 }
+
+.people-more {
+    align-self: flex-start;
+}
+
 .bar-row {
     display: grid;
     grid-template-columns: minmax(8rem, 12rem) 1fr 6rem;
-    gap: 0.75rem;
+    gap: var(--space-3);
     align-items: center;
     padding: 0.2rem 0;
     font-size: 0.9rem;
 }
+
 .bar,
 .share-bar {
-    height: 0.6rem;
+    block-size: 0.6rem;
     border-radius: 0.2rem;
     background: var(--surface-container-highest);
     overflow: hidden;
 }
+
 .bar > span,
 .share-bar > span {
     display: block;
-    height: 100%;
+    block-size: 100%;
     background: var(--chart-1);
 }
+
 .share-bar {
     display: inline-block;
-    width: 3.5rem;
+    inline-size: 3.5rem;
     vertical-align: middle;
-    margin-right: 0.4rem;
+    margin-inline-end: 0.4rem;
 }
 /* As wide as the longest time, "87600h 00m", so the bars before it line up
    whatever the time */
@@ -774,47 +819,76 @@ export default {
     text-align: right;
     font-variant-numeric: tabular-nums;
 }
+
 .table-scroll {
     overflow-x: auto;
 }
+
+.jobs-table {
+    inline-size: 100%;
+    border-collapse: collapse;
+}
+
+.jobs-table th,
+.jobs-table td {
+    padding: var(--space-2);
+    border-block-end: 1px solid var(--outline-variant);
+    text-align: start;
+}
+
+.jobs-table th {
+    color: var(--on-surface-variant);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.jobs-table .right-align {
+    text-align: end;
+}
+
 th.sortable {
     cursor: pointer;
     user-select: none;
 }
+
 .nowrap {
     white-space: nowrap;
 }
-.muted {
-    color: var(--on-surface-variant);
-}
-.ellipsis {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.analytics-page {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-.analytics-page > .grid {
-    margin: 0;
-}
+
 .chart-loading {
+    display: grid;
+    place-items: center;
     block-size: 160px;
 }
+
 .card-head {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.5rem 1rem;
+    gap: var(--space-2) var(--space-4);
 }
-.card-head > h6 {
+
+.card-head > h2 {
     flex: 1 1 auto;
 }
-.card-head > :not(h6) {
+
+.card-head > :not(h2) {
     flex: 0 1 16rem;
-    min-width: 8rem;
-    max-width: 100%;
+    min-inline-size: 8rem;
+    max-inline-size: 100%;
+}
+
+.card-title {
+    font-size: var(--text-md);
+}
+
+.empty {
+    align-items: center;
+    padding: var(--space-8) var(--space-4);
+}
+
+.empty-body {
+    align-items: center;
+    text-align: center;
 }
 </style>

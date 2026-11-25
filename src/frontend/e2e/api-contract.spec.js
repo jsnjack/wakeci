@@ -20,6 +20,10 @@ const formBody = (fields) => {
 const contractJob = (id) => `desc: contract ${id}
 params:
   - TARGET: staging
+param_info:
+  TARGET: {desc: "Where it deploys", options: [staging, prod], type: text}
+# Once a year, so the jobs page has a next run, and no build starts
+interval: "0 0 1 1 *"
 artifacts:
   - artifacts/**
 tasks:
@@ -115,18 +119,23 @@ test("should answer every documented operation as the spec says", async ({ wake,
     };
 
     // Fixtures: a job with a failed build that wrote a log, an artifact and
-    // a summary, and jobs to delete
+    // a summary, started by another build so it has a parent, and jobs to
+    // delete
     const uid = randomUUID().slice(0, 8);
     const job = await wake.createJob(contractJob(uid), `contract-${uid}`);
-    const build = await wake.runJob(job);
+    const gate = await wake.gate();
+    const parent = await wake.runJob(await wake.createJob(`tasks:\n  - name: wait\n    run: ${gate.command}\n`));
+    await wake.waitForBuild(parent, "running");
+    const build = await wake.runJob(job, { WAKE_PARENT: String(parent) });
     await wake.waitForBuild(build, "failed");
+    await gate.release();
     const deletable = async () => wake.createJob(contractJob(randomUUID()), `contract-delete-${randomUUID().slice(0, 8)}`);
     const settings = await (await backend.api.get("/api/settings")).json();
 
     // How each operation succeeds; the ones that remove something get
     // something of their own to remove
     const valid = {
-        "GET /api/feed": async () => ({ target: "/api/feed?limit=5" }),
+        "GET /api/feed": async () => ({ target: "/api/feed?limit=5&groups=1" }),
         "GET /api/jobs/": async () => ({ target: "/api/jobs/" }),
         "POST /api/jobs/create": async () => ({ target: "/api/jobs/create", form: { name: `contract-new-${randomUUID().slice(0, 8)}` } }),
         "GET /api/job/{name}": async () => ({ target: `/api/job/${job}` }),
@@ -136,6 +145,7 @@ test("should answer every documented operation as the spec says", async ({ wake,
         "POST /api/job/{name}/set_active": async () => ({ target: `/api/job/${job}/set_active`, form: { active: "true" } }),
         "GET /api/build/{id}": async () => ({ target: `/api/build/${build}` }),
         "GET /api/build/{id}/summary": async () => ({ target: `/api/build/${build}/summary?tail=2` }),
+        "GET /api/build/{id}/group": async () => ({ target: `/api/build/${build}/group` }),
         "GET /api/build/{id}/log/{task}": async () => ({ target: `/api/build/${build}/log/0?tail=1` }),
         // An ended build can't be aborted, flushed or started: 404 is their
         // documented answer, and a running build would end the test early
@@ -220,6 +230,8 @@ test("should answer every documented operation as the spec says", async ({ wake,
         ["GET /api/build/{id}", "/api/build/x", 400],
         ["GET /api/build/{id}", `/api/build/${build}?wait=301`, 400],
         ["GET /api/build/{id}/summary", "/api/build/999999/summary", 404],
+        ["GET /api/build/{id}/group", "/api/build/999999/group", 404],
+        ["GET /api/build/{id}/group", "/api/build/x/group", 400],
         ["GET /api/build/{id}/summary", `/api/build/${build}/summary?tail=-1`, 400],
         ["GET /api/build/{id}/log/{task}", `/api/build/${build}/log/7`, 404],
         ["GET /api/build/{id}/log/{task}", `/api/build/${build}/log/x`, 400],
@@ -245,6 +257,8 @@ test("should answer every documented operation as the spec says", async ({ wake,
     for (const [opKey, target, status, form, body] of errors) {
         expectStatus(await call("admin", opKey, target, { form, body }), [status], `${opKey} ${target}`);
     }
+    // The feed without groups, whose rows carry their parent and root
+    expectStatus(await call("admin", "GET /api/feed", "/api/feed?limit=5"), [200], "GET /api/feed without groups");
 
     // 2. Without credentials, everything is refused with 401
     for (const [opKey, make] of Object.entries(valid)) {
@@ -357,6 +371,8 @@ test("should answer every documented operation as the spec says", async ({ wake,
         "GET /api/analytics/requests with keys' requests and a tool call",
     );
     expectStatus(await call("admin", "GET /api/job/{name}/insights", `/api/job/${job}/insights`), [200], "GET /api/job/{name}/insights with two TARGETs");
+    // Jobs as the jobs page asks for them, now that the job failed
+    expectStatus(await call("admin", "GET /api/jobs/", "/api/jobs/?board=1"), [200], "GET /api/jobs/ as the jobs page asks");
 
     // 5. Every documented field shows up in some answer, except those of
     // states this test doesn't reach; Go tests and other specs cover them
@@ -364,6 +380,7 @@ test("should answer every documented operation as the spec says", async ({ wake,
         "main.APIKeysData.people": "someone signed in with single sign-on, or a key they made",
         "main.APIKeysData.signedIn": "someone signed in with single sign-on",
         "main.WhoAmIData.groups": "a single sign-on session",
+        "main.WhoAmIData.build": "a build's token, which only its tasks have (wake.spec.js, buildtoken_test.go)",
         "main.QueueStatusData.abortAt": "a stopping server",
         "main.QueueStatusData.restartVersion": "a server restarting after an update",
         "main.QueueStatusData.buildsAborted": "a stopping server that aborted its builds",

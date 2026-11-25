@@ -1,43 +1,32 @@
 <template>
-    <div class="insights-page">
-        <div class="tabs left-align">
-            <router-link
-                :to="{ name: 'jobEdit', params: { name } }"
-                data-cy="job-file-tab"
-            >
-                <i>description</i>
-                <span>{{ canAny("write") ? "Edit" : "View" }}</span>
-            </router-link>
-            <a
-                class="active"
-                data-cy="job-insights-tab"
-            >
-                <i>insights</i>
-                <span>Insights</span>
-            </a>
-        </div>
+    <div class="ui insights-page stack gap-4">
+        <JobTabs
+            :name="name"
+            current="insights"
+        />
 
-        <nav class="wrap insight-filters">
-            <nav class="group connected">
+        <div class="cluster gap-3 insight-filters">
+            <div
+                class="segmented"
+                role="group"
+                aria-label="Builds"
+            >
                 <button
-                    v-for="(count, i) in counts"
+                    v-for="count in counts"
                     :key="count"
-                    :class="{
-                        active: builds === count,
-                        'left-round': i === 0,
-                        'right-round': i === counts.length - 1,
-                        'no-round': i > 0 && i < counts.length - 1,
-                    }"
+                    type="button"
+                    :aria-pressed="builds === count ? 'true' : 'false'"
                     :data-cy="`builds-${count}`"
-                    @click.prevent="builds = count"
+                    @click="builds = count"
                 >
                     Last {{ count }}
                 </button>
-            </nav>
-            <progress
+            </div>
+            <span
                 v-show="loading"
-                class="circle small"
-            ></progress>
+                class="status-ring spinner"
+                aria-label="Loading"
+            ></span>
             <small
                 v-if="data"
                 class="muted"
@@ -46,16 +35,16 @@
                 {{ data.inHistory }} {{ data.inHistory === 1 ? "build" : "builds" }} of {{ name }} in the history, which keeps the last builds of all jobs
                 (Settings)
             </small>
-        </nav>
+        </div>
 
         <template v-if="data && data.builds.length">
             <article
                 v-if="data.failing"
-                class="border no-elevate padding row failing"
+                class="panel cluster gap-3 failing"
                 data-cy="insights-failing"
             >
-                <BuildStatus :status="data.failing.last.status" />
-                <div class="max">
+                <StatusIcon :status="data.failing.last.status" />
+                <div class="grow">
                     Failing since #{{ data.failing.first.id }}, {{ ago(data.failing.first.startedAt) }}: {{ data.failing.builds }}
                     {{ data.failing.builds === 1 ? "build" : "builds in a row"
                     }}<span v-if="data.failing.last.failedTask"
@@ -64,16 +53,16 @@
                 </div>
                 <router-link
                     :to="{ name: 'build', params: { id: data.failing.last.id } }"
-                    class="button border small"
+                    class="btn btn-sm btn-outline btn-ghost"
                     >Open build</router-link
                 >
             </article>
 
-            <div class="grid">
+            <div class="cols tiles">
                 <article
                     v-for="tile in tiles"
                     :key="tile.key"
-                    class="border no-elevate padding s6 l3"
+                    class="panel"
                     :data-cy="`insight-${tile.key}`"
                 >
                     <div class="muted tile-label">{{ tile.label }}</div>
@@ -87,8 +76,8 @@
                 </article>
             </div>
 
-            <article class="border no-elevate padding chart-card">
-                <h6 class="small no-margin">Duration of each build, by task</h6>
+            <article class="panel chart-card">
+                <h2 class="card-title">Duration of each build, by task</h2>
                 <TaskBarsChart
                     :builds="data.builds"
                     :series-of="seriesOf"
@@ -110,12 +99,12 @@
             </article>
 
             <article
-                class="border no-elevate padding"
+                class="panel"
                 data-cy="tasks-table"
             >
-                <h6 class="small no-margin">Tasks</h6>
+                <h2 class="card-title">Tasks</h2>
                 <div class="table-scroll">
-                    <table class="small-text">
+                    <table class="data-table text-sm">
                         <thead>
                             <tr>
                                 <th>Task</th>
@@ -162,12 +151,12 @@
                 </div>
             </article>
 
-            <div class="grid">
+            <div class="cols chart-grid">
                 <article
-                    class="border no-elevate padding s12 l6"
+                    class="panel"
                     data-cy="stopped-at"
                 >
-                    <h6 class="small no-margin">Where failed builds stopped</h6>
+                    <h2 class="card-title">Where failed builds stopped</h2>
                     <div
                         v-for="item in data.stoppedAt"
                         :key="item.task"
@@ -185,16 +174,20 @@
                     </p>
                 </article>
                 <article
-                    class="border no-elevate padding s12 l6"
+                    class="panel"
                     data-cy="params"
                 >
-                    <h6 class="small no-margin">Success by parameter</h6>
+                    <h2 class="card-title">Success by parameter</h2>
                     <template v-if="data.params.length">
-                        <div
+                        <label
                             v-if="data.params.length > 1"
-                            class="field label suffix border small round"
+                            class="form-field param-pick"
                         >
-                            <select v-model="paramName">
+                            <span class="label-text">Parameter</span>
+                            <select
+                                v-model="shownParam"
+                                class="select"
+                            >
                                 <option
                                     v-for="p in data.params"
                                     :key="p.name"
@@ -203,30 +196,30 @@
                                     {{ p.name }}
                                 </option>
                             </select>
-                            <label>Parameter</label>
-                            <i>arrow_drop_down</i>
+                        </label>
+                        <div class="table-scroll">
+                            <table class="data-table text-sm">
+                                <thead>
+                                    <tr>
+                                        <th>{{ param.name }}</th>
+                                        <th class="right-align">Builds</th>
+                                        <th class="right-align">Success</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr
+                                        v-for="value in param.values"
+                                        :key="value.value"
+                                    >
+                                        <td class="ellipsis param-value">
+                                            <code>{{ value.value || "(empty)" }}</code>
+                                        </td>
+                                        <td class="right-align">{{ value.builds }}</td>
+                                        <td class="right-align">{{ formatRate(value.successRate) }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
-                        <table class="small-text">
-                            <thead>
-                                <tr>
-                                    <th>{{ param.name }}</th>
-                                    <th class="right-align">Builds</th>
-                                    <th class="right-align">Success</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr
-                                    v-for="value in param.values"
-                                    :key="value.value"
-                                >
-                                    <td class="ellipsis param-value">
-                                        <code>{{ value.value || "(empty)" }}</code>
-                                    </td>
-                                    <td class="right-align">{{ value.builds }}</td>
-                                    <td class="right-align">{{ formatRate(value.successRate) }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
                     </template>
                     <p
                         v-else
@@ -240,12 +233,12 @@
 
         <article
             v-else-if="data"
-            class="border no-elevate medium-height middle-align center-align"
+            class="panel empty"
             data-cy="insights-empty"
         >
-            <div class="center-align">
-                <i class="extra">insights</i>
-                <h5>No builds of {{ name }} in the history</h5>
+            <div class="stack gap-2 empty-body">
+                <i class="icon large">insights</i>
+                <h2>No builds of {{ name }} in the history</h2>
                 <p class="muted">Insights appear once a build of this job has ended.</p>
             </div>
         </article>
@@ -255,9 +248,11 @@
 <script>
 import "@/assets/charts.css";
 import { STATUSES, ago, formatDuration, formatRate } from "@/analytics";
-import BuildStatus from "@/components/BuildStatus.vue";
+import JobTabs from "@/components/JobTabs.vue";
+import StatusIcon from "@/components/StatusIcon.vue";
 import StatusLegend from "@/components/charts/StatusLegend.vue";
 import TaskBarsChart from "@/components/charts/TaskBarsChart.vue";
+import { humanFileSize } from "@/store/utils";
 import axios from "axios";
 import debounce from "lodash/debounce";
 import vuex from "vuex";
@@ -268,7 +263,7 @@ const TASK_SERIES = 5;
 const FINAL = new Set(STATUSES.map((s) => s.status));
 
 export default {
-    components: { BuildStatus, StatusLegend, TaskBarsChart },
+    components: { JobTabs, StatusIcon, StatusLegend, TaskBarsChart },
     props: {
         name: {
             type: String,
@@ -310,7 +305,28 @@ export default {
                     value: d.duration.count ? formatDuration(d.duration.p50) : "—",
                     sub: d.duration.count ? `p95 ${formatDuration(d.duration.p95)} · successful builds` : "no successful builds",
                 },
+                { key: "disk", label: "Disk", ...this.disk },
             ];
+        },
+        // What all the job's builds in the history keep on disk
+        disk() {
+            const disk = this.data.disk;
+            if (!disk?.builds) {
+                return { value: "—", sub: "measured as builds end" };
+            }
+            const parts = [
+                ["artifacts", disk.artifacts],
+                ["logs", disk.logs],
+                ["workspaces", disk.workspace],
+            ]
+                .filter(([, size]) => size > 0)
+                .map(([what, size]) => `${what} ${humanFileSize(size)}`);
+            const builds = `${disk.builds} ${disk.builds === 1 ? "build" : "builds"}`;
+            const pending = disk.unmeasured ? `, ${disk.unmeasured} not measured yet` : "";
+            return {
+                value: humanFileSize(disk.logs + disk.artifacts + disk.workspace),
+                sub: `${parts.join(" · ") || "empty"} · ${builds}${pending}`,
+            };
         },
         timeToFix() {
             const d = this.data;
@@ -348,6 +364,16 @@ export default {
         param() {
             return this.data.params.find((p) => p.name === this.paramName) || this.data.params[0];
         },
+        // The select shows the parameter the table shows, the first until
+        // the user picks one
+        shownParam: {
+            get() {
+                return this.param?.name || "";
+            },
+            set(name) {
+                this.paramName = name;
+            },
+        },
     },
     watch: {
         builds: "fetch",
@@ -355,11 +381,6 @@ export default {
             this.data = null;
             this.setPage();
             this.fetch();
-        },
-        "ws.connected"(connected) {
-            if (connected) {
-                this.subscribe();
-            }
         },
         "ws.reconnects"() {
             this.fetch();
@@ -375,13 +396,15 @@ export default {
             this.builds = builds;
         }
         this.fetch();
-        this.subscribe();
+        // Counted, since the notifications and the feed use the same topic; a
+        // new connection subscribes again by itself
+        this.$store.commit("SUBSCRIBE_TOPIC", this.subscription);
         this.emitter.on(this.subscription, this.onBuildUpdate);
     },
     unmounted() {
         this.refresh.cancel();
         this.emitter.off(this.subscription, this.onBuildUpdate);
-        this.$store.commit("WS_SEND", { type: "in:unsubscribe", data: { to: [this.subscription] } });
+        this.$store.commit("UNSUBSCRIBE_TOPIC", this.subscription);
     },
     methods: {
         ago,
@@ -407,9 +430,6 @@ export default {
                         this.loading = false;
                     }
                 });
-        },
-        subscribe() {
-            this.$store.commit("WS_SEND", { type: "in:subscribe", data: { to: [this.subscription] } });
         },
         onBuildUpdate(build) {
             if (build.name === this.name && FINAL.has(build.status) && build.duration > 0) {
@@ -437,81 +457,133 @@ export default {
 </script>
 
 <style scoped>
-.insight-filters {
-    gap: 0.75rem;
-    align-items: center;
-    margin: 0;
-}
 .insight-filters small {
     flex: 1 1 14rem;
-    min-width: 0;
-    white-space: normal;
+    min-inline-size: 0;
 }
-.failing {
-    gap: 0.75rem;
+
+.spinner {
+    inline-size: 18px;
+    block-size: 18px;
+    --_c: var(--primary);
+}
+
+.panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-inline-size: 0;
+}
+
+.panel.failing {
+    flex-direction: row;
+    flex-wrap: nowrap;
     align-items: center;
 }
-.tile-label {
-    font-size: 0.85rem;
+
+/* The tiles share the row, however many fit */
+.tiles {
+    grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
 }
+
+.chart-grid {
+    --min: 26rem;
+}
+
+.card-title {
+    font-size: var(--text-md);
+}
+
+.tile-label {
+    font-size: var(--text-sm);
+}
+
 .tile-value {
     font-size: 1.75rem;
     font-weight: 600;
     line-height: 1.3;
 }
+
 .tile-sub {
     font-size: 0.8rem;
 }
+
 .legend-swatch {
     display: inline-block;
-    width: 0.7rem;
-    height: 0.7rem;
+    inline-size: 0.7rem;
+    block-size: 0.7rem;
     border-radius: 0.2rem;
-    margin-right: 0.4rem;
+    margin-inline-end: 0.4rem;
     vertical-align: -0.05rem;
 }
+
 .bar-row {
     display: grid;
     grid-template-columns: minmax(6rem, 12rem) 1fr 5rem;
-    gap: 0.75rem;
+    gap: var(--space-3);
     align-items: center;
     padding: 0.2rem 0;
     font-size: 0.9rem;
 }
+
 .bar {
-    height: 0.6rem;
+    block-size: 0.6rem;
     border-radius: 0.2rem;
     background: var(--surface-container-highest);
     overflow: hidden;
 }
+
 .bar > span {
     display: block;
-    height: 100%;
+    block-size: 100%;
     background: var(--chart-1);
 }
+
 .table-scroll {
     overflow-x: auto;
 }
+
+.data-table {
+    inline-size: 100%;
+    border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+    padding: var(--space-2);
+    border-block-end: 1px solid var(--outline-variant);
+    text-align: start;
+}
+
+.data-table th {
+    color: var(--on-surface-variant);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.data-table .right-align {
+    text-align: end;
+}
+
 .nowrap {
     white-space: nowrap;
 }
-.muted {
-    color: var(--on-surface-variant);
-}
-.ellipsis {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
+
 .param-value {
-    max-width: 16rem;
+    max-inline-size: 16rem;
 }
-.insights-page {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+
+.param-pick {
+    max-inline-size: 16rem;
 }
-.insights-page > .grid {
-    margin: 0;
+
+.empty {
+    align-items: center;
+    padding: var(--space-8) var(--space-4);
+}
+
+.empty-body {
+    align-items: center;
+    text-align: center;
 }
 </style>

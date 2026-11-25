@@ -119,12 +119,14 @@ func apiKeyFromContext(ctx context.Context) *APIKey {
 	return key
 }
 
-// apiKeyToken returns the API key a request carries as a Bearer token. Other
-// Bearer tokens, e.g. from a proxy in front of wakeci, are left alone.
+// apiKeyToken returns the API key or build token a request carries as a
+// Bearer token. Other Bearer tokens, e.g. from a proxy in front of wakeci,
+// are left alone.
 func apiKeyToken(r *http.Request) (string, bool) {
 	scheme, token, ok := strings.Cut(r.Header.Get("Authorization"), " ")
 	token = strings.TrimSpace(token)
-	if !ok || !strings.EqualFold(scheme, "Bearer") || !strings.HasPrefix(token, apiKeyPrefix) {
+	if !ok || !strings.EqualFold(scheme, "Bearer") ||
+		(!strings.HasPrefix(token, apiKeyPrefix) && !strings.HasPrefix(token, buildTokenPrefix)) {
 		return "", false
 	}
 	return token, true
@@ -696,10 +698,10 @@ func apiKeyAuditAttrs(key *APIKey) []any {
 	return append(attrs, "expires", expires)
 }
 
-// routeAPIKeys sends requests that carry an API key, and every request to
-// /mcp, to keyRouter and all others to router. So a key never reaches the
-// password and session checks, and an MCP client without a key is told to
-// send one (APIKeyAuthMi).
+// routeAPIKeys sends requests that carry an API key or a build token, and
+// every request to /mcp, to keyRouter and all others to router. So neither
+// ever reaches the password and session checks, and an MCP client without
+// a key is told to send one (APIKeyAuthMi).
 func routeAPIKeys(keyRouter, router http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := apiKeyToken(r); ok || r.URL.Path == mcpRoute {
@@ -756,6 +758,7 @@ func newAPIKeyRouter(storage http.Handler) http.Handler {
 		router.Route("/build", func(router chi.Router) {
 			router.With(requireAccess(ScopeRead, jobFromBuild)).Get("/{id}", HandleGetBuild)
 			router.With(requireAccess(ScopeRead, jobFromBuild)).Get("/{id}/summary", HandleBuildSummary)
+			router.With(requireAccess(ScopeRead, jobFromBuild)).Get("/{id}/group", HandleBuildGroup)
 			router.With(requireAccess(ScopeRead, jobFromBuild)).Get("/{id}/log/{task}", HandleTaskLog)
 			router.With(requireAccess(ScopeRun, jobFromBuild)).Post("/{id}/abort", HandleAbortBuild)
 			router.With(requireAccess(ScopeRun, jobFromBuild)).Post("/{id}/flush", HandleFlushTaskLogs)
@@ -833,7 +836,8 @@ func hasRoute(routes chi.Routes, method, routePath string) bool {
 	return routes.Find(chi.NewRouteContext(), method, routePath) != ""
 }
 
-// APIKeyAuthMi checks the API key a request carries and adds it to the context
+// APIKeyAuthMi checks the API key or build token a request carries and adds
+// it to the context
 func APIKeyAuthMi(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := requestLogger(r)
@@ -847,24 +851,15 @@ func APIKeyAuthMi(next http.Handler) http.Handler {
 				`MCP needs an API key: send it as "Authorization: Bearer wk_..."; create one on the Keys page`)
 			return
 		}
+		if strings.HasPrefix(token, buildTokenPrefix) {
+			buildTokenAuth(w, r, next, token)
+			return
+		}
 		now := time.Now()
 		key, err := verifyAPIKey(token, now)
 		if err != nil {
-			logger.Warn("api key rejected", "err", err)
-			// Only failures are limited: a key can't be guessed, so blocking
-			// valid keys would only let bad ones lock them out. reject also
-			// clears a block that has expired, which recordFailure doesn't.
-			if apiKeyAttemptLimiter.reject(w, r, logger) {
-				return
-			}
-			blocked := apiKeyAttemptLimiter.recordFailure(w, r, logger)
 			// The error names the key ID at most, never the secret
-			audit(r, "login.apikey", "failed", append([]any{"reason", err.Error()}, blockedAttrs(blocked)...)...)
-			if blocked {
-				return
-			}
-			w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token"`)
-			writePlainText(w, logger, http.StatusUnauthorized, "Invalid or expired API key")
+			rejectBearer(w, r, "login.apikey", err, "Invalid or expired API key")
 			return
 		}
 		logger = logger.With("apiKey", key.ID)
@@ -872,15 +867,7 @@ func APIKeyAuthMi(next http.Handler) http.Handler {
 		// An MCP tool's call of a route was counted and limited as the
 		// request to /mcp; its key is still checked
 		if r.Context().Value(mcpCallKey{}) == nil {
-			if wait, started := apiKeyRequestLimiter.take(key.ID, now); wait > 0 {
-				burst, rate := apiKeyRequestLimiter.limits()
-				if started {
-					logger.Warn("api key sends too many requests", "burst", burst, "perSecond", rate)
-				}
-				seconds := max(1, int(math.Ceil(wait.Seconds())))
-				w.Header().Set("Retry-After", strconv.Itoa(seconds))
-				writePlainText(w, logger, http.StatusTooManyRequests,
-					fmt.Sprintf("This API key sent more than %d requests a second; try again in %d s", rate, seconds))
+			if limitBearer(w, logger, key.ID, "This API key", now) {
 				return
 			}
 			if err := touchAPIKey(key, now); err != nil {
@@ -996,19 +983,86 @@ func rejectUnsafeParams(next http.Handler) http.Handler {
 			return
 		}
 		for name, values := range r.Form {
-			if slices.ContainsFunc(values, secretsRegex.MatchString) {
-				logger.Warn("untrusted run parameter references a secret", "param", name)
-				writePlainText(w, logger, http.StatusBadRequest,
-					"Parameter "+name+" references a secret, which only those who may edit jobs may send")
-				return
-			}
-			if slices.ContainsFunc(values, func(v string) bool { return strings.ContainsAny(v, "\"'`\r\n\x00") }) {
-				logger.Warn("untrusted run parameter has a quote, line break or NUL", "param", name)
-				writePlainText(w, logger, http.StatusBadRequest,
-					"Parameter "+name+" has a quote, line break or NUL, which only those who may edit jobs may send")
-				return
+			for _, value := range values {
+				if problem := untrustedParamProblem(value); problem != "" {
+					logger.Warn("untrusted run parameter "+problem, "param", name)
+					writePlainText(w, logger, http.StatusBadRequest,
+						"Parameter "+name+" "+problem+", which only those who may edit jobs may send")
+					return
+				}
 			}
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// untrustedParamProblem says why those paramsUntrusted names may not send
+// value as a run parameter, or "" if they may. wake checks it too, before
+// it starts anything.
+func untrustedParamProblem(value string) string {
+	if secretsRegex.MatchString(value) {
+		return "references a secret"
+	}
+	if strings.ContainsAny(value, "\"'`\r\n\x00") {
+		return "has a quote, line break or NUL"
+	}
+	return ""
+}
+
+// rejectBearer answers a request whose API key or build token isn't valid.
+// Only failures are limited: a key can't be guessed, so blocking valid keys
+// would only let bad ones lock them out. reject also clears a block that has
+// expired, which recordFailure doesn't.
+func rejectBearer(w http.ResponseWriter, r *http.Request, event string, err error, message string) {
+	logger := requestLogger(r)
+	logger.Warn("bearer token rejected", "event", event, "err", err)
+	if apiKeyAttemptLimiter.reject(w, r, logger) {
+		return
+	}
+	blocked := apiKeyAttemptLimiter.recordFailure(w, r, logger)
+	audit(r, event, "failed", append([]any{"reason", err.Error()}, blockedAttrs(blocked)...)...)
+	if blocked {
+		return
+	}
+	w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token"`)
+	writePlainText(w, logger, http.StatusUnauthorized, message)
+}
+
+// limitBearer answers 429 and returns true when the key or token with id
+// sent more requests than it may
+func limitBearer(w http.ResponseWriter, logger *slog.Logger, id, subject string, now time.Time) bool {
+	wait, started := apiKeyRequestLimiter.take(id, now)
+	if wait <= 0 {
+		return false
+	}
+	burst, rate := apiKeyRequestLimiter.limits()
+	if started {
+		logger.Warn("bearer token sends too many requests", "burst", burst, "perSecond", rate)
+	}
+	seconds := max(1, int(math.Ceil(wait.Seconds())))
+	w.Header().Set("Retry-After", strconv.Itoa(seconds))
+	writePlainText(w, logger, http.StatusTooManyRequests,
+		fmt.Sprintf("%s sent more than %d requests a second; try again in %d s", subject, rate, seconds))
+	return true
+}
+
+// buildTokenAuth checks a build token and adds its build and access to the
+// context. Never log the token; the build ID is fine.
+func buildTokenAuth(w http.ResponseWriter, r *http.Request, next http.Handler, token string) {
+	logger := requestLogger(r)
+	build, scope, err := verifyBuildToken(token)
+	if err != nil {
+		rejectBearer(w, r, "login.buildtoken", err, "Invalid build token, or its build has ended")
+		return
+	}
+	logger = logger.With("byBuild", build.ID)
+	setRequestBuild(r, build.ID)
+	if r.Context().Value(mcpCallKey{}) == nil &&
+		limitBearer(w, logger, "build-"+strconv.Itoa(build.ID), "This build's token", time.Now()) {
+		return
+	}
+	ctx := context.WithValue(r.Context(), HL, logger)
+	ctx = context.WithValue(ctx, tokenBuildContextKey{}, tokenAuth{build, scope})
+	ctx = context.WithValue(ctx, accessContextKey{}, buildTokenAccess())
+	next.ServeHTTP(w, r.WithContext(ctx))
 }

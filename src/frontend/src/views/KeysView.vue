@@ -1,210 +1,226 @@
 <template>
-    <dialog
-        :class="{ active: revoking !== null }"
-        class="padding"
-    >
-        <div v-if="revoking">
-            Revoke <b>{{ revoking.name }}</b
-            >? Anything using it stops working at once.
-        </div>
-        <nav class="right-align">
-            <button
-                class="border"
-                @click.prevent="revoking = null"
-            >
-                Cancel
-            </button>
-            <button
-                data-cy="revoke-key-confirm"
-                @click.prevent="revoke"
-            >
-                Revoke
-            </button>
-        </nav>
-    </dialog>
-
-    <dialog
-        :class="{ active: revokingPerson !== null }"
-        class="padding"
-    >
-        <div v-if="revokingPerson">
-            Revoke access of <b>{{ revokingPerson.person }}</b
-            >? This signs them out and revokes their {{ revokingPerson.keys.length }} keys. Anything using the keys stops working at once.
-        </div>
-        <nav class="right-align">
-            <button
-                class="border"
-                @click.prevent="revokingPerson = null"
-            >
-                Cancel
-            </button>
-            <button
-                data-cy="revoke-person-confirm"
-                @click.prevent="revokePerson"
-            >
-                Revoke access
-            </button>
-        </nav>
-    </dialog>
-
-    <nav class="no-margin">
-        <div
-            v-if="admin && people.length > 4"
-            class="field small prefix border round no-margin"
+    <div class="ui keys-page stack gap-3">
+        <UiDialog
+            :open="revoking !== null"
+            title="Revoke the key?"
+            @update:open="revoking = null"
         >
-            <i>search</i>
-            <input
-                v-model="search"
-                type="search"
-                aria-label="Search people and keys"
-                placeholder="Search people and keys"
-                data-cy="key-search"
-            />
-        </div>
-        <div class="max"></div>
-        <router-link
-            to="/keys/new"
-            class="button small-round"
-            data-cy="create-key-open"
-        >
-            <i>add_circle</i>
-            <span>Create API key</span>
-        </router-link>
-    </nav>
-
-    <div
-        class="article"
-        data-cy="keys-list"
-    >
-        <!-- The admin password sees every key, by who made it; anyone else sees their own -->
-        <section
-            v-for="section in sections"
-            :key="section.id"
-            :data-cy="'key-group-' + section.id"
-        >
-            <nav
-                v-if="admin"
-                class="section-head"
-            >
-                <div class="max">
-                    <b>{{ section.title }}</b>
-                    <small
-                        v-if="section.signedIn"
-                        class="muted"
-                        data-cy="key-group-status"
-                    >
-                        · {{ section.keys.length === 0 ? "signed in, no keys" : "signed in" }}
-                    </small>
-                </div>
+            <p v-if="revoking">
+                Revoke <b>{{ revoking.name }}</b
+                >? Anything using it stops working at once.
+            </p>
+            <template #actions>
                 <button
-                    v-if="section.person"
-                    class="border small-round"
-                    data-cy="revoke-person"
-                    @click.prevent="revokingPerson = section"
+                    type="button"
+                    class="btn btn-ghost"
+                    @click="revoking = null"
                 >
-                    <i>person_remove</i>
-                    <span>Revoke access</span>
+                    Cancel
                 </button>
-            </nav>
-            <div
-                v-for="key in section.keys"
-                :key="key.id"
-                class="row medium-padding round small-margin key"
-                :data-cy="'key-' + key.name"
+                <button
+                    type="button"
+                    class="btn btn-danger"
+                    data-cy="revoke-key-confirm"
+                    @click="revoke"
+                >
+                    Revoke
+                </button>
+            </template>
+        </UiDialog>
+
+        <UiDialog
+            :open="revokingPerson !== null"
+            title="Revoke access?"
+            data-cy="revoke-person-dialog"
+            @update:open="revokingPerson = null"
+        >
+            <p v-if="revokingPerson">
+                Revoke access of <b>{{ revokingPerson.person }}</b
+                >? This signs them out and revokes their {{ revokingPerson.keys.length }} keys. Anything using the keys stops working at once.
+            </p>
+            <template #actions>
+                <button
+                    type="button"
+                    class="btn btn-ghost"
+                    @click="revokingPerson = null"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-danger"
+                    data-cy="revoke-person-confirm"
+                    @click="revokePerson"
+                >
+                    Revoke access
+                </button>
+            </template>
+        </UiDialog>
+
+        <div class="cluster between gap-2">
+            <label
+                v-if="admin && people.length > 4"
+                class="input-icon key-search"
             >
-                <div class="max details">
-                    <div class="row small-space chips">
-                        <b>{{ key.name }}</b>
-                        <span
-                            v-for="scope in key.scopes"
-                            :key="scope"
-                            class="chip small no-margin"
+                <i class="icon">search</i>
+                <input
+                    v-model="search"
+                    type="search"
+                    class="input"
+                    aria-label="Search people and keys"
+                    placeholder="Search people and keys"
+                    data-cy="key-search"
+                />
+            </label>
+            <span v-else></span>
+            <router-link
+                to="/keys/new"
+                class="btn btn-primary"
+                data-cy="create-key-open"
+            >
+                <i class="icon small">add</i>
+                <span>Create API key</span>
+            </router-link>
+        </div>
+
+        <div
+            class="stack gap-4"
+            data-cy="keys-list"
+        >
+            <!-- The admin password sees every key, by who made it; anyone else sees their own -->
+            <section
+                v-for="section in sections"
+                :key="section.id"
+                class="stack gap-0"
+                :data-cy="'key-group-' + section.id"
+            >
+                <div
+                    v-if="admin"
+                    class="cluster between gap-2 section-head"
+                >
+                    <div>
+                        <b>{{ section.title }}</b>
+                        <small
+                            v-if="section.signedIn"
+                            class="muted"
+                            data-cy="key-group-status"
                         >
-                            {{ scope }}
-                        </span>
-                        <!-- Logs, the audit log and build pages name a key by its ID -->
-                        <code
-                            class="muted key-id"
-                            title="Key ID, as logs name the key"
-                            data-cy="key-id"
-                        >
-                            {{ key.id }}
-                        </code>
+                            · {{ section.keys.length === 0 ? "signed in, no keys" : "signed in" }}
+                        </small>
                     </div>
-                    <small class="muted">
-                        <span
-                            :title="jobsSummary(key)"
-                            data-cy="key-jobs"
-                        >
-                            {{ jobsSummary(key) }}
-                        </span>
-                        ·
-                        <span :title="formatDate(key.createdAt)">Created {{ ago(key.createdAt) }}</span>
-                        ·
-                        <span
-                            :title="formatDate(key.expiresAt)"
-                            data-cy="key-expiry"
-                        >
-                            {{ expiryText(key) }}
-                        </span>
-                    </small>
-                    <small class="muted stats">
-                        <span
-                            :title="formatDate(key.lastUsedAt)"
-                            data-cy="key-last-used"
-                        >
-                            {{ key.lastUsedAt ? "Used " + ago(key.lastUsedAt) : "Never used" }}
-                        </span>
-                        ·
-                        <span data-cy="key-uses">{{ (key.uses || 0).toLocaleString() }} {{ key.uses === 1 ? "request" : "requests" }}</span>
-                        <KeyUsageChart
-                            v-if="today && key.uses > 0"
-                            :uses-by-day="key.usesByDay || []"
-                            :today="today"
-                            :created="key.createdAt"
-                        />
-                    </small>
+                    <button
+                        v-if="section.person"
+                        type="button"
+                        class="btn btn-sm btn-outline btn-ghost"
+                        data-cy="revoke-person"
+                        @click="revokingPerson = section"
+                    >
+                        <i class="icon small">person_remove</i>
+                        <span>Revoke access</span>
+                    </button>
                 </div>
-                <span
-                    v-if="isExpired(key)"
-                    class="error-text"
-                >
-                    Expired
-                </span>
-                <button
-                    class="border small-round revoke"
-                    :aria-label="'Revoke ' + key.name"
-                    data-cy="revoke-key"
-                    @click.prevent="revoking = key"
-                >
-                    <i>key_off</i>
-                    <span class="m l">Revoke key</span>
-                </button>
-            </div>
-        </section>
+                <div class="key-list">
+                    <div
+                        v-for="key in section.keys"
+                        :key="key.id"
+                        class="key"
+                        :data-cy="'key-' + key.name"
+                    >
+                        <div class="details stack gap-1">
+                            <div class="cluster gap-2">
+                                <b>{{ key.name }}</b>
+                                <span
+                                    v-for="scope in key.scopes"
+                                    :key="scope"
+                                    class="scope text-sm"
+                                >
+                                    {{ scope }}
+                                </span>
+                                <!-- Logs, the audit log and build pages name a key by its ID -->
+                                <code
+                                    class="muted key-id"
+                                    title="Key ID, as logs name the key"
+                                    data-cy="key-id"
+                                >
+                                    {{ key.id }}
+                                </code>
+                            </div>
+                            <small class="muted">
+                                <span
+                                    :title="jobsSummary(key)"
+                                    data-cy="key-jobs"
+                                >
+                                    {{ jobsSummary(key) }}
+                                </span>
+                                ·
+                                <span :title="formatDate(key.createdAt)">Created {{ ago(key.createdAt) }}</span>
+                                ·
+                                <span
+                                    :title="formatDate(key.expiresAt)"
+                                    data-cy="key-expiry"
+                                >
+                                    {{ expiryText(key) }}
+                                </span>
+                            </small>
+                            <small class="muted stats">
+                                <span
+                                    :title="formatDate(key.lastUsedAt)"
+                                    data-cy="key-last-used"
+                                >
+                                    {{ key.lastUsedAt ? "Used " + ago(key.lastUsedAt) : "Never used" }}
+                                </span>
+                                ·
+                                <span data-cy="key-uses">{{ (key.uses || 0).toLocaleString() }} {{ key.uses === 1 ? "request" : "requests" }}</span>
+                                <KeyUsageChart
+                                    v-if="today && key.uses > 0"
+                                    :uses-by-day="key.usesByDay || []"
+                                    :today="today"
+                                    :created="key.createdAt"
+                                />
+                            </small>
+                        </div>
+                        <span
+                            v-if="isExpired(key)"
+                            class="error-text"
+                        >
+                            Expired
+                        </span>
+                        <button
+                            type="button"
+                            class="btn btn-sm btn-outline btn-ghost revoke"
+                            :aria-label="'Revoke ' + key.name"
+                            data-cy="revoke-key"
+                            @click="revoking = key"
+                        >
+                            <i class="icon small">key_off</i>
+                            <span class="wide-label">Revoke key</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
 
-        <div
-            v-if="sections.length === 0 && fetchingDone"
-            class="medium-height middle-align center-align"
-        >
-            <div class="center-align">
-                <i class="extra">key</i>
-                <h5 v-if="search.trim() === ''">No API keys yet</h5>
-                <h5 v-else>Nothing matches "{{ search.trim() }}"</h5>
+            <div
+                v-if="sections.length === 0 && fetchingDone"
+                class="keys-empty stack gap-2 muted"
+            >
+                <i class="icon large">key</i>
+                <h2 v-if="search.trim() === ''">No API keys yet</h2>
+                <h2 v-else>Nothing matches "{{ search.trim() }}"</h2>
                 <p>Keys let scripts and other tools call the wakeci API.</p>
             </div>
-        </div>
-        <div
-            v-if="!fetchingDone"
-            class="medium-height middle-align center-align"
-        >
-            <progress class="circle large"></progress>
+            <div
+                v-if="!fetchingDone"
+                class="keys-empty"
+            >
+                <span class="status-ring keys-spinner"></span>
+            </div>
         </div>
     </div>
 </template>
 
 <script>
 import KeyUsageChart from "@/components/KeyUsageChart.vue";
+import UiDialog from "@/components/ui/UiDialog.vue";
 import { escapeHtml } from "@/store/utils";
 import axios from "axios";
 import TimeAgo from "javascript-time-ago";
@@ -214,7 +230,7 @@ TimeAgo.addLocale(en);
 const timeAgo = new TimeAgo("en-US");
 
 export default {
-    components: { KeyUsageChart },
+    components: { KeyUsageChart, UiDialog },
     data: function () {
         return {
             keys: [],
@@ -343,37 +359,78 @@ export default {
 </script>
 
 <style scoped>
-.key {
-    background-color: var(--surface-container);
+.key-search {
+    flex: 0 1 22rem;
 }
+
 .section-head {
-    margin: 1rem 0 0.25rem;
+    padding: 0 var(--space-2) var(--space-1);
 }
+
+.key-list {
+    border-block-start: 1px solid var(--outline-variant);
+}
+
+.key {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-2);
+    border-block-end: 1px solid var(--outline-variant);
+}
+
 /* So long names and several scopes wrap instead of pushing the button off a
    narrow screen */
 .details {
-    min-width: 0;
+    flex: 1 1 auto;
+    min-inline-size: 0;
     overflow-wrap: anywhere;
 }
-.chips {
-    flex-wrap: wrap;
+
+.scope {
+    padding: 0 6px;
+    border: 1px solid var(--outline-variant);
+    border-radius: 4px;
 }
+
 .revoke {
     flex: none;
 }
+
 .stats {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-end;
-    gap: 0 0.5rem;
-    margin-top: 0.25rem;
+    gap: 0 var(--space-2);
 }
-.muted {
-    opacity: 0.7;
-}
+
 /* One click selects the whole ID, to copy it */
 .key-id {
     font-size: 0.85em;
     user-select: all;
+}
+
+.error-text {
+    color: var(--error);
+}
+
+.keys-empty {
+    align-items: center;
+    padding: var(--space-8) 0;
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+}
+
+.keys-spinner {
+    inline-size: 28px;
+    block-size: 28px;
+    --_c: var(--primary);
+}
+
+@media (max-width: 600px) {
+    .wide-label {
+        display: none;
+    }
 }
 </style>

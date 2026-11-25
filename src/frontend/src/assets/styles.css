@@ -1,0 +1,8 @@
+/* The app's stylesheet (docs/styles.md). Its layers, lowest first: base
+   (element defaults) and app (tokens and components). A component's
+   <style> is in no layer and wins over both. */
+@layer base, app;
+
+@import "./base.css" layer(base);
+@import "./tokens.css" layer(app);
+@import "./components.css" layer(app);

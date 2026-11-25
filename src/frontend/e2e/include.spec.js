@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures.js";
+import { test, expect, openLog } from "./fixtures.js";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -27,10 +27,10 @@ tasks:
     await wake.openBuild(id);
     await writeFile(filePath, "");
     await expect(page).toHaveURL(`${wake.url}/build/${id}`);
-    await expect(page.locator("[data-cy=reload]")).toHaveCount(3);
-    await page.locator("[data-cy=reload]").nth(1).click();
+    await expect(page.getByTestId("task-title")).toHaveCount(3);
+    await openLog(page, 1);
     await expect(page.locator("body")).toContainText("task 1");
-    await page.locator("[data-cy=reload]").nth(2).click();
+    await openLog(page, 2);
     await expect(page.locator("body")).toContainText("JOE");
 });
 
@@ -60,10 +60,10 @@ tasks:
     const id = await wake.runJob(jobName);
     await wake.openBuild(id);
     await expect(page).toHaveURL(`${wake.url}/build/${id}`);
-    await expect(page.locator("[data-cy=reload]")).toHaveCount(3);
-    await page.locator("[data-cy=reload]").nth(1).click();
+    await expect(page.getByTestId("task-title")).toHaveCount(3);
+    await openLog(page, 1);
     await expect(page.locator("body")).toContainText("task 1");
-    await page.locator("[data-cy=reload]").nth(2).click();
+    await openLog(page, 2);
     await expect(page.locator("body")).toContainText("PATRICK");
 });
 
@@ -93,10 +93,10 @@ tasks:
     const id = await wake.runJob(jobName);
     await wake.openBuild(id);
     await expect(page).toHaveURL(`${wake.url}/build/${id}`);
-    await expect(page.locator("[data-cy=reload]")).toHaveCount(3);
-    await page.locator("[data-cy=reload]").nth(1).click();
+    await expect(page.getByTestId("task-title")).toHaveCount(3);
+    await openLog(page, 1);
     await expect(page.locator("body")).toContainText("task 1");
-    await page.locator("[data-cy=reload]").nth(2).click();
+    await openLog(page, 2);
     await expect(page.locator("body")).toContainText("JOE");
 });
 
@@ -119,8 +119,8 @@ tasks:
     const id = await wake.runJob(jobName);
     await wake.openBuild(id);
     await expect(page).toHaveURL(`${wake.url}/build/${id}`);
-    await expect(page.locator("[data-cy=reload]")).toHaveCount(1);
-    await page.locator("[data-cy=reload]").click();
+    await expect(page.getByTestId("task-title")).toHaveCount(1);
+    await openLog(page);
     await expect(page.locator("body")).toContainText("task 1");
 });
 
@@ -144,8 +144,8 @@ tasks:
     const id = await wake.runJob(jobName);
     await wake.openBuild(id);
     await expect(page).toHaveURL(`${wake.url}/build/${id}`);
-    await expect(page.locator("[data-cy=reload]")).toHaveCount(1);
-    await page.locator("[data-cy=reload]").click();
+    await expect(page.getByTestId("task-title")).toHaveCount(1);
+    await openLog(page);
     await expect(page.locator("body")).toContainText("task 1");
 });
 
@@ -169,7 +169,7 @@ tasks:
     const id = await wake.runJob(jobName);
     await wake.openBuild(id);
     await expect(page).toHaveURL(`${wake.url}/build/${id}`);
-    await expect(page.locator("[data-cy=reload]")).toHaveCount(1);
-    await page.locator("[data-cy=reload]").click();
+    await expect(page.getByTestId("task-title")).toHaveCount(1);
+    await openLog(page);
     await expect(page.locator("body")).toContainText("task 1");
 });

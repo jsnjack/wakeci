@@ -1,0 +1,154 @@
+{
+  "now": "2026-11-20T15:44:46.157Z",
+  "data": {
+    "job": "deploy",
+    "builds": [
+      {
+        "id": 1,
+        "status": "finished",
+        "startedAt": "2026-11-20T16:44:45.844886+01:00",
+        "duration": 5537909,
+        "params": {
+          "BRANCH_LABEL": "main",
+          "TARGET": "staging"
+        },
+        "tasks": [
+          {
+            "name": "Build",
+            "kind": "main",
+            "status": "finished",
+            "duration": 2505306
+          },
+          {
+            "name": "Deploy",
+            "kind": "main",
+            "status": "finished",
+            "duration": 2711922
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "status": "failed",
+        "startedAt": "2026-11-20T16:44:45.915372+01:00",
+        "duration": 5806721,
+        "failedTask": "Deploy",
+        "params": {
+          "BRANCH_LABEL": "T-4821-fix-login-redirect",
+          "TARGET": "staging"
+        },
+        "tasks": [
+          {
+            "name": "Build",
+            "kind": "main",
+            "status": "finished",
+            "duration": 3177653
+          },
+          {
+            "name": "Deploy",
+            "kind": "main",
+            "status": "failed",
+            "duration": 2342762
+          }
+        ]
+      }
+    ],
+    "inHistory": 2,
+    "totals": {
+      "builds": 2,
+      "finished": 1,
+      "failed": 1,
+      "timedOut": 0,
+      "aborted": 0,
+      "successRate": 0.5
+    },
+    "duration": {
+      "count": 1,
+      "p50": 5537909,
+      "p95": 5537909
+    },
+    "flaky": 0,
+    "flakyChecked": 0,
+    "timeToFix": {
+      "count": 0,
+      "p50": 0,
+      "p95": 0
+    },
+    "failing": {
+      "builds": 1,
+      "first": {
+        "id": 2,
+        "status": "failed",
+        "startedAt": "2026-11-20T16:44:45.915372+01:00",
+        "duration": 5806721,
+        "failedTask": "Deploy"
+      },
+      "last": {
+        "id": 2,
+        "status": "failed",
+        "startedAt": "2026-11-20T16:44:45.915372+01:00",
+        "duration": 5806721,
+        "failedTask": "Deploy"
+      }
+    },
+    "tasks": [
+      {
+        "name": "Build",
+        "runs": 2,
+        "failed": 0,
+        "skipped": 0,
+        "duration": {
+          "count": 2,
+          "p50": 2841480,
+          "p95": 3144036
+        },
+        "share": 0.5009382412648099,
+        "change": null
+      },
+      {
+        "name": "Deploy",
+        "runs": 2,
+        "failed": 1,
+        "skipped": 0,
+        "duration": {
+          "count": 1,
+          "p50": 2711922,
+          "p95": 2711922
+        },
+        "share": 0.44555741350753614,
+        "change": null
+      }
+    ],
+    "stoppedAt": [
+      {
+        "task": "Deploy",
+        "builds": 1
+      }
+    ],
+    "params": [
+      {
+        "name": "BRANCH_LABEL",
+        "values": [
+          {
+            "value": "T-4821-fix-login-redirect",
+            "builds": 1,
+            "finished": 0,
+            "failed": 1,
+            "timedOut": 0,
+            "aborted": 0,
+            "successRate": 0
+          },
+          {
+            "value": "main",
+            "builds": 1,
+            "finished": 1,
+            "failed": 0,
+            "timedOut": 0,
+            "aborted": 0,
+            "successRate": 1
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -183,7 +183,7 @@ test("should let the admin password revoke the access of a person", async ({ pag
     await expect(alice.getByTestId("key-group-status")).toHaveText("· signed in");
     await expect(page.getByTestId("key-group-bob@example.com").getByTestId("key-group-status")).toHaveCount(0);
     await alice.getByTestId("revoke-person").click();
-    await expect(page.locator("dialog.active")).toContainText("revokes their 2 keys");
+    await expect(page.getByTestId("revoke-person-dialog")).toContainText("revokes their 2 keys");
     await page.getByTestId("revoke-person-confirm").click();
     await expect(page.locator(".notification-content").filter({ hasText: "Signed out alice@example.com and revoked 2 keys" })).toBeVisible();
 

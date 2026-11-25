@@ -24,12 +24,15 @@ test("should keep the page logged in across a restart", async ({ restartable, br
 
         restartable.signal("SIGTERM");
         await restartable.waitForExit();
+        // A few seconds without updates show in the header
+        await expect(page.getByTestId("reconnecting")).toBeVisible();
         // The page asks for the queue status each time its connection opens,
         // and only a valid session gets it
         const reconnected = page.waitForResponse((response) => response.url().endsWith("/api/queue/") && response.ok(), { timeout: 20000 });
         await restartable.start();
         await reconnected;
         await expect(page.getByTestId("logout")).toBeVisible();
+        await expect(page.getByTestId("reconnecting")).toHaveCount(0);
         await expect(page).not.toHaveURL(/\/login/);
     } finally {
         await context.close();

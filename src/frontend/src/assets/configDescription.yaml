@@ -1,8 +1,14 @@
 desc: Ask a cow to say something smart
 # 'params' are injected as environmetal variables
-# Note: The very first 'param' is visible on the Feed page
+# The feed shows the params a build changed from these defaults, labels first
 params:
   - SLEEP: 5
+  - BRANCH_LABEL: main
+# Labels are the params that say what a build is about: the feed shows their
+# values first, and a search finds them by name, e.g. `branch=main`. Without
+# `labels`, the params named *_LABEL are the labels. Values at their default
+# aren't shown
+labels: [BRANCH_LABEL]
 
 tasks:
   - name: Waking up a cow
@@ -82,6 +88,30 @@ priority: 10
 # 0 - unlimited
 concurrency: 0
 
+# Counts the builds of every job with this key against `concurrency` (1 if
+# it is 0), e.g. jobs that work on the same test server. The build's params
+# fill in $NAME, and a param without a value means no key. A build that runs
+# its on_aborted and finally tasks after an abort still counts, so a build
+# waits until the one it cancelled has cleaned up. e.g. pr_init/$NAME
+concurrency_key: ""
+
+# A newer build cancels the older builds with the same key, of every job
+# with this group, queued or running, with the builds they started. Their
+# on_aborted and finally tasks run, and their log says "Aborted as
+# superseded by #N". The build queued later wins; builds of one group never
+# cancel each other. A param without a value means no key. e.g. tests/$BRANCH
+cancel_group: ""
+# While this command succeeds, the build cancels nothing. It gets the params
+# as variables, e.g. '[[ $BRANCH =~ ^(main|release)$ ]]'
+cancel_unless: ""
+
+# Asks the tools of every task to print colours, which the build page shows:
+# sets FORCE_COLOR=1, CLICOLOR_FORCE=1 and PY_COLORS=1, before the params and
+# the task's `env`, which can set them otherwise. A task can set `color: true`
+# on its own. Off by default, since a script that parses a tool's output
+# would get the colour codes; task_N.log stays plain either way
+color: true
+
 # List of tasks executed on build's status change
 # Available handlers:
 #  - `on_pending` - when the status of the build changes to `pending`
@@ -124,18 +154,41 @@ finally:
 #                       when: '"$WAKE_BUILD_STATUS" == "timed out"'
 # "WAKE_BUILD_WORKSPACE" - path to the build's workspace, e.g. ~/workspace/169/
 # "WAKE_JOB_NAME" - name of the job, e.g. ask_a_cow
-# "WAKE_JOB_PARAMS" - URL encoded `params` of the job. Useful to start another
-#                     job with the same params, e.g. "sleep=5&print=true"
+# "WAKE_JOB_PARAMS" - URL encoded `params` of the job, e.g. "sleep=5&print=true"
 # "WAKE_CONFIG_DIR" - path to the directory with all job configuration files,
 #                     e.g. ~/jobs/
 # "WAKE_URL" - URL of the service, e.g. https://myci.space/
+# "WAKE_TOKEN" - the build's token, for the wake command, which every task has
+#                on its PATH. It starts builds under this one and reads the
+#                API, and stops working when the build ends:
+#                  run: wake start deploy --inherit VERSION=2.1
+#                  run: list_nodes | wake start check_node --each NODE
+#                  run: wake start migrate --wait    # fails if it fails
+#                  run: wake api /api/build/$WAKE_BUILD_ID
+#                Everything is checked before the first build starts.
+#                Run `wake help` for the options.
 # "WAKE_SUMMARY" - path of a file for the build's summary. What tasks write
 #                  there, e.g. the tests that failed, is shown on the build
 #                  page as plain text and returned by the API, up to 64 KB,
 #                  with secret values redacted as in the logs:
 #                  echo "Failed: test_login" >> "$WAKE_SUMMARY"
+#                  A test task can name the tests that failed and the value
+#                  that runs only them again: Run again on the build page
+#                  offers each NAME=VALUE whose NAME is one of the job's
+#                  params. With a param TESTS: "" (all tests):
+#                    run: |
+#                      set -o pipefail
+#                      if ! go test ./... -run "${TESTS:-.}" | tee test.log; then
+#                        failed=$(grep -o -- '--- FAIL: [^ ]*' test.log | cut -d' ' -f3 | paste -sd'|' -)
+#                        echo "Failed: $failed" >> "$WAKE_SUMMARY"
+#                        echo "Run only them again with TESTS=^($failed)\$" >> "$WAKE_SUMMARY"
+#                        exit 1
+#                      fi
 # "WAKE_INTERRUPTED" - `true` in the tasks a build runs after wakeci stopped
 #                      without ending it (see on_aborted above), else `false`
+# "WAKE_PARENT_ID" - id of the build that started this one, set only then:
+#                    the builds `wake start` starts are shown below their
+#                    build in the feed
 #
 # Set only after a main task failed, timed out or was aborted, so they reach
 # the `on_failed`, `on_aborted` and `finally` tasks:
