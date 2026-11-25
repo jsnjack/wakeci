@@ -151,12 +151,12 @@ func (q *Queue) TakeNow(buildID int) error {
 // both are found under the lock, so of two builds queued at once, the later
 // one wins either way. Call setQueueKeys first.
 func (q *Queue) Add(b *Build) {
-	// Aborted already, as it was added: it cancels no other build, then is
-	// aborted itself (addNewBuild). Read before q.mutex, which the build's
-	// abort path doesn't hold while it takes the build's mutex
-	aborted := b.currentAbort().stopped() != ""
 	q.mutex.Lock()
 	delete(q.adding, b.ID)
+	// Aborted already, as it was added: it cancels no other build, then is
+	// aborted itself (addNewBuild). Read under q.mutex, under which AbortBy
+	// aborts a build being added, so no abort lands between the two
+	aborted := b.currentAbort().stopped() != ""
 	q.queued = append(q.queued, b)
 	// Possibly shift queue
 	if b.Job.Priority != 0 {
@@ -259,14 +259,14 @@ func (q *Queue) AbortBy(id int, reason, by string) error {
 			}
 		}
 	}
-	adding := q.adding[id]
-	q.mutex.Unlock()
-	if build == nil && adding != nil {
+	if adding := q.adding[id]; build == nil && adding != nil {
 		// Its on_pending tasks stop now; addNewBuild aborts it as it is
-		// queued, as a queued build
+		// queued, as a queued build. Under q.mutex, so Add sees it
 		adding.requestAbort(reason, "", by)
+		q.mutex.Unlock()
 		return nil
 	}
+	q.mutex.Unlock()
 	if build == nil {
 		return fmt.Errorf("Build %d not found in Q", id)
 	}
