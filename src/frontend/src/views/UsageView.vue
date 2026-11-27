@@ -103,9 +103,16 @@
                         data-cy="interface"
                     >
                         <span>{{ vias[item.via] || item.via }}</span>
-                        <span class="bar"><span :style="{ width: barWidth(item.requests, interfacesTotal) }"></span></span>
+                        <OutcomeBar
+                            :counts="item"
+                            :width="barWidth(item.requests, interfacesTotal)"
+                        />
                         <span class="muted right-align">{{ item.requests.toLocaleString() }} · {{ formatShare(item.requests, interfacesTotal) }}</span>
                     </div>
+                    <StatusLegend
+                        :series="outcomesOf(data.interfaces)"
+                        data-cy="interfaces-legend"
+                    />
                 </article>
                 <article
                     class="border no-elevate padding s12 l6"
@@ -123,9 +130,16 @@
                             <i class="tiny">{{ person.kind === "apikey" ? "key" : "person" }}</i>
                             {{ personName(person) }}
                         </span>
-                        <span class="bar"><span :style="{ width: barWidth(person.requests, data.people[0].requests) }"></span></span>
+                        <OutcomeBar
+                            :counts="person"
+                            :width="barWidth(person.requests, data.people[0].requests)"
+                        />
                         <span class="muted right-align">{{ person.requests.toLocaleString() }}</span>
                     </div>
+                    <StatusLegend
+                        :series="outcomesOf(shownPeople)"
+                        data-cy="people-legend"
+                    />
                     <p
                         v-if="data.people.length > shownPeople.length"
                         class="chart-note"
@@ -187,6 +201,7 @@
 import "@/assets/charts.css";
 import { OUTCOMES, VIAS, barWidth, dayLabel, formatRate, formatShare, perDay, plural } from "@/analytics";
 import AnalyticsTabs from "@/components/AnalyticsTabs.vue";
+import OutcomeBar from "@/components/charts/OutcomeBar.vue";
 import SearchSelect from "@/components/SearchSelect.vue";
 import SparkLine from "@/components/charts/SparkLine.vue";
 import StatusBarsChart from "@/components/charts/StatusBarsChart.vue";
@@ -200,7 +215,7 @@ const RANGES = [7, 30, 90, 365];
 const PEOPLE_SHOWN = 10;
 
 export default {
-    components: { AnalyticsTabs, SearchSelect, SparkLine, StatusBarsChart, StatusLegend, UsageTable },
+    components: { AnalyticsTabs, OutcomeBar, SearchSelect, SparkLine, StatusBarsChart, StatusLegend, UsageTable },
     data() {
         return {
             ranges: RANGES,
@@ -354,6 +369,10 @@ export default {
                     }
                 });
         },
+        // outcomesOf are the outcomes that rows of bars have, for their legend
+        outcomesOf(rows) {
+            return OUTCOMES.filter((outcome) => rows.some((row) => row[outcome.key] > 0));
+        },
         outcomeText(counts, total) {
             const parts = [`${counts.success.toLocaleString()} succeeded`];
             for (const outcome of OUTCOMES) {
@@ -416,17 +435,6 @@ export default {
     align-items: center;
     padding: 0.2rem 0;
     font-size: 0.9rem;
-}
-.bar {
-    height: 0.6rem;
-    border-radius: 0.2rem;
-    background: var(--surface-container-highest);
-    overflow: hidden;
-}
-.bar > span {
-    display: block;
-    height: 100%;
-    background: var(--chart-1);
 }
 .muted {
     color: var(--on-surface-variant);

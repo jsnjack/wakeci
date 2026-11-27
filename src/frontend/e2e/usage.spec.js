@@ -66,7 +66,16 @@ test("API usage shows a key's requests and MCP tool calls by route and tool", as
     await expect(page.getByTestId("people")).toContainText(name);
     // A long key name is cut on the page; hovering shows it whole
     await expect(page.getByTestId("person").filter({ hasText: "usage" })).toHaveAttribute("title", new RegExp(`^${name}\n`));
+    // The key's bar is split by outcome, failures first
+    const parts = page.getByTestId("person").filter({ hasText: "usage" }).locator("[data-cy-outcome]");
+    await expect(parts).toHaveCount(3);
+    expect(await parts.evaluateAll((spans) => spans.map((s) => s.dataset.cyOutcome))).toEqual(["clientError", "refused", "success"]);
+    await expect(page.getByTestId("people-legend")).toHaveText(/success.*refused.*client error/);
     await expect(page.getByTestId("interface")).toHaveCount(2);
+    const keyParts = page.getByTestId("interface").filter({ hasText: "API with key" }).locator("[data-cy-outcome]");
+    expect(await keyParts.evaluateAll((spans) => spans.map((s) => s.dataset.cyOutcome))).toEqual(["clientError", "refused", "success"]);
+    await expect(page.getByTestId("interface").filter({ hasText: "MCP" }).locator("[data-cy-outcome]")).toHaveCount(1);
+    await expect(page.getByTestId("interfaces-legend")).toHaveText(/success.*refused.*client error/);
 
     // The routes table sorts and filters
     await page.getByTestId("routes-search").fill("mcp");
